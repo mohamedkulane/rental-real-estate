@@ -5,16 +5,17 @@ Document type	Integrated BRD, PRD, SRS and Technical Blueprint
 Target organization	Professional real-estate rental and property-management company
 Operating model	Single company, multi-branch, multi-portfolio
 Prepared for	Mohamed Ahmed Mahmoud
-Version / Date	Version 1.0 — 4 August 2026
+Version / Date	Version 2.0 — 7 August 2026
 CONFIDENTIAL PROJECT BLUEPRINT
+VERSION 2.0 — BUSINESS-MODEL-AWARE BLUEPRINT
  
 Document Control
 Field	Value
 Document owner	Real Estate Rental Company Project Team
 Primary audience	Company founders, managers, product team, designers, developers, QA, finance and operations
 Purpose	Define the complete hypothetical but operationally realistic system before implementation
-Scope baseline	Residential and commercial long-term rental management; company operations; owner and tenant servicing
-Architecture baseline	Single-company, multi-branch modular monolith with separate portals
+Scope baseline	Residential, commercial and land rental operations; brokerage-only deals; full property management; master lease/sublease; commercial partitioning; company operations; owner and tenant servicing.
+Architecture baseline	Single-company, multi-branch, business-model-aware modular monolith with internal and external portals.
 Financial baseline	Manual and digital payment recording with auditable property accounting
 Status	Approved planning baseline; local legal and accounting review required before production
 
@@ -24,10 +25,10 @@ This documentation defines a configurable software platform. Lease wording, evic
 Revision History
 Version	Date	Change	Author
 1.0	04-Aug-2026	Initial complete documentation baseline	Project Documentation Team
+2.0	07-Aug-2026	Business-model-aware redesign: brokerage-only lifecycle, full-management automation, master lease/sublease, rentable-space hierarchy, commercial partitioning, area-based pricing, shared utilities and vacant-land specialization.	Project Documentation Team
 
 How to Use This Document
 The document is intentionally comprehensive. Business owners should begin with Parts I–IV; product and design teams with Parts V–VIII; engineering teams with Parts IX–XIV; QA, security and operations teams with Parts XV–XVIII. The glossary and traceability sections support shared terminology and implementation control.
- 
 Table of Contents
 •	1. Executive Summary
 •	2. Vision, Objectives and Success Measures
@@ -139,6 +140,65 @@ Brokerage	Company facilitates a transaction but does not administer the ongoing 
 •	Vendor bills
 •	Bank and payment-provider fees
 •	Insurance and taxes where applicable
+3.5 Foundational Domain Principle: Property Type Is Not the Business Model
+Critical Architecture Decision
+The system must always separate WHAT is being rented from HOW the company earns from or manages it. Property type describes the physical asset or rentable space. Service model describes the company’s commercial relationship and therefore determines which workflows, accounting rules and modules are enabled.
+•	Property / space type examples: HOUSE, VILLA, APARTMENT, ROOM, FLOOR, OFFICE, SHOP, HALL, BOOTH, WAREHOUSE, LAND, PARKING_SPACE and STORAGE_SPACE.
+•	Service model examples: BROKERAGE_ONLY, TENANT_PLACEMENT, FULL_MANAGEMENT, MASTER_LEASE_SUBLEASE, COMPANY_OWNED and RENT_COLLECTION_ONLY.
+•	A shop can be brokerage-only, full-management or company-owned. A floor can be master-leased and subdivided. A land parcel can use a long-term lease without residential attributes.
+•	Feature availability must be policy-driven by service model rather than inferred only from property type.
+3.6 Service-Model Capability Matrix
+Capability	Brokerage Only	Full Management	Master Lease / Sublease	Vacant Land
+Public listing / CRM / viewing	Yes	Yes	Yes	Yes
+Recurring tenant invoices	No	Yes	Yes	Configurable by lease
+Owner payout cycle	No	Yes	No in the normal case	Depends on arrangement
+Maintenance operations	No company lifecycle	Yes	Yes	Off by default
+Tenant ledger	Deal-level only	Yes	Yes	Configurable
+Shared utilities	No	Optional	Yes	Normally no
+Parent-child rentable spaces	Optional	Supported	Required where subdivided	Normally no
+Area-based pricing	Optional	Optional	Supported	Supported
+Profit model	One-time commission	Fees + managed-property economics	Sublease spread / margin	Configured lease income
+Post-deal status	RENTED_EXTERNAL	OCCUPIED / MANAGED	OCCUPIED / SUBLEASED	LEASED
+3.7 Brokerage / One-Time Deal Operating Model
+•	Purpose: the company markets or sources a property, brings the client, closes the rental transaction and earns a one-time brokerage commission.
+•	The brokerage transaction ends after deal settlement and handoff; the company does not become the ongoing property manager unless the service model is explicitly upgraded.
+•	When the agreement is signed or the deal reaches the configured completion event, the rentable space automatically becomes RENTED_EXTERNAL and is removed from active availability/search results.
+•	The system must not create monthly rent invoices, owner payouts, recurring owner statements or managed-maintenance workflows for brokerage-only deals.
+•	The system must retain owner, property, lead, viewing, negotiation, signed agreement, brokerage commission, agent commission, receipt and deal profitability records.
+•	If the property later returns to market, an authorized user may reopen availability through a controlled status transition without deleting historical deal records.
+Brokerage lifecycle	Required behavior
+AVAILABLE	Property can appear in active listings and matching.
+RESERVED	Temporarily held while deal terms are being finalized.
+DEAL_PENDING	Agreement or commission settlement is pending.
+RENTED_EXTERNAL	Deal completed; property is no longer available and no recurring management processes run.
+CANCELLED / ARCHIVED	Deal or listing is closed without ongoing operational activity.
+3.8 Full-Management Operating Model
+•	Purpose: the company actively manages the property throughout the lease lifecycle on behalf of the owner.
+•	The lease can generate recurring invoices or charges for rent and other configured items such as water, electricity, service charges, parking or internet.
+•	Collected income is tracked against property and owner ledgers; approved property expenses and maintenance costs are deducted according to the management agreement.
+•	The company fee engine calculates percentage or fixed management fees and other disclosed fees, after which the system calculates owner net payable.
+•	Maintenance tickets, work orders, inspections, complaints, renewals, move-out, deposit settlement, owner statements and payouts remain active for the managed lifecycle.
+3.9 Master Lease and Subleasing Operating Model
+•	Purpose: the company rents a parent space from the property owner under a master lease and then rents child spaces to one or more subtenants.
+•	The system must maintain the master lease obligation separately from sublease revenue. The company is the payer on the master lease and the payee/landlord-side operator on subleases.
+•	Parent and child rentable spaces must be linked so a floor, hall or larger unit can be subdivided without creating a fictitious new building.
+•	Profitability must compare sublease revenue against master rent, shared utilities, maintenance and other directly attributable costs.
+•	The system must support vacant child spaces, different child rents, different lease dates and multiple subtenants while the master lease remains active.
+Master-Lease Margin Formula
+Sublease operating margin = total sublease revenue − master lease cost − shared utilities − direct maintenance/operating costs − other attributable expenses. Reports must preserve each component rather than storing only the final margin.
+3.10 Commercial Partitioning and Rentable-Space Model
+•	Commercial spaces must use a generic RentableSpace concept capable of representing a floor, hall, shop, booth, office, room or other leasable area.
+•	A RentableSpace may have parentSpaceId and multiple child spaces. This allows a single hall to be divided into shops/booths without creating a new building record.
+•	The sum of active child-space areas must not exceed the parent usable area unless an authorized override with reason is recorded.
+•	Spaces can be split, merged or retired. Historical spaces referenced by signed leases must never be deleted; their lifecycle state must preserve the original commercial arrangement.
+•	Supported pricing methods include FIXED_MONTHLY, PER_SQM_MONTHLY, PER_SQM_YEARLY and NEGOTIATED.
+•	Commercial contract templates can include business identity, permitted use, fit-out period, rent-free period, signage rights, operating hours, insurance, common-area charges, escalation and subletting restrictions.
+3.11 Vacant-Land Leasing Model
+•	Vacant land uses a simplified attribute set: land size, area unit, dimensions/boundaries, location, permitted use, current use, rent, deposit, access details and documents.
+•	Residential-only fields such as bedrooms, bathrooms, kitchens, furniture and floor numbers must be hidden and not required.
+•	Maintenance is disabled by default for land leases, but may be enabled by configuration for fencing, gates, lighting, drainage or similar site obligations.
+•	Long-term land leases must support multi-year terms, renewal options, rent-review dates, escalation dates, notice deadlines and configurable expiry alerts.
+•	Typical use classifications may include parking, garage/yard, storage, commercial yard, equipment staging or other approved land use.
 4. Scope, Assumptions and Constraints
 4.1 In Scope for Core Product
 •	Company, branch and department setup
@@ -288,6 +348,11 @@ Phase 3	Optimize and scale	Mobile/offline field apps, advanced BI, intelligent m
 •	Assign branch, property manager and owner relationships.
 •	Manage operational, marketing and occupancy statuses independently.
 •	Prevent invalid availability and occupancy transitions.
+•	Use a generic RentableSpace hierarchy for physical spaces that can be leased independently; a rentable space may be attached directly to a property/building/floor or to another rentable space.
+•	Support parent-child partitioning, splitting, merging and retiring of spaces while preserving historical lease references.
+•	Store area, usable area, area unit, pricing method, rate per area and capacity where relevant.
+•	Drive forms and required fields by space/property type so land, residential and commercial records do not share irrelevant mandatory attributes.
+•	Attach a service model to the relevant property/space engagement so workflow eligibility can be enforced centrally.
 8.5 Listings and Marketing
 •	Create listing content from an available unit.
 •	Approve and publish to company channels.
@@ -385,6 +450,23 @@ Phase 3	Optimize and scale	Mobile/offline field apps, advanced BI, intelligent m
 •	Provide role-based dashboards and exception queues.
 •	Generate operational and financial reports with filters and exports.
 •	Log sensitive actions, approvals, before/after changes and access events.
+8.23 Brokerage Deal Management
+•	Create and approve one-time brokerage deals linked to owner, rentable space, lead/client and responsible agent.
+•	Configure commission as fixed amount, percentage, first-month-rent equivalent or approved custom formula.
+•	Track gross brokerage commission, company share, agent share, taxes/fees where applicable, receipts and settlement status.
+•	Automatically close active marketing availability when the completed deal transitions the space to RENTED_EXTERNAL.
+•	Prevent recurring management jobs from being generated for brokerage-only deals.
+8.24 Master Lease, Sublease and Shared Utilities
+•	Maintain master-lease contracts separately from sublease contracts and link both to the relevant parent/child rentable spaces.
+•	Generate master rent obligations payable by the company and sublease receivables due from subtenants.
+•	Provide profitability by master lease, parent space and child space.
+•	Support shared utility bills and allocation rules: EQUAL, AREA_BASED, METERED, OCCUPANCY_BASED, FIXED_AMOUNT and CUSTOM_PERCENTAGE.
+•	Create allocated child charges from an approved shared bill with full traceability back to the source bill and allocation rule.
+•	Prevent allocations from exceeding the approved source bill unless an authorized adjustment is posted.
+8.25 Commercial Space and Land Specialization
+•	Provide commercial space partitioning, area-based pricing and commercial contract templates.
+•	Provide simplified land forms and long-term lease alerts without residential-only data requirements.
+•	Allow space-type-specific validations, document requirements, billing logic and reporting.
 9. End-to-End Business Workflows
 9.1 Owner and Property Acquisition
 1. Create owner lead and capture source.
@@ -464,6 +546,40 @@ Phase 3	Optimize and scale	Mobile/offline field apps, advanced BI, intelligent m
 7. Execute payment to verified owner account.
 8. Attach transaction reference and notify owner.
 9. Reconcile payout and lock statement version.
+9.8 Brokerage-Only Deal Closure
+8.	Register or verify the owner and rentable space, select BROKERAGE_ONLY and publish/market the space.
+9.	Capture lead, viewing, negotiation and proposed deal terms.
+10.	Prepare or upload the signed rental/brokerage agreement and calculate brokerage commission.
+11.	Collect/record commission and agent share according to policy.
+12.	Complete the deal, automatically transition the space to RENTED_EXTERNAL and remove it from availability.
+13.	Close the brokerage workflow without creating recurring rent, owner payout, maintenance or monthly statement jobs.
+9.9 Full-Management Monthly Automation
+14.	Identify active managed leases for the billing period.
+15.	Generate recurring rent and configured utility/service charges.
+16.	Receive, verify and allocate tenant payments.
+17.	Post property income and approved expenses.
+18.	Calculate management fees and other disclosed company charges.
+19.	Calculate owner payable, issue statement, obtain approval and record payout.
+20.	Carry forward receivables, credits, reserves and unresolved exceptions.
+9.10 Master Lease / Sublease Profit Cycle
+21.	Post or generate the master-lease rent obligation payable by the company.
+22.	Generate sublease charges for each active child-space lease.
+23.	Allocate shared utilities and common costs using approved allocation rules.
+24.	Record collections, vacancies, direct expenses and master-rent payments.
+25.	Calculate gross sublease revenue, master cost, shared costs and operating margin.
+26.	Report profitability by parent space and by child space without netting away source transactions.
+9.11 Commercial Space Partitioning
+27.	Create or select an existing parent hall/floor/space and record total/usable area.
+28.	Define child spaces with unique space codes, areas, use type and pricing method.
+29.	Validate total child area against parent usable area.
+30.	Activate child spaces for listing and leasing while retaining parent-space context.
+31.	When layout changes, split/merge/retire spaces through versioned operations rather than deleting leased history.
+9.12 Long-Term Land Lease
+32.	Register simplified land details and the permitted rental use.
+33.	Create the long-term lease with term, rent schedule, escalation/rent-review dates and notice deadlines.
+34.	Generate only the configured billing schedule; do not require residential features.
+35.	Send expiry and review alerts at configured intervals such as 365, 180, 90, 60, 30 and 7 days.
+36.	Renew, terminate or expire the lease through controlled state transitions while preserving history.
 10. Business Rules and State Models
 ID	Rule
 BUS-001	A rentable unit may have at most one active exclusive lease for overlapping dates.
@@ -498,6 +614,22 @@ Payment	Draft → Verification → Posted → Partially/Fully Allocated → Reve
 Maintenance	Submitted → Triage → Approval/Quotation → Assigned → In Progress → Verification → Closed
 Owner payout	Draft → Review → Approval → Processing → Paid/Reconciled or Cancelled/Held
 
+10.2 Service-Model Eligibility Rules
+•	BROKERAGE_ONLY must never create recurring rent invoices, owner payouts, recurring owner statements or managed-maintenance work unless the service model is formally changed.
+•	FULL_MANAGEMENT enables recurring billing, managed maintenance, owner statements, owner payouts, inspections and managed lease lifecycle workflows.
+•	MASTER_LEASE_SUBLEASE requires an active master lease before dependent sublease profitability can be finalized.
+•	A service-model change must be effective-dated, approved where configured and audit logged; historical transactions keep the original model context.
+10.3 Rentable-Space Integrity Rules
+•	Each independently leasable child space must have a stable unique code within its parent context.
+•	Active child-space area totals cannot exceed parent usable area without approved override evidence.
+•	A space referenced by a signed or historical lease cannot be hard deleted.
+•	Split/merge operations create successor/predecessor relationships so historical reporting remains explainable.
+•	An exclusive rentable space cannot have overlapping active occupancy unless the product explicitly supports shared occupancy for that space type.
+10.4 Billing and Utility Rules
+•	Area-based rent must store both the rate and the area basis used for the calculation.
+•	Shared utility allocations must preserve source bill amount, allocation method, factor, recipient spaces and generated charges.
+•	Allocation rounding differences must be assigned deterministically and reported.
+•	Changing an allocation rule does not retroactively alter posted allocations; corrections use adjustment/reversal transactions.
 11. Roles, Permissions and Approval Matrix
 Role	Primary access
 Super Admin	System configuration, all records, access control and audit oversight
@@ -599,8 +731,8 @@ Control	ApprovalRequest, ApprovalDecision, AuditLog, Sequence, Configuration, We
 13.2 Key Relationships
 •	Company has many branches; branch has many employees and assigned properties.
 •	Owner has many ownership interests; a property has one or more owners through PropertyOwner.
-•	Property may have buildings; building has units. A single-unit property may have one direct rentable unit.
-•	Unit has listings, viewings, applications, reservations and leases over time.
+•	Property may have buildings and structural levels, while a generic RentableSpace can represent a direct unit, floor, hall, room, shop, booth, land parcel or other independently leasable space. RentableSpace supports parent-child hierarchy.
+•	RentableSpace has listings, viewings, applications, reservations, deals and leases over time; service model determines which downstream operational workflows are valid.
 •	Lease has parties, recurring charges, documents, inspections, payments through allocations and deposit transactions.
 •	Owner statement aggregates owner-property ledger activity for a reporting period.
 •	Maintenance request may create quotations, work orders, vendor bills, assets and financial transactions.
@@ -620,6 +752,19 @@ WorkOrder	requestId, vendorId, approvedAmount, status	Approval before non-emerge
 JournalEntry	date, periodId, sourceType/sourceId, status	Balanced debit/credit; posted immutable
 AuditLog	actor, action, entity, before/after, timestamp	Append-only; restricted access
 
+13.3.1 Additional Core Entities Introduced in Version 2
+Entity	Purpose
+ServiceEngagement / ServiceModel	Defines brokerage, full management, master lease/sublease, company-owned or collection-only behavior for a property/space relationship.
+RentableSpace	Generic independently leasable physical space with parent-child hierarchy, area and lifecycle.
+SpaceRelationship / SpaceVersion	Preserves split, merge, predecessor and successor history.
+BrokerageDeal	One-time deal, commission, client, agent, settlement and completed status without recurring management.
+MasterLease	Company obligation to the property owner for a parent space.
+Sublease	Tenant lease for a child space under a master-leased arrangement.
+UtilityBill	Source bill for electricity, generator, water or other shared service.
+UtilityAllocationRule	Defines equal, area, meter, occupancy, fixed or custom allocation basis.
+UtilityAllocation	Immutable result linking source bill to generated child-space charges.
+CommercialLeaseTerms	Commercial-specific permitted use, area rate, fit-out, signage, escalation and other terms.
+LandLeaseTerms	Land-specific use, area, long-term review/escalation dates and notice deadlines.
 13.4 Indexing and Integrity
 •	Unique indexes on company/branch codes, property codes, unit numbers within parent, lease numbers, receipt numbers and configured external references.
 •	Composite indexes on branch/status, property/status, unit/availability, lease/endDate/status, charge/dueDate/status and maintenance/priority/status.
@@ -627,6 +772,10 @@ AuditLog	actor, action, entity, before/after, timestamp	Append-only; restricted 
 •	Foreign-key restrictions prevent deletion of financially or legally referenced records.
 •	Optimistic concurrency/version columns for records commonly edited by several staff.
 •	Database transactions wrap payment posting, allocation, fee creation, payout posting and lease activation.
+•	Index parentSpaceId + status + spaceCode for fast hierarchy and availability queries.
+•	Enforce unique active space codes within a parent and effective date range.
+•	Use effective-dated service engagements so business-model transitions do not rewrite history.
+•	Use database transactions for space split/merge, utility allocation posting and master/sublease financial posting.
 14. API and Integration Specification
 14.1 API Principles
 •	REST JSON API with versioned base path, e.g. /api/v1.
@@ -687,6 +836,15 @@ Maps/geocoding	Property location	Store normalized address and coordinates
 Accounting export	External accountant or regulatory needs	Mapped accounts and immutable export batch
 Identity/screening	Verification where lawful and available	Consent, purpose limitation and human review
 
+14.5 Version 2 Domain Endpoints (Representative)
+Area	Representative endpoints
+Brokerage	POST /brokerage-deals; POST /brokerage-deals/:id/complete; POST /brokerage-deals/:id/settle-commission
+Rentable spaces	POST /rentable-spaces; POST /rentable-spaces/:id/split; POST /rentable-spaces/merge; POST /rentable-spaces/:id/retire
+Master lease	POST /master-leases; POST /master-leases/:id/activate; GET /master-leases/:id/profitability
+Subleases	POST /subleases; POST /subleases/:id/activate; GET /master-leases/:id/subleases
+Utilities	POST /utility-bills; POST /utility-bills/:id/allocate; POST /utility-allocations/:id/reverse
+Commercial pricing	POST /rentable-spaces/:id/pricing; POST /commercial-leases
+Land	POST /land-leases; POST /land-leases/:id/renew; GET /land-leases/expiring
 15. Accounting and Financial Control Design
 15.1 Financial Principles
 •	Maintain separate conceptual and, where required, physical accounts for company money, owner/client money and deposits.
@@ -729,6 +887,17 @@ Opening owner balance + rent and property income collected + owner contributions
 •	Aged receivables review and collection notes.
 •	Period close checklist and exception report.
 •	Restricted chart-of-account and opening-balance changes.
+15.6 Business-Model-Specific Accounting
+Model	Accounting treatment
+Brokerage only	Recognize one-time brokerage income and agent commission/related costs. Do not create owner payable from tenant rent because the company is not administering ongoing rent.
+Full management	Track tenant receivables, collections, owner/client funds, company management fees, property expenses, reserves and owner payable/payout.
+Master lease / sublease	Record master rent as a company obligation/cost and sublease rent as company receivable/revenue according to approved accounting policy; report margin separately from cash flow.
+Company-owned	Rent is company property income; no owner payable exists.
+Vacant land	Use the configured lease schedule and long-term escalation rules; maintenance and utilities are included only if contractually enabled.
+15.7 Master-Lease Profitability and Shared-Utility Controls
+•	Do not calculate sublease profit merely as cash received minus cash paid; reports must distinguish billed revenue, collected revenue, master rent accrued/paid, vacancy, utilities and direct operating costs.
+•	Shared utility allocations post traceable child-space charges from one approved source bill and cannot silently change after posting.
+•	Master-lease profitability reports should show revenue by child space, vacancy loss, master cost, allocated/common costs and operating margin for the selected period.
 16. Non-Functional, Security and Privacy Requirements
 16.1 Performance and Scale
 Requirement	Target baseline
@@ -799,6 +968,13 @@ Owner retention	Owners retained at period end ÷ owners eligible for renewal × 
 Revenue per managed unit	Company management revenue ÷ average managed units
 Property NOI	Property income − operating property expenses
 
+17.3 Version 2 Specialized Reports and KPIs
+•	Brokerage pipeline, closed-deal commission, agent commission and one-time-deal profitability.
+•	Master lease vs. sublease revenue, occupancy, vacancy loss, shared-cost allocation and operating margin.
+•	Rentable-space utilization: parent area, leased child area, vacant child area and area monetization.
+•	Commercial rent per sqm and effective rent after incentives.
+•	Shared utility reconciliation: source bill, allocated amount, unallocated balance and allocation method.
+•	Land lease expiry, rent-review dates, escalation dates and notice deadlines.
 18. Testing, Acceptance and Quality Assurance
 18.1 Test Strategy
 •	Unit tests for domain calculations, permissions and state transitions.
@@ -811,16 +987,16 @@ Property NOI	Property income − operating property expenses
 •	Backup restore and disaster recovery exercises.
 •	User acceptance testing with leasing, finance, property and management representatives.
 18.2 Critical End-to-End Scenarios
-8.	Onboard joint owners and activate a multi-unit property.
-9.	Convert an inquiry through viewing, application, reservation, lease and move-in.
-10.	Generate monthly charges and apply a partial payment across rent and service charge.
-11.	Reverse an incorrectly posted payment and verify ledger integrity.
-12.	Receive deposit, approve deductions and refund balance.
-13.	Process owner rent, management fee, property expense, statement and payout.
-14.	Resolve emergency maintenance with approval exception and subsequent review.
-15.	Renew lease with rent increase and preserve prior contract version.
-16.	Move tenant out, settle final balance and return unit to market.
-17.	Attempt prohibited cross-branch and cross-owner data access.
+37.	Onboard joint owners and activate a multi-unit property.
+38.	Convert an inquiry through viewing, application, reservation, lease and move-in.
+39.	Generate monthly charges and apply a partial payment across rent and service charge.
+40.	Reverse an incorrectly posted payment and verify ledger integrity.
+41.	Receive deposit, approve deductions and refund balance.
+42.	Process owner rent, management fee, property expense, statement and payout.
+43.	Resolve emergency maintenance with approval exception and subsequent review.
+44.	Renew lease with rent increase and preserve prior contract version.
+45.	Move tenant out, settle final balance and return unit to market.
+46.	Attempt prohibited cross-branch and cross-owner data access.
 18.3 Acceptance Gates
 •	No critical security or financial-integrity defect open.
 •	All mandatory workflows pass UAT with approved evidence.
@@ -829,6 +1005,13 @@ Property NOI	Property income − operating property expenses
 •	Backup restore succeeds in a documented exercise.
 •	Roles and permissions are signed off by business owners.
 •	Training and operating procedures are available before go-live.
+18.4 Version 2 Critical Acceptance Scenarios
+47.	Complete a brokerage-only deal and verify that the space becomes RENTED_EXTERNAL, disappears from availability and no monthly invoices or maintenance workflows are generated.
+48.	Run a full-management month and verify charges, partial payment allocation, maintenance expense, management fee, owner statement and owner payout calculation.
+49.	Create one master-leased floor with multiple child spaces, activate different subleases and verify profitability against master rent.
+50.	Allocate a shared generator bill equally, by area and by meter; verify totals, rounding and traceability.
+51.	Partition a commercial hall, lease one booth, then change the future layout without altering the historical lease record.
+52.	Create a land lease and verify residential fields are not required, maintenance is off by default and long-term expiry/rent-review alerts are scheduled.
 19. Deployment, Operations and Disaster Recovery
 19.1 Recommended Architecture
 Layer	Recommendation
@@ -918,6 +1101,17 @@ Phase	Focus	Key deliverables
 •	Logging, monitoring and error handling included.
 •	Documentation and operating guidance updated.
 •	Business owner accepts feature in staging.
+20.4 Recommended Implementation Sequence for Version 2
+53.	Foundation: identity, RBAC, company/branch, audit and approval framework.
+54.	Core property model: owner, property, rentable-space hierarchy, space lifecycle and documents.
+55.	Service model engine: feature eligibility and effective-dated engagement rules.
+56.	Brokerage MVP: CRM, listings, viewings, brokerage deal, commission and RENTED_EXTERNAL closure.
+57.	Full-management leasing: tenant, lease, recurring charges, payments, deposits and managed operations.
+58.	Owner accounting: fees, expenses, statements, payout controls and reconciliation.
+59.	Master lease/sublease: master obligations, child leases, shared utilities and profitability.
+60.	Commercial specialization: partitioning, sqm pricing and commercial contract templates.
+61.	Land specialization: simplified forms, long-term alerts and rent review.
+62.	Portals, advanced reports, notifications, integrations and optimization.
 21. Risks, Decisions and Future Scope
 21.1 Risk Register
 Risk	Impact	Mitigation
@@ -933,17 +1127,17 @@ Unreliable hosting/backups	Business interruption/data loss	Monitoring, tested ba
 Owner/tenant portal leakage	Privacy incident	Object-level authorization and security testing
 
 21.2 Required Business Decisions Before Build
-18.	Exact company business models and fee schedules.
-19.	Whether commission is based on rent charged or rent collected.
-20.	Owner payout frequency, reserve and hold policies.
-21.	Deposit custody and refund policy.
-22.	Tenant screening criteria and approval authority.
-23.	Lease numbering, templates, notice periods and renewal rules.
-24.	Payment methods, verification evidence and receipt policy.
-25.	Expense and maintenance approval thresholds.
-26.	Branch and portfolio access model.
-27.	Accounting basis, chart of accounts and financial reporting requirements.
-28.	Data retention, privacy and document-access policies.
+63.	Confirm fee schedules and commission rates for the approved business models: brokerage-only, full management, master lease/sublease, company-owned and rent-collection-only.
+64.	Whether commission is based on rent charged or rent collected.
+65.	Owner payout frequency, reserve and hold policies.
+66.	Deposit custody and refund policy.
+67.	Tenant screening criteria and approval authority.
+68.	Lease numbering, templates, notice periods and renewal rules.
+69.	Payment methods, verification evidence and receipt policy.
+70.	Expense and maintenance approval thresholds.
+71.	Branch and portfolio access model.
+72.	Accounting basis, chart of accounts and financial reporting requirements.
+73.	Data retention, privacy and document-access policies.
 21.3 Future Enhancements
 •	Native mobile apps and offline field synchronization
 •	Integrated mobile-money confirmations and bank feeds
@@ -1007,6 +1201,26 @@ Release evidence	Deployment/change record mapped to tested stories
 •	Migration sources inventoried
 •	UAT owners identified
  
+22.5 Version 2 Domain Glossary Additions
+Term	Definition
+Service Model	The commercial/operating relationship that determines which workflows and accounting rules apply.
+Rentable Space	Any independently leasable physical space such as a unit, room, floor, hall, shop, booth or land parcel.
+Parent Space	A rentable space that contains or is subdivided into child rentable spaces.
+Brokerage Deal	A one-time transaction in which the company earns commission but does not manage recurring rent.
+RENTED_EXTERNAL	Status indicating the space was successfully rented through the company but is not under ongoing company management.
+Master Lease	Lease under which the company rents a parent space from the owner.
+Sublease	Lease from the company to a tenant for all or part of a master-leased space.
+Shared Utility Allocation	Distribution of one common utility cost to multiple rentable spaces using an approved rule.
+Area-Based Pricing	Rent calculated from rentable area multiplied by a rate per square metre or other configured area unit.
+Space Partition	Controlled subdivision of a parent space into smaller leasable spaces while preserving history.
+22.6 Business Model Rules at a Glance
+Rule	Brokerage	Full Management	Master Lease/Sublease	Land
+Primary earning	Commission	Management/service fees	Rental spread/margin	Configured lease income
+Recurring billing	No	Yes	Yes	As configured
+Ongoing maintenance	No	Yes	Yes	Off by default
+Owner payout	No	Yes	Normally no	Arrangement-dependent
+Key status after occupancy	RENTED_EXTERNAL	OCCUPIED	SUBLEASED / OCCUPIED	LEASED
+Special data	Deal + commission	Owner/tenant/operations	Master + child spaces + utilities	Area + use + long-term dates
 Appendix A — Sample Numbering Standards
 Record	Example
 Owner	OWN-000123
