@@ -56,3 +56,6 @@ A task is complete only when:
 - Tests pass.
 - Documentation is updated.
 - No unrelated regressions are introduced.
+
+
+- Before implementing or modifying any user-facing interface, read and follow docs/design/   Real_Estate_Rental_UI_UX_Design_System_v1.docx. Any frontend-containing phase requires UI/UX REVIEW: PASS before its phase gate can pass.

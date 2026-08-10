@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+prisma/generated/
+test-results/
+.DS_Store
+.superdesign/tmp/
+/docs/
+/.superdesign/

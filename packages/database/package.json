@@ -1,0 +1,31 @@
+{
+  "name": "@rerms/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint src test",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run test/schema.test.ts",
+    "test:integration": "vitest run test/connection.integration.test.ts",
+    "prisma:format": "prisma format --config ../../prisma.config.ts",
+    "prisma:validate": "prisma validate --config ../../prisma.config.ts",
+    "prisma:generate": "prisma generate --config ../../prisma.config.ts",
+    "db:migrate:deploy": "prisma migrate deploy --config ../../prisma.config.ts",
+    "db:seed": "pnpm --filter @rerms/config build && tsx ../../prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "argon2": "0.45.1"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

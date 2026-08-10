@@ -1,0 +1,16 @@
+{
+  "name": "@rerms/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.cjs.json"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
+  "main": "dist/index.js",
+  "types": "src/index.ts"
+}

@@ -1,0 +1,54 @@
+name: Foundation CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env: { POSTGRES_DB: rerms, POSTGRES_USER: rerms, POSTGRES_PASSWORD: rerms_dev_password }
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U rerms -d rerms" --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:8.2.1-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      NODE_ENV: test
+      WEB_URL: http://localhost:3000
+      API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      DATABASE_URL: postgresql://rerms:rerms_dev_password@localhost:5432/rerms?schema=public
+      REDIS_URL: redis://localhost:6379
+      LOG_LEVEL: error
+      SESSION_TTL_HOURS: 24
+      PASSWORD_RESET_TTL_MINUTES: 30
+      PARTY_DATA_ENCRYPTION_KEY: 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+      SEED_COMPANY_CODE: RERMS
+      SEED_BRANCH_CODE: HQ
+      SEED_ADMIN_EMAIL: phase3.admin@example.test
+      SEED_ADMIN_PASSWORD: Phase3-CI-Development-Only!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.16.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.17.1, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma:format
+      - run: pnpm prisma:validate
+      - run: pnpm prisma:generate
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:seed
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:integration
+      - run: pnpm test:e2e
+      - run: pnpm build

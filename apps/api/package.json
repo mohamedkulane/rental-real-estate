@@ -1,0 +1,44 @@
+{
+  "name": "@rerms/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch-path=src scripts/dev.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "lint": "eslint src test",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run test/unit",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration --maxWorkers=1 --no-file-parallelism --testTimeout=120000",
+    "test:e2e": "vitest run test/e2e --maxWorkers=1 --no-file-parallelism --testTimeout=120000"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.1.28",
+    "@nestjs/core": "11.1.28",
+    "@nestjs/platform-express": "11.1.28",
+    "@nestjs/swagger": "11.4.6",
+    "@nestjs/terminus": "11.1.1",
+    "@rerms/config": "workspace:*",
+    "@rerms/database": "workspace:*",
+    "@rerms/shared": "workspace:*",
+    "argon2": "0.45.1",
+    "bullmq": "6.0.9",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.3",
+    "ioredis": "6.0.0",
+    "nestjs-pino": "4.6.0",
+    "pino": "10.1.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "11.1.28",
+    "@types/express": "5.0.3",
+    "@types/supertest": "6.0.3",
+    "supertest": "7.1.4",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
