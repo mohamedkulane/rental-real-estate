@@ -1,0 +1,6 @@
+{
+  "completedPhase": 4,
+  "currentGate": "PRE_PHASE_5_DEEP_AUDIT",
+  "phase5Started": false,
+  "productionSchemaScope": "PHASES_1_TO_4_ONLY"
+}

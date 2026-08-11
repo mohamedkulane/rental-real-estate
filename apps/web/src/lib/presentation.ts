@@ -40,7 +40,8 @@ export function permissionDomain(code: string): string {
 
 export function statusTone(value: string | boolean | null | undefined) {
   const normalized = typeof value === 'boolean' ? (value ? 'ACTIVE' : 'INACTIVE') : (value ?? '');
-  if (/INACTIVE|FAILED|REJECTED|OVERDUE|SUSPENDED|DISABLED|RETIRED/i.test(normalized)) return 'negative';
+  if (/INACTIVE|FAILED|REJECTED|OVERDUE|SUSPENDED|DISABLED|RETIRED/i.test(normalized))
+    return 'negative';
   if (/ACTIVE|PAID|APPROVED|COMPLETED|HEALTHY/i.test(normalized)) return 'positive';
   if (/PENDING|EXPIR|REVIEW|ATTENTION/i.test(normalized)) return 'warning';
   if (/PROCESSING|ASSIGNED|SCHEDULED/i.test(normalized)) return 'info';

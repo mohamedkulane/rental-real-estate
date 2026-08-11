@@ -1,3 +1,4 @@
+import { sessionToken } from '../session-cookie';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -62,8 +63,13 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
         password: adminPassword,
       })
       .expect(201);
-    adminToken = login.body.token as string;
+    adminToken = sessionToken(login);
     expect(adminToken).toBeTruthy();
+    expect(login.body).not.toHaveProperty('token');
+    const sessionCookie = String(login.headers['set-cookie']);
+    expect(sessionCookie).toContain('HttpOnly');
+    expect(sessionCookie).toContain('SameSite=Strict');
+    expect(sessionCookie).toContain('Path=/api');
     const me = await request(app.getHttpServer())
       .get('/api/v1/auth/me')
       .set('authorization', `Bearer ${adminToken}`)
@@ -130,7 +136,7 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
       .post('/api/v1/auth/login')
       .send({ email: staffEmail, password: staffPassword })
       .expect(201);
-    staffToken = login.body.token as string;
+    staffToken = sessionToken(login);
     await request(app.getHttpServer())
       .get(`/api/v1/branches/${hodanId}`)
       .set('authorization', `Bearer ${staffToken}`)

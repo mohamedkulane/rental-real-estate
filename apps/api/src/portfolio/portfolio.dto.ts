@@ -3,7 +3,6 @@ import {
   BuildingStatus,
   OwnerStatus,
   PartyKind,
-  PropertyStatus,
   PropertyType,
   RentableSpaceStatus,
 } from '@prisma/client';
@@ -48,7 +47,6 @@ export class PersonInputDto {
   @IsOptional() @IsString() @MaxLength(120) preferredName?: string;
   @IsOptional() @IsDateString() birthDate?: string;
   @IsOptional() @IsString() @Length(2, 2) nationalityCode?: string;
-  @IsOptional() @IsObject() identificationMetadata?: Record<string, unknown>;
 }
 
 export class OrganizationInputDto {
@@ -105,7 +103,6 @@ export class CreatePropertyDto {
   @IsOptional() @IsString() @Length(2, 40) propertyCode?: string;
   @IsString() @Length(2, 200) name!: string;
   @IsEnum(PropertyType) propertyType!: PropertyType;
-  @IsOptional() @IsEnum(PropertyStatus) status?: PropertyStatus;
   @IsUUID() branchId!: string;
   @IsDateString() effectiveFrom!: string;
   @IsString() @Length(2, 100) city!: string;
@@ -122,7 +119,6 @@ export class CreatePropertyDto {
 
 export class UpdatePropertyDto {
   @IsOptional() @IsString() @Length(2, 200) name?: string;
-  @IsOptional() @IsEnum(PropertyStatus) status?: PropertyStatus;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsString() @MaxLength(200) addressLine1?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
@@ -131,6 +127,10 @@ export class UpdatePropertyDto {
   @IsOptional() @IsString() @MaxLength(200) landmark?: string;
 }
 
+export class PropertyLifecycleTransitionDto {
+  @IsString() @Length(3, 500) reason!: string;
+  @IsOptional() @IsDateString() effectiveDate?: string;
+}
 export class DiscardPropertyDraftDto {
   @IsString() @Length(3, 500) reason!: string;
 }

@@ -1,6 +1,8 @@
 import { ValidationPipe, VersioningType, type INestApplication } from '@nestjs/common';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NextFunction, Request, Response } from 'express';
+import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { ApiExceptionFilter } from './common/api-exception.filter';
 
@@ -26,12 +28,31 @@ export function configureApplication(app: INestApplication): void {
     credentials: true,
   };
   app.enableCors(corsOptions);
+  app.use((_request: Request, response: Response, next: NextFunction) => {
+    response.removeHeader('X-Powered-By');
+    next();
+  });
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'none'"],
+        },
+      },
+      referrerPolicy: { policy: 'no-referrer' },
+      frameguard: { action: 'deny' },
+    }),
+  );
   app.enableShutdownHooks();
 
-  const document = SwaggerModule.createDocument(
-    app,
-    new DocumentBuilder().setTitle('RERMS Foundation API').setVersion('1.0').build(),
-  );
-  SwaggerModule.setup('api/docs', app, document);
+  if (process.env.EXPOSE_API_DOCS === 'true' && process.env.NODE_ENV !== 'production') {
+    const document = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder().setTitle('RERMS Foundation API').setVersion('1.0').build(),
+    );
+    SwaggerModule.setup('api/docs', app, document);
+  }
   app.useLogger(app.get(Logger));
 }

@@ -35,6 +35,10 @@ describe('foundation API', () => {
     const response = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
     expect(response.body.status).toBe('ok');
     expect(response.headers['x-correlation-id']).toBeTruthy();
+    expect(response.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(response.headers['x-frame-options']).toBe('DENY');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['x-powered-by']).toBeUndefined();
   });
 
   it('accepts both local browser aliases outside production while rejecting other origins', async () => {
@@ -61,5 +65,8 @@ describe('foundation API', () => {
       .expect(400);
     expect(response.body).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' });
     expect(response.body.correlationId).toBeTruthy();
+  });
+  it('does not expose Swagger unless the explicit non-production switch is enabled', async () => {
+    await request(app.getHttpServer()).get('/api/docs').expect(404);
   });
 });

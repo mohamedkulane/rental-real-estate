@@ -1,11 +1,8 @@
-import { randomUUID } from 'node:crypto';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { uuidv7 } from '@rerms/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BranchAccessMode, PartyKind, UserStatus, type Prisma } from '@prisma/client';
 import { nextRecordNumber } from '../common/record-number';
+import { EffectiveDatingService } from '../common/effective-dating.service';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { PasswordService } from '../identity/password.service';
@@ -28,6 +25,7 @@ import type {
 export class OrganizationService {
   constructor(
     private readonly database: DatabaseService,
+    private readonly effectiveDating: EffectiveDatingService,
     private readonly audit: AuditService,
     private readonly passwords: PasswordService,
     private readonly authorization: AuthorizationService,
@@ -63,10 +61,7 @@ export class OrganizationService {
   }
 
   async listBranches(principal: AuthenticatedPrincipal) {
-    const branchIds = this.authorization.authorizedBranchIds(
-      principal,
-      'organization.branch.read',
-    );
+    const branchIds = this.authorization.authorizedBranchIds(principal, 'organization.branch.read');
     return this.database.branch.findMany({
       where: {
         companyId: principal.companyId,
@@ -92,7 +87,7 @@ export class OrganizationService {
     return this.database.$transaction(async (transaction) => {
       const branch = await transaction.branch.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           code: input.code?.trim().toUpperCase() ?? (await nextRecordNumber(transaction, 'BRANCH')),
           name: input.name,
@@ -255,14 +250,14 @@ export class OrganizationService {
       const partyNumber = await nextRecordNumber(transaction, 'PARTY');
       const party = await transaction.party.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           partyNumber,
           kind: PartyKind.PERSON,
           displayName: input.displayName,
           branchAssignments: {
             create: {
-              id: randomUUID(),
+              id: uuidv7(),
               branchId: input.branchId,
               effectiveFrom: new Date(),
             },
@@ -272,7 +267,7 @@ export class OrganizationService {
       const user = input.email
         ? await transaction.user.create({
             data: {
-              id: randomUUID(),
+              id: uuidv7(),
               emailNormalized: input.email.trim().toLowerCase(),
               passwordHash: passwordHash ?? null,
               status: UserStatus.ACTIVE,
@@ -281,7 +276,7 @@ export class OrganizationService {
         : null;
       const employee = await transaction.employee.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           partyId: party.id,
           userId: user?.id ?? null,
@@ -293,7 +288,7 @@ export class OrganizationService {
       });
       await transaction.employeeBranchAssignment.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           employeeId: employee.id,
           branchId: input.branchId ?? null,
           effectiveFrom: new Date(),
@@ -434,11 +429,21 @@ export class OrganizationService {
       const employee = await transaction.employee.findFirstOrThrow({
         where: { id: employeeId, companyId: principal.companyId },
       });
-      const effectiveFrom = new Date(input.effectiveFrom);
-      const effectiveTo = input.effectiveTo ? new Date(input.effectiveTo) : null;
+      const effectiveFrom = await this.effectiveDating.scheduledDate(
+        principal.companyId,
+        input.effectiveFrom,
+      );
+      const effectiveTo = input.effectiveTo
+        ? await this.effectiveDating.scheduledDate(principal.companyId, input.effectiveTo)
+        : null;
+      const scheduledAssignments = await transaction.employeeBranchAssignment.findMany({
+        where: { employeeId, branchId: input.branchId, effectiveFrom: { gte: effectiveFrom } },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveFrom, scheduledAssignments);
       const assignment = await transaction.employeeBranchAssignment.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           employeeId,
           branchId: input.branchId,
           effectiveFrom,
@@ -455,7 +460,7 @@ export class OrganizationService {
         },
         update: { effectiveTo },
         create: {
-          id: randomUUID(),
+          id: uuidv7(),
           partyId: employee.partyId,
           branchId: input.branchId,
           effectiveFrom,
@@ -498,14 +503,47 @@ export class OrganizationService {
       const role = await transaction.role.findFirstOrThrow({
         where: { id: input.roleId, companyId: principal.companyId, active: true },
       });
+      const effectiveFrom = await this.effectiveDating.scheduledDate(
+        principal.companyId,
+        input.effectiveFrom,
+      );
+      const effectiveTo = input.effectiveTo
+        ? await this.effectiveDating.scheduledDate(principal.companyId, input.effectiveTo)
+        : null;
+      const scheduledRoles = await transaction.employeeRole.findMany({
+        where: {
+          employeeId,
+          roleId: input.roleId,
+          branchId: input.branchId ?? null,
+          effectiveFrom: { gte: effectiveFrom },
+        },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveFrom, scheduledRoles);
+      if (input.branchId) {
+        const coveringBranchAssignment = await transaction.employeeBranchAssignment.findFirst({
+          where: {
+            employeeId,
+            branchId: input.branchId,
+            effectiveFrom: { lte: effectiveFrom },
+            OR: effectiveTo
+              ? [{ effectiveTo: null }, { effectiveTo: { gte: effectiveTo } }]
+              : [{ effectiveTo: null }],
+          },
+        });
+        if (!coveringBranchAssignment)
+          throw new BadRequestException(
+            'Assign the employee to this branch for the full role period before granting the branch role.',
+          );
+      }
       const assignment = await transaction.employeeRole.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           employeeId,
           roleId: role.id,
           branchId: input.branchId ?? null,
-          effectiveFrom: new Date(input.effectiveFrom),
-          effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+          effectiveFrom,
+          effectiveTo,
         },
       });
       await this.audit.write(transaction, {
@@ -589,7 +627,7 @@ export class OrganizationService {
       if (employee.userId) throw new BadRequestException('Employee already has user access.');
       const user = await transaction.user.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           emailNormalized: input.email.trim().toLowerCase(),
           passwordHash,
           status: UserStatus.ACTIVE,

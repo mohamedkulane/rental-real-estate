@@ -4,29 +4,31 @@
   "private": true,
   "packageManager": "pnpm@11.16.0",
   "engines": {
-    "node": ">=22.17.0 <23",
-    "pnpm": ">=11.0.0 <12"
+    "node": "\u003e=22.17.0 \u003c23",
+    "pnpm": "\u003e=11.0.0 \u003c12"
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @rerms/api --filter @rerms/web dev",
     "dev:web": "pnpm --filter @rerms/web dev",
     "dev:api": "pnpm --filter @rerms/api dev",
     "build": "pnpm -r --if-present build",
-    "lint": "eslint eslint.config.mjs && pnpm -r --if-present lint",
-    "format": "prettier --write apps/api apps/web packages scripts docker .github docs/phases/phase-02-foundation docs/phases/phase-03-identity-access docs/security docs/architecture/technology-versions.md package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .prettierrc.json",
-    "format:check": "prettier --check apps/api apps/web packages scripts docker .github docs/phases/phase-02-foundation docs/phases/phase-03-identity-access docs/security docs/architecture/technology-versions.md package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .prettierrc.json",
+    "lint": "eslint eslint.config.mjs \u0026\u0026 pnpm -r --if-present lint",
+    "format": "prettier --write apps/api apps/web packages scripts docker .github docs/phases/phase-02-foundation docs/phases/phase-03-identity-access docs/security docs/architecture/technology-versions.md package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .prettierrc.json \"docs/**/*.md\"",
+    "format:check": "prettier --check apps/api apps/web packages scripts docker .github docs/phases/phase-02-foundation docs/phases/phase-03-identity-access docs/security docs/architecture/technology-versions.md package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .prettierrc.json \"docs/**/*.md\"",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test",
-    "test:unit": "pnpm -r --if-present test:unit",
-    "test:integration": "pnpm -r --if-present test:integration",
-    "test:e2e": "pnpm -r --if-present test:e2e",
+    "test": "pnpm --filter @rerms/shared build \u0026\u0026 pnpm -r --if-present test",
+    "test:unit": "pnpm --filter @rerms/shared build \u0026\u0026 pnpm -r --if-present test:unit",
+    "test:integration": "pnpm --filter @rerms/shared build \u0026\u0026 pnpm -r --if-present test:integration",
+    "test:e2e": "pnpm --filter @rerms/shared build \u0026\u0026 pnpm -r --if-present test:e2e",
     "prisma:format": "pnpm --filter @rerms/database prisma:format",
     "prisma:validate": "pnpm --filter @rerms/database prisma:validate",
     "prisma:generate": "pnpm --filter @rerms/database prisma:generate",
     "infra:up": "docker compose -f docker/docker-compose.dev.yml up -d --wait",
     "infra:down": "docker compose -f docker/docker-compose.dev.yml down",
     "db:migrate:deploy": "pnpm --filter @rerms/database db:migrate:deploy",
-    "db:seed": "pnpm --filter @rerms/database db:seed"
+    "db:seed": "pnpm --filter @rerms/database db:seed",
+    "verify:governance": "node scripts/verify-governance.mjs",
+    "security:rotate-party-key": "pnpm --filter @rerms/api exec tsx ../../scripts/rotate-party-contact-key.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

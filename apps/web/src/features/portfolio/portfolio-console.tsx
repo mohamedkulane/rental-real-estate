@@ -14,7 +14,6 @@ import {
   canPerformInBranch,
   hasCompanyPermission,
   hasPermission,
-  SESSION_KEY,
   userFacingError,
 } from '@/lib/phase3-api';
 import styles from './portfolio-console.module.css';
@@ -99,7 +98,8 @@ export function PortfolioConsole() {
           'properties';
         setActive(first);
         const [branchData, partyData, propertyData] = await Promise.all([
-          (first === 'properties' || first === 'parties') && hasPermission(current, 'organization.branch.read')
+          (first === 'properties' || first === 'parties') &&
+          hasPermission(current, 'organization.branch.read')
             ? apiCached<Branch[]>('/branches')
             : null,
           first === 'owners' && hasPermission(current, 'party.read')
@@ -116,7 +116,6 @@ export function PortfolioConsole() {
         setLoading(false);
       })
       .catch(() => {
-        sessionStorage.removeItem(SESSION_KEY);
         router.replace('/login');
       });
   }, [loadTab, router]);
@@ -145,14 +144,14 @@ export function PortfolioConsole() {
     (branch) => principal && canPerformInBranch(principal, 'party.create', branch.id),
   );
   const propertyCreateBranches = branches.filter(
-    (branch) =>
-      principal && canPerformInBranch(principal, 'portfolio.property.create', branch.id),
+    (branch) => principal && canPerformInBranch(principal, 'portfolio.property.create', branch.id),
   );
 
   async function loadDependencies(tab: Tab) {
     if (!principal) return;
     const [branchData, partyData, propertyData] = await Promise.all([
-      (tab === 'properties' || tab === 'parties') && hasPermission(principal, 'organization.branch.read')
+      (tab === 'properties' || tab === 'parties') &&
+      hasPermission(principal, 'organization.branch.read')
         ? apiCached<Branch[]>('/branches')
         : null,
       tab === 'owners' && hasPermission(principal, 'party.read')
@@ -248,7 +247,6 @@ export function PortfolioConsole() {
       await api('/auth/logout', { method: 'POST' });
     } finally {
       clearApiCache();
-      sessionStorage.removeItem(SESSION_KEY);
       router.replace('/login');
     }
   }
@@ -335,7 +333,6 @@ export function PortfolioConsole() {
       {
         name: formValue(form, 'name'),
         propertyType: formValue(form, 'propertyType'),
-        status: 'DRAFT',
         branchId: formValue(form, 'branchId'),
         effectiveFrom: today(),
         city: formValue(form, 'city'),
@@ -416,7 +413,7 @@ export function PortfolioConsole() {
               <option value="">Choose a party</option>
               {parties.map((party) => (
                 <option key={party.id} value={party.id}>
-                  {party.partyNumber} â€” {party.displayName}
+                  {party.partyNumber} — {party.displayName}
                 </option>
               ))}
             </select>
@@ -486,7 +483,7 @@ export function PortfolioConsole() {
               <option value="">Choose a property</option>
               {properties.map((property) => (
                 <option key={property.id} value={property.id}>
-                  {property.propertyCode} â€” {property.name}
+                  {property.propertyCode} — {property.name}
                 </option>
               ))}
             </select>
@@ -517,7 +514,7 @@ export function PortfolioConsole() {
                 .filter((space) => !propertyFilter || space.propertyId === propertyFilter)
                 .map((space) => (
                   <option key={space.id} value={space.id}>
-                    {space.spaceCode} â€” {space.name}
+                    {space.spaceCode} — {space.name}
                   </option>
                 ))}
             </select>
@@ -567,7 +564,7 @@ export function PortfolioConsole() {
         <article className={styles.record} key={item.id}>
           <strong>{item.displayName}</strong>
           <small>
-            {item.partyNumber} Â· {humanize(item.kind)}
+            {item.partyNumber} · {humanize(item.kind)}
           </small>
           <StatusBadge value={item.active} />
         </article>
@@ -585,7 +582,7 @@ export function PortfolioConsole() {
         <article className={styles.record} key={item.id}>
           <strong>{item.name}</strong>
           <small>
-            {item.propertyCode} Â· {humanize(item.propertyType)} Â· {item.city}
+            {item.propertyCode} · {humanize(item.propertyType)} · {item.city}
           </small>
           <StatusBadge value={item.status} />
         </article>
@@ -811,12 +808,22 @@ export function PortfolioConsole() {
               creatableBranchIds={propertyCreateBranches.map((branch) => branch.id)}
               busy={busy}
               canCreate={propertyCreateBranches.length > 0}
-              canUpdate={(record) => canAcross('portfolio.property.update', activePropertyBranchIds(record))}
+              canUpdate={(record) =>
+                canAcross('portfolio.property.update', activePropertyBranchIds(record))
+              }
               onCreate={(input) =>
                 propertyMutation('/properties', 'POST', input, 'Draft property created.')
               }
               onUpdate={(propertyId, input) =>
                 propertyMutation('/properties/' + propertyId, 'PATCH', input, 'Property updated.')
+              }
+              onTransition={(propertyId, action, reason) =>
+                propertyMutation(
+                  '/properties/' + propertyId + '/' + action,
+                  'POST',
+                  { reason },
+                  'Property lifecycle updated.',
+                )
               }
               onDiscard={(propertyId, reason) =>
                 propertyMutation(
@@ -882,7 +889,7 @@ export function PortfolioConsole() {
                 <option value="">All properties</option>
                 {properties.map((property) => (
                   <option key={property.id} value={property.id}>
-                    {property.propertyCode} â€” {property.name}
+                    {property.propertyCode} — {property.name}
                   </option>
                 ))}
               </select>

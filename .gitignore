@@ -12,5 +12,13 @@ prisma/generated/
 test-results/
 .DS_Store
 .superdesign/tmp/
-/docs/
 /.superdesign/
+# Generated design evidence and local design-tool exports
+/docs/design/audit-before/
+/docs/design/audit-after/
+/docs/design/performance-navigation-after/
+/docs/design/superdesign/
+/docs/**/*.log
+/docs/**/*.png
+/docs/**/*.jpg
+/docs/**/*.html

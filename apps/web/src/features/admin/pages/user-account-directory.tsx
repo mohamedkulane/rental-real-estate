@@ -189,7 +189,7 @@ export function UserAccountDirectory({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search employee, number or emailâ€¦"
+              placeholder="Search employee, number or email…"
               className={inputClass + ' pl-9'}
             />
           </label>
@@ -374,7 +374,7 @@ export function UserAccountDirectory({
                         </div>
                         <p className="mt-1 text-xs text-slate-500">
                           Expires {format(session.expiresAt)}
-                          {session.revocationReason ? ' Â· ' + session.revocationReason : ''}
+                          {session.revocationReason ? ' · ' + session.revocationReason : ''}
                         </p>
                       </div>
                       {canRevokeSession(selected) &&
@@ -436,7 +436,7 @@ export function UserAccountDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Revokingâ€¦' : 'Revoke this session'}
+              {busy ? 'Revoking…' : 'Revoke this session'}
             </button>
           </form>
         </Drawer>
@@ -482,7 +482,7 @@ export function UserAccountDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
             >
-              {busy ? 'Updatingâ€¦' : 'Save account status'}
+              {busy ? 'Updating…' : 'Save account status'}
             </button>
           </form>
         </Drawer>

@@ -1,3 +1,4 @@
+import { sessionToken } from '../session-cookie';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -46,7 +47,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .post('/api/v1/auth/login')
       .send({ email: adminEmail, password: adminPassword })
       .expect(201);
-    token = login.body.token as string;
+    token = sessionToken(login);
     const branches = await request(app.getHttpServer())
       .get('/api/v1/branches')
       .set('authorization', `Bearer ${token}`)
@@ -97,6 +98,31 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(detail.body.contacts[0].value).toBe('+252611234567');
+    expect(detail.body.contacts[0].masked).toBe(false);
+    const directory = await request(app.getHttpServer())
+      .get('/api/v1/parties')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    const directoryParty = (
+      directory.body as Array<{ id: string; contacts: Array<{ value: string; masked: boolean }> }>
+    ).find((party) => party.id === ownerPartyId);
+    expect(directoryParty?.contacts[0]).toMatchObject({ value: '***4567', masked: true });
+    expect(JSON.stringify(directory.body)).not.toContain('valueEncrypted');
+    expect(JSON.stringify(directory.body)).not.toContain('normalizedHash');
+    await request(app.getHttpServer())
+      .post('/api/v1/parties')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        branchId: hodanId,
+        kind: 'PERSON',
+        displayName: 'Unsafe Identity Metadata',
+        person: {
+          givenName: 'Unsafe',
+          familyName: 'Metadata',
+          identificationMetadata: { passportNumber: 'P1234567' },
+        },
+      })
+      .expect(400);
     await request(app.getHttpServer())
       .post('/api/v1/owners')
       .set('authorization', `Bearer ${token}`)
@@ -132,7 +158,6 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         propertyCode: `PR-${suffix}`,
         name: 'Daryeel Business Centre',
         propertyType: 'MIXED_USE',
-        status: 'DRAFT',
         branchId: hodanId,
         effectiveFrom: '2026-01-01',
         city: 'Mogadishu',
@@ -146,7 +171,6 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         propertyCode: `PR-${suffix}`,
         name: 'Duplicate code proof',
         propertyType: 'HOUSE',
-        status: 'DRAFT',
         branchId: hodanId,
         effectiveFrom: '2026-01-01',
         city: 'Mogadishu',
@@ -174,10 +198,10 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       })
       .expect(200);
     const activated = await request(app.getHttpServer())
-      .patch(`/api/v1/properties/${propertyId}`)
+      .post(`/api/v1/properties/${propertyId}/activate`)
       .set('authorization', `Bearer ${token}`)
-      .send({ status: 'ACTIVE' })
-      .expect(200);
+      .send({ reason: 'Ownership and operating setup approved' })
+      .expect(201);
     expect(activated.body.status).toBe('ACTIVE');
     await request(app.getHttpServer())
       .post(`/api/v1/properties/${propertyId}/buildings`)
@@ -219,7 +243,6 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         propertyCode: `V-${suffix}`,
         name: 'Standalone Villa',
         propertyType: 'VILLA',
-        status: 'DRAFT',
         branchId: hodanId,
         effectiveFrom: '2026-01-01',
         city: 'Mogadishu',
@@ -377,13 +400,28 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     await request(app.getHttpServer())
       .post(`/api/v1/employees/${employee.body.id}/roles`)
       .set('authorization', `Bearer ${token}`)
-      .send({ roleId: role.id, branchId: wadajirId, effectiveFrom: '2026-01-01' })
+      .send({
+        roleId: role.id,
+        branchId: wadajirId,
+        effectiveFrom: new Date().toISOString().slice(0, 10),
+      })
       .expect(201);
     const login = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ email, password })
       .expect(201);
-    const managerToken = login.body.token as string;
+    const managerToken = sessionToken(login);
+    await request(app.getHttpServer())
+      .get(`/api/v1/parties/${ownerPartyId}`)
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(403);
+    const scopedParties = await request(app.getHttpServer())
+      .get('/api/v1/parties')
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(
+      (scopedParties.body as Array<{ id: string }>).some((party) => party.id === ownerPartyId),
+    ).toBe(false);
     await request(app.getHttpServer())
       .get(`/api/v1/properties/${propertyId}`)
       .set('authorization', `Bearer ${managerToken}`)
@@ -395,7 +433,6 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         propertyCode: `W-${suffix}`,
         name: 'Wadajir Scope Proof',
         propertyType: 'HOUSE',
-        status: 'DRAFT',
         branchId: wadajirId,
         effectiveFrom: '2026-01-01',
         city: 'Mogadishu',
@@ -422,5 +459,45 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(rows.some((row) => row.action === 'portfolio.ownership.replaced')).toBe(true);
     expect(rows.some((row) => row.action === 'portfolio.space.partitioned')).toBe(true);
     expect(JSON.stringify(rows)).not.toContain('+252611234567');
+  });
+  it('enforces every allowed and forbidden Property lifecycle transition', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/activate`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Duplicate activation must not be accepted' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/retire`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Active properties must be deactivated before retirement' })
+      .expect(400);
+    const inactive = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/deactivate`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Temporary operational closure' })
+      .expect(201);
+    expect(inactive.body.status).toBe('INACTIVE');
+    const activeAgain = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/reactivate`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Operations resumed after review' })
+      .expect(201);
+    expect(activeAgain.body.status).toBe('ACTIVE');
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/deactivate`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Permanent operating closure' })
+      .expect(201);
+    const retired = await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/retire`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Asset permanently removed from operations' })
+      .expect(201);
+    expect(retired.body.status).toBe('RETIRED');
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/reactivate`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ reason: 'Retired status is terminal' })
+      .expect(400);
   });
 });

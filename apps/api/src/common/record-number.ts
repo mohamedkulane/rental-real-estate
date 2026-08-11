@@ -8,7 +8,7 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   PARTY: { prefix: 'PTY', sequence: 'public.party_record_number_seq', width: 4 },
   OWNER: { prefix: 'OWN', sequence: 'public.owner_record_number_seq', width: 4 },
   PROPERTY: { prefix: 'PROP', sequence: 'public.property_record_number_seq', width: 4 },
-  SPACE: { prefix: 'UNIT', sequence: 'public.space_record_number_seq', width: 4 },
+  SPACE: { prefix: 'SPC', sequence: 'public.space_record_number_seq', width: 4 },
 };
 
 export async function nextRecordNumber(

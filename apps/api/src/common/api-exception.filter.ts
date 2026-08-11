@@ -19,11 +19,25 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const isHttp = exception instanceof HttpException;
     const prismaCode =
       exception instanceof Prisma.PrismaClientKnownRequestError ? exception.code : undefined;
+    const databaseMessage =
+      exception instanceof Prisma.PrismaClientKnownRequestError &&
+      typeof exception.meta?.message === 'string'
+        ? exception.meta.message
+        : '';
+    const integrityMessage = databaseMessage.includes('ownership must total')
+      ? 'Active Property ownership must total 100% for the effective period.'
+      : databaseMessage.includes('payout entitlement must total')
+        ? 'Active Property payout entitlement must total 100% for the effective period.'
+        : databaseMessage.includes('exactly one operating branch')
+          ? 'Active Property requires exactly one operating branch for the effective period.'
+          : databaseMessage.includes('usable area')
+            ? 'The RentableSpace area conflicts with its effective parent configuration.'
+            : undefined;
     const statusCode = isHttp
       ? exception.getStatus()
       : prismaCode === 'P2025'
         ? HttpStatus.NOT_FOUND
-        : prismaCode && ['P2002', 'P2003', 'P2004'].includes(prismaCode)
+        : prismaCode && ['P2002', 'P2003', 'P2004', 'P2010'].includes(prismaCode)
           ? HttpStatus.CONFLICT
           : HttpStatus.INTERNAL_SERVER_ERROR;
     const raw = isHttp ? exception.getResponse() : undefined;
@@ -34,13 +48,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const message =
       prismaCode === 'P2025'
         ? 'The requested record was not found.'
-        : prismaCode
-          ? 'The change conflicts with existing data.'
-          : statusCode >= 500
-            ? 'An unexpected error occurred.'
-            : exception instanceof Error
-              ? exception.message
-              : 'Request failed.';
+        : integrityMessage
+          ? integrityMessage
+          : prismaCode
+            ? 'The change conflicts with existing data.'
+            : statusCode >= 500
+              ? 'An unexpected error occurred.'
+              : exception instanceof Error
+                ? exception.message
+                : 'Request failed.';
     const body: ApiErrorResponse = {
       statusCode,
       code: validationMessages.length

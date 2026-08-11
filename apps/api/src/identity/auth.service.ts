@@ -1,5 +1,12 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { BadRequestException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { uuidv7 } from '@rerms/shared';
+import { createHash, randomBytes } from 'node:crypto';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { BranchAccessMode, UserStatus } from '@prisma/client';
 import { API_ENVIRONMENT } from '../config/foundation-config.module';
 import type { ApiEnvironment } from '@rerms/config';
@@ -51,7 +58,7 @@ export class AuthService {
     await this.database.$transaction(async (transaction) => {
       const session = await transaction.session.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           userId: user.id,
           tokenHash: this.hashToken(token),
           expiresAt,
@@ -125,10 +132,15 @@ export class AuthService {
         .filter((assignment) => activeAt(assignment.effectiveFrom, assignment.effectiveTo))
         .map((assignment) => assignment.branchId),
     );
-    await this.database.session.update({
-      where: { id: session.id },
-      data: { lastActivityAt: now },
-    });
+    const activityWriteBefore = new Date(
+      now.getTime() - this.environment.SESSION_ACTIVITY_WRITE_INTERVAL_MINUTES * 60 * 1000,
+    );
+    if (session.lastActivityAt < activityWriteBefore) {
+      await this.database.session.updateMany({
+        where: { id: session.id, lastActivityAt: { lt: activityWriteBefore } },
+        data: { lastActivityAt: now },
+      });
+    }
     return {
       userId: session.userId,
       sessionId: session.id,
@@ -182,10 +194,7 @@ export class AuthService {
     const employee = session?.user.employee;
     if (!employee || employee.companyId !== principal.companyId)
       throw new NotFoundException('Session not found.');
-    if (
-      employee.accessMode === BranchAccessMode.COMPANY_WIDE ||
-      !employee.branchAssignments.length
-    )
+    if (employee.accessMode === BranchAccessMode.COMPANY_WIDE || !employee.branchAssignments.length)
       this.authorization.assertCompanyPermission(principal, 'identity.session.revoke');
     else
       this.authorization.assertPermissionAcrossBranches(
@@ -257,15 +266,16 @@ export class AuthService {
     const token = this.issueToken();
     await this.database.passwordResetToken.create({
       data: {
-        id: randomUUID(),
+        id: uuidv7(),
         userId: user.id,
         tokenHash: this.hashToken(token),
         expiresAt: new Date(Date.now() + this.environment.PASSWORD_RESET_TTL_MINUTES * 60 * 1000),
       },
     });
-    return this.environment.NODE_ENV === 'production'
-      ? { accepted: true }
-      : { accepted: true, developmentToken: token };
+    return this.environment.NODE_ENV !== 'production' &&
+      this.environment.EXPOSE_DEVELOPMENT_RESET_TOKEN
+      ? { accepted: true, developmentToken: token }
+      : { accepted: true };
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

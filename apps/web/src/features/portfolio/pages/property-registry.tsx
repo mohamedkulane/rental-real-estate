@@ -186,6 +186,7 @@ export function PropertyRegistry({
   canUpdate,
   onCreate,
   onUpdate,
+  onTransition,
   onDiscard,
   onLoadDetails,
 }: {
@@ -196,7 +197,12 @@ export function PropertyRegistry({
   creatableBranchIds: string[];
   canUpdate: (record: PropertyRecord) => boolean;
   onCreate: (input: PropertyInput) => Promise<void>;
-  onUpdate: (id: string, input: Partial<PropertyInput> & { status?: string }) => Promise<void>;
+  onUpdate: (id: string, input: Partial<PropertyInput>) => Promise<void>;
+  onTransition: (
+    id: string,
+    action: 'activate' | 'deactivate' | 'reactivate' | 'retire',
+    reason: string,
+  ) => Promise<void>;
   onDiscard: (id: string, reason: string) => Promise<void>;
   onLoadDetails: (id: string) => Promise<PropertyRecord>;
 }) {
@@ -304,7 +310,7 @@ export function PropertyRegistry({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               type="search"
-              placeholder="Search name, code, city, or branchâ€¦"
+              placeholder="Search name, code, city, or branch..."
               className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
@@ -584,7 +590,7 @@ export function PropertyRegistry({
                 disabled={busy}
                 className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
               >
-                {busy ? 'Savingâ€¦' : 'Create draft property'}
+                {busy ? 'Saving...' : 'Create draft property'}
               </button>
               <button
                 type="button"
@@ -661,7 +667,7 @@ export function PropertyRegistry({
                 disabled={busy}
                 className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
               >
-                {busy ? 'Savingâ€¦' : 'Save changes'}
+                {busy ? 'Saving...' : 'Save changes'}
               </button>
               <button
                 type="button"
@@ -686,7 +692,11 @@ export function PropertyRegistry({
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
-              void onUpdate(selected.id, { status: field(form, 'status') })
+              void onTransition(
+                selected.id,
+                field(form, 'action') as 'activate' | 'deactivate' | 'reactivate' | 'retire',
+                field(form, 'reason'),
+              )
                 .then(closePanel)
                 .catch(() => undefined);
             }}
@@ -697,19 +707,35 @@ export function PropertyRegistry({
                 Current status: {humanize(selected.status)}
               </p>
             </div>
-            <FormField label="New status">
-              <select name="status" defaultValue={selected.status} className={inputClass}>
-                <option value="DRAFT">Draft</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="RETIRED">Retired</option>
+            <FormField label="Lifecycle action">
+              <select name="action" className={inputClass} required>
+                {selected.status === 'DRAFT' ? <option value="activate">Activate</option> : null}
+                {selected.status === 'ACTIVE' ? (
+                  <option value="deactivate">Deactivate</option>
+                ) : null}
+                {selected.status === 'INACTIVE' ? (
+                  <>
+                    <option value="reactivate">Reactivate</option>
+                    <option value="retire">Retire permanently</option>
+                  </>
+                ) : null}
               </select>
+            </FormField>
+            <FormField label="Reason">
+              <textarea
+                name="reason"
+                rows={3}
+                minLength={3}
+                maxLength={500}
+                className={inputClass}
+                required
+              />
             </FormField>
             <button
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Updatingâ€¦' : 'Update status'}
+              {busy ? 'Updating...' : 'Confirm lifecycle change'}
             </button>
           </form>
         </Drawer>
@@ -755,7 +781,7 @@ export function PropertyRegistry({
               disabled={busy}
               className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60"
             >
-              {busy ? 'Discardingâ€¦' : 'Discard draft'}
+              {busy ? 'Discarding...' : 'Discard draft'}
             </button>
           </form>
         </Drawer>
@@ -764,7 +790,7 @@ export function PropertyRegistry({
       {panel === 'details' && selected ? (
         <Drawer
           title={selected.name}
-          description={selected.propertyCode + ' Â· ' + humanize(selected.propertyType)}
+          description={selected.propertyCode + ' · ' + humanize(selected.propertyType)}
           onClose={closePanel}
         >
           {detailLoading ? (
@@ -838,7 +864,7 @@ export function PropertyRegistry({
                         <div>
                           <p className="text-sm font-bold">{space.name}</p>
                           <p className="text-xs text-slate-500">
-                            {space.spaceCode} Â· {space.type?.name ?? 'Rentable space'}
+                            {space.spaceCode} · {space.type?.name ?? 'Rentable space'}
                           </p>
                         </div>
                         <StatusBadge value={space.status} />

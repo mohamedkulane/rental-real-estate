@@ -38,6 +38,15 @@ describe.skipIf(!databaseUrl)('Phase 4 native data integrity', () => {
         propertyType: 'HOUSE',
         status: 'DRAFT',
         city: 'Mogadishu',
+        propertyLifecycleHistories: {
+          create: {
+            id: randomUUID(),
+            status: 'DRAFT',
+            effectiveFrom: new Date('2026-01-01'),
+            reason: 'Integration draft baseline',
+            actorUserId: uploaderId,
+          },
+        },
         branchAssignments: {
           create: { id: randomUUID(), branchId, effectiveFrom: new Date('2026-01-01') },
         },
@@ -70,7 +79,27 @@ describe.skipIf(!databaseUrl)('Phase 4 native data integrity', () => {
   it('rejects activation until ownership, payout, owner status, and branch configuration are complete', async () => {
     const property = await draftProperty('Incomplete activation');
     await expect(
-      database.property.update({ where: { id: property.id }, data: { status: 'ACTIVE' } }),
+      database.$transaction(async (transaction) => {
+        const activationDate = new Date(new Date().toISOString().slice(0, 10));
+        await transaction.propertyLifecycleHistory.updateMany({
+          where: { propertyId: property.id, effectiveTo: null },
+          data: { effectiveTo: activationDate },
+        });
+        await transaction.propertyLifecycleHistory.create({
+          data: {
+            id: randomUUID(),
+            propertyId: property.id,
+            status: 'ACTIVE',
+            effectiveFrom: activationDate,
+            reason: 'Invalid activation proof',
+            actorUserId: uploaderId,
+          },
+        });
+        await transaction.property.update({
+          where: { id: property.id },
+          data: { status: 'ACTIVE' },
+        });
+      }),
     ).rejects.toThrow(/ownership must total 100/i);
     expect((await database.property.findUniqueOrThrow({ where: { id: property.id } })).status).toBe(
       'DRAFT',

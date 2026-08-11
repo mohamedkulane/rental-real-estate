@@ -261,7 +261,7 @@ export function EmployeeDirectory({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, employee number, title, or emailâ€¦"
+              placeholder="Search name, employee number, title, or email…"
               className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
@@ -520,7 +520,7 @@ export function EmployeeDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Savingâ€¦' : 'Create employee'}
+              {busy ? 'Saving…' : 'Create employee'}
             </button>
           </form>
         </Panel>
@@ -585,7 +585,7 @@ export function EmployeeDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Savingâ€¦' : 'Save changes'}
+              {busy ? 'Saving…' : 'Save changes'}
             </button>
           </form>
         </Panel>
@@ -628,7 +628,7 @@ export function EmployeeDirectory({
                   : 'bg-emerald-600 hover:bg-emerald-700')
               }
             >
-              {busy ? 'Updatingâ€¦' : selected.active ? 'Deactivate employee' : 'Activate employee'}
+              {busy ? 'Updating…' : selected.active ? 'Deactivate employee' : 'Activate employee'}
             </button>
           </form>
         </Panel>
@@ -690,7 +690,7 @@ export function EmployeeDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Assigningâ€¦' : 'Assign role'}
+              {busy ? 'Assigning…' : 'Assign role'}
             </button>
           </form>
         </Panel>
@@ -698,7 +698,7 @@ export function EmployeeDirectory({
       {panel === 'details' && selected ? (
         <Panel
           title={selected.displayName}
-          description={selected.employeeNumber + ' Â· ' + (selected.jobTitle || 'No job title')}
+          description={selected.employeeNumber + ' · ' + (selected.jobTitle || 'No job title')}
           onClose={close}
         >
           {loadingDetail ? (

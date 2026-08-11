@@ -41,7 +41,7 @@ export function PaginationControls({
   return (
     <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-xs font-semibold text-slate-500">
-        Showing {start}â€“{end} of {total}
+        Showing {start}–{end} of {total}
       </p>
       <div className="flex items-center gap-2">
         <button

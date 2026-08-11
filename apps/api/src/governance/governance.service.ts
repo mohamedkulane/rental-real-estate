@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { DatabaseService } from '../database/database.service';
@@ -22,10 +22,7 @@ export class GovernanceService {
   }
 
   listApprovals(principal: AuthenticatedPrincipal) {
-    const branchIds = this.authorization.authorizedBranchIds(
-      principal,
-      'governance.approval.read',
-    );
+    const branchIds = this.authorization.authorizedBranchIds(principal, 'governance.approval.read');
     const where = branchIds === null ? {} : { branchId: { in: [...branchIds] } };
     return this.database.approvalRequest.findMany({
       where,
@@ -58,7 +55,7 @@ export class GovernanceService {
         throw new BadRequestException('No approval rule applies to this action.');
       const request = await transaction.approvalRequest.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           policyId: policy.id,
           makerEmployeeId: principal.employeeId,
           branchId: input.branchId ?? null,
@@ -72,7 +69,7 @@ export class GovernanceService {
             correlationId && /^[0-9a-f-]{36}$/i.test(correlationId) ? correlationId : null,
           steps: {
             create: policy.rules.map((rule) => ({
-              id: randomUUID(),
+              id: uuidv7(),
               sequence: rule.sequence,
               status: 'PENDING',
             })),
@@ -123,7 +120,7 @@ export class GovernanceService {
         throw new BadRequestException('Maker cannot approve their own request.');
       const decision = await transaction.approvalDecision.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           stepId,
           approverEmployeeId: principal.employeeId,
           outcome: input.outcome,

@@ -12,6 +12,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { PropertyStatus } from '@prisma/client';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -30,6 +31,7 @@ import {
   CreateSpaceDto,
   DiscardPropertyDraftDto,
   PartitionSpaceDto,
+  PropertyLifecycleTransitionDto,
   ListSpacesQueryDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
@@ -124,6 +126,58 @@ export class PropertyController {
     return this.portfolio.updateProperty(
       request.principal,
       propertyId,
+      input,
+      request.correlationId,
+    );
+  }
+  @Post(':propertyId/activate') @RequirePermissions('portfolio.property.update') activate(
+    @Req() request: AuthenticatedRequest,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Body() input: PropertyLifecycleTransitionDto,
+  ) {
+    return this.portfolio.transitionProperty(
+      request.principal,
+      propertyId,
+      PropertyStatus.ACTIVE,
+      input,
+      request.correlationId,
+    );
+  }
+  @Post(':propertyId/deactivate') @RequirePermissions('portfolio.property.update') deactivate(
+    @Req() request: AuthenticatedRequest,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Body() input: PropertyLifecycleTransitionDto,
+  ) {
+    return this.portfolio.transitionProperty(
+      request.principal,
+      propertyId,
+      PropertyStatus.INACTIVE,
+      input,
+      request.correlationId,
+    );
+  }
+  @Post(':propertyId/reactivate') @RequirePermissions('portfolio.property.update') reactivate(
+    @Req() request: AuthenticatedRequest,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Body() input: PropertyLifecycleTransitionDto,
+  ) {
+    return this.portfolio.transitionProperty(
+      request.principal,
+      propertyId,
+      PropertyStatus.ACTIVE,
+      input,
+      request.correlationId,
+    );
+  }
+  @Post(':propertyId/retire') @RequirePermissions('portfolio.property.update') retire(
+    @Req() request: AuthenticatedRequest,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Body() input: PropertyLifecycleTransitionDto,
+  ) {
+    return this.portfolio.transitionProperty(
+      request.principal,
+      propertyId,
+      PropertyStatus.RETIRED,
       input,
       request.correlationId,
     );

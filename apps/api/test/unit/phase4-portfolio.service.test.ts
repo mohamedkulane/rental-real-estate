@@ -27,10 +27,13 @@ describe('Phase 4 portfolio services', () => {
   it('encrypts contact values with authenticated encryption and stable normalization', () => {
     const crypto = new PartyCryptoService({
       PARTY_DATA_ENCRYPTION_KEY: '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+      PARTY_DATA_ENCRYPTION_KEY_VERSION: 'v1',
+      PARTY_DATA_DECRYPTION_KEYS: '',
+      PARTY_CONTACT_LOOKUP_KEY: '101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f',
     } as unknown as ApiEnvironment);
     const encrypted = crypto.encrypt('+252 61 123 4567');
     expect(encrypted).not.toContain('+252 61 123 4567');
-    expect(encrypted.split('.')).toHaveLength(3);
+    expect(encrypted.split('.')).toHaveLength(4);
     expect(crypto.decrypt(encrypted)).toBe('+252 61 123 4567');
     expect(crypto.normalizedHash(' Owner@Example.Test ')).toBe(
       crypto.normalizedHash('owner@example.test'),
@@ -41,6 +44,12 @@ describe('Phase 4 portfolio services', () => {
   it('requires the area unit whenever space area is supplied', async () => {
     const service = new PortfolioService(
       {} as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-01-01')) } as never,
+      {
+        scheduledDate: vi
+          .fn()
+          .mockImplementation((_companyId, value) => Promise.resolve(new Date(value))),
+      } as never,
       {} as AuthorizationService,
       {} as AuditService,
     );
@@ -59,6 +68,12 @@ describe('Phase 4 portfolio services', () => {
   it('requires land-specific data and rejects profiles on other physical types', async () => {
     const service = new PortfolioService(
       {} as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-01-01')) } as never,
+      {
+        scheduledDate: vi
+          .fn()
+          .mockImplementation((_companyId, value) => Promise.resolve(new Date(value))),
+      } as never,
       {} as AuthorizationService,
       {} as AuditService,
     );
@@ -108,7 +123,17 @@ describe('Phase 4 portfolio services', () => {
     const authorization = {
       assertBranchPermission: vi.fn(),
     } as unknown as AuthorizationService;
-    const service = new PortfolioService(database, authorization, {} as AuditService);
+    const service = new PortfolioService(
+      database,
+      { today: vi.fn().mockResolvedValue(new Date('2026-02-01')) } as never,
+      {
+        scheduledDate: vi
+          .fn()
+          .mockImplementation((_companyId, value) => Promise.resolve(new Date(value))),
+      } as never,
+      authorization,
+      {} as AuditService,
+    );
     await expect(
       service.partition(principal, '00000000-0000-4000-8000-000000000020', {
         effectiveFrom: '2026-02-01',

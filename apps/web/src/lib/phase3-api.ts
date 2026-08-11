@@ -1,5 +1,4 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
-export const SESSION_KEY = 'rerms.session';
 
 export interface Principal {
   userId: string;
@@ -9,7 +8,6 @@ export interface Principal {
   permissions: string[];
   permissionBranchScopes: Record<string, Array<string | null>>;
   branchIds: string[];
-  sessionId: string;
 }
 
 export class ApiError extends Error {
@@ -48,14 +46,13 @@ export function userFacingError(
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(SESSION_KEY);
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
+      credentials: 'include',
       headers: {
         'content-type': 'application/json',
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
         ...init.headers,
       },
     });
@@ -74,8 +71,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export function apiCached<T>(path: string, ttlMs = 300_000): Promise<T> {
-  const token = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(SESSION_KEY);
-  const key = `${token ?? 'anonymous'}:${path}`;
+  const key = path;
   const cached = requestCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.promise as Promise<T>;
 
@@ -120,5 +116,8 @@ export function canPerformAcrossBranches(
   branchIds: string[],
 ): boolean {
   const unique = [...new Set(branchIds)];
-  return unique.length > 0 && unique.every((branchId) => canPerformInBranch(principal, permission, branchId));
+  return (
+    unique.length > 0 &&
+    unique.every((branchId) => canPerformInBranch(principal, permission, branchId))
+  );
 }

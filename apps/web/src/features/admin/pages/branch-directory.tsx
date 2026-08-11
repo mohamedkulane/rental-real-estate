@@ -157,7 +157,7 @@ export function BranchDirectory({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search branch name, code, phone, or emailâ€¦"
+              placeholder="Search branch name, code, phone, or email…"
               className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
@@ -335,7 +335,7 @@ export function BranchDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Creatingâ€¦' : 'Create branch'}
+              {busy ? 'Creating…' : 'Create branch'}
             </button>
           </form>
         </Panel>
@@ -396,7 +396,7 @@ export function BranchDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Savingâ€¦' : 'Save changes'}
+              {busy ? 'Saving…' : 'Save changes'}
             </button>
           </form>
         </Panel>
@@ -422,7 +422,7 @@ export function BranchDirectory({
                   : 'bg-emerald-600 hover:bg-emerald-700')
               }
             >
-              {busy ? 'Updatingâ€¦' : selected.active ? 'Deactivate branch' : 'Activate branch'}
+              {busy ? 'Updating…' : selected.active ? 'Deactivate branch' : 'Activate branch'}
             </button>
           </div>
         </Panel>
@@ -430,7 +430,7 @@ export function BranchDirectory({
       {panel === 'details' && selected ? (
         <Panel
           title={selected.name}
-          description={selected.code + ' Â· Operating branch'}
+          description={selected.code + ' · Operating branch'}
           onClose={close}
         >
           <div className="space-y-5">

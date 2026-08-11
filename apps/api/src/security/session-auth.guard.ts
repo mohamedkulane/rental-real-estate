@@ -22,9 +22,16 @@ export class SessionAuthGuard implements CanActivate {
       return true;
     const request = context.switchToHttp().getRequest<Request>();
     const authorization = request.header('authorization');
-    if (!authorization?.startsWith('Bearer '))
-      throw new UnauthorizedException('Authentication required.');
-    const token = authorization.slice(7).trim();
+    const cookieToken = request
+      .header('cookie')
+      ?.split(';')
+      .map((part) => part.trim().split('='))
+      .find(([name]) => name === 'rerms_session')?.[1];
+    const token = cookieToken
+      ? decodeURIComponent(cookieToken)
+      : authorization?.startsWith('Bearer ')
+        ? authorization.slice(7).trim()
+        : '';
     if (!token) throw new UnauthorizedException('Authentication required.');
     const principal = await this.auth.resolveSession(token);
     Object.assign(request, { principal, sessionToken: token } satisfies Pick<

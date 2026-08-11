@@ -183,7 +183,7 @@ export function SettingsPanel({
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                {busy ? 'Savingâ€¦' : 'Save settings'}
+                {busy ? 'Saving…' : 'Save settings'}
               </button>
             </div>
           ) : null}
@@ -198,7 +198,7 @@ export function SettingsPanel({
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               User access, account suspension, and session revocation are managed under{' '}
-              <strong>Team & access â†’ User accounts</strong>.
+              <strong>Team & access → User accounts</strong>.
             </p>
           </section>
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LockKeyhole, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { api, SESSION_KEY, userFacingError } from '@/lib/phase3-api';
+import { api, clearApiCache, userFacingError } from '@/lib/phase3-api';
 import { BrandMark } from '@/components/shared/ui';
 
 export function LoginForm() {
@@ -20,11 +20,11 @@ export function LoginForm() {
     const values = new FormData(event.currentTarget);
 
     try {
-      const session = await api<{ token: string }>('/auth/login', {
+      await api<{ expiresAt: string }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: values.get('email'), password: values.get('password') }),
       });
-      sessionStorage.setItem(SESSION_KEY, session.token);
+      clearApiCache();
       router.replace('/admin');
     } catch (cause) {
       const message =

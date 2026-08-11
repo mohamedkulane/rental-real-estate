@@ -11,9 +11,14 @@ const environment = {
   NODE_ENV: 'test',
   SESSION_TTL_HOURS: 24,
   PASSWORD_RESET_TTL_MINUTES: 30,
+  SESSION_ACTIVITY_WRITE_INTERVAL_MINUTES: 5,
+  EXPOSE_DEVELOPMENT_RESET_TOKEN: false,
 } as unknown as ApiEnvironment;
 
-function fixture(status: UserStatus = UserStatus.ACTIVE) {
+function fixture(
+  status: UserStatus = UserStatus.ACTIVE,
+  environmentOverrides: Partial<ApiEnvironment> = {},
+) {
   const transaction = {
     session: {
       create: vi.fn().mockResolvedValue({ id: 'session-id' }),
@@ -27,6 +32,7 @@ function fixture(status: UserStatus = UserStatus.ACTIVE) {
       findUnique: vi.fn().mockResolvedValue({ id: 'user-id', passwordHash: 'hash', status }),
     },
     session: { findUnique: sessionFindUnique, update: vi.fn() },
+    passwordResetToken: { create: vi.fn().mockResolvedValue({ id: 'reset-id' }) },
     $transaction: vi.fn((work: (tx: typeof transaction) => unknown) =>
       Promise.resolve(work(transaction)),
     ),
@@ -37,7 +43,10 @@ function fixture(status: UserStatus = UserStatus.ACTIVE) {
   } as unknown as PasswordService;
   const audit = { write: vi.fn() } as unknown as AuditService;
   return {
-    service: new AuthService(database, passwords, audit, new AuthorizationService(), environment),
+    service: new AuthService(database, passwords, audit, new AuthorizationService(), {
+      ...environment,
+      ...environmentOverrides,
+    }),
     database,
     transaction,
     passwords,
@@ -113,5 +122,27 @@ describe('AuthService', () => {
     const calls: unknown[][] = transaction.session.update.mock.calls;
     const updateInput = calls[0]?.[0] as { data?: { revocationReason?: string } } | undefined;
     expect(updateInput?.data?.revocationReason).toBe('Administrative revocation');
+  });
+  it('exposes a password-reset token only under the explicit non-production test switch', async () => {
+    const defaultDevelopment = fixture(UserStatus.ACTIVE, { NODE_ENV: 'development' });
+    expect(await defaultDevelopment.service.requestPasswordReset('a@example.test')).toEqual({
+      accepted: true,
+    });
+
+    const explicitTest = fixture(UserStatus.ACTIVE, {
+      NODE_ENV: 'test',
+      EXPOSE_DEVELOPMENT_RESET_TOKEN: true,
+    });
+    expect(await explicitTest.service.requestPasswordReset('a@example.test')).toHaveProperty(
+      'developmentToken',
+    );
+
+    const production = fixture(UserStatus.ACTIVE, {
+      NODE_ENV: 'production',
+      EXPOSE_DEVELOPMENT_RESET_TOKEN: true,
+    });
+    expect(await production.service.requestPasswordReset('a@example.test')).toEqual({
+      accepted: true,
+    });
   });
 });
