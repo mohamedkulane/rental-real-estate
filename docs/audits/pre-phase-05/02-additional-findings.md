@@ -29,3 +29,13 @@
 - Remediation: removed it from the normal session profile; admin session IDs remain only in the protected account-management endpoint.
 - Tests added: revocation e2e correlates server-side token hash instead of browser-visible session ID.
 - Final status: FIXED.
+
+## AF-004 — Deferred hierarchy/area checks lacked transaction-level serialization
+
+- Severity: HIGH
+- Disposition: confirmed during the mandatory second-pass audit.
+- Evidence: Phase 4 `validate_all_space_areas()` and hierarchy triggers were deferred but did not serialize concurrent writes for the same Property.
+- Root cause: application row locks protected normal service commands, while direct/concurrent database writes could execute under separate snapshots before either transaction committed.
+- Remediation: migration `20260811153000_portfolio_concurrency_guards` adds Property-scoped transaction advisory locks before parent-history, measurement, and active-status changes; existing deferred triggers remain final validation authority.
+- Tests added: two simultaneous 60 m² child allocations against a 100 m² parent produce exactly one commit and one rejection; concurrent duplicate Property business numbers also produce exactly one winner.
+- Final status: FIXED.

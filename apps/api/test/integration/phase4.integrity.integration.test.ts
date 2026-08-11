@@ -196,6 +196,73 @@ describe.skipIf(!databaseUrl)('Phase 4 native data integrity', () => {
     ).rejects.toThrow(/same Property/i);
   });
 
+  it('serializes concurrent child allocations and preserves the parent area invariant', async () => {
+    const property = await draftProperty('Concurrent area control');
+    const parent = await space(property.id, hallTypeId, 'Concurrent parent', '100');
+    const firstChild = await space(property.id, roomTypeId, 'Concurrent child one', '60');
+    const secondChild = await space(property.id, roomTypeId, 'Concurrent child two', '60');
+    const effectiveFrom = new Date('2026-01-01');
+
+    const results = await Promise.allSettled(
+      [firstChild.id, secondChild.id].map((childSpaceId) =>
+        database.$transaction((transaction) =>
+          transaction.rentableSpaceParentHistory.create({
+            data: {
+              id: randomUUID(),
+              childSpaceId,
+              parentSpaceId: parent.id,
+              effectiveFrom,
+            },
+          }),
+        ),
+      ),
+    );
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      await database.rentableSpaceParentHistory.count({
+        where: { parentSpaceId: parent.id, effectiveFrom },
+      }),
+    ).toBe(1);
+  });
+
+  it('allows only one winner for a concurrent duplicate business number', async () => {
+    const propertyCode = `CONCURRENT-${randomUUID().slice(0, 8)}`;
+    const createProperty = (name: string) =>
+      database.property.create({
+        data: {
+          id: randomUUID(),
+          companyId,
+          propertyCode,
+          name,
+          propertyType: 'HOUSE',
+          status: 'DRAFT',
+          city: 'Mogadishu',
+          propertyLifecycleHistories: {
+            create: {
+              id: randomUUID(),
+              status: 'DRAFT',
+              effectiveFrom: new Date('2026-01-01'),
+              reason: 'Concurrent business-number proof',
+              actorUserId: uploaderId,
+            },
+          },
+          branchAssignments: {
+            create: { id: randomUUID(), branchId, effectiveFrom: new Date('2026-01-01') },
+          },
+        },
+      });
+
+    const results = await Promise.allSettled([
+      createProperty('Concurrent property one'),
+      createProperty('Concurrent property two'),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(await database.property.count({ where: { companyId, propertyCode } })).toBe(1);
+  });
   it('preserves document versions as immutable evidence', async () => {
     const documentId = randomUUID();
     const versionId = randomUUID();

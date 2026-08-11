@@ -25,7 +25,7 @@ PostgreSQL remains final authority for overlap exclusion, 100% ownership/payout 
 
 ## Migration proof
 
-- isolated empty DB -> seven migrations: PASS
+- isolated empty DB -> eight migrations: PASS
 - isolated Phase 3-only migration -> remaining six migrations: PASS
 - seed on the isolated fresh DB twice: PASS
 - no Phase 5 tables created: PASS

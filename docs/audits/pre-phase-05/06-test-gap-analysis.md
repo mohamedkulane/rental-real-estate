@@ -12,9 +12,10 @@
 - HttpOnly/SameSite cookie, no token response, logout and administrator revocation.
 - CORS rejection, Helmet headers, x-powered-by removal, Swagger default-off.
 - Party directory masking, full-contact permission, sensitive metadata rejection, and cross-branch denial.
-- Direct child-area prevalidation and native parent/area constraints.
+- Direct child-area prevalidation, native parent/area constraints, and simultaneous child-allocation race rejection.
 - Employee branch-role containment and same-day audited role cancellation.
 - Operational schema/future design separation and schema/migration parity.
+- Concurrent duplicate business-number one-winner behavior.
 - Source/docs encoding scan.
 
 ## Existing critical coverage retained

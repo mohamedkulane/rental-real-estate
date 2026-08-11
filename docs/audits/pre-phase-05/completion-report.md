@@ -5,8 +5,8 @@ PRE-PHASE-5 DEEP AUDIT & REMEDIATION
 Confirmed findings fixed: 26
 Findings rejected with evidence: 0
 Confirmed findings modified/bounded: 1
-Additional findings discovered: 3
-Additional findings fixed: 3
+Additional findings discovered: 4
+Additional findings fixed: 4
 Deferred LOW risks: 0
 Deferred MEDIUM scalability follow-ups: 1
 Unresolved CRITICAL: 0
