@@ -7,7 +7,7 @@ Decision: remediation is eligible for PASS after the final local and remote gate
 ## Outcome
 
 - 27 supplied findings validated: 26 fixed, 1 modified and bounded with a documented pre-CRM follow-up (GAP-021).
-- 4 additional findings discovered and fixed.
+- 6 additional findings discovered and fixed.
 - Unresolved CRITICAL: 0.
 - Unresolved HIGH: 0.
 - Operational Prisma schema: 46 implemented models/tables; future design retained only in `docs/database/prisma-design/schema-candidate.prisma`.

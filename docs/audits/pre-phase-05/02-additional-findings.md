@@ -39,3 +39,23 @@
 - Remediation: migration `20260811153000_portfolio_concurrency_guards` adds Property-scoped transaction advisory locks before parent-history, measurement, and active-status changes; existing deferred triggers remain final validation authority.
 - Tests added: two simultaneous 60 m² child allocations against a 100 m² parent produce exactly one commit and one rejection; concurrent duplicate Property business numbers also produce exactly one winner.
 - Final status: FIXED.
+
+## AF-005 — Clean-checkout automation depended on untracked environment and build artifacts
+
+- Severity: MEDIUM
+- Disposition: confirmed by remote clean-checkout CI.
+- Evidence: prisma.config.ts, root and database-package test/seed scripts, GitHub Actions runs on the remediation PR.
+- Root cause: Prisma configuration required a local environment file, while seed and test entry points imported workspace packages whose compiled output existed locally but not after a clean checkout.
+- Remediation: local environment-file loading is optional when CI supplies environment variables; seed and test entry points build their declared workspace dependencies before execution.
+- Tests added: clean-checkout CI runs Prisma format/validation, migration, seed, unit, integration, and E2E commands without untracked files.
+- Final status: FIXED.
+
+## AF-006 — Seeded business numbers did not reserve their automatic sequence values
+
+- Severity: HIGH
+- Disposition: confirmed by remote fresh-database E2E.
+- Evidence: the seed created EMP-0001 after the automatic-number migration had initialized employee_record_number_seq to 1; the first API-created employee therefore collided with the seeded administrator.
+- Root cause: migrations synchronized sequences before seed data existed, and the idempotent seed did not resynchronize them afterward.
+- Remediation: the seed now synchronizes all six business-number sequences (branch, employee, party, owner, property, and rentable space) from their matching persisted prefixes after every seed run.
+- Tests added: isolated eight-migration database, seed twice, employee next-value inspection (2, not yet called), and full E2E suite (32/32).
+- Final status: FIXED.

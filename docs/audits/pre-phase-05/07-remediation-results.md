@@ -12,6 +12,9 @@ Repository governance, operational schema parity, effective Property lifecycle, 
 - Fresh eight-migration database: PASS.
 - Phase 3-only baseline upgraded through all seven remaining migrations: PASS.
 - Seed repeated twice on isolated fresh database: PASS.
+- Seeded employee sequence reserved EMP-0001 and exposed 2 as the next unused value: PASS.
+- Full E2E suite against that clean seeded database: 4 files / 32 tests PASS.
+- Clean-checkout Prisma, seed, and workspace dependency execution defects found by remote CI: FIXED locally; final remote rerun pending.
 - Concurrent child-area allocation and duplicate business-number races: PASS.
 - Final all-repository gate results are recorded in `completion-report.md` after the last clean run.
 

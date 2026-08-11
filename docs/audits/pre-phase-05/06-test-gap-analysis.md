@@ -17,6 +17,8 @@
 - Operational schema/future design separation and schema/migration parity.
 - Concurrent duplicate business-number one-winner behavior.
 - Source/docs encoding scan.
+- Clean-checkout execution without an untracked environment file or pre-existing workspace build artifacts.
+- Seed-to-sequence synchronization on a fresh database before the first normal API write.
 
 ## Existing critical coverage retained
 

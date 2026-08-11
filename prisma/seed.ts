@@ -13,6 +13,39 @@ const database = new PrismaClient();
 const environment = parseSeedEnvironment(process.env);
 const today = new Date(new Date().toISOString().slice(0, 10));
 
+async function synchronizeRecordNumberSequences(): Promise<void> {
+  await database.$executeRaw`
+    DO $$
+    DECLARE
+      maximum_value bigint;
+    BEGIN
+      SELECT MAX(substring(code FROM '^BR-([0-9]+)$')::bigint)
+        INTO maximum_value FROM branches WHERE code ~ '^BR-[0-9]+$';
+      PERFORM setval('branch_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("employeeNumber" FROM '^EMP-([0-9]+)$')::bigint)
+        INTO maximum_value FROM employees WHERE "employeeNumber" ~ '^EMP-[0-9]+$';
+      PERFORM setval('employee_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("partyNumber" FROM '^PTY-([0-9]+)$')::bigint)
+        INTO maximum_value FROM parties WHERE "partyNumber" ~ '^PTY-[0-9]+$';
+      PERFORM setval('party_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("ownerNumber" FROM '^OWN-([0-9]+)$')::bigint)
+        INTO maximum_value FROM owner_profiles WHERE "ownerNumber" ~ '^OWN-[0-9]+$';
+      PERFORM setval('owner_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("propertyCode" FROM '^PROP-([0-9]+)$')::bigint)
+        INTO maximum_value FROM properties WHERE "propertyCode" ~ '^PROP-[0-9]+$';
+      PERFORM setval('property_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("spaceCode" FROM '^UNIT-([0-9]+)$')::bigint)
+        INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^UNIT-[0-9]+$';
+      PERFORM setval('space_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+    END $$;
+  `;
+}
+
 const permissions = [
   ['organization.company.read', 'Read company foundation settings'],
   ['organization.company.update', 'Update company foundation settings'],
@@ -343,6 +376,9 @@ async function seed(): Promise<void> {
         allowDelegation: false,
       },
     });
+
+  // Seeded business identifiers must reserve their values before normal API writes begin.
+  await synchronizeRecordNumberSequences();
 
   console.info(
     `Seeded Phase 4 foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
