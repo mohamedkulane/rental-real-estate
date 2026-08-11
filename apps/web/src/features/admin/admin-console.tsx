@@ -42,7 +42,6 @@ import {
   canPerformInBranch,
   hasCompanyPermission,
   hasPermission,
-  SESSION_KEY,
   userFacingError,
 } from '@/lib/phase3-api';
 
@@ -260,7 +259,6 @@ export function AdminConsole() {
           }));
       } catch (cause) {
         if (cause instanceof ApiError && cause.status === 401) {
-          sessionStorage.removeItem(SESSION_KEY);
           router.replace('/login');
           return;
         }
@@ -333,7 +331,6 @@ export function AdminConsole() {
       })
       .catch(() => {
         clearApiCache();
-        sessionStorage.removeItem(SESSION_KEY);
         router.replace('/login');
       })
       .finally(() => setDashboardLoading(false));
@@ -385,7 +382,6 @@ export function AdminConsole() {
       await api('/auth/logout', { method: 'POST' });
     } finally {
       clearApiCache();
-      sessionStorage.removeItem(SESSION_KEY);
       router.replace('/login');
     }
   }
@@ -1132,8 +1128,8 @@ export function AdminConsole() {
                   </summary>
                   {sessions.map((session, index) => (
                     <p className="meta" key={index}>
-                      {session.revokedAt ? 'Revoked' : 'Active'} Â· Started{' '}
-                      {formatDate(session.createdAt, true)} Â· Expires{' '}
+                      {session.revokedAt ? 'Revoked' : 'Active'} · Started{' '}
+                      {formatDate(session.createdAt, true)} · Expires{' '}
                       {formatDate(session.expiresAt, true)}
                     </p>
                   ))}
@@ -1299,7 +1295,9 @@ export function AdminConsole() {
               records={records as BranchRecord[]}
               busy={busy}
               canCreate={hasCompanyPermission(principal, 'organization.branch.create')}
-              canUpdate={(record) => canPerformInBranch(principal, 'organization.branch.update', record.id)}
+              canUpdate={(record) =>
+                canPerformInBranch(principal, 'organization.branch.update', record.id)
+              }
               onCreate={(input) => mutateAction('/branches', 'POST', input, 'Branch created.')}
               onUpdate={(branchId, input) =>
                 mutateAction('/branches/' + branchId, 'PATCH', input, 'Branch updated.')

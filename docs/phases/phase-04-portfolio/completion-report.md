@@ -1,0 +1,52 @@
+# Phase 4 Completion Report
+
+## 1–4. Party, Owner, joint ownership, and Property
+
+Party supports `PERSON` and `ORGANIZATION` typed profiles, encrypted contacts, normalized hashes, and structured addresses. Owner is a Party profile. Effective ownership and payout entitlement are separate Decimal histories. Draft Properties may be incomplete; Active Properties require exact 100% ownership and payout, active Owners, and one operating branch. Property stores physical/legal asset identity and never acts as the occupancy target.
+
+## 5–9. Building, RentableSpace, hierarchy, partition, and land
+
+Building is optional. RentableSpace has stable identity, reference type, physical lifecycle, optional Building, effective measurements, specialized profiles, amenities, and recursive effective-dated parent history. Atomic partitioning locks the parent, validates area/unit, creates children and versions, preserves the parent, and audits the operation. Cycle, self-parent, cross-property, overlapping history, and area overflow controls exist in service and/or native PostgreSQL boundaries. Land uses a dedicated profile and requires no residential data.
+
+## 10. Branch authorization
+
+Property resources inherit their current effective operating branch. Backend checks combine permissions with branch scope. Company-wide access still requires explicit permission. Lists filter unauthorized branches; object reads and writes deny unauthorized branches. Owners remain company-level and are not duplicated by branch.
+
+## 11. Native constraints
+
+The Phase 4 migration adds effective-interval checks/exclusions, uniqueness, percentage bounds, deferred exact-active-configuration checks, Building/Property compatibility, same-Property hierarchy, temporal cycle detection, active-child area/unit controls, and immutable document versions.
+
+## 12. Migration results
+
+- Empty `rerms_phase4_fresh`: all migrations applied successfully; seed succeeded.
+- Completed `rerms_phase3_test`: Phase 4 migration applied successfully; seed succeeded.
+- Seed is idempotent and creates 3 branches, 13 space types, 10 amenities, permissions, roles, and development administrator.
+
+## 13–15. Automated tests
+
+- Phase 4 focused unit: 4 passed.
+- Phase 4 native PostgreSQL integration: 5 passed.
+- Phase 4 portfolio E2E: 9 passed.
+- Full default/regression suite: 13 files and 36 tests passed (API 33, database 2, web 1).
+- Full integration suite: 4 files and 8 tests passed (API 7, database connection 1).
+- Full E2E suite: 3 files and 18 tests passed.
+
+## 16–17. Regression and quality results
+
+All Phase 2/3 tests are retained and passed. Prisma format, validation, and generation passed. Repository lint and strict TypeScript passed for all workspaces. Default/unit, integration, and E2E commands passed. Production builds passed for shared/config/database packages, NestJS API, and Next.js UI; Next generated the /portfolio route successfully. E2E application initialization proved the complete Nest application boots against the migrated database.
+
+## 18. Known issues
+
+No critical Phase 4 issue remains. File binaries and finalized storage upload/download orchestration are intentionally outside this phase; only metadata boundaries are implemented.
+
+## 19. Deferred work
+
+Service engagement, listings, CRM, leads, viewings, applications, reservations, leasing, financial, deposit, maintenance, owner-statement, and payout workflows remain deferred to approved future phases.
+
+## 20. Scope verification
+
+No Phase 5 ServiceEngagement, CRM, listing, viewing, application, reservation, or leasing functionality was implemented.
+
+Phase gate result: **PASS**.
+
+The next phase has not been started.

@@ -76,4 +76,5 @@ describe('AuthorizationService', () => {
   it('returns no authorized branches when the capability is absent', () => {
     const actor = principal();
     expect(authorization.authorizedBranchIds(actor, 'identity.user.read')).toEqual(new Set());
-  });});
+  });
+});

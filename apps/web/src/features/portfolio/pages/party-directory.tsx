@@ -160,7 +160,7 @@ export function PartyDirectory({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, number, phone or emailâ€¦"
+              placeholder="Search name, number, phone or email…"
               className={inputClass + ' pl-9'}
             />
           </label>
@@ -383,7 +383,7 @@ export function PartyDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Savingâ€¦' : 'Create record'}
+              {busy ? 'Saving…' : 'Create record'}
             </button>
           </form>
         </Drawer>
@@ -402,7 +402,7 @@ export function PartyDirectory({
               <div>
                 <strong>{selected.displayName}</strong>
                 <p className="text-xs text-slate-500">
-                  {selected.partyNumber} Â· {humanize(selected.kind)}
+                  {selected.partyNumber} · {humanize(selected.kind)}
                 </p>
               </div>
               <span className="ml-auto">
@@ -420,7 +420,7 @@ export function PartyDirectory({
                       <strong className="text-sm">{contact.value || 'Protected contact'}</strong>
                       <p className="text-xs text-slate-500">
                         {humanize(contact.type)}
-                        {contact.primary ? ' Â· Primary' : ''}
+                        {contact.primary ? ' · Primary' : ''}
                       </p>
                     </div>
                   ))
@@ -465,7 +465,7 @@ export function PartyDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
             >
-              {busy ? 'Savingâ€¦' : 'Save changes'}
+              {busy ? 'Saving…' : 'Save changes'}
             </button>
           </form>
         </Drawer>
@@ -494,7 +494,7 @@ export function PartyDirectory({
                 (selected.active ? 'bg-red-600' : 'bg-emerald-600')
               }
             >
-              {busy ? 'Updatingâ€¦' : selected.active ? 'Deactivate' : 'Activate'}
+              {busy ? 'Updating…' : selected.active ? 'Deactivate' : 'Activate'}
             </button>
           </div>
         </Drawer>

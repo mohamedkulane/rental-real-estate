@@ -132,7 +132,7 @@ export function AmenityDirectory({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search amenity name or codeâ€¦"
+              placeholder="Search amenity name or code…"
               className={inputClass + ' pl-9'}
             />
           </label>
@@ -273,7 +273,7 @@ export function AmenityDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
             >
-              {busy ? 'Savingâ€¦' : 'Create amenity'}
+              {busy ? 'Saving…' : 'Create amenity'}
             </button>
           </form>
         </Drawer>
@@ -311,7 +311,7 @@ export function AmenityDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
             >
-              {busy ? 'Savingâ€¦' : 'Save amenity'}
+              {busy ? 'Saving…' : 'Save amenity'}
             </button>
           </form>
         </Drawer>
@@ -340,7 +340,7 @@ export function AmenityDirectory({
                 (selected.active ? 'bg-red-600' : 'bg-emerald-600')
               }
             >
-              {busy ? 'Updatingâ€¦' : selected.active ? 'Deactivate' : 'Activate'}
+              {busy ? 'Updating…' : selected.active ? 'Deactivate' : 'Activate'}
             </button>
           </div>
         </Drawer>

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { OwnerStatus, PartyKind, Prisma } from '@prisma/client';
 import { nextRecordNumber } from '../common/record-number';
@@ -118,7 +118,11 @@ export class PartyService {
   ): Promise<string[]> {
     const branchIds = await this.partyScopeBranchIds(partyId);
     if (this.authorization.canPerformCompanyWide(principal, permission)) return branchIds;
-    if (!branchIds.some((branchId) => this.authorization.canPerformInBranch(principal, permission, branchId)))
+    if (
+      !branchIds.some((branchId) =>
+        this.authorization.canPerformInBranch(principal, permission, branchId),
+      )
+    )
       throw new ForbiddenException('This record is outside your authorized branch scope.');
     return branchIds;
   }
@@ -135,6 +139,15 @@ export class PartyService {
     }
     this.authorization.assertPermissionAcrossBranches(principal, permission, branchIds);
     return branchIds;
+  }
+
+  private maskContact(value: string, type: string): string {
+    if (type === 'EMAIL') {
+      const [name, domain] = value.split('@');
+      return domain ? (name?.slice(0, 2) ?? '') + '***@' + domain : '***';
+    }
+    const visible = value.slice(-4);
+    return visible ? '***' + visible : '***';
   }
 
   list(principal: AuthenticatedPrincipal) {
@@ -177,10 +190,14 @@ export class PartyService {
               ),
             ]),
           ],
-          contacts: party.contacts.map(({ valueEncrypted, ...contact }) => ({
-            ...contact,
-            value: this.crypto.decrypt(valueEncrypted),
-          })),
+          contacts: party.contacts.map(({ valueEncrypted, normalizedHash, ...contact }) => {
+            void normalizedHash;
+            return {
+              ...contact,
+              value: this.maskContact(this.crypto.decrypt(valueEncrypted), contact.type),
+              masked: true,
+            };
+          }),
         })),
       );
   }
@@ -191,13 +208,24 @@ export class PartyService {
       where: { id: partyId, companyId: principal.companyId },
       include: { person: true, organization: true, owner: true, contacts: true, addresses: true },
     });
+    const canReadContacts =
+      this.authorization.canPerformCompanyWide(principal, 'party.contact.read') ||
+      scopeBranchIds.some((branchId) =>
+        this.authorization.canPerformInBranch(principal, 'party.contact.read', branchId),
+      );
     return {
       ...party,
       scopeBranchIds,
-      contacts: party.contacts.map(({ valueEncrypted, ...contact }) => ({
-        ...contact,
-        value: this.crypto.decrypt(valueEncrypted),
-      })),
+      contacts: party.contacts.map(({ valueEncrypted, normalizedHash, ...contact }) => {
+        void normalizedHash;
+        return {
+          ...contact,
+          value: canReadContacts
+            ? this.crypto.decrypt(valueEncrypted)
+            : this.maskContact(this.crypto.decrypt(valueEncrypted), contact.type),
+          masked: !canReadContacts,
+        };
+      }),
     };
   }
 
@@ -210,7 +238,7 @@ export class PartyService {
     return this.database.$transaction(async (transaction) => {
       const party = await transaction.party.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           partyNumber:
             input.partyNumber?.trim().toUpperCase() ??
@@ -219,7 +247,7 @@ export class PartyService {
           displayName: input.displayName.trim(),
           branchAssignments: {
             create: {
-              id: randomUUID(),
+              id: uuidv7(),
               branchId: input.branchId,
               effectiveFrom: new Date(),
             },
@@ -233,9 +261,6 @@ export class PartyService {
                     preferredName: input.person.preferredName ?? null,
                     birthDate: input.person.birthDate ? new Date(input.person.birthDate) : null,
                     nationalityCode: input.person.nationalityCode?.toUpperCase() ?? null,
-                    identificationMetadata: input.person.identificationMetadata
-                      ? (input.person.identificationMetadata as Prisma.InputJsonValue)
-                      : Prisma.JsonNull,
                   },
                 },
               }
@@ -256,7 +281,7 @@ export class PartyService {
             ? {
                 contacts: {
                   create: input.contacts.map((contact) => ({
-                    id: randomUUID(),
+                    id: uuidv7(),
                     type: contact.type,
                     valueEncrypted: this.crypto.encrypt(contact.value),
                     normalizedHash: this.crypto.normalizedHash(contact.value),
@@ -269,7 +294,7 @@ export class PartyService {
             ? {
                 addresses: {
                   create: input.addresses.map((address) => ({
-                    id: randomUUID(),
+                    id: uuidv7(),
                     type: address.type ?? 'PRIMARY',
                     line1: address.line1,
                     city: address.city ?? null,

@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
+import { BusinessDateService } from './common/business-date.service';
+import { EffectiveDatingService } from './common/effective-dating.service';
 import { ApprovalController, AuditController } from './governance/governance.controller';
 import { AuditService } from './governance/audit.service';
 import { GovernanceService } from './governance/governance.service';
 import { AccessService } from './identity/access.service';
 import { PermissionController, RoleController } from './identity/access.controller';
 import { AuthController } from './identity/auth.controller';
+import { AuthRateLimitService } from './identity/auth-rate-limit.service';
 import { AuthService } from './identity/auth.service';
 import { PasswordService } from './identity/password.service';
 import {
@@ -31,8 +34,11 @@ import { SessionAuthGuard } from './security/session-auth.guard';
     ApprovalController,
   ],
   providers: [
+    BusinessDateService,
+    EffectiveDatingService,
     PasswordService,
     AuditService,
+    AuthRateLimitService,
     AuthService,
     AuthorizationService,
     PermissionGuard,
@@ -41,6 +47,13 @@ import { SessionAuthGuard } from './security/session-auth.guard';
     AccessService,
     GovernanceService,
   ],
-  exports: [PasswordService, AuditService, AuthService, AuthorizationService],
+  exports: [
+    BusinessDateService,
+    EffectiveDatingService,
+    PasswordService,
+    AuditService,
+    AuthService,
+    AuthorizationService,
+  ],
 })
 export class Phase3Module {}

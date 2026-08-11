@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { BusinessDateService } from '../common/business-date.service';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
@@ -12,6 +13,7 @@ export class AccessService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly authorization: AuthorizationService,
+    private readonly businessDate: BusinessDateService,
   ) {}
 
   listPermissions() {
@@ -35,7 +37,7 @@ export class AccessService {
     return this.database.$transaction(async (transaction) => {
       const role = await transaction.role.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           code: input.code.trim().toUpperCase(),
           name: input.name,
@@ -173,21 +175,28 @@ export class AccessService {
           assignment.branchId,
         );
       else this.authorization.assertCompanyPermission(principal, 'identity.role.manage');
-      const after = await transaction.employeeRole.update({
-        where: { id: assignmentId },
-        data: { effectiveTo: new Date() },
-      });
+      const businessDate = await this.businessDate.today(principal.companyId);
+      const sameDayOrFuture = assignment.effectiveFrom >= businessDate;
+      const after = sameDayOrFuture
+        ? await transaction.employeeRole.delete({ where: { id: assignmentId } })
+        : await transaction.employeeRole.update({
+            where: { id: assignmentId },
+            data: { effectiveTo: businessDate },
+          });
       await this.audit.write(transaction, {
         actorUserId: principal.userId,
-        action: 'identity.employee.role-removed',
+        action: sameDayOrFuture
+          ? 'identity.employee.role-cancelled'
+          : 'identity.employee.role-removed',
         entityType: 'Employee',
         entityId: assignment.employeeId,
         branchId: assignment.branchId,
         correlationId,
         reason,
         before: { assignmentId, roleCode: assignment.role.code },
+        after: { effectiveTo: sameDayOrFuture ? null : businessDate, cancelled: sameDayOrFuture },
       });
-      return after;
+      return { ...after, cancelled: sameDayOrFuture };
     });
   }
 }

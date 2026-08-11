@@ -139,10 +139,10 @@ export function PortfolioActions({
   const identity = (item: Item) => item.id ?? item.partyId ?? '';
   const label = (item: Item) => {
     if (item.party?.displayName)
-      return [item.party.displayName, item.ownerNumber].filter(Boolean).join(' â€” ');
+      return [item.party.displayName, item.ownerNumber].filter(Boolean).join(' — ');
     const name = item.name ?? item.displayName ?? item.spaceCode;
     const code = item.propertyCode ?? item.partyNumber ?? item.ownerNumber;
-    return [name, code].filter(Boolean).join(' â€” ') || 'Business record';
+    return [name, code].filter(Boolean).join(' — ') || 'Business record';
   };
   const currentBranchIds = (item: Item): string[] => {
     if (item.scopeBranchIds?.length) return item.scopeBranchIds;
@@ -259,7 +259,7 @@ export function PortfolioActions({
             </label>
             <label>
               Communication preference
-              <input name="preference" placeholder="Phone, emailâ€¦" />
+              <input name="preference" placeholder="Phone, email…" />
             </label>
           </div>
           <label>
@@ -335,7 +335,7 @@ export function PortfolioActions({
                 <option value="">Choose an owner</option>
                 {owners.map((owner) => (
                   <option key={owner.partyId} value={owner.partyId}>
-                    {owner.ownerNumber} â€” {owner.party.displayName}
+                    {owner.ownerNumber} — {owner.party.displayName}
                   </option>
                 ))}
               </select>
@@ -437,196 +437,196 @@ export function PortfolioActions({
       {active === 'spaces' && selectedId ? (
         <>
           {canSelected('portfolio.space.update') ? (
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              const form = new FormData(event.currentTarget);
-              void mutate(
-                event,
-                `/rentable-spaces/${selectedId}/measurements`,
-                'POST',
-                {
-                  effectiveFrom: value(form, 'effectiveFrom'),
-                  usableArea: value(form, 'usableArea'),
-                  areaUnit: value(form, 'areaUnit'),
-                  reason: value(form, 'reason'),
-                },
-                'Effective measurement correction saved.',
-              );
-            }}
-          >
-            <div className={styles.row}>
-              <label>
-                Usable area
-                <input name="usableArea" required />
-              </label>
-              <label>
-                Area unit
-                <select name="areaUnit">
-                  <option value="SQM">Square metres</option>
-                  <option value="SQFT">Square feet</option>
-                  <option value="ACRE">Acres</option>
-                  <option value="HECTARE">Hectares</option>
-                </select>
-              </label>
-            </div>
-            <div className={styles.row}>
-              <label>
-                Effective from
-                <input name="effectiveFrom" type="date" defaultValue={today()} required />
-              </label>
-              <label>
-                Reason
-                <input name="reason" required minLength={3} />
-              </label>
-            </div>
-            <button className={styles.submit} disabled={busy}>
-              Correct measurement
-            </button>
-          </form>
+            <form
+              className={styles.form}
+              onSubmit={(event) => {
+                const form = new FormData(event.currentTarget);
+                void mutate(
+                  event,
+                  `/rentable-spaces/${selectedId}/measurements`,
+                  'POST',
+                  {
+                    effectiveFrom: value(form, 'effectiveFrom'),
+                    usableArea: value(form, 'usableArea'),
+                    areaUnit: value(form, 'areaUnit'),
+                    reason: value(form, 'reason'),
+                  },
+                  'Effective measurement correction saved.',
+                );
+              }}
+            >
+              <div className={styles.row}>
+                <label>
+                  Usable area
+                  <input name="usableArea" required />
+                </label>
+                <label>
+                  Area unit
+                  <select name="areaUnit">
+                    <option value="SQM">Square metres</option>
+                    <option value="SQFT">Square feet</option>
+                    <option value="ACRE">Acres</option>
+                    <option value="HECTARE">Hectares</option>
+                  </select>
+                </label>
+              </div>
+              <div className={styles.row}>
+                <label>
+                  Effective from
+                  <input name="effectiveFrom" type="date" defaultValue={today()} required />
+                </label>
+                <label>
+                  Reason
+                  <input name="reason" required minLength={3} />
+                </label>
+              </div>
+              <button className={styles.submit} disabled={busy}>
+                Correct measurement
+              </button>
+            </form>
           ) : null}
           {canSelected('portfolio.space.update') ? (
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              const form = new FormData(event.currentTarget);
-              void mutate(
-                event,
-                `/rentable-spaces/${selectedId}/parent`,
-                'POST',
-                {
-                  parentSpaceId: value(form, 'parentSpaceId'),
-                  effectiveFrom: value(form, 'effectiveFrom'),
-                  reason: value(form, 'reason'),
-                },
-                'Parent assignment changed.',
-              );
-            }}
-          >
-            <label>
-              New parent
-              <select name="parentSpaceId" required>
-                <option value="">Choose a parent</option>
-                {spaces
-                  .filter((space) => space.id !== selectedId)
-                  .map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.spaceCode} â€” {space.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <div className={styles.row}>
+            <form
+              className={styles.form}
+              onSubmit={(event) => {
+                const form = new FormData(event.currentTarget);
+                void mutate(
+                  event,
+                  `/rentable-spaces/${selectedId}/parent`,
+                  'POST',
+                  {
+                    parentSpaceId: value(form, 'parentSpaceId'),
+                    effectiveFrom: value(form, 'effectiveFrom'),
+                    reason: value(form, 'reason'),
+                  },
+                  'Parent assignment changed.',
+                );
+              }}
+            >
               <label>
-                Effective from
-                <input name="effectiveFrom" type="date" defaultValue={today()} required />
+                New parent
+                <select name="parentSpaceId" required>
+                  <option value="">Choose a parent</option>
+                  {spaces
+                    .filter((space) => space.id !== selectedId)
+                    .map((space) => (
+                      <option key={space.id} value={space.id}>
+                        {space.spaceCode} — {space.name}
+                      </option>
+                    ))}
+                </select>
               </label>
-              <label>
-                Reason
-                <input name="reason" required minLength={3} />
-              </label>
-            </div>
-            <button className={styles.submit} disabled={busy}>
-              Change parent
-            </button>
-          </form>
+              <div className={styles.row}>
+                <label>
+                  Effective from
+                  <input name="effectiveFrom" type="date" defaultValue={today()} required />
+                </label>
+                <label>
+                  Reason
+                  <input name="reason" required minLength={3} />
+                </label>
+              </div>
+              <button className={styles.submit} disabled={busy}>
+                Change parent
+              </button>
+            </form>
           ) : null}
           {canSelected('portfolio.space.partition') ? (
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              const form = new FormData(event.currentTarget);
-              void mutate(
-                event,
-                `/rentable-spaces/${selectedId}/partition`,
-                'POST',
-                {
-                  effectiveFrom: value(form, 'effectiveFrom'),
-                  areaUnit: value(form, 'areaUnit'),
-                  reason: value(form, 'reason'),
-                  children: [
-                    {
-                      typeCode: value(form, 'typeCode'),
-                      name: value(form, 'name'),
-                      usableArea: value(form, 'usableArea'),
-                    },
-                  ],
-                },
-                'Partition child created atomically.',
-              );
-            }}
-          >
-            <div className={styles.row}>
+            <form
+              className={styles.form}
+              onSubmit={(event) => {
+                const form = new FormData(event.currentTarget);
+                void mutate(
+                  event,
+                  `/rentable-spaces/${selectedId}/partition`,
+                  'POST',
+                  {
+                    effectiveFrom: value(form, 'effectiveFrom'),
+                    areaUnit: value(form, 'areaUnit'),
+                    reason: value(form, 'reason'),
+                    children: [
+                      {
+                        typeCode: value(form, 'typeCode'),
+                        name: value(form, 'name'),
+                        usableArea: value(form, 'usableArea'),
+                      },
+                    ],
+                  },
+                  'Partition child created atomically.',
+                );
+              }}
+            >
+              <div className={styles.row}>
+                <label>
+                  Child type
+                  <select name="typeCode">
+                    <option value="SHOP">Shop</option>
+                    <option value="BOOTH">Booth</option>
+                    <option value="ROOM">Room</option>
+                    <option value="OFFICE">Office</option>
+                  </select>
+                </label>
+              </div>
               <label>
-                Child type
-                <select name="typeCode">
-                  <option value="SHOP">Shop</option>
-                  <option value="BOOTH">Booth</option>
-                  <option value="ROOM">Room</option>
-                  <option value="OFFICE">Office</option>
-                </select>
+                Child name
+                <input name="name" required />
               </label>
-            </div>
-            <label>
-              Child name
-              <input name="name" required />
-            </label>
-            <div className={styles.row}>
-              <label>
-                Usable area
-                <input name="usableArea" required />
-              </label>
-              <label>
-                Area unit
-                <select name="areaUnit">
-                  <option value="SQM">Square metres</option>
-                  <option value="SQFT">Square feet</option>
-                </select>
-              </label>
-            </div>
-            <div className={styles.row}>
-              <label>
-                Effective from
-                <input name="effectiveFrom" type="date" defaultValue={today()} required />
-              </label>
-              <label>
-                Reason
-                <input name="reason" required minLength={3} />
-              </label>
-            </div>
-            <button className={styles.submit} disabled={busy}>
-              Create partition child
-            </button>
-          </form>
+              <div className={styles.row}>
+                <label>
+                  Usable area
+                  <input name="usableArea" required />
+                </label>
+                <label>
+                  Area unit
+                  <select name="areaUnit">
+                    <option value="SQM">Square metres</option>
+                    <option value="SQFT">Square feet</option>
+                  </select>
+                </label>
+              </div>
+              <div className={styles.row}>
+                <label>
+                  Effective from
+                  <input name="effectiveFrom" type="date" defaultValue={today()} required />
+                </label>
+                <label>
+                  Reason
+                  <input name="reason" required minLength={3} />
+                </label>
+              </div>
+              <button className={styles.submit} disabled={busy}>
+                Create partition child
+              </button>
+            </form>
           ) : null}
           {canSelected('portfolio.space.update') ? (
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              const form = new FormData(event.currentTarget);
-              void mutate(
-                event,
-                `/rentable-spaces/${selectedId}/retire`,
-                'POST',
-                { effectiveDate: value(form, 'effectiveDate'), reason: value(form, 'reason') },
-                'Space retired with history preserved.',
-              );
-            }}
-          >
-            <div className={styles.row}>
-              <label>
-                Retirement date
-                <input name="effectiveDate" type="date" defaultValue={today()} required />
-              </label>
-              <label>
-                Reason
-                <input name="reason" required minLength={3} />
-              </label>
-            </div>
-            <button className={styles.submit} disabled={busy}>
-              Retire space
-            </button>
-          </form>
+            <form
+              className={styles.form}
+              onSubmit={(event) => {
+                const form = new FormData(event.currentTarget);
+                void mutate(
+                  event,
+                  `/rentable-spaces/${selectedId}/retire`,
+                  'POST',
+                  { effectiveDate: value(form, 'effectiveDate'), reason: value(form, 'reason') },
+                  'Space retired with history preserved.',
+                );
+              }}
+            >
+              <div className={styles.row}>
+                <label>
+                  Retirement date
+                  <input name="effectiveDate" type="date" defaultValue={today()} required />
+                </label>
+                <label>
+                  Reason
+                  <input name="reason" required minLength={3} />
+                </label>
+              </div>
+              <button className={styles.submit} disabled={busy}>
+                Retire space
+              </button>
+            </form>
           ) : null}
         </>
       ) : null}
@@ -653,14 +653,14 @@ export function PortfolioActions({
               <optgroup label="Properties">
                 {properties.map((property) => (
                   <option key={property.id} value={`property:${property.id}`}>
-                    {property.propertyCode} â€” {property.name}
+                    {property.propertyCode} — {property.name}
                   </option>
                 ))}
               </optgroup>
               <optgroup label="Rentable spaces">
                 {spaces.map((space) => (
                   <option key={space.id} value={`space:${space.id}`}>
-                    {space.spaceCode} â€” {space.name}
+                    {space.spaceCode} — {space.name}
                   </option>
                 ))}
               </optgroup>

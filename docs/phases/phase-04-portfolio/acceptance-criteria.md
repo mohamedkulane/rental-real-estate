@@ -1,0 +1,23 @@
+# Acceptance Criteria
+
+- [x] Person and organization Parties use typed profiles and company-level identity.
+- [x] Contact values are encrypted at rest and are not written to audit evidence.
+- [x] Owner is a Party role; owner details and authorized portfolio reads work.
+- [x] Joint ownership and distinct payout entitlement are Decimal and effective-dated.
+- [x] Draft ownership may be incomplete; active configuration must total exactly 100%.
+- [x] Property and optional Building work without becoming occupancy targets.
+- [x] RentableSpace is the canonical occupancy target and supports standalone properties.
+- [x] Recursive effective-dated hierarchy works; self, cycle, and cross-property parents fail.
+- [x] Measurements are effective-dated; material history is not overwritten.
+- [x] Active child usable-area total cannot exceed active parent usable area.
+- [x] Partitioning is validated, transactional, audited, and preserves parent identity.
+- [x] Retired spaces remain stored and historically referenceable.
+- [x] Land uses a dedicated profile and does not require residential fields.
+- [x] Residential and commercial data use dedicated profiles.
+- [x] Amenities are normalized reference relationships.
+- [x] Document binaries remain outside PostgreSQL; metadata/version/link boundaries exist.
+- [x] Every Property has effective operating-branch history.
+- [x] Permission and object-level branch authorization are enforced in the backend.
+- [x] Sensitive operations write atomic audit evidence.
+- [x] Native constraints, migrations, seeds, application build, and all test gates pass.
+- [x] No Phase 5 functionality was implemented.

@@ -1,3 +1,4 @@
+import { sessionToken } from '../session-cookie';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -40,7 +41,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .post('/api/v1/auth/login')
         .send({ email: adminEmail, password: adminPassword })
         .expect(201);
-      const adminToken = adminLogin.body.token as string;
+      const adminToken = sessionToken(adminLogin);
       const branches = await database.branch.findMany({
         where: { code: { in: ['HODAN', 'WADAJIR'] } },
       });
@@ -84,7 +85,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .post('/api/v1/auth/login')
         .send({ email, password })
         .expect(201);
-      const staffToken = staffLogin.body.token as string;
+      const staffToken = sessionToken(staffLogin);
       await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('authorization', `Bearer ${staffToken}`)

@@ -1,15 +1,8 @@
-import { randomUUID } from 'node:crypto';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import {
-  BuildingStatus,
-  Prisma,
-  PropertyStatus,
-  RentableSpaceStatus,
-} from '@prisma/client';
+import { uuidv7 } from '@rerms/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BuildingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
+import { BusinessDateService } from '../common/business-date.service';
+import { EffectiveDatingService } from '../common/effective-dating.service';
 import { nextRecordNumber } from '../common/record-number';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
@@ -25,6 +18,7 @@ import type {
   CreateSpaceDto,
   DiscardPropertyDraftDto,
   PartitionSpaceDto,
+  PropertyLifecycleTransitionDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
   RetireSpaceDto,
@@ -33,19 +27,20 @@ import type {
   UpdatePropertyDto,
 } from './portfolio.dto';
 
-const today = () => new Date(new Date().toISOString().slice(0, 10));
 const decimal = (value?: string) => (value === undefined ? null : new Prisma.Decimal(value));
 
 @Injectable()
 export class PortfolioService {
   constructor(
     private readonly database: DatabaseService,
+    private readonly businessDate: BusinessDateService,
+    private readonly effectiveDating: EffectiveDatingService,
     private readonly authorization: AuthorizationService,
     private readonly audit: AuditService,
   ) {}
 
-  private async currentPropertyBranch(propertyId: string): Promise<string> {
-    const at = today();
+  private async currentPropertyBranch(companyId: string, propertyId: string): Promise<string> {
+    const at = await this.businessDate.today(companyId);
     const assignment = await this.database.propertyBranchAssignment.findFirst({
       where: {
         propertyId,
@@ -62,7 +57,7 @@ export class PortfolioService {
     propertyId: string,
     permission: string,
   ) {
-    const branchId = await this.currentPropertyBranch(propertyId);
+    const branchId = await this.currentPropertyBranch(principal.companyId, propertyId);
     this.authorization.assertBranchPermission(principal, permission, branchId);
     return branchId;
   }
@@ -72,7 +67,7 @@ export class PortfolioService {
     partyId: string,
     permission: string,
   ): Promise<string[]> {
-    const at = today();
+    const at = await this.businessDate.today(principal.companyId);
     const owner = await this.database.ownerProfile.findFirstOrThrow({
       where: { partyId, party: { companyId: principal.companyId } },
       select: {
@@ -121,12 +116,9 @@ export class PortfolioService {
     return branchIds;
   }
 
-  listProperties(principal: AuthenticatedPrincipal) {
-    const at = today();
-    const branchIds = this.authorization.authorizedBranchIds(
-      principal,
-      'portfolio.property.read',
-    );
+  async listProperties(principal: AuthenticatedPrincipal) {
+    const at = await this.businessDate.today(principal.companyId);
+    const branchIds = this.authorization.authorizedBranchIds(principal, 'portfolio.property.read');
     return this.database.property.findMany({
       where: {
         companyId: principal.companyId,
@@ -193,24 +185,24 @@ export class PortfolioService {
     );
     if ((input.plotArea === undefined) !== (input.plotAreaUnit === undefined))
       throw new BadRequestException('Plot area and area unit must be supplied together.');
-    if (input.status === PropertyStatus.ACTIVE)
-      throw new BadRequestException(
-        'Create the Property as DRAFT, complete ownership, then activate it.',
-      );
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     return this.database.$transaction(async (transaction) => {
       const branch = await transaction.branch.findFirstOrThrow({
         where: { id: input.branchId, companyId: principal.companyId, active: true },
       });
       const property = await transaction.property.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           propertyCode:
             input.propertyCode?.trim().toUpperCase() ??
             (await nextRecordNumber(transaction, 'PROPERTY')),
           name: input.name,
           propertyType: input.propertyType,
-          status: input.status ?? PropertyStatus.DRAFT,
+          status: PropertyStatus.DRAFT,
           description: input.description ?? null,
           addressLine1: input.addressLine1 ?? null,
           city: input.city,
@@ -221,11 +213,20 @@ export class PortfolioService {
           longitude: decimal(input.longitude),
           plotArea: decimal(input.plotArea),
           plotAreaUnit: input.plotAreaUnit ?? null,
+          propertyLifecycleHistories: {
+            create: {
+              id: uuidv7(),
+              status: PropertyStatus.DRAFT,
+              effectiveFrom,
+              reason: 'Property draft created',
+              actorUserId: principal.userId,
+            },
+          },
           branchAssignments: {
             create: {
-              id: randomUUID(),
+              id: uuidv7(),
               branchId: branch.id,
-              effectiveFrom: new Date(input.effectiveFrom),
+              effectiveFrom,
             },
           },
         },
@@ -278,6 +279,85 @@ export class PortfolioService {
     });
   }
 
+  async transitionProperty(
+    principal: AuthenticatedPrincipal,
+    propertyId: string,
+    target: PropertyStatus,
+    input: PropertyLifecycleTransitionDto,
+    correlationId?: string,
+  ) {
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      propertyId,
+      'portfolio.property.update',
+    );
+    const effectiveDate = await this.effectiveDating.lifecycleDate(
+      principal.companyId,
+      input.effectiveDate,
+    );
+    const allowed: Record<PropertyStatus, readonly PropertyStatus[]> = {
+      DRAFT: [PropertyStatus.ACTIVE],
+      ACTIVE: [PropertyStatus.INACTIVE],
+      INACTIVE: [PropertyStatus.ACTIVE, PropertyStatus.RETIRED],
+      RETIRED: [],
+    };
+    return this.database.$transaction(async (transaction) => {
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT id FROM properties WHERE id = ${propertyId}::uuid FOR UPDATE`,
+      );
+      const before = await transaction.property.findFirstOrThrow({
+        where: { id: propertyId, companyId: principal.companyId },
+      });
+      if (!allowed[before.status].includes(target))
+        throw new BadRequestException(
+          `Property transition ${before.status} -> ${target} is not allowed.`,
+        );
+      const current = await transaction.propertyLifecycleHistory.findFirst({
+        where: { propertyId, effectiveTo: null },
+        orderBy: { effectiveFrom: 'desc' },
+      });
+      if (!current) throw new BadRequestException('Property lifecycle history is missing.');
+      if (current.effectiveFrom > effectiveDate)
+        throw new BadRequestException('A later Property lifecycle change is already scheduled.');
+      if (current.effectiveFrom.getTime() === effectiveDate.getTime()) {
+        await transaction.propertyLifecycleHistory.update({
+          where: { id: current.id },
+          data: { status: target, reason: input.reason, actorUserId: principal.userId },
+        });
+      } else {
+        await transaction.propertyLifecycleHistory.update({
+          where: { id: current.id },
+          data: { effectiveTo: effectiveDate },
+        });
+        await transaction.propertyLifecycleHistory.create({
+          data: {
+            id: uuidv7(),
+            propertyId,
+            status: target,
+            effectiveFrom: effectiveDate,
+            reason: input.reason,
+            actorUserId: principal.userId,
+          },
+        });
+      }
+      const after = await transaction.property.update({
+        where: { id: propertyId },
+        data: { status: target },
+      });
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: `portfolio.property.${target.toLowerCase()}`,
+        entityType: 'Property',
+        entityId: propertyId,
+        branchId,
+        correlationId,
+        reason: input.reason,
+        before: { status: before.status },
+        after: { status: target, effectiveDate: effectiveDate.toISOString().slice(0, 10) },
+      });
+      return after;
+    });
+  }
   async discardPropertyDraft(
     principal: AuthenticatedPrincipal,
     propertyId: string,
@@ -347,7 +427,10 @@ export class PortfolioService {
       'portfolio.property.update',
       input.branchId,
     );
-    const effectiveFrom = new Date(input.effectiveFrom);
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     return this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw(
         Prisma.sql`SELECT id FROM properties WHERE id = ${propertyId}::uuid FOR UPDATE`,
@@ -355,6 +438,11 @@ export class PortfolioService {
       await transaction.branch.findFirstOrThrow({
         where: { id: input.branchId, companyId: principal.companyId, active: true },
       });
+      const scheduledAssignments = await transaction.propertyBranchAssignment.findMany({
+        where: { propertyId, effectiveFrom: { gte: effectiveFrom } },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveFrom, scheduledAssignments);
       const current = await transaction.propertyBranchAssignment.findFirst({
         where: {
           propertyId,
@@ -368,7 +456,7 @@ export class PortfolioService {
           data: { effectiveTo: effectiveFrom },
         });
       const assignment = await transaction.propertyBranchAssignment.create({
-        data: { id: randomUUID(), propertyId, branchId: input.branchId, effectiveFrom },
+        data: { id: uuidv7(), propertyId, branchId: input.branchId, effectiveFrom },
       });
       await this.audit.write(transaction, {
         actorUserId: principal.userId,
@@ -412,11 +500,19 @@ export class PortfolioService {
       throw new BadRequestException(
         'Each owner may appear only once in an ownership configuration.',
       );
-    const effectiveFrom = new Date(input.effectiveFrom);
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     return this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw(
         Prisma.sql`SELECT id FROM properties WHERE id = ${propertyId}::uuid FOR UPDATE`,
       );
+      const scheduledOwnership = await transaction.propertyOwnership.findMany({
+        where: { propertyId, effectiveFrom: { gte: effectiveFrom } },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveFrom, scheduledOwnership);
       const companyWideOwnership = this.authorization.canPerformCompanyWide(
         principal,
         'portfolio.ownership.manage',
@@ -449,10 +545,7 @@ export class PortfolioService {
                               some: {
                                 branchId,
                                 effectiveFrom: { lte: effectiveFrom },
-                                OR: [
-                                  { effectiveTo: null },
-                                  { effectiveTo: { gt: effectiveFrom } },
-                                ],
+                                OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveFrom } }],
                               },
                             },
                           },
@@ -494,14 +587,14 @@ export class PortfolioService {
         created.push(
           await transaction.propertyOwnership.create({
             data: {
-              id: randomUUID(),
+              id: uuidv7(),
               propertyId,
               ownerPartyId: share.ownerPartyId,
               ownershipPercent: new Prisma.Decimal(share.ownershipPercent),
               effectiveFrom,
               entitlements: {
                 create: {
-                  id: randomUUID(),
+                  id: uuidv7(),
                   payoutPercent: new Prisma.Decimal(share.payoutPercent),
                   effectiveFrom,
                 },
@@ -560,7 +653,7 @@ export class PortfolioService {
     return this.database.$transaction(async (transaction) => {
       const building = await transaction.building.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           propertyId,
           buildingCode: input.buildingCode.trim().toUpperCase(),
           name: input.name,
@@ -594,7 +687,7 @@ export class PortfolioService {
   async listSpaces(principal: AuthenticatedPrincipal, propertyId?: string) {
     if (propertyId)
       await this.assertPropertyPermission(principal, propertyId, 'portfolio.space.read');
-    const at = today();
+    const at = await this.businessDate.today(principal.companyId);
     const branchIds = this.authorization.authorizedBranchIds(principal, 'portfolio.space.read');
     return this.database.rentableSpace.findMany({
       where: {
@@ -689,6 +782,10 @@ export class PortfolioService {
       input.propertyId,
       'portfolio.space.create',
     );
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     return this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw(
         Prisma.sql`SELECT id FROM properties WHERE id = ${input.propertyId}::uuid FOR UPDATE`,
@@ -700,13 +797,48 @@ export class PortfolioService {
         await transaction.building.findFirstOrThrow({
           where: { id: input.buildingId, propertyId: input.propertyId },
         });
-      if (input.parentSpaceId)
-        await transaction.rentableSpace.findFirstOrThrow({
+      if (input.parentSpaceId) {
+        await transaction.$queryRaw(
+          Prisma.sql`SELECT id FROM rentable_spaces WHERE id = ${input.parentSpaceId}::uuid FOR UPDATE`,
+        );
+        const parent = await transaction.rentableSpace.findFirstOrThrow({
           where: { id: input.parentSpaceId, propertyId: input.propertyId },
+          include: { versions: true },
         });
+        const parentVersion = parent.versions.find(
+          (version) =>
+            version.effectiveFrom <= effectiveFrom &&
+            (!version.effectiveTo || effectiveFrom < version.effectiveTo),
+        );
+        if (!parentVersion?.usableArea || !parentVersion.areaUnit)
+          throw new BadRequestException(
+            'Parent requires an effective usable area before adding a child.',
+          );
+        if (input.usableArea === undefined || input.areaUnit !== parentVersion.areaUnit)
+          throw new BadRequestException(
+            'Child usable area and matching parent area unit are required.',
+          );
+        const [allocated] = await transaction.$queryRaw<Array<{ value: string }>>(Prisma.sql`
+          SELECT COALESCE(SUM(v."usableArea"), 0)::text value
+          FROM "rentable_space_parent_history" h
+          JOIN "rentable_space_versions" v ON v."rentableSpaceId" = h."childSpaceId"
+          WHERE h."parentSpaceId" = ${input.parentSpaceId}::uuid
+            AND h."effectiveFrom" <= ${effectiveFrom}::date
+            AND (h."effectiveTo" IS NULL OR h."effectiveTo" > ${effectiveFrom}::date)
+            AND v."effectiveFrom" <= ${effectiveFrom}::date
+            AND (v."effectiveTo" IS NULL OR v."effectiveTo" > ${effectiveFrom}::date)
+        `);
+        const remaining = new Prisma.Decimal(parentVersion.usableArea).minus(
+          allocated?.value ?? '0',
+        );
+        if (new Prisma.Decimal(input.usableArea).greaterThan(remaining))
+          throw new BadRequestException(
+            `Child usable area exceeds the ${remaining.toString()} ${parentVersion.areaUnit} remaining in the parent.`,
+          );
+      }
       const space = await transaction.rentableSpace.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           propertyId: input.propertyId,
           buildingId: input.buildingId ?? null,
           typeId: type.id,
@@ -716,9 +848,9 @@ export class PortfolioService {
           status: input.status ?? RentableSpaceStatus.ACTIVE,
           versions: {
             create: {
-              id: randomUUID(),
+              id: uuidv7(),
               versionNo: 1,
-              effectiveFrom: new Date(input.effectiveFrom),
+              effectiveFrom,
               label: input.name,
               usableArea: decimal(input.usableArea),
               totalArea: decimal(input.totalArea),
@@ -731,9 +863,9 @@ export class PortfolioService {
             ? {
                 childRelations: {
                   create: {
-                    id: randomUUID(),
+                    id: uuidv7(),
                     parentSpaceId: input.parentSpaceId,
-                    effectiveFrom: new Date(input.effectiveFrom),
+                    effectiveFrom,
                   },
                 },
               }
@@ -802,7 +934,10 @@ export class PortfolioService {
       parent.propertyId,
       'portfolio.space.partition',
     );
-    const effectiveFrom = new Date(input.effectiveFrom);
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     const parentVersion = parent.versions.find(
       (version) =>
         version.effectiveFrom <= effectiveFrom &&
@@ -832,7 +967,7 @@ export class PortfolioService {
         created.push(
           await transaction.rentableSpace.create({
             data: {
-              id: randomUUID(),
+              id: uuidv7(),
               propertyId: parent.propertyId,
               buildingId: parent.buildingId,
               typeId: type.id,
@@ -843,7 +978,7 @@ export class PortfolioService {
               status: RentableSpaceStatus.ACTIVE,
               versions: {
                 create: {
-                  id: randomUUID(),
+                  id: uuidv7(),
                   versionNo: 1,
                   effectiveFrom,
                   label: child.name,
@@ -852,7 +987,7 @@ export class PortfolioService {
                   areaUnit: input.areaUnit ?? null,
                 },
               },
-              childRelations: { create: { id: randomUUID(), parentSpaceId, effectiveFrom } },
+              childRelations: { create: { id: uuidv7(), parentSpaceId, effectiveFrom } },
               ...(child.commercial
                 ? {
                     commercialProfile: {
@@ -899,11 +1034,19 @@ export class PortfolioService {
       space.propertyId,
       'portfolio.space.update',
     );
-    const effectiveFrom = new Date(input.effectiveFrom);
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     return this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw(
         Prisma.sql`SELECT id FROM rentable_spaces WHERE id = ${spaceId}::uuid FOR UPDATE`,
       );
+      const scheduledVersions = await transaction.rentableSpaceVersion.findMany({
+        where: { rentableSpaceId: spaceId, effectiveFrom: { gte: effectiveFrom } },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveFrom, scheduledVersions);
       const prior = await transaction.rentableSpaceVersion.findFirst({
         where: {
           rentableSpaceId: spaceId,
@@ -919,7 +1062,7 @@ export class PortfolioService {
       });
       const version = await transaction.rentableSpaceVersion.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           rentableSpaceId: spaceId,
           versionNo: prior.versionNo + 1,
           effectiveFrom,
@@ -975,11 +1118,19 @@ export class PortfolioService {
     });
     if (parent.propertyId !== child.propertyId)
       throw new BadRequestException('Parent and child must belong to the same Property.');
-    const effectiveFrom = new Date(input.effectiveFrom);
+    const effectiveFrom = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveFrom,
+    );
     return this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw(
         Prisma.sql`SELECT id FROM rentable_spaces WHERE "propertyId" = ${child.propertyId}::uuid FOR UPDATE`,
       );
+      const scheduledParents = await transaction.rentableSpaceParentHistory.findMany({
+        where: { childSpaceId: spaceId, effectiveFrom: { gte: effectiveFrom } },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveFrom, scheduledParents);
       const cycle = await transaction.$queryRaw<Array<{ cycle: boolean }>>(Prisma.sql`
         WITH RECURSIVE descendants(id) AS (
           SELECT h."childSpaceId"
@@ -1012,7 +1163,7 @@ export class PortfolioService {
         });
       const relation = await transaction.rentableSpaceParentHistory.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           childSpaceId: spaceId,
           parentSpaceId: input.parentSpaceId,
           effectiveFrom,
@@ -1045,8 +1196,23 @@ export class PortfolioService {
       space.propertyId,
       'portfolio.space.update',
     );
-    const effectiveDate = new Date(input.effectiveDate);
+    const effectiveDate = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveDate,
+    );
     return this.database.$transaction(async (transaction) => {
+      const scheduledVersions = await transaction.rentableSpaceVersion.findMany({
+        where: { rentableSpaceId: spaceId, effectiveFrom: { gte: effectiveDate } },
+        select: { effectiveFrom: true },
+      });
+      const scheduledParents = await transaction.rentableSpaceParentHistory.findMany({
+        where: { childSpaceId: spaceId, effectiveFrom: { gte: effectiveDate } },
+        select: { effectiveFrom: true },
+      });
+      this.effectiveDating.assertNoLaterScheduledChange(effectiveDate, [
+        ...scheduledVersions,
+        ...scheduledParents,
+      ]);
       const activeChildren = await transaction.rentableSpaceParentHistory.count({
         where: {
           parentSpaceId: spaceId,
@@ -1107,7 +1273,7 @@ export class PortfolioService {
     return this.database.$transaction(async (transaction) => {
       const amenity = await transaction.amenity.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           code: input.code.trim().toUpperCase().replaceAll(' ', '_'),
           name: input.name.trim(),
           active: true,
@@ -1249,14 +1415,14 @@ export class PortfolioService {
     return this.database.$transaction(async (transaction) => {
       const document = await transaction.document.create({
         data: {
-          id: randomUUID(),
+          id: uuidv7(),
           companyId: principal.companyId,
           categoryCode: input.categoryCode,
           accessClass: input.accessClass,
           status: input.status,
           versions: {
             create: {
-              id: randomUUID(),
+              id: uuidv7(),
               sequence: 1,
               storageKey: input.storageKey,
               checksum: input.checksum,
@@ -1267,7 +1433,7 @@ export class PortfolioService {
           },
           links: {
             create: {
-              id: randomUUID(),
+              id: uuidv7(),
               entityType: input.entityType,
               entityId: input.entityId,
               purpose: input.purpose,

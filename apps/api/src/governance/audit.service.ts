@@ -1,6 +1,6 @@
+import { uuidv7 } from '@rerms/shared';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
 
 export interface AuditInput {
   actorUserId?: string | undefined;
@@ -42,7 +42,7 @@ export class AuditService {
   async write(database: Prisma.TransactionClient, input: AuditInput): Promise<void> {
     await database.auditLog.create({
       data: {
-        id: randomUUID(),
+        id: uuidv7(),
         actorUserId: input.actorUserId ?? null,
         effectiveActorUserId: input.actorUserId ?? null,
         action: input.action,

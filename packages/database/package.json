@@ -16,7 +16,7 @@
     "prisma:validate": "prisma validate --config ../../prisma.config.ts",
     "prisma:generate": "prisma generate --config ../../prisma.config.ts",
     "db:migrate:deploy": "prisma migrate deploy --config ../../prisma.config.ts",
-    "db:seed": "pnpm --filter @rerms/config build && tsx ../../prisma/seed.ts"
+    "db:seed": "pnpm --filter @rerms/shared build && pnpm --filter @rerms/config build && tsx ../../prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

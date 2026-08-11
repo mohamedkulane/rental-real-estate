@@ -167,7 +167,7 @@ export function RoleManager({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search roles or capabilitiesâ€¦"
+              placeholder="Search roles or capabilities…"
               className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
@@ -308,7 +308,7 @@ export function RoleManager({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Creatingâ€¦' : 'Create role'}
+              {busy ? 'Creating…' : 'Create role'}
             </button>
           </form>
         </Panel>
@@ -338,7 +338,7 @@ export function RoleManager({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Savingâ€¦' : 'Save role'}
+              {busy ? 'Saving…' : 'Save role'}
             </button>
           </form>
         </Panel>
@@ -384,7 +384,7 @@ export function RoleManager({
                 (selected.active ? 'bg-red-600' : 'bg-emerald-600')
               }
             >
-              {busy ? 'Updatingâ€¦' : selected.active ? 'Deactivate role' : 'Activate role'}
+              {busy ? 'Updating…' : selected.active ? 'Deactivate role' : 'Activate role'}
             </button>
           </form>
         </Panel>
@@ -416,7 +416,7 @@ export function RoleManager({
                     )
                     .map((permission) => (
                       <option key={permission.id} value={permission.id}>
-                        {permissionDomain(permission.code)} â€” {permissionLabel(permission.code)}
+                        {permissionDomain(permission.code)} — {permissionLabel(permission.code)}
                       </option>
                     ))}
                 </select>
@@ -512,7 +512,7 @@ export function RoleManager({
               disabled={busy}
               className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Removingâ€¦' : 'Remove capability'}
+              {busy ? 'Removing…' : 'Remove capability'}
             </button>
           </form>
         </Panel>

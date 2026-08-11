@@ -1,11 +1,50 @@
-import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { loadEnvFile } from 'node:process';
+import { uuidv7 } from '@rerms/shared';
 import { hash } from 'argon2';
 import { parseSeedEnvironment } from '@rerms/config';
 import { PrismaClient, BranchAccessMode, PartyKind, UserStatus } from '@prisma/client';
 
+const environmentFile = resolve(__dirname, '../.env');
+if (existsSync(environmentFile)) loadEnvFile(environmentFile);
+
 const database = new PrismaClient();
 const environment = parseSeedEnvironment(process.env);
 const today = new Date(new Date().toISOString().slice(0, 10));
+
+async function synchronizeRecordNumberSequences(): Promise<void> {
+  await database.$executeRaw`
+    DO $$
+    DECLARE
+      maximum_value bigint;
+    BEGIN
+      SELECT MAX(substring(code FROM '^BR-([0-9]+)$')::bigint)
+        INTO maximum_value FROM branches WHERE code ~ '^BR-[0-9]+$';
+      PERFORM setval('branch_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("employeeNumber" FROM '^EMP-([0-9]+)$')::bigint)
+        INTO maximum_value FROM employees WHERE "employeeNumber" ~ '^EMP-[0-9]+$';
+      PERFORM setval('employee_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("partyNumber" FROM '^PTY-([0-9]+)$')::bigint)
+        INTO maximum_value FROM parties WHERE "partyNumber" ~ '^PTY-[0-9]+$';
+      PERFORM setval('party_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("ownerNumber" FROM '^OWN-([0-9]+)$')::bigint)
+        INTO maximum_value FROM owner_profiles WHERE "ownerNumber" ~ '^OWN-[0-9]+$';
+      PERFORM setval('owner_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("propertyCode" FROM '^PROP-([0-9]+)$')::bigint)
+        INTO maximum_value FROM properties WHERE "propertyCode" ~ '^PROP-[0-9]+$';
+      PERFORM setval('property_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("spaceCode" FROM '^UNIT-([0-9]+)$')::bigint)
+        INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^UNIT-[0-9]+$';
+      PERFORM setval('space_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+    END $$;
+  `;
+}
 
 const permissions = [
   ['organization.company.read', 'Read company foundation settings'],
@@ -28,7 +67,8 @@ const permissions = [
   ['governance.approval.read', 'Read approval requests'],
   ['governance.approval.request', 'Create approval requests'],
   ['governance.approval.decide', 'Record approval decisions'],
-  ['party.read', 'Read company-level parties'],
+  ['party.read', 'Read directory-level Party data'],
+  ['party.contact.read', 'Read full Party phone and email values'],
   ['party.create', 'Create company-level parties'],
   ['party.update', 'Update company-level parties'],
   ['owner.read', 'Read owner profiles and portfolios'],
@@ -74,6 +114,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'governance.approval.request',
     'governance.approval.decide',
     'party.read',
+    'party.contact.read',
     'party.create',
     'party.update',
     'owner.read',
@@ -98,6 +139,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'organization.branch.read',
     'identity.employee.read',
     'party.read',
+    'party.contact.read',
     'owner.read',
     'portfolio.property.read',
     'portfolio.property.create',
@@ -118,6 +160,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'organization.branch.read',
     'identity.employee.read',
     'party.read',
+    'party.contact.read',
     'owner.read',
     'portfolio.property.read',
     'portfolio.space.read',
@@ -145,7 +188,7 @@ async function seed(): Promise<void> {
       active: true,
     },
     create: {
-      id: randomUUID(),
+      id: uuidv7(),
       singletonKey: true,
       code: environment.SEED_COMPANY_CODE,
       name: 'Real Estate Rental Company',
@@ -168,7 +211,7 @@ async function seed(): Promise<void> {
       await database.branch.upsert({
         where: { companyId_code: { companyId: company.id, code } },
         update: { name, active: true },
-        create: { id: randomUUID(), companyId: company.id, code, name, active: true },
+        create: { id: uuidv7(), companyId: company.id, code, name, active: true },
       }),
     );
   }
@@ -178,7 +221,7 @@ async function seed(): Promise<void> {
     const permission = await database.permission.upsert({
       where: { code },
       update: { description },
-      create: { id: randomUUID(), code, description },
+      create: { id: uuidv7(), code, description },
     });
     permissionRecords.set(code, permission.id);
   }
@@ -189,7 +232,7 @@ async function seed(): Promise<void> {
       where: { companyId_code: { companyId: company.id, code } },
       update: { name: code.replaceAll('_', ' '), active: true },
       create: {
-        id: randomUUID(),
+        id: uuidv7(),
         companyId: company.id,
         code,
         name: code.replaceAll('_', ' '),
@@ -227,7 +270,7 @@ async function seed(): Promise<void> {
     await database.rentableSpaceType.upsert({
       where: { code },
       update: { name, active: true },
-      create: { id: randomUUID(), code, name, active: true },
+      create: { id: uuidv7(), code, name, active: true },
     });
   }
   const amenities = [
@@ -246,7 +289,7 @@ async function seed(): Promise<void> {
     await database.amenity.upsert({
       where: { code },
       update: { name, active: true },
-      create: { id: randomUUID(), code, name, active: true },
+      create: { id: uuidv7(), code, name, active: true },
     });
   }
 
@@ -260,13 +303,13 @@ async function seed(): Promise<void> {
   const user = await database.user.upsert({
     where: { emailNormalized },
     update: { status: UserStatus.ACTIVE, passwordHash },
-    create: { id: randomUUID(), emailNormalized, passwordHash, status: UserStatus.ACTIVE },
+    create: { id: uuidv7(), emailNormalized, passwordHash, status: UserStatus.ACTIVE },
   });
   const party = await database.party.upsert({
     where: { companyId_partyNumber: { companyId: company.id, partyNumber: 'EMP-0001' } },
     update: { displayName: 'Mohamed Ali Hassan', active: true },
     create: {
-      id: randomUUID(),
+      id: uuidv7(),
       companyId: company.id,
       partyNumber: 'EMP-0001',
       kind: PartyKind.PERSON,
@@ -277,7 +320,7 @@ async function seed(): Promise<void> {
     where: { companyId_employeeNumber: { companyId: company.id, employeeNumber: 'EMP-0001' } },
     update: { userId: user.id, accessMode: BranchAccessMode.COMPANY_WIDE, active: true },
     create: {
-      id: randomUUID(),
+      id: uuidv7(),
       companyId: company.id,
       userId: user.id,
       partyId: party.id,
@@ -294,7 +337,7 @@ async function seed(): Promise<void> {
   if (!existingRole)
     await database.employeeRole.create({
       data: {
-        id: randomUUID(),
+        id: uuidv7(),
         employeeId: employee.id,
         roleId: superAdminRoleId,
         effectiveFrom: today,
@@ -311,7 +354,7 @@ async function seed(): Promise<void> {
     },
     update: { name: 'Foundation maker-checker policy', active: true },
     create: {
-      id: randomUUID(),
+      id: uuidv7(),
       companyId: company.id,
       code: 'FOUNDATION_MAKER_CHECKER',
       name: 'Foundation maker-checker policy',
@@ -325,7 +368,7 @@ async function seed(): Promise<void> {
   if (!existingApprovalRule)
     await database.approvalRule.create({
       data: {
-        id: randomUUID(),
+        id: uuidv7(),
         policyId: approvalPolicy.id,
         actionType: 'FOUNDATION_TEST',
         sequence: 1,
@@ -333,6 +376,9 @@ async function seed(): Promise<void> {
         allowDelegation: false,
       },
     });
+
+  // Seeded business identifiers must reserve their values before normal API writes begin.
+  await synchronizeRecordNumberSequences();
 
   console.info(
     `Seeded Phase 4 foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,

@@ -1,3 +1,5 @@
+import { sessionToken } from '../session-cookie';
+import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -50,7 +52,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .post('/api/v1/auth/login')
         .send({ email: adminEmail, password: adminPassword })
         .expect(201);
-      token = login.body.token as string;
+      token = sessionToken(login);
     });
 
     afterAll(async () => {
@@ -199,7 +201,11 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
       const assignment = await request(app.getHttpServer())
         .post(`/api/v1/employees/${employeeId}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleId, branchId: branchOneId, effectiveFrom: '2026-01-01' })
+        .send({
+          roleId,
+          branchId: branchOneId,
+          effectiveFrom: new Date().toISOString().slice(0, 10),
+        })
         .expect(201);
       assignmentId = assignment.body.id as string;
       await request(app.getHttpServer())
@@ -220,10 +226,10 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         roles.body as Array<{ id: string; permissions: Array<{ permissionId: string }> }>
       ).find((item) => item.id === roleId);
       expect(listedRole?.permissions).toHaveLength(0);
-      const persistedAssignment = await database.employeeRole.findUniqueOrThrow({
+      const persistedAssignment = await database.employeeRole.findUnique({
         where: { id: assignmentId },
       });
-      expect(persistedAssignment.effectiveTo).not.toBeNull();
+      expect(persistedAssignment).toBeNull();
       const renamed = await request(app.getHttpServer())
         .patch(`/api/v1/roles/${roleId}`)
         .set('authorization', `Bearer ${token}`)
@@ -255,7 +261,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .post('/api/v1/auth/login')
         .send({ email: employeeEmail, password: initialPassword })
         .expect(201);
-      const employeeToken = employeeLogin.body.token as string;
+      const employeeToken = sessionToken(employeeLogin);
       await request(app.getHttpServer())
         .post('/api/v1/auth/change-password')
         .set('authorization', `Bearer ${employeeToken}`)
@@ -269,8 +275,8 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .post('/api/v1/auth/login')
         .send({ email: employeeEmail, password: changedPassword })
         .expect(201);
-      const changedToken = changedLogin.body.token as string;
-      const changedSession = await request(app.getHttpServer())
+      const changedToken = sessionToken(changedLogin);
+      await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('authorization', `Bearer ${changedToken}`)
         .expect(200);
@@ -284,8 +290,12 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
           sessions: Array<{ id: string; revokedAt: string | null }>;
         }>
       ).find((item) => item.id === userId)!;
+      const changedTokenHash = createHash('sha256').update(changedToken).digest('hex');
+      const changedDatabaseSession = await database.session.findUniqueOrThrow({
+        where: { tokenHash: changedTokenHash },
+      });
       const activeSession = listed.sessions.find(
-        (session) => session.id === changedSession.body.sessionId,
+        (session) => session.id === changedDatabaseSession.id,
       )!;
       expect(activeSession.revokedAt).toBeNull();
       await request(app.getHttpServer())
@@ -394,7 +404,6 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .send({
           name: `Barwaaqo Residence`,
           propertyType: 'COMMERCIAL_BUILDING',
-          status: 'DRAFT',
           branchId: branchOneId,
           effectiveFrom: '2026-01-01',
           city: 'Mogadishu',
@@ -424,10 +433,10 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .expect(200);
       expect(ownership.body).toHaveLength(1);
       await request(app.getHttpServer())
-        .patch(`/api/v1/properties/${propertyId}`)
+        .post(`/api/v1/properties/${propertyId}/activate`)
         .set('authorization', `Bearer ${token}`)
-        .send({ status: 'ACTIVE' })
-        .expect(200);
+        .send({ reason: 'Ownership and operating setup approved' })
+        .expect(201);
       await request(app.getHttpServer())
         .post(`/api/v1/properties/${propertyId}/branch-transfers`)
         .set('authorization', `Bearer ${token}`)
@@ -545,7 +554,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         })
         .expect(201);
       childId = child.body.id as string;
-      expect(child.body.spaceCode).toMatch(/^UNIT-\d{4,}$/);
+      expect(child.body.spaceCode).toMatch(/^SPC-\d{4,}$/);
       await request(app.getHttpServer())
         .post(`/api/v1/rentable-spaces/${childId}/measurements`)
         .set('authorization', `Bearer ${token}`)

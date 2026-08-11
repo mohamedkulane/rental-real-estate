@@ -116,9 +116,7 @@ export function OwnerDirectory({
   useEffect(() => pagination.setPage(1), [query, status]);
   const eligibleParties = parties.filter(
     (party) =>
-      party.active &&
-      canCreate(party) &&
-      !records.some((owner) => owner.partyId === party.id),
+      party.active && canCreate(party) && !records.some((owner) => owner.partyId === party.id),
   );
   const open = (next: Exclude<Panel, null>, record?: OwnerRecord) => {
     setSelected(record ?? null);
@@ -159,7 +157,7 @@ export function OwnerDirectory({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search owner name or numberâ€¦"
+              placeholder="Search owner name or number…"
               className={inputClass + ' pl-9'}
             />
           </label>
@@ -209,7 +207,7 @@ export function OwnerDirectory({
                       <span>
                         <strong className="block text-sm">{owner.party.displayName}</strong>
                         <span className="text-xs text-slate-500">
-                          {owner.ownerNumber} Â· {owner.party.partyNumber}
+                          {owner.ownerNumber} · {owner.party.partyNumber}
                         </span>
                       </span>
                     </button>
@@ -289,7 +287,7 @@ export function OwnerDirectory({
                 <option value="">Choose by name</option>
                 {eligibleParties.map((party) => (
                   <option key={party.id} value={party.id}>
-                    {party.displayName} â€” {party.partyNumber} ({humanize(party.kind)})
+                    {party.displayName} — {party.partyNumber} ({humanize(party.kind)})
                   </option>
                 ))}
               </select>
@@ -317,7 +315,7 @@ export function OwnerDirectory({
               disabled={busy || !eligibleParties.length}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
-              {busy ? 'Savingâ€¦' : 'Create owner profile'}
+              {busy ? 'Saving…' : 'Create owner profile'}
             </button>
             {!eligibleParties.length ? (
               <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
@@ -413,7 +411,7 @@ export function OwnerDirectory({
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
             >
-              {busy ? 'Savingâ€¦' : 'Save owner'}
+              {busy ? 'Saving…' : 'Save owner'}
             </button>
           </form>
         </Drawer>
