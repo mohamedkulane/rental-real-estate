@@ -2,7 +2,7 @@
 
 Audit date: 2026-08-11
 Scope: implemented Phase 1-4 repository, PostgreSQL migrations, Prisma, NestJS API, Next.js UI, identity/governance, Party/Owner/Property/RentableSpace, tests, CI, and canonical documentation.
-Decision: remediation is eligible for PASS after the final local and remote gates recorded in `completion-report.md`. Phase 5 has not started.
+Decision: PASS. All required local and remote gates are proven in `completion-report.md`. Phase 5 has not started.
 
 ## Outcome
 
