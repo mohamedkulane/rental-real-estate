@@ -1,7 +1,13 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { loadEnvFile } from 'node:process';
 import { uuidv7 } from '@rerms/shared';
 import { hash } from 'argon2';
 import { parseSeedEnvironment } from '@rerms/config';
 import { PrismaClient, BranchAccessMode, PartyKind, UserStatus } from '@prisma/client';
+
+const environmentFile = resolve(__dirname, '../.env');
+if (existsSync(environmentFile)) loadEnvFile(environmentFile);
 
 const database = new PrismaClient();
 const environment = parseSeedEnvironment(process.env);
