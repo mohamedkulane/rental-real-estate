@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseService } from '../../src/database/database.service';
 import type { AuditService } from '../../src/governance/audit.service';
 import { PartyCryptoService } from '../../src/portfolio/party-crypto.service';
+import { PartyService } from '../../src/portfolio/party.service';
 import { PortfolioService } from '../../src/portfolio/portfolio.service';
 import type { AuthorizationService } from '../../src/security/authorization.service';
 import type { AuthenticatedPrincipal } from '../../src/security/security.types';
@@ -15,6 +16,7 @@ const principal: AuthenticatedPrincipal = {
   companyId: '00000000-0000-4000-8000-000000000003',
   sessionId: '00000000-0000-4000-8000-000000000004',
   accessMode: BranchAccessMode.COMPANY_WIDE,
+  roles: [],
   permissions: new Set(['portfolio.space.create', 'portfolio.space.partition']),
   branchIds: new Set(),
   permissionBranchScopes: new Map([
@@ -39,6 +41,55 @@ describe('Phase 4 portfolio services', () => {
       crypto.normalizedHash('owner@example.test'),
     );
     expect(() => crypto.decrypt(`${encrypted}tampered`)).toThrow();
+  });
+
+  it('excludes employee identities from the business-party directory query', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const service = new PartyService(
+      { party: { findMany } } as unknown as DatabaseService,
+      {} as PartyCryptoService,
+      {} as AuditService,
+      {
+        authorizedBranchIds: vi.fn().mockReturnValue(null),
+      } as unknown as AuthorizationService,
+    );
+
+    await service.list(principal);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          companyId: principal.companyId,
+          employee: { is: null },
+        },
+      }),
+    );
+  });
+
+  it('rejects converting an employee identity into an owner profile', async () => {
+    const transaction = vi.fn();
+    const service = new PartyService(
+      {
+        party: {
+          findFirst: vi.fn().mockResolvedValue({
+            employee: { id: '00000000-0000-4000-8000-000000000099' },
+          }),
+        },
+        $transaction: transaction,
+      } as unknown as DatabaseService,
+      {} as PartyCryptoService,
+      {} as AuditService,
+      {} as AuthorizationService,
+    );
+
+    await expect(
+      service.createOwner(principal, {
+        partyId: '00000000-0000-4000-8000-000000000099',
+      }),
+    ).rejects.toThrow(
+      'Employees are staff identities and cannot be used as business parties or owners.',
+    );
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('requires the area unit whenever space area is supplied', async () => {

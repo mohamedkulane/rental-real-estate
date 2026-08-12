@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiCached, clearApiCache, userFacingError } from './phase3-api';
+import {
+  API_BASE,
+  ApiError,
+  apiCached,
+  clearApiCache,
+  isServiceUnavailable,
+  userFacingError,
+} from './phase3-api';
 
 afterEach(() => {
   clearApiCache();
@@ -7,6 +14,9 @@ afterEach(() => {
 });
 
 describe('cached API reads', () => {
+  it('uses the same-origin API proxy by default', () => {
+    expect(API_BASE).toBe('/api/backend');
+  });
   it('deduplicates concurrent and repeated reads within the active authenticated session', async () => {
     const fetchMock = vi
       .fn()
@@ -41,5 +51,44 @@ describe('user-facing API errors', () => {
     expect(userFacingError(new TypeError('fetch failed'))).toBe(
       'We could not reach the service. Check your connection and try again.',
     );
+  });
+
+  it('recognizes transient service failures that should trigger readiness recovery', () => {
+    expect(isServiceUnavailable(new TypeError('fetch failed'))).toBe(true);
+    expect(isServiceUnavailable(new ApiError('gateway error', 502))).toBe(true);
+    expect(isServiceUnavailable(new ApiError('validation error', 400))).toBe(false);
+  });
+
+  it('shows safe validation guidance returned by the API', () => {
+    expect(
+      userFacingError(
+        new ApiError('Bad Request Exception', 400, [
+          'code must be longer than or equal to 2 characters',
+        ]),
+      ),
+    ).toBe('Code must be longer than or equal to 2 characters');
+    expect(userFacingError(new ApiError('A reason is required.', 400))).toBe(
+      'A reason is required.',
+    );
+  });
+
+  it('preserves validation details from an unsuccessful API response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () =>
+          Promise.resolve({
+            message: 'Bad Request Exception',
+            details: ['name must be longer than or equal to 2 characters'],
+          }),
+      }),
+    );
+
+    await expect(apiCached('/roles')).rejects.toMatchObject({
+      status: 400,
+      details: ['name must be longer than or equal to 2 characters'],
+    });
   });
 });

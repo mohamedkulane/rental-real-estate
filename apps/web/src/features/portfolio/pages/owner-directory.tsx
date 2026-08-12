@@ -7,6 +7,8 @@ import { humanize } from '@/lib/presentation';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import type { PartyRecord } from './party-directory';
 import { StatusBadge } from '@/components/shared/ui';
+import { OwnerPropertyPortfolio } from '../ownership-workflow';
+import type { PropertyOwnershipRecord } from '../ownership-model';
 
 export type OwnerRecord = {
   partyId: string;
@@ -16,6 +18,21 @@ export type OwnerRecord = {
   notes?: string | null;
   scopeBranchIds: string[];
   party: PartyRecord;
+  ownerships?: (PropertyOwnershipRecord & {
+    property: {
+      id: string;
+      propertyCode: string;
+      name: string;
+      propertyType: string;
+      status: string;
+      city: string;
+      branchAssignments?: {
+        branch?: { name: string };
+        effectiveFrom: string;
+        effectiveTo: string | null;
+      }[];
+    };
+  })[];
 };
 
 type Panel = 'create' | 'view' | 'edit' | null;
@@ -79,6 +96,7 @@ export function OwnerDirectory({
   canUpdate,
   onCreate,
   onUpdate,
+  onLoadDetails,
 }: {
   records: OwnerRecord[];
   parties: PartyRecord[];
@@ -87,11 +105,13 @@ export function OwnerDirectory({
   canUpdate: (record: OwnerRecord) => boolean;
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
+  onLoadDetails: (partyId: string) => Promise<OwnerRecord>;
 }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [panel, setPanel] = useState<Panel>(null);
   const [selected, setSelected] = useState<OwnerRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const filtered = useMemo(
     () =>
       records.filter((owner) => {
@@ -121,6 +141,16 @@ export function OwnerDirectory({
   const open = (next: Exclude<Panel, null>, record?: OwnerRecord) => {
     setSelected(record ?? null);
     setPanel(next);
+  };
+  const openView = async (record: OwnerRecord) => {
+    setSelected(record);
+    setPanel('view');
+    setDetailLoading(true);
+    try {
+      setSelected(await onLoadDetails(record.partyId));
+    } finally {
+      setDetailLoading(false);
+    }
   };
   const close = () => {
     setPanel(null);
@@ -198,7 +228,7 @@ export function OwnerDirectory({
                   <td className="px-5 py-4">
                     <button
                       type="button"
-                      onClick={() => open('view', owner)}
+                      onClick={() => void openView(owner)}
                       className="flex items-center gap-3 text-left"
                     >
                       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
@@ -229,7 +259,7 @@ export function OwnerDirectory({
                       <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
                         <button
                           type="button"
-                          onClick={() => open('view', owner)}
+                          onClick={() => void openView(owner)}
                           className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
                         >
                           <Eye className="h-4 w-4" /> View owner
@@ -332,23 +362,34 @@ export function OwnerDirectory({
           description="Owner identity and operating preferences."
           onClose={close}
         >
-          <dl className="grid gap-3 sm:grid-cols-2">
-            {[
-              ['Owner number', selected.ownerNumber],
-              ['Party number', selected.party.partyNumber],
-              ['Record type', humanize(selected.party.kind)],
-              ['Communication', selected.communicationPreference || 'Not specified'],
-              ['Status', humanize(selected.status)],
-              ['Notes', selected.notes || 'No notes'],
-            ].map(([term, content]) => (
-              <div key={term} className="rounded-lg border border-slate-200 p-3">
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {term}
-                </dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-800">{content}</dd>
+          {detailLoading ? (
+            <div className="mb-4 space-y-2" aria-label="Loading owner properties">
+              <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
+            </div>
+          ) : (
+            <>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Owner number', selected.ownerNumber],
+                  ['Party number', selected.party.partyNumber],
+                  ['Record type', humanize(selected.party.kind)],
+                  ['Communication', selected.communicationPreference || 'Not specified'],
+                  ['Status', humanize(selected.status)],
+                  ['Notes', selected.notes || 'No notes'],
+                ].map(([term, content]) => (
+                  <div key={term} className="rounded-lg border border-slate-200 p-3">
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {term}
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-800">{content}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <OwnerPropertyPortfolio ownerships={selected.ownerships ?? []} />
               </div>
-            ))}
-          </dl>
+            </>
+          )}{' '}
         </Drawer>
       ) : null}
       {panel === 'edit' && selected ? (

@@ -90,6 +90,8 @@ export function AppShell({
   activeItem,
   subNavigation = {},
   accessMode,
+  accessBranches,
+  permissions,
   onLogout,
   children,
 }: {
@@ -97,6 +99,8 @@ export function AppShell({
   activeItem?: string;
   subNavigation?: Partial<Record<ShellSection, ShellSubItem[]>>;
   accessMode: string;
+  accessBranches?: Array<{ id: string; code: string; name: string }>;
+  permissions: string[];
   onLogout: () => void;
   children: ReactNode;
 }) {
@@ -116,11 +120,19 @@ export function AppShell({
     icon,
     onSelect: () => window.location.assign(url),
   });
+  const can = (permission: string) => permissions.includes(permission);
+  const allowed = (permission: string, item: NavItem): NavItem[] => (can(permission) ? [item] : []);
   const companySetup = organization.length
     ? pick(organization, ['company', 'branches'], { company: Landmark, branches: Building2 })
     : [
-        go('company', 'Company', '/admin?section=company', Landmark),
-        go('branches', 'Branches', '/admin?section=branches', Building2),
+        ...allowed(
+          'organization.company.read',
+          go('company', 'Company', '/admin?section=company', Landmark),
+        ),
+        ...allowed(
+          'organization.branch.read',
+          go('branches', 'Branches', '/admin?section=branches', Building2),
+        ),
       ];
   const localTeamAccess = [
     ...pick(organization, ['employees'], { employees: Users }),
@@ -133,25 +145,52 @@ export function AppShell({
   const teamAccess = localTeamAccess.length
     ? localTeamAccess
     : [
-        go('employees', 'Employees', '/admin?section=employees', Users),
-        go('users', 'User accounts', '/admin?section=users', UserCog),
-        go('roles', 'Roles & permissions', '/admin?section=roles', ShieldCheck),
+        ...allowed(
+          'identity.employee.read',
+          go('employees', 'Employees', '/admin?section=employees', Users),
+        ),
+        ...allowed(
+          'identity.user.read',
+          go('users', 'User accounts', '/admin?section=users', UserCog),
+        ),
+        ...allowed(
+          'identity.role.read',
+          go('roles', 'Roles & permissions', '/admin?section=roles', ShieldCheck),
+        ),
       ];
   const portfolioItems = portfolio.length
     ? portfolio
     : [
-        go('parties', 'People & organizations', '/portfolio?section=parties', Users),
-        go('owners', 'Owners', '/portfolio?section=owners', Users),
-        go('properties', 'Properties', '/portfolio?section=properties', Building2),
-        go('spaces', 'Rentable spaces', '/portfolio?section=spaces', Building2),
-        go('amenities', 'Amenities', '/portfolio?section=amenities', Building2),
+        ...allowed(
+          'party.read',
+          go('parties', 'People & organizations', '/portfolio?section=parties', Users),
+        ),
+        ...allowed('owner.read', go('owners', 'Owners', '/portfolio?section=owners', Users)),
+        ...allowed(
+          'portfolio.property.read',
+          go('properties', 'Properties', '/portfolio?section=properties', Building2),
+        ),
+        ...allowed(
+          'portfolio.space.read',
+          go('spaces', 'Rentable spaces', '/portfolio?section=spaces', Building2),
+        ),
+        ...allowed(
+          'portfolio.amenity.read',
+          go('amenities', 'Amenities', '/portfolio?section=amenities', Building2),
+        ),
       ];
   const oversight = administration.length
     ? pick(administration, ['audit'], { audit: ClipboardList })
-    : [go('audit', 'Audit log', '/admin?section=audit', ClipboardList)];
+    : allowed(
+        'governance.audit.read',
+        go('audit', 'Audit log', '/admin?section=audit', ClipboardList),
+      );
   const settings = organization.length
     ? pick(organization, ['settings'], { settings: Settings })
-    : [go('settings', 'Settings', '/admin?section=settings', Settings)];
+    : allowed(
+        'organization.company.read',
+        go('settings', 'Settings', '/admin?section=settings', Settings),
+      );
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -251,7 +290,7 @@ export function AppShell({
         </nav>
 
         <div className="space-y-3 border-t border-slate-800 p-4">
-          <AccessScopeBadge mode={accessMode} />
+          <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
           <button
             type="button"
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
@@ -271,7 +310,7 @@ export function AppShell({
             </p>
             <p className="text-sm font-semibold text-slate-700">Secure staff workspace</p>
           </div>
-          <AccessScopeBadge mode={accessMode} />
+          <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
         </header>
         <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</main>
       </div>

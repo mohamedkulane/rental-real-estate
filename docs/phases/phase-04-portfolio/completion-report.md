@@ -35,6 +35,14 @@ The Phase 4 migration adds effective-interval checks/exclusions, uniqueness, per
 
 All Phase 2/3 tests are retained and passed. Prisma format, validation, and generation passed. Repository lint and strict TypeScript passed for all workspaces. Default/unit, integration, and E2E commands passed. Production builds passed for shared/config/database packages, NestJS API, and Next.js UI; Next generated the /portfolio route successfully. E2E application initialization proved the complete Nest application boots against the migrated database.
 
+## Ownership UX remediation — 2026-08-11
+
+The previously count-only Property Ownership tab and legacy single-owner/100% form were remediated before Phase 5. Property Details now provides current, scheduled, and historical ownership, joint-owner editing, searchable human-readable owner selection, independent ownership/payout totals, and full activation-readiness guidance. Owner Details now shows real current and historical property relations.
+
+The remediation report and five-step screenshot audit are recorded in [ownership-remediation-report.md](ownership-remediation-report.md). The current regression result is 51 default/unit tests, 10 integration tests, and 32 E2E tests, with lint, formatting, strict TypeScript, Prisma format/validate/generate, production build, and UI/UX review passing.
+
+**PHASE 4 OWNERSHIP REMEDIATION: PASS. UI/UX REVIEW: PASS.**
+
 ## 18. Known issues
 
 No critical Phase 4 issue remains. File binaries and finalized storage upload/download orchestration are intentionally outside this phase; only metadata boundaries are implemented.

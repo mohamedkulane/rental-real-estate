@@ -31,11 +31,20 @@ export function StatusBadge({ value }: { value: string | boolean | null | undefi
   );
 }
 
-export function AccessScopeBadge({ mode }: { mode: string }) {
+export function AccessScopeBadge({
+  mode,
+  branches = [],
+}: {
+  mode: string;
+  branches?: Array<{ id: string; code: string; name: string }>;
+}) {
   const labels: Record<string, string> = {
     COMPANY_WIDE: 'Company Wide',
-    MULTI_BRANCH: 'Multiple Branches',
-    BRANCH: 'Branch Restricted',
+    MULTI_BRANCH:
+      branches.length > 2
+        ? `${branches.length} Branches`
+        : branches.map((branch) => branch.name).join(', ') || 'Multiple Branches',
+    BRANCH: branches[0]?.name ?? 'Assigned Branch',
   };
   return (
     <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">

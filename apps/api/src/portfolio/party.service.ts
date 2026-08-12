@@ -1,5 +1,10 @@
 import { uuidv7 } from '@rerms/shared';
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OwnerStatus, PartyKind, Prisma } from '@prisma/client';
 import { nextRecordNumber } from '../common/record-number';
 import { DatabaseService } from '../database/database.service';
@@ -36,21 +41,15 @@ export class PartyService {
     permission: string,
   ): Prisma.PartyWhereInput {
     const authorized = this.authorization.authorizedBranchIds(principal, permission);
-    if (authorized === null) return { companyId: principal.companyId };
+    if (authorized === null) return { companyId: principal.companyId, employee: { is: null } };
     const branchIds = [...authorized];
     return {
       companyId: principal.companyId,
+      employee: { is: null },
       OR: [
         {
           branchAssignments: {
             some: { branchId: { in: branchIds }, ...this.activeInterval() },
-          },
-        },
-        {
-          employee: {
-            branchAssignments: {
-              some: { branchId: { in: branchIds }, ...this.activeInterval() },
-            },
           },
         },
         {
@@ -69,6 +68,21 @@ export class PartyService {
     };
   }
 
+  private async assertBusinessParty(
+    principal: AuthenticatedPrincipal,
+    partyId: string,
+  ): Promise<void> {
+    const party = await this.database.party.findFirst({
+      where: { id: partyId, companyId: principal.companyId },
+      select: { employee: { select: { id: true } } },
+    });
+    if (!party) throw new NotFoundException('Party record was not found.');
+    if (party.employee)
+      throw new BadRequestException(
+        'Employees are staff identities and cannot be used as business parties or owners.',
+      );
+  }
+
   private async partyScopeBranchIds(partyId: string): Promise<string[]> {
     const party = await this.database.party.findUniqueOrThrow({
       where: { id: partyId },
@@ -76,14 +90,6 @@ export class PartyService {
         branchAssignments: {
           where: this.activeInterval(),
           select: { branchId: true },
-        },
-        employee: {
-          select: {
-            branchAssignments: {
-              where: this.activeInterval(),
-              select: { branchId: true },
-            },
-          },
         },
         propertyOwnerships: {
           where: this.activeInterval(),
@@ -103,7 +109,6 @@ export class PartyService {
     return [
       ...new Set([
         ...party.branchAssignments.map((assignment) => assignment.branchId),
-        ...(party.employee?.branchAssignments.map((assignment) => assignment.branchId) ?? []),
         ...party.propertyOwnerships.flatMap((ownership) =>
           ownership.property.branchAssignments.map((assignment) => assignment.branchId),
         ),
@@ -116,6 +121,7 @@ export class PartyService {
     partyId: string,
     permission: string,
   ): Promise<string[]> {
+    await this.assertBusinessParty(principal, partyId);
     const branchIds = await this.partyScopeBranchIds(partyId);
     if (this.authorization.canPerformCompanyWide(principal, permission)) return branchIds;
     if (
@@ -132,6 +138,7 @@ export class PartyService {
     partyId: string,
     permission: string,
   ): Promise<string[]> {
+    await this.assertBusinessParty(principal, partyId);
     const branchIds = await this.partyScopeBranchIds(partyId);
     if (!branchIds.length) {
       this.authorization.assertCompanyPermission(principal, permission);
@@ -162,9 +169,6 @@ export class PartyService {
           contacts: true,
           addresses: true,
           branchAssignments: { where: active, select: { branchId: true } },
-          employee: {
-            select: { branchAssignments: { where: active, select: { branchId: true } } },
-          },
           propertyOwnerships: {
             where: active,
             select: {
@@ -179,12 +183,11 @@ export class PartyService {
         orderBy: { partyNumber: 'asc' },
       })
       .then((parties) =>
-        parties.map(({ branchAssignments, employee, propertyOwnerships, ...party }) => ({
+        parties.map(({ branchAssignments, propertyOwnerships, ...party }) => ({
           ...party,
           scopeBranchIds: [
             ...new Set([
               ...branchAssignments.map((assignment) => assignment.branchId),
-              ...(employee?.branchAssignments.map((assignment) => assignment.branchId) ?? []),
               ...propertyOwnerships.flatMap((ownership) =>
                 ownership.property.branchAssignments.map((assignment) => assignment.branchId),
               ),
@@ -205,7 +208,7 @@ export class PartyService {
   async get(principal: AuthenticatedPrincipal, partyId: string) {
     const scopeBranchIds = await this.assertPartyReadable(principal, partyId, 'party.read');
     const party = await this.database.party.findFirstOrThrow({
-      where: { id: partyId, companyId: principal.companyId },
+      where: { id: partyId, companyId: principal.companyId, employee: { is: null } },
       include: { person: true, organization: true, owner: true, contacts: true, addresses: true },
     });
     const canReadContacts =
@@ -335,10 +338,95 @@ export class PartyService {
   ) {
     const branchIds = await this.assertPartyPermission(principal, partyId, 'party.update');
     return this.database.$transaction(async (transaction) => {
+      const { person, organization, contacts, addresses, ...partyChanges } = input;
       const before = await transaction.party.findFirstOrThrow({
-        where: { id: partyId, companyId: principal.companyId },
+        where: { id: partyId, companyId: principal.companyId, employee: { is: null } },
+        include: {
+          person: true,
+          organization: true,
+          contacts: { select: { id: true } },
+          addresses: { select: { id: true } },
+        },
       });
-      const after = await transaction.party.update({ where: { id: partyId }, data: input });
+      if (person && before.kind !== PartyKind.PERSON)
+        throw new BadRequestException('Only a Person record can have person details.');
+      if (organization && before.kind !== PartyKind.ORGANIZATION)
+        throw new BadRequestException('Only an Organization record can have organization details.');
+
+      await transaction.party.update({ where: { id: partyId }, data: partyChanges });
+      if (person)
+        await transaction.personProfile.upsert({
+          where: { partyId },
+          update: {
+            givenName: person.givenName,
+            familyName: person.familyName,
+            preferredName: person.preferredName ?? null,
+            birthDate: person.birthDate ? new Date(person.birthDate) : null,
+            nationalityCode: person.nationalityCode?.toUpperCase() ?? null,
+          },
+          create: {
+            partyId,
+            givenName: person.givenName,
+            familyName: person.familyName,
+            preferredName: person.preferredName ?? null,
+            birthDate: person.birthDate ? new Date(person.birthDate) : null,
+            nationalityCode: person.nationalityCode?.toUpperCase() ?? null,
+          },
+        });
+      if (organization)
+        await transaction.organizationProfile.upsert({
+          where: { partyId },
+          update: {
+            legalName: organization.legalName,
+            tradingName: organization.tradingName ?? null,
+            registrationNumber: organization.registrationNumber ?? null,
+            contactPersonName: organization.contactPersonName ?? null,
+          },
+          create: {
+            partyId,
+            legalName: organization.legalName,
+            tradingName: organization.tradingName ?? null,
+            registrationNumber: organization.registrationNumber ?? null,
+            contactPersonName: organization.contactPersonName ?? null,
+          },
+        });
+      if (contacts !== undefined) {
+        await transaction.contactPoint.deleteMany({ where: { partyId } });
+        if (contacts.length)
+          await transaction.contactPoint.createMany({
+            data: contacts.map((contact) => ({
+              id: uuidv7(),
+              partyId,
+              type: contact.type,
+              valueEncrypted: this.crypto.encrypt(contact.value),
+              normalizedHash: this.crypto.normalizedHash(contact.value),
+              primary: contact.primary ?? false,
+            })),
+          });
+      }
+      if (addresses !== undefined) {
+        await transaction.address.deleteMany({ where: { partyId } });
+        if (addresses.length)
+          await transaction.address.createMany({
+            data: addresses.map((address) => ({
+              id: uuidv7(),
+              partyId,
+              type: address.type ?? 'PRIMARY',
+              line1: address.line1,
+              city: address.city ?? null,
+              countryCode: address.countryCode.toUpperCase(),
+            })),
+          });
+      }
+      const after = await transaction.party.findUniqueOrThrow({
+        where: { id: partyId },
+        include: {
+          person: true,
+          organization: true,
+          contacts: { select: { id: true, type: true, primary: true } },
+          addresses: true,
+        },
+      });
       await this.audit.write(transaction, {
         actorUserId: principal.userId,
         action: 'party.updated',
@@ -346,8 +434,18 @@ export class PartyService {
         entityId: partyId,
         branchId: branchIds.length === 1 ? branchIds[0] : null,
         correlationId,
-        before: { displayName: before.displayName, active: before.active },
-        after: { displayName: after.displayName, active: after.active },
+        before: {
+          displayName: before.displayName,
+          active: before.active,
+          contactCount: before.contacts.length,
+          addressCount: before.addresses.length,
+        },
+        after: {
+          displayName: after.displayName,
+          active: after.active,
+          contactCount: after.contacts.length,
+          addressCount: after.addresses.length,
+        },
       });
       return after;
     });
@@ -406,7 +504,14 @@ export class PartyService {
     });
     const ownerships = await this.database.propertyOwnership.findMany({
       where: { ownerPartyId: partyId },
-      include: { property: { include: { branchAssignments: true } }, entitlements: true },
+      include: {
+        property: {
+          include: {
+            branchAssignments: { include: { branch: true } },
+          },
+        },
+        entitlements: true,
+      },
       orderBy: { effectiveFrom: 'desc' },
     });
     const allowed = ownerships.filter((ownership) =>

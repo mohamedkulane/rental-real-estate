@@ -3,6 +3,7 @@ import {
   Catch,
   HttpException,
   HttpStatus,
+  Logger,
   type ExceptionFilter,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -12,6 +13,8 @@ import type { CorrelatedRequest } from './correlation-id.middleware';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const request = context.getRequest<CorrelatedRequest>();
@@ -45,6 +48,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
       typeof raw === 'object' && raw && 'message' in raw && Array.isArray(raw.message)
         ? raw.message
         : [];
+    const httpMessage =
+      typeof raw === 'string'
+        ? raw
+        : typeof raw === 'object' && raw && 'message' in raw && typeof raw.message === 'string'
+          ? raw.message
+          : undefined;
     const message =
       prismaCode === 'P2025'
         ? 'The requested record was not found.'
@@ -54,9 +63,20 @@ export class ApiExceptionFilter implements ExceptionFilter {
             ? 'The change conflicts with existing data.'
             : statusCode >= 500
               ? 'An unexpected error occurred.'
-              : exception instanceof Error
-                ? exception.message
-                : 'Request failed.';
+              : httpMessage
+                ? httpMessage
+                : exception instanceof Error
+                  ? exception.message
+                  : 'Request failed.';
+    const correlationId = request.correlationId ?? 'unknown';
+    if (statusCode >= 500) {
+      const method = request.method ?? 'UNKNOWN';
+      const path = request.originalUrl ?? request.url ?? 'unknown';
+      this.logger.error(
+        'Unhandled API error ' + method + ' ' + path + ' [' + correlationId + ']',
+        exception instanceof Error ? exception.stack : undefined,
+      );
+    }
     const body: ApiErrorResponse = {
       statusCode,
       code: validationMessages.length
@@ -70,7 +90,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
             : 'INTERNAL_ERROR',
       message,
       details: validationMessages,
-      correlationId: request.correlationId ?? 'unknown',
+      correlationId,
     };
     response.status(statusCode).json(body);
   }

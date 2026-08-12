@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { humanize, permissionDomain, permissionLabel } from '@/lib/presentation';
+import { userFacingError } from '@/lib/phase3-api';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 
@@ -110,6 +111,7 @@ export function RoleManager({
   >(null);
   const [selected, setSelected] = useState<RoleRecord | null>(null);
   const [revoking, setRevoking] = useState<PermissionRecord | null>(null);
+  const [formError, setFormError] = useState('');
   const filtered = useMemo(
     () =>
       records.filter(
@@ -125,6 +127,7 @@ export function RoleManager({
   const close = () => {
     setPanel(null);
     setRevoking(null);
+    setFormError('');
   };
   return (
     <div className="space-y-6">
@@ -143,7 +146,10 @@ export function RoleManager({
         {canManage ? (
           <button
             type="button"
-            onClick={() => setPanel('create')}
+            onClick={() => {
+              setFormError('');
+              setPanel('create');
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"
           >
             <Plus className="h-4 w-4" /> Add role
@@ -283,11 +289,22 @@ export function RoleManager({
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
+              setFormError('');
               void onCreate({ code: value(form, 'code'), name: value(form, 'name') })
                 .then(close)
-                .catch(() => undefined);
+                .catch((cause: unknown) => {
+                  setFormError(userFacingError(cause, 'The business role could not be created.'));
+                });
             }}
           >
+            {formError ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {formError}
+              </div>
+            ) : null}
             <Field
               label="Role code"
               hint="Permanent internal shorthand, for example PROPERTY_MANAGER"

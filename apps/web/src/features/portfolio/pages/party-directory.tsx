@@ -14,8 +14,32 @@ export type PartyRecord = {
   displayName: string;
   active: boolean;
   owner?: { ownerNumber: string; status: string } | null;
-  contacts?: { id: string; type: string; value?: string; primary: boolean }[];
-  addresses?: { id: string; line1: string; city?: string | null; countryCode: string }[];
+  person?: {
+    givenName: string;
+    familyName: string;
+    preferredName?: string | null;
+    birthDate?: string | null;
+    nationalityCode?: string | null;
+  } | null;
+  organization?: {
+    legalName: string;
+    tradingName?: string | null;
+    registrationNumber?: string | null;
+    contactPersonName?: string | null;
+  } | null;
+  contacts?: {
+    id?: string;
+    type: 'PHONE' | 'WHATSAPP' | 'EMAIL';
+    value?: string;
+    primary: boolean;
+  }[];
+  addresses?: {
+    id?: string;
+    type?: string;
+    line1: string;
+    city?: string | null;
+    countryCode: string;
+  }[];
   scopeBranchIds: string[];
 };
 
@@ -80,6 +104,7 @@ export function PartyDirectory({
   canUpdate,
   onCreate,
   onUpdate,
+  onLoadDetails,
 }: {
   records: PartyRecord[];
   branches: { id: string; name: string }[];
@@ -88,12 +113,16 @@ export function PartyDirectory({
   canUpdate: (record: PartyRecord) => boolean;
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
+  onLoadDetails: (partyId: string) => Promise<PartyRecord>;
 }) {
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState('all');
   const [status, setStatus] = useState('all');
   const [panel, setPanel] = useState<Panel>(null);
   const [selected, setSelected] = useState<PartyRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [editContacts, setEditContacts] = useState<NonNullable<PartyRecord['contacts']>>([]);
+  const [editAddresses, setEditAddresses] = useState<NonNullable<PartyRecord['addresses']>>([]);
   const filtered = useMemo(
     () =>
       records.filter((party) => {
@@ -121,6 +150,22 @@ export function PartyDirectory({
   const open = (next: Exclude<Panel, null>, party?: PartyRecord) => {
     setSelected(party ?? null);
     setPanel(next);
+  };
+  const openEdit = async (party: PartyRecord) => {
+    setSelected(party);
+    setPanel('edit');
+    setDetailLoading(true);
+    try {
+      const detail = await onLoadDetails(party.id);
+      setSelected(detail);
+      setEditContacts(detail.contacts ?? []);
+      setEditAddresses(detail.addresses ?? []);
+    } catch {
+      setPanel(null);
+      setSelected(null);
+    } finally {
+      setDetailLoading(false);
+    }
   };
   const close = () => {
     setPanel(null);
@@ -263,7 +308,7 @@ export function PartyDirectory({
                             <>
                               <button
                                 type="button"
-                                onClick={() => open('edit', party)}
+                                onClick={() => void openEdit(party)}
                                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
                               >
                                 <Edit3 className="h-4 w-4" /> Edit
@@ -437,20 +482,175 @@ export function PartyDirectory({
       {panel === 'edit' && selected ? (
         <Drawer
           title="Edit record"
-          description="Update the readable name while preserving the stable record number."
+          description="Review and update every editable business identity field."
           onClose={close}
         >
           <form
             className="space-y-5"
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
+              const form = new FormData(event.currentTarget);
               void onUpdate(selected.id, {
-                displayName: value(new FormData(event.currentTarget), 'displayName'),
+                displayName: value(form, 'displayName'),
+                active: value(form, 'active') === 'true',
+                ...(selected.kind === 'PERSON'
+                  ? {
+                      person: {
+                        givenName: value(form, 'givenName'),
+                        familyName: value(form, 'familyName'),
+                        preferredName: value(form, 'preferredName') || undefined,
+                        birthDate: value(form, 'birthDate') || undefined,
+                        nationalityCode: value(form, 'nationalityCode') || undefined,
+                      },
+                    }
+                  : {
+                      organization: {
+                        legalName: value(form, 'legalName'),
+                        tradingName: value(form, 'tradingName') || undefined,
+                        registrationNumber: value(form, 'registrationNumber') || undefined,
+                        contactPersonName: value(form, 'contactPersonName') || undefined,
+                      },
+                    }),
+                contacts: editContacts
+                  .filter((contact) => contact.value?.trim())
+                  .map((contact) => ({
+                    type: contact.type,
+                    value: contact.value?.trim(),
+                    primary: contact.primary,
+                  })),
+                addresses: editAddresses
+                  .filter((address) => address.line1.trim())
+                  .map((address) => ({
+                    type: address.type || 'PRIMARY',
+                    line1: address.line1.trim(),
+                    city: address.city?.trim() || undefined,
+                    countryCode: address.countryCode.trim().toUpperCase(),
+                  })),
               })
                 .then(close)
                 .catch(() => undefined);
             }}
           >
+            {detailLoading ? (
+              <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                Loading complete record...
+              </p>
+            ) : null}
+            <div className="grid gap-4 rounded-xl border border-slate-200 p-4 sm:grid-cols-2">
+              <label className="space-y-1.5 text-sm font-semibold">
+                Record number
+                <input
+                  value={selected.partyNumber}
+                  disabled
+                  className={inputClass + ' bg-slate-50'}
+                />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold">
+                Record type
+                <input
+                  value={humanize(selected.kind)}
+                  disabled
+                  className={inputClass + ' bg-slate-50'}
+                />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold">
+                Status
+                <select name="active" defaultValue={String(selected.active)} className={inputClass}>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            </div>
+            {selected.kind === 'PERSON' ? (
+              <section className="space-y-4">
+                <h3 className="text-sm font-bold">Person details</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Given name
+                    <input
+                      name="givenName"
+                      required
+                      defaultValue={selected.person?.givenName ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Family name
+                    <input
+                      name="familyName"
+                      required
+                      defaultValue={selected.person?.familyName ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Preferred name
+                    <input
+                      name="preferredName"
+                      defaultValue={selected.person?.preferredName ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Birth date
+                    <input
+                      name="birthDate"
+                      type="date"
+                      defaultValue={selected.person?.birthDate?.slice(0, 10) ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Nationality code
+                    <input
+                      name="nationalityCode"
+                      maxLength={2}
+                      defaultValue={selected.person?.nationalityCode ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                </div>
+              </section>
+            ) : (
+              <section className="space-y-4">
+                <h3 className="text-sm font-bold">Organization details</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-1.5 text-sm font-semibold sm:col-span-2">
+                    Legal name
+                    <input
+                      name="legalName"
+                      required
+                      defaultValue={selected.organization?.legalName ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Trading name
+                    <input
+                      name="tradingName"
+                      defaultValue={selected.organization?.tradingName ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold">
+                    Registration number
+                    <input
+                      name="registrationNumber"
+                      defaultValue={selected.organization?.registrationNumber ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-semibold sm:col-span-2">
+                    Contact person
+                    <input
+                      name="contactPersonName"
+                      defaultValue={selected.organization?.contactPersonName ?? ''}
+                      className={inputClass}
+                    />
+                  </label>
+                </div>
+              </section>
+            )}
             <label className="space-y-1.5 text-sm font-semibold">
               Display or legal name
               <input
@@ -461,6 +661,179 @@ export function PartyDirectory({
                 className={inputClass}
               />
             </label>
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold">Contacts</h3>
+                <button
+                  type="button"
+                  disabled={editContacts.length >= 10}
+                  onClick={() =>
+                    setEditContacts((items) => [
+                      ...items,
+                      { type: 'PHONE', value: '', primary: items.length === 0 },
+                    ])
+                  }
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold disabled:opacity-50"
+                >
+                  Add contact
+                </button>
+              </div>
+              {editContacts.map((contact, index) => (
+                <div
+                  key={contact.id ?? index}
+                  className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[140px_1fr_auto]"
+                >
+                  <select
+                    value={contact.type}
+                    onChange={(event) =>
+                      setEditContacts((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...item,
+                                type: event.target.value as 'PHONE' | 'WHATSAPP' | 'EMAIL',
+                              }
+                            : item,
+                        ),
+                      )
+                    }
+                    className={inputClass}
+                    aria-label={'Contact type ' + (index + 1)}
+                  >
+                    <option value="PHONE">Phone</option>
+                    <option value="WHATSAPP">WhatsApp</option>
+                    <option value="EMAIL">Email</option>
+                  </select>
+                  <input
+                    value={contact.value ?? ''}
+                    onChange={(event) =>
+                      setEditContacts((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, value: event.target.value } : item,
+                        ),
+                      )
+                    }
+                    className={inputClass}
+                    aria-label={'Contact value ' + (index + 1)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditContacts((items) =>
+                        items.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                    className="text-xs font-bold text-red-600"
+                  >
+                    Remove
+                  </button>
+                  <label className="flex items-center gap-2 text-xs font-semibold sm:col-span-3">
+                    <input
+                      type="radio"
+                      name="primaryContact"
+                      checked={contact.primary}
+                      onChange={() =>
+                        setEditContacts((items) =>
+                          items.map((item, itemIndex) => ({
+                            ...item,
+                            primary: itemIndex === index,
+                          })),
+                        )
+                      }
+                    />
+                    Primary contact
+                  </label>
+                </div>
+              ))}
+            </section>
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold">Addresses</h3>
+                <button
+                  type="button"
+                  disabled={editAddresses.length >= 5}
+                  onClick={() =>
+                    setEditAddresses((items) => [
+                      ...items,
+                      { type: 'PRIMARY', line1: '', city: '', countryCode: 'SO' },
+                    ])
+                  }
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold disabled:opacity-50"
+                >
+                  Add address
+                </button>
+              </div>
+              {editAddresses.map((address, index) => (
+                <div
+                  key={address.id ?? index}
+                  className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-2"
+                >
+                  <input
+                    value={address.type ?? 'PRIMARY'}
+                    onChange={(event) =>
+                      setEditAddresses((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, type: event.target.value } : item,
+                        ),
+                      )
+                    }
+                    className={inputClass}
+                    aria-label={'Address type ' + (index + 1)}
+                  />
+                  <input
+                    value={address.countryCode}
+                    maxLength={2}
+                    required
+                    onChange={(event) =>
+                      setEditAddresses((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, countryCode: event.target.value } : item,
+                        ),
+                      )
+                    }
+                    className={inputClass}
+                    aria-label={'Country code ' + (index + 1)}
+                  />
+                  <input
+                    value={address.line1}
+                    required
+                    onChange={(event) =>
+                      setEditAddresses((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, line1: event.target.value } : item,
+                        ),
+                      )
+                    }
+                    className={inputClass + ' sm:col-span-2'}
+                    aria-label={'Address line ' + (index + 1)}
+                  />
+                  <input
+                    value={address.city ?? ''}
+                    onChange={(event) =>
+                      setEditAddresses((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, city: event.target.value } : item,
+                        ),
+                      )
+                    }
+                    className={inputClass}
+                    aria-label={'City ' + (index + 1)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditAddresses((items) =>
+                        items.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                    className="rounded-lg border border-red-200 px-3 py-2.5 text-xs font-bold text-red-600"
+                  >
+                    Remove address
+                  </button>
+                </div>
+              ))}
+            </section>
             <button
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"

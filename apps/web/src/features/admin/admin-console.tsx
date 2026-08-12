@@ -87,6 +87,18 @@ const emptyDashboard: DashboardSnapshot = {
   activity: [],
 };
 
+const roleWorkspaceDescriptions: Record<string, string> = {
+  SUPER_ADMIN: 'Company-wide control of every Phase 1-4 workspace.',
+  GENERAL_MANAGER: 'Company operations, teams, governance, and portfolio oversight.',
+  BRANCH_MANAGER: 'Branch team, access, people, owners, and portfolio operations.',
+  PROPERTY_MANAGER: 'Property, owner, rentable-space, amenity, and document operations.',
+  LEASING_AGENT: 'People and contact management with portfolio reference access.',
+  ACCOUNTANT: 'Approval, owner, ownership, property, and document reference access.',
+  MAINTENANCE_COORDINATOR: 'Contact, property, space, amenity, and document reference access.',
+  INSPECTOR: 'Read-only property, space, amenity, and document reference access.',
+  RECEPTIONIST: 'Branch directory and people registration with portfolio reference access.',
+};
+
 const sections: Section[] = [
   {
     key: 'profile',
@@ -834,32 +846,62 @@ export function AdminConsole() {
       const totalProperties = dashboard.properties.length;
       return (
         <div className="dashboard-stack">
+          <section className="card">
+            <div className="summary-grid">
+              <div className="summary-item">
+                <small>Business role</small>
+                <strong>
+                  {principal!.roles.length
+                    ? principal!.roles.map((role) => role.name).join(', ')
+                    : 'No active role'}
+                </strong>
+              </div>
+              <div className="summary-item">
+                <small>Data access</small>
+                <strong>{humanize(principal!.accessMode)}</strong>
+              </div>
+              <div className="summary-item">
+                <small>Available capabilities</small>
+                <strong>{principal!.permissions.length}</strong>
+              </div>
+            </div>
+          </section>
           <div className="metric-grid" aria-label="Current workspace totals">
-            <MetricCard
-              label="Branches"
-              value={dashboardLoading ? '...' : dashboard.branches.length}
-              icon={<GitBranch />}
-            />
-            <MetricCard
-              label="Employees"
-              value={dashboardLoading ? '...' : dashboard.employees.length}
-              icon={<UsersRound />}
-            />
-            <MetricCard
-              label="Owners"
-              value={dashboardLoading ? '...' : dashboard.owners.length}
-              icon={<UsersRound />}
-            />
-            <MetricCard
-              label="Properties"
-              value={dashboardLoading ? '...' : dashboard.properties.length}
-              icon={<Building2 />}
-            />
-            <MetricCard
-              label="Rentable spaces"
-              value={dashboardLoading ? '...' : dashboard.spaces.length}
-              icon={<MapPinned />}
-            />
+            {hasPermission(principal!, 'organization.branch.read') ? (
+              <MetricCard
+                label="Branches"
+                value={dashboardLoading ? '...' : dashboard.branches.length}
+                icon={<GitBranch />}
+              />
+            ) : null}
+            {hasPermission(principal!, 'identity.employee.read') ? (
+              <MetricCard
+                label="Employees"
+                value={dashboardLoading ? '...' : dashboard.employees.length}
+                icon={<UsersRound />}
+              />
+            ) : null}
+            {hasPermission(principal!, 'owner.read') ? (
+              <MetricCard
+                label="Owners"
+                value={dashboardLoading ? '...' : dashboard.owners.length}
+                icon={<UsersRound />}
+              />
+            ) : null}
+            {hasPermission(principal!, 'portfolio.property.read') ? (
+              <MetricCard
+                label="Properties"
+                value={dashboardLoading ? '...' : dashboard.properties.length}
+                icon={<Building2 />}
+              />
+            ) : null}
+            {hasPermission(principal!, 'portfolio.space.read') ? (
+              <MetricCard
+                label="Rentable spaces"
+                value={dashboardLoading ? '...' : dashboard.spaces.length}
+                icon={<MapPinned />}
+              />
+            ) : null}
           </div>
           {dashboardLoading ? (
             <LoadingState label="Preparing your portfolio overview" compact />
@@ -1164,6 +1206,11 @@ export function AdminConsole() {
       : ['company', 'branches', 'employees', 'settings'].includes(active)
         ? 'organization'
         : 'administration';
+  const primaryRole = principal.roles[0];
+  const workspaceTitle = primaryRole ? `${primaryRole.name} workspace` : 'Staff workspace';
+  const workspaceDescription = primaryRole
+    ? (roleWorkspaceDescriptions[primaryRole.code] ?? sections[0]!.description)
+    : sections[0]!.description;
   const subNavigation = {
     overview: visible
       .filter((section) => section.key === 'profile')
@@ -1220,6 +1267,8 @@ export function AdminConsole() {
       activeItem={active}
       subNavigation={subNavigation}
       accessMode={principal.accessMode}
+      accessBranches={principal.branches}
+      permissions={principal.permissions}
       onLogout={() => void logout()}
     >
       {active === 'employees' ? (
@@ -1431,9 +1480,15 @@ export function AdminConsole() {
       ) : (
         <>
           <PageHeader
-            eyebrow={active === 'audit' ? 'Governance' : 'Organization & access'}
-            title={selected.label}
-            description={selected.description}
+            eyebrow={
+              active === 'profile'
+                ? humanize(principal.accessMode)
+                : active === 'audit'
+                  ? 'Governance'
+                  : 'Organization & access'
+            }
+            title={active === 'profile' ? workspaceTitle : selected.label}
+            description={active === 'profile' ? workspaceDescription : selected.description}
             action={
               activeForm ? (
                 <div className="flex flex-wrap items-center gap-2">

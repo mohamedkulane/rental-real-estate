@@ -105,6 +105,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'identity.user.suspend',
     'identity.session.revoke',
     'identity.role.read',
+    'identity.role.manage',
     'identity.permission.read',
     'identity.employee.read',
     'identity.employee.create',
@@ -140,7 +141,11 @@ const rolePermissions: Record<string, readonly string[]> = {
     'identity.employee.read',
     'party.read',
     'party.contact.read',
+    'party.create',
+    'party.update',
     'owner.read',
+    'owner.create',
+    'owner.update',
     'portfolio.property.read',
     'portfolio.property.create',
     'portfolio.property.update',
@@ -161,6 +166,8 @@ const rolePermissions: Record<string, readonly string[]> = {
     'identity.employee.read',
     'party.read',
     'party.contact.read',
+    'party.create',
+    'party.update',
     'owner.read',
     'portfolio.property.read',
     'portfolio.space.read',
@@ -173,10 +180,54 @@ const rolePermissions: Record<string, readonly string[]> = {
     'identity.employee.read',
     'governance.approval.read',
     'governance.approval.request',
+    'party.read',
+    'party.contact.read',
+    'owner.read',
+    'portfolio.property.read',
+    'portfolio.ownership.read',
+    'portfolio.document.read',
   ],
-  MAINTENANCE_COORDINATOR: ['organization.branch.read', 'identity.employee.read'],
-  INSPECTOR: ['organization.branch.read'],
-  RECEPTIONIST: ['organization.branch.read', 'identity.employee.read'],
+  MAINTENANCE_COORDINATOR: [
+    'organization.branch.read',
+    'identity.employee.read',
+    'party.read',
+    'party.contact.read',
+    'portfolio.property.read',
+    'portfolio.space.read',
+    'portfolio.amenity.read',
+    'portfolio.document.read',
+  ],
+  INSPECTOR: [
+    'organization.branch.read',
+    'portfolio.property.read',
+    'portfolio.space.read',
+    'portfolio.amenity.read',
+    'portfolio.document.read',
+  ],
+  RECEPTIONIST: [
+    'organization.branch.read',
+    'identity.employee.read',
+    'party.read',
+    'party.contact.read',
+    'party.create',
+    'party.update',
+    'owner.read',
+    'portfolio.property.read',
+    'portfolio.space.read',
+    'portfolio.amenity.read',
+  ],
+};
+
+const roleNames: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  GENERAL_MANAGER: 'General Manager',
+  BRANCH_MANAGER: 'Branch Manager',
+  PROPERTY_MANAGER: 'Property Manager',
+  LEASING_AGENT: 'Leasing Agent',
+  ACCOUNTANT: 'Accountant',
+  MAINTENANCE_COORDINATOR: 'Maintenance Coordinator',
+  INSPECTOR: 'Inspector',
+  RECEPTIONIST: 'Receptionist',
 };
 
 async function seed(): Promise<void> {
@@ -228,18 +279,30 @@ async function seed(): Promise<void> {
 
   const roles = new Map<string, string>();
   for (const [code, codes] of Object.entries(rolePermissions)) {
+    const name = roleNames[code] ?? code.replaceAll('_', ' ');
     const role = await database.role.upsert({
       where: { companyId_code: { companyId: company.id, code } },
-      update: { name: code.replaceAll('_', ' '), active: true },
+      update: { name, active: true },
       create: {
         id: uuidv7(),
         companyId: company.id,
         code,
-        name: code.replaceAll('_', ' '),
+        name,
         active: true,
       },
     });
     roles.set(code, role.id);
+    const intendedPermissionIds = codes.map((permissionCode) => {
+      const permissionId = permissionRecords.get(permissionCode);
+      if (!permissionId) throw new Error(`Unknown permission ${permissionCode}`);
+      return permissionId;
+    });
+    await database.rolePermission.deleteMany({
+      where: {
+        roleId: role.id,
+        permissionId: { notIn: intendedPermissionIds },
+      },
+    });
     for (const permissionCode of codes) {
       const permissionId = permissionRecords.get(permissionCode);
       if (!permissionId) throw new Error(`Unknown permission ${permissionCode}`);
@@ -305,13 +368,22 @@ async function seed(): Promise<void> {
     update: { status: UserStatus.ACTIVE, passwordHash },
     create: { id: uuidv7(), emailNormalized, passwordHash, status: UserStatus.ACTIVE },
   });
+  const existingAdminEmployee = await database.employee.findUnique({
+    where: { companyId_employeeNumber: { companyId: company.id, employeeNumber: 'EMP-0001' } },
+  });
+  const employeeId = existingAdminEmployee?.id ?? uuidv7();
+  const partyId = existingAdminEmployee?.partyId ?? uuidv7();
   const party = await database.party.upsert({
-    where: { companyId_partyNumber: { companyId: company.id, partyNumber: 'EMP-0001' } },
-    update: { displayName: 'Mohamed Ali Hassan', active: true },
+    where: { id: partyId },
+    update: {
+      partyNumber: `STF-${employeeId}`,
+      displayName: 'Mohamed Ali Hassan',
+      active: true,
+    },
     create: {
-      id: uuidv7(),
+      id: partyId,
       companyId: company.id,
-      partyNumber: 'EMP-0001',
+      partyNumber: `STF-${employeeId}`,
       kind: PartyKind.PERSON,
       displayName: 'Mohamed Ali Hassan',
     },
@@ -320,7 +392,7 @@ async function seed(): Promise<void> {
     where: { companyId_employeeNumber: { companyId: company.id, employeeNumber: 'EMP-0001' } },
     update: { userId: user.id, accessMode: BranchAccessMode.COMPANY_WIDE, active: true },
     create: {
-      id: uuidv7(),
+      id: employeeId,
       companyId: company.id,
       userId: user.id,
       partyId: party.id,

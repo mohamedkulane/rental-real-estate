@@ -522,6 +522,7 @@ export class PortfolioService {
           partyId: { in: input.shares.map((share) => share.ownerPartyId) },
           party: {
             companyId: principal.companyId,
+            employee: { is: null },
             ...(companyWideOwnership
               ? {}
               : {

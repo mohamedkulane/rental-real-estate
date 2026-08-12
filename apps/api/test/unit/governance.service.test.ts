@@ -38,6 +38,7 @@ describe('GovernanceService', () => {
       employeeId: 'employee',
       companyId: 'company',
       accessMode: BranchAccessMode.COMPANY_WIDE,
+      roles: [],
       permissions: new Set(),
       permissionBranchScopes: new Map(),
       branchIds: new Set(),

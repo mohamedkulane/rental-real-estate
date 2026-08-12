@@ -21,6 +21,12 @@ import { useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
+import { OwnershipEditor, OwnershipWorkspace } from '../ownership-workflow';
+import type {
+  OwnerOption,
+  PropertyOwnershipRecord,
+  ReplaceOwnershipInput,
+} from '../ownership-model';
 
 export type BranchOption = { id: string; code: string; name: string };
 export type PropertyRecord = {
@@ -41,7 +47,7 @@ export type PropertyRecord = {
     effectiveTo: string | null;
     branch?: BranchOption;
   }[];
-  ownerships?: unknown[];
+  ownerships?: PropertyOwnershipRecord[];
   buildings?: unknown[];
   spaces?: {
     id: string;
@@ -63,6 +69,8 @@ type PropertyInput = {
   city: string;
   addressLine1?: string | undefined;
   district?: string | undefined;
+  neighborhood?: string | undefined;
+  landmark?: string | undefined;
   description?: string | undefined;
 };
 
@@ -189,6 +197,10 @@ export function PropertyRegistry({
   onTransition,
   onDiscard,
   onLoadDetails,
+  owners,
+  canReadOwnership,
+  canManageOwnership,
+  onReplaceOwnership,
 }: {
   records: PropertyRecord[];
   branches: BranchOption[];
@@ -205,14 +217,18 @@ export function PropertyRegistry({
   ) => Promise<void>;
   onDiscard: (id: string, reason: string) => Promise<void>;
   onLoadDetails: (id: string) => Promise<PropertyRecord>;
+  owners: OwnerOption[];
+  canReadOwnership: (record: PropertyRecord) => boolean;
+  canManageOwnership: (record: PropertyRecord) => boolean;
+  onReplaceOwnership: (id: string, input: ReplaceOwnershipInput) => Promise<void>;
 }) {
   const [query, setQuery] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [panel, setPanel] = useState<'create' | 'details' | 'edit' | 'status' | 'discard' | null>(
-    null,
-  );
+  const [panel, setPanel] = useState<
+    'create' | 'details' | 'edit' | 'status' | 'discard' | 'ownership' | null
+  >(null);
   const [selected, setSelected] = useState<PropertyRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<'overview' | 'spaces' | 'ownership' | 'activity'>(
@@ -620,6 +636,8 @@ export function PropertyRegistry({
                 city: field(form, 'city'),
                 addressLine1: field(form, 'addressLine1'),
                 district: field(form, 'district'),
+                neighborhood: field(form, 'neighborhood'),
+                landmark: field(form, 'landmark'),
                 description: field(form, 'description'),
               })
                 .then(closePanel)
@@ -654,6 +672,22 @@ export function PropertyRegistry({
                 className={inputClass}
               />
             </FormField>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Neighborhood">
+                <input
+                  name="neighborhood"
+                  defaultValue={selected.neighborhood ?? ''}
+                  className={inputClass}
+                />
+              </FormField>
+              <FormField label="Nearby landmark">
+                <input
+                  name="landmark"
+                  defaultValue={selected.landmark ?? ''}
+                  className={inputClass}
+                />
+              </FormField>
+            </div>
             <FormField label="Description">
               <textarea
                 name="description"
@@ -878,10 +912,24 @@ export function PropertyRegistry({
                 </div>
               ) : null}
               {detailTab === 'ownership' ? (
-                <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-                  {selected.ownerships?.length ?? 0} ownership record(s). Ownership changes are
-                  managed as effective-dated history.
-                </p>
+                canReadOwnership(selected) ? (
+                  <OwnershipWorkspace
+                    records={selected.ownerships ?? []}
+                    canManage={canManageOwnership(selected)}
+                    activationContext={{
+                      branchAssigned: Boolean(currentBranch(selected)),
+                      detailsComplete: Boolean(
+                        selected.name && selected.propertyType && selected.city,
+                      ),
+                      isDraft: selected.status === 'DRAFT',
+                    }}
+                    onManage={() => setPanel('ownership')}
+                  />
+                ) : (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    You do not have permission to view property ownership in this branch.
+                  </p>
+                )
               ) : null}
               {detailTab === 'activity' ? (
                 <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
@@ -908,6 +956,38 @@ export function PropertyRegistry({
               ) : null}
             </div>
           )}
+        </Drawer>
+      ) : null}
+
+      {panel === 'ownership' && selected ? (
+        <Drawer
+          title="Manage ownership"
+          description={selected.name + ' ? Changes preserve effective-dated history'}
+          onClose={() => {
+            setPanel('details');
+            setDetailTab('ownership');
+          }}
+        >
+          <OwnershipEditor
+            key={selected.id + ':' + (selected.ownerships?.length ?? 0)}
+            owners={owners}
+            current={(selected.ownerships ?? []).filter(
+              (record) =>
+                record.effectiveFrom.slice(0, 10) <= today() &&
+                (!record.effectiveTo || record.effectiveTo.slice(0, 10) > today()),
+            )}
+            busy={busy}
+            onCancel={() => {
+              setPanel('details');
+              setDetailTab('ownership');
+            }}
+            onSave={async (input) => {
+              await onReplaceOwnership(selected.id, input);
+              setSelected(await onLoadDetails(selected.id));
+              setPanel('details');
+              setDetailTab('ownership');
+            }}
+          />
         </Drawer>
       ) : null}
     </div>
