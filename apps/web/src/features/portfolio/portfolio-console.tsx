@@ -65,6 +65,7 @@ export function PortfolioConsole() {
   const [records, setRecords] = useState<Party[] | Owner[] | Property[] | Space[] | Amenity[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
+  const [owners, setOwners] = useState<Owner[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [propertyFilter, setPropertyFilter] = useState('');
@@ -84,6 +85,7 @@ export function PortfolioConsole() {
     if (tab === 'parties') setParties(result as Party[]);
     if (tab === 'properties') setProperties(result as Property[]);
     if (tab === 'spaces') setSpaces(result as Space[]);
+    if (tab === 'owners') setOwners(result as Owner[]);
   }, []);
 
   useEffect(() => {
@@ -97,7 +99,7 @@ export function PortfolioConsole() {
           tabs.find((item) => hasPermission(current, item.permission))?.key ??
           'properties';
         setActive(first);
-        const [branchData, partyData, propertyData] = await Promise.all([
+        const [branchData, partyData, propertyData, ownerData] = await Promise.all([
           (first === 'properties' || first === 'parties') &&
           hasPermission(current, 'organization.branch.read')
             ? apiCached<Branch[]>('/branches')
@@ -108,11 +110,15 @@ export function PortfolioConsole() {
           first === 'spaces' && hasPermission(current, 'portfolio.property.read')
             ? apiCached<Property[]>('/properties')
             : null,
+          first === 'properties' && hasPermission(current, 'owner.read')
+            ? apiCached<Owner[]>('/owners')
+            : null,
         ]);
         if (branchData) setBranches(branchData);
         if (partyData) setParties(partyData);
         if (propertyData) setProperties(propertyData);
         await loadTab(first);
+        if (ownerData) setOwners(ownerData);
         setLoading(false);
       })
       .catch(() => {
@@ -123,6 +129,11 @@ export function PortfolioConsole() {
   const visibleTabs = principal
     ? tabs.filter((tab) => hasPermission(principal, tab.permission))
     : [];
+  const canManageSpaces = principal
+    ? ['portfolio.space.create', 'portfolio.space.update', 'portfolio.space.partition'].some(
+        (permission) => hasPermission(principal, permission),
+      )
+    : false;
   const spacePagination = usePagination(spaces);
   const activePropertyBranchIds = (property: PropertyRecord): string[] => {
     const currentDate = today();
@@ -149,7 +160,7 @@ export function PortfolioConsole() {
 
   async function loadDependencies(tab: Tab) {
     if (!principal) return;
-    const [branchData, partyData, propertyData] = await Promise.all([
+    const [branchData, partyData, propertyData, ownerData] = await Promise.all([
       (tab === 'properties' || tab === 'parties') &&
       hasPermission(principal, 'organization.branch.read')
         ? apiCached<Branch[]>('/branches')
@@ -160,12 +171,15 @@ export function PortfolioConsole() {
       tab === 'spaces' && hasPermission(principal, 'portfolio.property.read')
         ? apiCached<Property[]>('/properties')
         : null,
+      tab === 'properties' && hasPermission(principal, 'owner.read')
+        ? apiCached<Owner[]>('/owners')
+        : null,
     ]);
     if (branchData) setBranches(branchData);
     if (partyData) setParties(partyData);
     if (propertyData) setProperties(propertyData);
+    if (ownerData) setOwners(ownerData);
   }
-
   async function choose(tab: Tab) {
     if (tab === active) return;
     setLoading(true);
@@ -196,7 +210,7 @@ export function PortfolioConsole() {
 
   async function propertyMutation(
     path: string,
-    method: 'POST' | 'PATCH' | 'DELETE',
+    method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
     body: Record<string, unknown>,
     message: string,
   ) {
@@ -649,7 +663,7 @@ export function PortfolioConsole() {
                     onClick={() => setShowActions(true)}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                   >
-                    Manage
+                    {canManageSpaces ? 'Manage' : 'View'}
                   </button>
                 </td>
               </tr>
@@ -673,6 +687,8 @@ export function PortfolioConsole() {
         })),
       }}
       accessMode={principal.accessMode}
+      accessBranches={principal.branches}
+      permissions={principal.permissions}
       onLogout={() => void logout()}
     >
       {active === 'parties' ? (
@@ -707,6 +723,14 @@ export function PortfolioConsole() {
               }
               onUpdate={(partyId, input) =>
                 portfolioMutation('/parties/' + partyId, 'PATCH', input, 'Record updated.')
+              }
+              onLoadDetails={(partyId) =>
+                api<PartyRecord>('/parties/' + partyId).catch((cause: unknown) => {
+                  const message = userFacingError(cause, 'Unable to load the complete record.');
+                  setError(message);
+                  toast.error(message);
+                  throw cause;
+                })
               }
             />
           )}
@@ -743,6 +767,14 @@ export function PortfolioConsole() {
               }
               onUpdate={(partyId, input) =>
                 portfolioMutation('/owners/' + partyId, 'PATCH', input, 'Owner profile updated.')
+              }
+              onLoadDetails={(partyId) =>
+                api<OwnerRecord>('/owners/' + partyId).catch((cause: unknown) => {
+                  const message = userFacingError(cause, 'Unable to load owner properties.');
+                  setError(message);
+                  toast.error(message);
+                  throw cause;
+                })
               }
             />
           )}
@@ -805,11 +837,18 @@ export function PortfolioConsole() {
             <PropertyRegistry
               records={records as PropertyRecord[]}
               branches={branches}
+              owners={owners}
               creatableBranchIds={propertyCreateBranches.map((branch) => branch.id)}
               busy={busy}
               canCreate={propertyCreateBranches.length > 0}
               canUpdate={(record) =>
                 canAcross('portfolio.property.update', activePropertyBranchIds(record))
+              }
+              canReadOwnership={(record) =>
+                canAcross('portfolio.ownership.read', activePropertyBranchIds(record))
+              }
+              canManageOwnership={(record) =>
+                canAcross('portfolio.ownership.manage', activePropertyBranchIds(record))
               }
               onCreate={(input) =>
                 propertyMutation('/properties', 'POST', input, 'Draft property created.')
@@ -831,6 +870,14 @@ export function PortfolioConsole() {
                   'DELETE',
                   { reason },
                   'Draft property discarded.',
+                )
+              }
+              onReplaceOwnership={(propertyId, input) =>
+                propertyMutation(
+                  '/properties/' + propertyId + '/ownership',
+                  'PUT',
+                  input,
+                  'Ownership updated successfully.',
                 )
               }
               onLoadDetails={(propertyId) => api<PropertyRecord>('/properties/' + propertyId)}
@@ -856,7 +903,7 @@ export function PortfolioConsole() {
               onClick={() => setShowActions(true)}
               className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
             >
-              Add or manage
+              {canManageSpaces ? 'Add or manage' : 'View space details'}
             </button>
           </header>
           {error ? (

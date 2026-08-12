@@ -10,6 +10,7 @@ function principal(overrides: Partial<AuthenticatedPrincipal> = {}): Authenticat
     employeeId: 'employee',
     companyId: 'company',
     accessMode: BranchAccessMode.MULTI_BRANCH,
+    roles: [],
     permissions: new Set(['organization.branch.read']),
     permissionBranchScopes: new Map([['organization.branch.read', new Set(['branch-a'])]]),
     branchIds: new Set(['branch-a', 'branch-b']),

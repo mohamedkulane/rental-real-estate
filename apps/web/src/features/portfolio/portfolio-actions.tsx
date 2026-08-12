@@ -38,7 +38,6 @@ type Space = {
   property?: { branchAssignments?: { branchId: string }[] };
 };
 type Branch = { id: string; code: string; name: string };
-type Owner = { partyId: string; ownerNumber: string; party: { displayName: string } };
 type Amenity = { id: string; code: string; name: string; active?: boolean };
 type Property = {
   id: string;
@@ -75,7 +74,6 @@ export function PortfolioActions({
 }) {
   const [selectedId, setSelectedId] = useState('');
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
-  const [owners, setOwners] = useState<Owner[]>([]);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [message, setMessage] = useState('');
@@ -85,10 +83,6 @@ export function PortfolioActions({
   useEffect(() => {
     setSelectedId('');
     setDetail(null);
-    if (active === 'properties')
-      void apiCached<Owner[]>('/owners')
-        .then(setOwners)
-        .catch(() => setOwners([]));
     if (active === 'amenities')
       void Promise.all([
         apiCached<Amenity[]>('/amenities').catch(() => []),
@@ -304,54 +298,6 @@ export function PortfolioActions({
             </div>
             <button className={styles.submit} disabled={busy}>
               Update property
-            </button>
-          </form>
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              const form = new FormData(event.currentTarget);
-              void mutate(
-                event,
-                `/properties/${selectedId}/ownership`,
-                'PUT',
-                {
-                  effectiveFrom: value(form, 'effectiveFrom'),
-                  shares: [
-                    {
-                      ownerPartyId: value(form, 'ownerPartyId'),
-                      ownershipPercent: '100',
-                      payoutPercent: '100',
-                    },
-                  ],
-                  reason: value(form, 'reason'),
-                },
-                'Ownership configuration saved.',
-              );
-            }}
-          >
-            <label>
-              100% owner
-              <select name="ownerPartyId" required>
-                <option value="">Choose an owner</option>
-                {owners.map((owner) => (
-                  <option key={owner.partyId} value={owner.partyId}>
-                    {owner.ownerNumber} — {owner.party.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className={styles.row}>
-              <label>
-                Effective from
-                <input name="effectiveFrom" type="date" defaultValue={today()} required />
-              </label>
-              <label>
-                Reason
-                <input name="reason" required minLength={3} />
-              </label>
-            </div>
-            <button className={styles.submit} disabled={busy}>
-              Replace ownership
             </button>
           </form>
           <form

@@ -39,6 +39,14 @@ Local endpoints:
 - Liveness: `http://localhost:3001/api/v1/health`
 - Readiness: `http://localhost:3001/api/v1/readiness`
 
+Browser requests use the same-origin `/api/backend` path. Next.js forwards that path to the server-side `API_URL` (or the local `http://localhost:3001/api/v1` default), so browser host and CORS differences do not break login.
+
+If sign-in reports that the service is unavailable:
+
+1. Open `http://localhost:3001/api/v1/readiness`; every dependency should report `up`.
+2. Open `http://localhost:3000/api/backend/health`; it should report the API service as `ok`.
+3. Start both applications together with `pnpm dev`, then reload the login page.
+
 API documentation is disabled by default. In a non-production environment only, set `EXPOSE_API_DOCS=true` to expose `/api/docs`.
 
 The seed administrator email and password come from `.env`. Replace the example password before seeding; never commit `.env`.

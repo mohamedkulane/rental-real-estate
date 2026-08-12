@@ -92,7 +92,14 @@ describe('AuthService', () => {
           companyId: 'company-id',
           active: true,
           accessMode: BranchAccessMode.MULTI_BRANCH,
-          branchAssignments: [{ branchId: 'hodan', effectiveFrom: new Date(0), effectiveTo: null }],
+          branchAssignments: [
+            {
+              branchId: 'hodan',
+              effectiveFrom: new Date(0),
+              effectiveTo: null,
+              branch: { id: 'hodan', code: 'HODAN', name: 'Hodan Branch' },
+            },
+          ],
           roles: [
             {
               branchId: 'hodan',
@@ -100,6 +107,8 @@ describe('AuthService', () => {
               effectiveTo: null,
               role: {
                 active: true,
+                code: 'RECEPTIONIST',
+                name: 'Receptionist',
                 permissions: [{ permission: { code: 'organization.branch.read' } }],
               },
             },
@@ -113,6 +122,10 @@ describe('AuthService', () => {
       new Set(['hodan']),
     );
     expect(principal.branchIds).toEqual(new Set(['hodan']));
+    expect(principal.branches).toEqual([{ id: 'hodan', code: 'HODAN', name: 'Hodan Branch' }]);
+    expect(principal.roles).toEqual([
+      { code: 'RECEPTIONIST', name: 'Receptionist', branchId: 'hodan' },
+    ]);
   });
 
   it('records a server-side revocation', async () => {

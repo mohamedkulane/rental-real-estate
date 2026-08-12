@@ -86,7 +86,9 @@ export class AuthService {
           include: {
             employee: {
               include: {
-                branchAssignments: true,
+                branchAssignments: {
+                  include: { branch: { select: { id: true, code: true, name: true } } },
+                },
                 roles: {
                   include: {
                     role: { include: { permissions: { include: { permission: true } } } },
@@ -127,11 +129,10 @@ export class AuthService {
         permissionBranchScopes.set(grant.permission.code, scopes);
       }
     }
-    const branchIds = new Set(
-      employee.branchAssignments
-        .filter((assignment) => activeAt(assignment.effectiveFrom, assignment.effectiveTo))
-        .map((assignment) => assignment.branchId),
+    const activeBranchAssignments = employee.branchAssignments.filter((assignment) =>
+      activeAt(assignment.effectiveFrom, assignment.effectiveTo),
     );
+    const branchIds = new Set(activeBranchAssignments.map((assignment) => assignment.branchId));
     const activityWriteBefore = new Date(
       now.getTime() - this.environment.SESSION_ACTIVITY_WRITE_INTERVAL_MINUTES * 60 * 1000,
     );
@@ -147,9 +148,15 @@ export class AuthService {
       employeeId: employee.id,
       companyId: employee.companyId,
       accessMode: employee.accessMode,
+      roles: roles.map((assignment) => ({
+        code: assignment.role.code,
+        name: assignment.role.name,
+        branchId: assignment.branchId,
+      })),
       permissions,
       permissionBranchScopes,
       branchIds,
+      branches: activeBranchAssignments.map((assignment) => assignment.branch),
     };
   }
 

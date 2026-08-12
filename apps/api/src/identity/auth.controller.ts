@@ -64,6 +64,7 @@ export class AuthController {
       employeeId: principal.employeeId,
       companyId: principal.companyId,
       accessMode: principal.accessMode,
+      roles: principal.roles,
       permissions: [...principal.permissions],
       permissionBranchScopes: Object.fromEntries(
         [...principal.permissionBranchScopes].map(([permission, scopes]) => [
@@ -72,6 +73,7 @@ export class AuthController {
         ]),
       ),
       branchIds: [...principal.branchIds],
+      branches: principal.branches ?? [],
     };
   }
 

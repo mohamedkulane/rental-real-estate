@@ -247,12 +247,15 @@ export class OrganizationService {
       const employeeNumber =
         input.employeeNumber?.trim().toUpperCase() ??
         (await nextRecordNumber(transaction, 'EMPLOYEE'));
-      const partyNumber = await nextRecordNumber(transaction, 'PARTY');
+      const employeeId = uuidv7();
+      const partyId = uuidv7();
       const party = await transaction.party.create({
         data: {
-          id: uuidv7(),
+          id: partyId,
           companyId: principal.companyId,
-          partyNumber,
+          // Staff keeps an internal Party identity for shared naming and audit links,
+          // but it does not consume the business Party number sequence.
+          partyNumber: `STF-${employeeId}`,
           kind: PartyKind.PERSON,
           displayName: input.displayName,
           branchAssignments: {
@@ -276,7 +279,7 @@ export class OrganizationService {
         : null;
       const employee = await transaction.employee.create({
         data: {
-          id: uuidv7(),
+          id: employeeId,
           companyId: principal.companyId,
           partyId: party.id,
           userId: user?.id ?? null,

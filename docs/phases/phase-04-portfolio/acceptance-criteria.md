@@ -4,6 +4,10 @@
 - [x] Contact values are encrypted at rest and are not written to audit evidence.
 - [x] Owner is a Party role; owner details and authorized portfolio reads work.
 - [x] Joint ownership and distinct payout entitlement are Decimal and effective-dated.
+- [x] Property Details shows current/scheduled/history ownership and supports searchable joint-owner management without raw IDs.
+- [x] Owner Details shows real current and historical property ownership relations.
+- [x] Draft activation readiness explains branch, property-detail, ownership, payout, and owner-status prerequisites.
+- [x] Phase 4 ownership UI/UX review passed with five-step screenshot evidence.
 - [x] Draft ownership may be incomplete; active configuration must total exactly 100%.
 - [x] Property and optional Building work without becoming occupancy targets.
 - [x] RentableSpace is the canonical occupancy target and supports standalone properties.

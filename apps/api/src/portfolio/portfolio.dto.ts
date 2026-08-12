@@ -83,6 +83,23 @@ export class CreatePartyDto {
 export class UpdatePartyDto {
   @IsOptional() @IsString() @Length(2, 240) displayName?: string;
   @IsOptional() @IsBoolean() active?: boolean;
+  @IsOptional() @ValidateNested() @Type(() => PersonInputDto) person?: PersonInputDto;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrganizationInputDto)
+  organization?: OrganizationInputDto;
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => ContactInputDto)
+  contacts?: ContactInputDto[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => AddressInputDto)
+  addresses?: AddressInputDto[];
 }
 
 export class CreateOwnerDto {

@@ -1,19 +1,24 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+// Keep browser requests on the web application's origin. Next.js forwards this
+// path to API_URL, avoiding client-side localhost and CORS mismatches.
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api/backend';
 
 export interface Principal {
   userId: string;
   employeeId: string;
   companyId: string;
   accessMode: 'BRANCH' | 'MULTI_BRANCH' | 'COMPANY_WIDE';
+  roles: Array<{ code: string; name: string; branchId: string | null }>;
   permissions: string[];
   permissionBranchScopes: Record<string, Array<string | null>>;
   branchIds: string[];
+  branches: Array<{ id: string; code: string; name: string }>;
 }
 
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly details: string[] = [],
   ) {
     super(message);
   }
@@ -33,16 +38,31 @@ const statusMessages: Record<number, string> = {
   500: 'The service is temporarily unavailable. Please try again.',
   502: 'The service is temporarily unavailable. Please try again.',
   503: 'The service is temporarily unavailable. Please try again.',
+  504: 'The service is temporarily unavailable. Please try again.',
 };
 
 export function userFacingError(
   cause: unknown,
   fallback = 'Something went wrong. Please try again.',
 ): string {
-  if (cause instanceof ApiError) return statusMessages[cause.status] ?? cause.message ?? fallback;
+  if (cause instanceof ApiError) {
+    if (cause.status === 400 || cause.status === 422) {
+      const detail = cause.details[0];
+      if (detail) return detail.charAt(0).toUpperCase() + detail.slice(1);
+      if (cause.message && cause.message !== 'Bad Request Exception') return cause.message;
+    }
+    return statusMessages[cause.status] ?? cause.message ?? fallback;
+  }
   if (cause instanceof TypeError)
     return 'We could not reach the service. Check your connection and try again.';
   return cause instanceof Error && cause.message ? cause.message : fallback;
+}
+
+export function isServiceUnavailable(cause: unknown): boolean {
+  return (
+    cause instanceof TypeError ||
+    (cause instanceof ApiError && [500, 502, 503, 504].includes(cause.status))
+  );
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -60,11 +80,19 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new TypeError(userFacingError(cause));
   }
 
-  const body = (await response.json().catch(() => ({}))) as { message?: string };
+  const body = (await response.json().catch(() => ({}))) as {
+    message?: unknown;
+    details?: unknown;
+  };
   if (!response.ok) {
+    const message = typeof body.message === 'string' ? body.message : undefined;
+    const details = Array.isArray(body.details)
+      ? body.details.filter((detail): detail is string => typeof detail === 'string')
+      : [];
     throw new ApiError(
-      body.message ?? statusMessages[response.status] ?? 'Request failed.',
+      message ?? statusMessages[response.status] ?? 'Request failed.',
       response.status,
+      details,
     );
   }
   return body as T;
