@@ -1,6 +1,7 @@
 import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ApprovalStatus, Prisma } from '@prisma/client';
+import { cursorPage, type CursorPageQueryDto } from '../common/cursor-pagination';
 import { DatabaseService } from '../database/database.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
@@ -15,12 +16,27 @@ export class GovernanceService {
     private readonly authorization: AuthorizationService,
   ) {}
 
-  listAudit(principal: AuthenticatedPrincipal) {
+  async listAudit(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
     const branchIds = this.authorization.authorizedBranchIds(principal, 'governance.audit.read');
-    const where = branchIds === null ? {} : { branchId: { in: [...branchIds] } };
-    return this.database.auditLog.findMany({ where, orderBy: { occurredAt: 'desc' }, take: 200 });
+    const branchScope = branchIds === null ? {} : { branchId: { in: [...branchIds] } };
+    const rows = await this.database.auditLog.findMany({
+      where: {
+        ...branchScope,
+        ...(query.search
+          ? {
+              OR: [
+                { action: { contains: query.search, mode: 'insensitive' } },
+                { entityType: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: { id: 'desc' },
+      take: query.limit + 1,
+    });
+    return cursorPage(rows, query.limit, (entry) => entry.id);
   }
-
   listApprovals(principal: AuthenticatedPrincipal) {
     const branchIds = this.authorization.authorizedBranchIds(principal, 'governance.approval.read');
     const where = branchIds === null ? {} : { branchId: { in: [...branchIds] } };

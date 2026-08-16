@@ -115,8 +115,8 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
   );
 }
 
-function currentBranches(employee: EmployeeRecord, branches: Branch[]) {
-  const now = new Date().toISOString().slice(0, 10);
+function currentBranches(employee: EmployeeRecord, branches: Branch[], businessDate: string) {
+  const now = businessDate;
   return employee.branchAssignments
     .filter(
       (assignment) =>
@@ -134,6 +134,7 @@ export function EmployeeDirectory({
   records,
   branches,
   roles,
+  businessDate,
   busy,
   canCreate,
   canUpdate,
@@ -147,6 +148,7 @@ export function EmployeeDirectory({
   records: EmployeeRecord[];
   branches: Branch[];
   roles: Role[];
+  businessDate: string;
   busy: boolean;
   canCreate: boolean;
   canUpdate: (record: EmployeeRecord) => boolean;
@@ -304,7 +306,7 @@ export function EmployeeDirectory({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pagination.pageItems.map((employee) => {
-                  const employeeBranches = currentBranches(employee, branches);
+                  const employeeBranches = currentBranches(employee, branches, businessDate);
                   return (
                     <tr key={employee.id} className="hover:bg-slate-50">
                       <td className="px-5 py-4">
@@ -681,7 +683,7 @@ export function EmployeeDirectory({
               <input
                 name="effectiveFrom"
                 type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
+                defaultValue={businessDate}
                 required
                 className={inputClass}
               />
@@ -741,7 +743,7 @@ export function EmployeeDirectory({
               <section>
                 <h3 className="mb-2 text-sm font-bold">Current branches</h3>
                 <div className="space-y-2">
-                  {currentBranches(selected, branches).map((branch) => (
+                  {currentBranches(selected, branches, businessDate).map((branch) => (
                     <div
                       key={branch.id}
                       className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold"

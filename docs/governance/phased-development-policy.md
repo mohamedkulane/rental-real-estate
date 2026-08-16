@@ -648,86 +648,44 @@ No property functionality begins until security boundary passes.
 
 ---
 
-# 15. Phase 4 — Parties & Owners
+# 15. Phase 4 — Parties, Owners, Property & Rentable Space
 
 ## Scope
 
-### Parties
+### Parties and owners
 
-- Person
-- Organization
-- Contact information
-- Identity documents
+- Person and organization Parties
+- Protected contact information
+- Owner profiles and documents
+- Joint ownership, ownership percentages, and payout entitlements
+- Effective-dated ownership history
 
-### Owners
+### Portfolio
 
-- Owner profile
-- Individual/company owner
-- Joint ownership
-- Ownership percentages
-- Payout entitlements
-- Owner documents
+- Properties and effective-dated operating-branch assignments
+- Buildings as optional physical containers
+- RentableSpace as the canonical occupancy target
+- Parent-child space hierarchy, types, measurements, and partitioning
+- Amenities, document metadata, and vacant-land specialization
+- Explicit Property, Building, and RentableSpace lifecycle controls
 
-### Vendors basic identity may be introduced only if required by the party model.
-
-### Tests
-
-- Duplicate-party handling
-- Joint-owner percentages
-- Owner entitlement validation
-- Branch/resource visibility
-- Document permissions
-
----
-
-# 16. Phase 5 — Property & Rentable Space
-
-## Scope
-
-- Properties
-- Buildings
-- RentableSpace
-- Parent-child spaces
-- Space types
-- Area measurements
-- Amenities
-- Vacant land specialization
-- Property ownership linking
-- Property branch assignment
-
-### Commercial partitioning
-
-Support:
-
-```text
-Hall
-├── Shop A
-├── Shop B
-└── Booth C
-```
+The approved Phase 4 implementation consolidated the originally separate Parties/Owners and Property/RentableSpace roadmap slices. This consolidation is the authoritative delivered scope; it does not start any downstream Service Engagement, CRM, leasing, or financial phase.
 
 ### Tests
 
-Critical:
+- Duplicate Party and record-number handling
+- Joint-owner and payout percentage validation
+- Branch/object authorization and document permissions
+- Property activation readiness and lifecycle history
+- Building lifecycle and RentableSpace hierarchy
+- Concurrent record numbering, hierarchy, and area integrity
+- Land, amenity, branch-transfer, and historical-truth behavior
 
-```text
-child area <= parent usable area
-```
-
-Also:
-
-- Invalid cycles forbidden
-- Parent-child integrity
-- Space version history
-- Land validation
-- Branch visibility
-- Retired space behavior
-
-No leasing yet.
+No Service Engagement, CRM, listing, leasing, billing, payment, accounting, deposit, maintenance, or payout workflow is included.
 
 ---
 
-# 17. Phase 6 — Service Engagements
+# 16. Phase 5 — Service Engagements
 
 ## Scope
 
@@ -765,7 +723,7 @@ Test:
 
 ---
 
-# 18. Phase 7 — CRM & Listings
+# 17. Phase 6 — CRM & Listings
 
 ## Scope
 
@@ -790,7 +748,7 @@ Test:
 
 ---
 
-# 19. Phase 8 — Viewings, Applications & Reservations
+# 18. Phase 7 — Viewings, Applications & Reservations
 
 ## Scope
 
@@ -820,7 +778,7 @@ Test reservation expiry, cancellation, conflicts, and permissions.
 
 ---
 
-# 20. Phase 9 — Leasing & Contract Management
+# 19. Phase 8 — Leasing & Contract Management
 
 ## Scope
 
@@ -851,7 +809,7 @@ No rent accounting implementation should be considered complete until this phase
 
 ---
 
-# 21. Phase 10 — Brokerage & Tenant Placement
+# 20. Phase 9 — Brokerage & Tenant Placement
 
 ## Scope
 
@@ -893,7 +851,7 @@ Brokerage → no maintenance
 
 ---
 
-# 22. Phase 11 — Billing & Charges
+# 21. Phase 10 — Billing & Charges
 
 ## Scope
 
@@ -919,7 +877,7 @@ Brokerage → no maintenance
 
 ---
 
-# 23. Phase 12 — Payments & Accounting Engine
+# 22. Phase 11 — Payments & Accounting Engine
 
 ## Scope
 
@@ -963,7 +921,7 @@ Do not move forward with owner accounting until this phase is fully stable.
 
 ---
 
-# 24. Phase 13 — Deposits
+# 23. Phase 12 — Deposits
 
 ## Scope
 
@@ -994,7 +952,7 @@ Other tests:
 
 ---
 
-# 25. Phase 14 — Full Management & Owner Accounting
+# 24. Phase 13 — Full Management & Owner Accounting
 
 ## Scope
 
@@ -1029,7 +987,7 @@ Must verify:
 
 ---
 
-# 26. Phase 15 — Master Lease & Subleasing
+# 25. Phase 14 — Master Lease & Subleasing
 
 ## Scope
 
@@ -1054,7 +1012,7 @@ Must not use Full Management owner-payable logic.
 
 ---
 
-# 27. Phase 16 — Utilities
+# 26. Phase 15 — Utilities
 
 ## Scope
 
@@ -1086,7 +1044,7 @@ Test rounding and reproducibility.
 
 ---
 
-# 28. Phase 17 — Maintenance & Vendors
+# 27. Phase 16 — Maintenance & Vendors
 
 ## Scope
 
@@ -1112,7 +1070,7 @@ Land maintenance must remain disabled by default.
 
 ---
 
-# 29. Phase 18 — Inspections, Move-Out & Turnover
+# 28. Phase 17 — Inspections, Move-Out & Turnover
 
 ## Scope
 
@@ -1142,7 +1100,7 @@ Occupied
 
 ---
 
-# 30. Phase 19 — Documents, Notifications & Communications
+# 29. Phase 18 — Documents, Notifications & Communications
 
 ## Scope
 
@@ -1164,7 +1122,7 @@ Occupied
 
 ---
 
-# 31. Phase 20 — Reporting & Dashboards
+# 30. Phase 19 — Reporting & Dashboards
 
 This phase begins only after transactional modules are trusted.
 
@@ -1196,7 +1154,7 @@ Reconcile reports against known database fixtures.
 
 ---
 
-# 32. Phase 21 — Owner Portal
+# 31. Phase 20 — Owner Portal
 
 ## Scope
 
@@ -1214,7 +1172,7 @@ An owner must never access another owner's financial or property data.
 
 ---
 
-# 33. Phase 22 — Tenant Portal
+# 32. Phase 21 — Tenant Portal
 
 ## Scope
 
@@ -1234,7 +1192,7 @@ A tenant must only access leases and records for which they are an authorized pa
 
 ---
 
-# 34. Phase 23 — Production Hardening
+# 33. Phase 22 — Production Hardening
 
 Final engineering phase.
 

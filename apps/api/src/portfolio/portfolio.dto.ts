@@ -7,6 +7,7 @@ import {
   RentableSpaceStatus,
 } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { CursorPageQueryDto } from '../common/cursor-pagination';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -183,6 +184,16 @@ export class CreateBuildingDto {
   @IsOptional() @IsEnum(BuildingStatus) status?: BuildingStatus;
 }
 
+export class UpdateBuildingDto {
+  @IsOptional() @IsString() @Length(2, 160) name?: string;
+  @IsOptional() @IsInt() @Min(0) @Max(500) numberOfFloors?: number;
+  @IsOptional() @IsObject() attributes?: Record<string, unknown>;
+}
+
+export class BuildingLifecycleDto {
+  @IsEnum(BuildingStatus) status!: BuildingStatus;
+  @IsString() @Length(3, 500) reason!: string;
+}
 export class LandProfileDto {
   @IsString() @Length(2, 200) permittedUse!: string;
   @IsOptional() @IsString() @MaxLength(160) dimensions?: string;
@@ -289,6 +300,7 @@ export class UpdateAmenityDto {
 }
 
 export class CreateDocumentMetadataDto {
+  @IsOptional() @IsString() @Length(2, 240) displayName?: string;
   @IsString() @Length(2, 50) categoryCode!: string;
   @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass!: string;
   @IsIn(['PENDING', 'ACTIVE', 'ARCHIVED']) status!: string;
@@ -301,6 +313,19 @@ export class CreateDocumentMetadataDto {
   @IsString() @Length(2, 50) purpose!: string;
 }
 
-export class ListSpacesQueryDto {
+export class UpdateDocumentMetadataDto {
+  @IsOptional() @IsString() @Length(2, 240) displayName?: string;
+  @IsOptional() @IsString() @Length(2, 50) categoryCode?: string;
+  @IsOptional() @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass?: string;
+  @IsOptional() @IsIn(['PENDING', 'ACTIVE', 'ARCHIVED']) status?: string;
+}
+
+export class ListDocumentsQueryDto extends CursorPageQueryDto {
+  @IsOptional()
+  @IsIn(['Property', 'RentableSpace', 'Owner'])
+  entityType?: 'Property' | 'RentableSpace' | 'Owner';
+  @IsOptional() @IsUUID() entityId?: string;
+}
+export class ListSpacesQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() propertyId?: string;
 }

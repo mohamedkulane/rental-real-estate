@@ -30,7 +30,11 @@ import { EmployeeDirectory, type EmployeeRecord } from './pages/employee-directo
 import { BranchDirectory, type BranchRecord } from './pages/branch-directory';
 import { SettingsPanel, type CompanySettings } from './pages/settings-panel';
 import { RoleManager, type PermissionRecord, type RoleRecord } from './pages/role-manager';
-import { PaginationControls, usePagination } from '@/components/shared/pagination';
+import {
+  CursorPaginationControls,
+  PaginationControls,
+  usePagination,
+} from '@/components/shared/pagination';
 import { UserAccountDirectory, type UserAccountRecord } from './pages/user-account-directory';
 import type { Principal } from '@/lib/phase3-api';
 import {
@@ -42,6 +46,8 @@ import {
   canPerformInBranch,
   hasCompanyPermission,
   hasPermission,
+  pageItems,
+  type CursorPage,
   userFacingError,
 } from '@/lib/phase3-api';
 
@@ -98,6 +104,8 @@ const roleWorkspaceDescriptions: Record<string, string> = {
   INSPECTOR: 'Read-only property, space, amenity, and document reference access.',
   RECEPTIONIST: 'Branch directory and people registration with portfolio reference access.',
 };
+
+const cursorSections = new Set<SectionKey>(['employees', 'users', 'audit']);
 
 const sections: Section[] = [
   {
@@ -168,6 +176,10 @@ const stringValue = (form: FormData, key: string) => {
   const value = form.get(key);
   return typeof value === 'string' ? value.trim() : '';
 };
+const unwrapPage = (value: unknown): unknown =>
+  value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items)
+    ? (value as { items: unknown[] }).items
+    : value;
 const asRows = (value: unknown): Row[] =>
   Array.isArray(value)
     ? value.filter((item): item is Row => Boolean(item) && typeof item === 'object')
@@ -251,15 +263,31 @@ export function AdminConsole() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([null]);
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const [pageInfo, setPageInfo] = useState({
+    nextCursor: null as string | null,
+    hasNextPage: false,
+  });
 
   const load = useCallback(
-    async (section: Section, current: Principal) => {
+    async (section: Section, current: Principal, cursor: string | null = null) => {
       setLoading(true);
       setError('');
       try {
-        const result =
-          section.key === 'profile' ? current : await apiCached<unknown>(section.path ?? '');
+        const isCursorSection = cursorSections.has(section.key);
+        const parameters = new URLSearchParams();
+        if (isCursorSection) parameters.set('limit', '10');
+        if (cursor) parameters.set('cursor', cursor);
+        const path = `${section.path ?? ''}${parameters.size ? `?${parameters.toString()}` : ''}`;
+        const response = section.key === 'profile' ? current : await apiCached<unknown>(path);
+        const result = unwrapPage(response);
         setData(result);
+        setPageInfo(
+          isCursorSection && response && typeof response === 'object' && 'pageInfo' in response
+            ? (response as CursorPage<Row>).pageInfo
+            : { nextCursor: null, hasNextPage: false },
+        );
         if (section.key !== 'profile')
           setCatalogs((existing) => ({
             ...existing,
@@ -308,7 +336,11 @@ export function AdminConsole() {
   const loadDashboardData = useCallback(async (current: Principal) => {
     setDashboardLoading(true);
     const request = async (permission: string, path: string) =>
-      hasPermission(current, permission) ? apiCached<Row[]>(path).catch(() => []) : [];
+      hasPermission(current, permission)
+        ? apiCached<Row[] | CursorPage<Row>>(path)
+            .then(pageItems)
+            .catch(() => [])
+        : [];
     const [branches, employees, owners, properties, spaces, activity] = await Promise.all([
       request('organization.branch.read', '/branches'),
       request('identity.employee.read', '/employees'),
@@ -376,6 +408,23 @@ export function AdminConsole() {
   }, [data, query, statusFilter]);
   const listPagination = usePagination(records);
 
+  const resetCursor = () => {
+    setCursorHistory([null]);
+    setCursorIndex(0);
+  };
+  async function nextServerPage() {
+    if (!principal || !pageInfo.nextCursor || loading) return;
+    const nextHistory = [...cursorHistory.slice(0, cursorIndex + 1), pageInfo.nextCursor];
+    setCursorHistory(nextHistory);
+    setCursorIndex(cursorIndex + 1);
+    await load(selected, principal, pageInfo.nextCursor);
+  }
+  async function previousServerPage() {
+    if (!principal || cursorIndex <= 0 || loading) return;
+    const previousIndex = cursorIndex - 1;
+    setCursorIndex(previousIndex);
+    await load(selected, principal, cursorHistory[previousIndex] ?? null);
+  }
   async function choose(section: Section) {
     if (!principal || section.key === active) return;
     setActive(section.key);
@@ -383,6 +432,7 @@ export function AdminConsole() {
     setQuery('');
     setStatusFilter('all');
     setShowForm(false);
+    resetCursor();
     await Promise.all([
       load(section, principal),
       loadCatalogs(section.key, principal),
@@ -417,6 +467,7 @@ export function AdminConsole() {
       setShowForm(false);
       toast.success(message);
       if (principal) {
+        resetCursor();
         await Promise.all([load(selected, principal), loadCatalogs(selected.key, principal)]);
       }
     } catch (cause) {
@@ -438,6 +489,7 @@ export function AdminConsole() {
       clearApiCache();
       setSuccess(message);
       toast.success(message);
+      resetCursor();
       await Promise.all([load(selected, principal), loadCatalogs(selected.key, principal)]);
     } catch (cause) {
       const messageText = userFacingError(cause, 'The change could not be saved.');
@@ -595,7 +647,7 @@ export function AdminConsole() {
                     {
                       roleId: stringValue(form, 'roleId'),
                       branchId: stringValue(form, 'branchId') || undefined,
-                      effectiveFrom: new Date().toISOString().slice(0, 10),
+                      effectiveFrom: principal.businessDate,
                     },
                     'Role assigned.',
                   );
@@ -1293,6 +1345,7 @@ export function AdminConsole() {
             <LoadingState label="Loading employee directory" />
           ) : (
             <EmployeeDirectory
+              businessDate={principal.businessDate}
               records={records as EmployeeRecord[]}
               branches={catalogs.branches}
               roles={catalogs.roles}
@@ -1548,7 +1601,18 @@ export function AdminConsole() {
               ) : (
                 renderRecords()
               )}
-              {!loading && ['permissions', 'audit'].includes(active) ? (
+              {!loading && cursorSections.has(active) ? (
+                <CursorPaginationControls
+                  page={cursorIndex + 1}
+                  itemCount={rawRecords.length}
+                  hasPrevious={cursorIndex > 0}
+                  hasNext={pageInfo.hasNextPage}
+                  busy={loading}
+                  onPrevious={() => void previousServerPage()}
+                  onNext={() => void nextServerPage()}
+                />
+              ) : null}
+              {!loading && active === 'permissions' ? (
                 <PaginationControls
                   page={listPagination.page}
                   pageCount={listPagination.pageCount}

@@ -6,9 +6,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { CursorPageQueryDto } from '../common/cursor-pagination';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -81,8 +83,11 @@ export class BranchController {
 @Controller({ path: 'employees', version: '1' })
 export class EmployeeController {
   constructor(private readonly organization: OrganizationService) {}
-  @Get() @RequirePermissions('identity.employee.read') list(@Req() request: AuthenticatedRequest) {
-    return this.organization.listEmployees(request.principal);
+  @Get() @RequirePermissions('identity.employee.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.organization.listEmployees(request.principal, query);
   }
   @Get(':employeeId') @RequirePermissions('identity.employee.read') get(
     @Req() request: AuthenticatedRequest,
@@ -150,8 +155,11 @@ export class EmployeeController {
 @Controller({ path: 'users', version: '1' })
 export class UserController {
   constructor(private readonly organization: OrganizationService) {}
-  @Get() @RequirePermissions('identity.user.read') list(@Req() request: AuthenticatedRequest) {
-    return this.organization.listUsers(request.principal);
+  @Get() @RequirePermissions('identity.user.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.organization.listUsers(request.principal, query);
   }
   @Post() @RequirePermissions('identity.user.create') create(
     @Req() request: AuthenticatedRequest,

@@ -63,6 +63,7 @@ export class AuthController {
       userId: principal.userId,
       employeeId: principal.employeeId,
       companyId: principal.companyId,
+      businessDate: principal.businessDate,
       accessMode: principal.accessMode,
       roles: principal.roles,
       permissions: [...principal.permissions],

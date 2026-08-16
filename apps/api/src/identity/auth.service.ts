@@ -10,6 +10,7 @@ import {
 import { BranchAccessMode, UserStatus } from '@prisma/client';
 import { API_ENVIRONMENT } from '../config/foundation-config.module';
 import type { ApiEnvironment } from '@rerms/config';
+import { BusinessDateService } from '../common/business-date.service';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
@@ -26,6 +27,7 @@ interface SessionMetadata {
 export class AuthService {
   constructor(
     private readonly database: DatabaseService,
+    private readonly businessDate: BusinessDateService,
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
     private readonly authorization: AuthorizationService,
@@ -110,7 +112,9 @@ export class AuthService {
       throw new UnauthorizedException('Session is invalid or expired.');
     }
     const employee = session.user.employee;
-    const activeAt = (from: Date, to: Date | null) => from <= now && (!to || now < to);
+    const businessDate = await this.businessDate.today(employee.companyId, now);
+    const activeAt = (from: Date, to: Date | null) =>
+      from <= businessDate && (!to || businessDate < to);
     const roles = employee.roles.filter(
       (assignment) =>
         activeAt(assignment.effectiveFrom, assignment.effectiveTo) && assignment.role.active,
@@ -147,6 +151,7 @@ export class AuthService {
       sessionId: session.id,
       employeeId: employee.id,
       companyId: employee.companyId,
+      businessDate: businessDate.toISOString().slice(0, 10),
       accessMode: employee.accessMode,
       roles: roles.map((assignment) => ({
         code: assignment.role.code,
@@ -174,7 +179,7 @@ export class AuthService {
     reason: string,
     correlationId?: string,
   ): Promise<void> {
-    const now = new Date();
+    const at = await this.businessDate.today(principal.companyId);
     const session = await this.database.session.findUnique({
       where: { id: sessionId },
       select: {
@@ -187,8 +192,8 @@ export class AuthService {
                 accessMode: true,
                 branchAssignments: {
                   where: {
-                    effectiveFrom: { lte: now },
-                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+                    effectiveFrom: { lte: at },
+                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
                   },
                   select: { branchId: true },
                 },

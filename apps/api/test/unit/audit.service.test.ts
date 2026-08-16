@@ -13,6 +13,9 @@ describe('AuditService', () => {
         email: 'safe@example.test',
         passwordHash: 'never-store',
         nested: { resetToken: 'never-store' },
+        valueEncrypted: 'ciphertext-never-store',
+        normalizedHash: 'lookup-never-store',
+        apiKey: 'api-key-never-store',
       },
     });
     const calls: unknown[][] = create.mock.calls;
@@ -21,6 +24,9 @@ describe('AuditService', () => {
       email: 'safe@example.test',
       passwordHash: '[REDACTED]',
       nested: { resetToken: '[REDACTED]' },
+      valueEncrypted: '[REDACTED]',
+      normalizedHash: '[REDACTED]',
+      apiKey: '[REDACTED]',
     });
   });
 });

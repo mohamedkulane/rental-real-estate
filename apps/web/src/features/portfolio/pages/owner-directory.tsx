@@ -8,6 +8,7 @@ import { PaginationControls, usePagination } from '@/components/shared/paginatio
 import type { PartyRecord } from './party-directory';
 import { StatusBadge } from '@/components/shared/ui';
 import { OwnerPropertyPortfolio } from '../ownership-workflow';
+import { EntityDocuments } from '../entity-documents';
 import type { PropertyOwnershipRecord } from '../ownership-model';
 
 export type OwnerRecord = {
@@ -91,18 +92,24 @@ function Drawer({
 export function OwnerDirectory({
   records,
   parties,
+  businessDate,
   busy,
   canCreate,
   canUpdate,
+  canReadDocuments,
+  canManageDocuments,
   onCreate,
   onUpdate,
   onLoadDetails,
 }: {
   records: OwnerRecord[];
   parties: PartyRecord[];
+  businessDate: string;
   busy: boolean;
   canCreate: (party: PartyRecord) => boolean;
   canUpdate: (record: OwnerRecord) => boolean;
+  canReadDocuments: (record: OwnerRecord) => boolean;
+  canManageDocuments: (record: OwnerRecord) => boolean;
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
   onLoadDetails: (partyId: string) => Promise<OwnerRecord>;
@@ -385,8 +392,20 @@ export function OwnerDirectory({
                   </div>
                 ))}
               </dl>
+              {canReadDocuments(selected) ? (
+                <div className="mt-6 border-t border-slate-200 pt-5">
+                  <EntityDocuments
+                    entityType="Owner"
+                    entityId={selected.partyId}
+                    canManage={canManageDocuments(selected)}
+                  />
+                </div>
+              ) : null}
               <div className="mt-6 border-t border-slate-200 pt-5">
-                <OwnerPropertyPortfolio ownerships={selected.ownerships ?? []} />
+                <OwnerPropertyPortfolio
+                  ownerships={selected.ownerships ?? []}
+                  businessDate={businessDate}
+                />
               </div>
             </>
           )}{' '}

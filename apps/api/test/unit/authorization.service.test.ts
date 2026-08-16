@@ -9,6 +9,7 @@ function principal(overrides: Partial<AuthenticatedPrincipal> = {}): Authenticat
     sessionId: 'session',
     employeeId: 'employee',
     companyId: 'company',
+    businessDate: '2026-08-16',
     accessMode: BranchAccessMode.MULTI_BRANCH,
     roles: [],
     permissions: new Set(['organization.branch.read']),

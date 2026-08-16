@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { Phase3Module } from './phase3.module';
 import {
   AmenityController,
+  BuildingController,
   OwnerController,
   PartyController,
   PortfolioDocumentController,
@@ -17,6 +18,7 @@ import { PortfolioService } from './portfolio/portfolio.service';
   controllers: [
     PartyController,
     OwnerController,
+    BuildingController,
     PropertyController,
     RentableSpaceController,
     AmenityController,

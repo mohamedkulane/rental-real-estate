@@ -37,16 +37,24 @@ function fixture(
       Promise.resolve(work(transaction)),
     ),
   } as unknown as DatabaseService;
+  const businessDate = { today: vi.fn().mockResolvedValue(new Date('2026-08-16T00:00:00.000Z')) };
   const passwords = {
     verify: verifyPassword,
     hash: vi.fn(),
   } as unknown as PasswordService;
   const audit = { write: vi.fn() } as unknown as AuditService;
   return {
-    service: new AuthService(database, passwords, audit, new AuthorizationService(), {
-      ...environment,
-      ...environmentOverrides,
-    }),
+    service: new AuthService(
+      database,
+      businessDate as never,
+      passwords,
+      audit,
+      new AuthorizationService(),
+      {
+        ...environment,
+        ...environmentOverrides,
+      },
+    ),
     database,
     transaction,
     passwords,

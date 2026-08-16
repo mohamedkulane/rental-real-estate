@@ -47,17 +47,14 @@ const datePart = (value: string) => value.slice(0, 10);
 
 export function ownershipPeriod(
   record: Pick<PropertyOwnershipRecord, 'effectiveFrom' | 'effectiveTo'>,
-  asOf = new Date().toISOString().slice(0, 10),
+  asOf: string,
 ): 'CURRENT' | 'SCHEDULED' | 'HISTORICAL' {
   if (datePart(record.effectiveFrom) > asOf) return 'SCHEDULED';
   if (record.effectiveTo && datePart(record.effectiveTo) <= asOf) return 'HISTORICAL';
   return 'CURRENT';
 }
 
-export function partitionOwnership(
-  records: PropertyOwnershipRecord[] = [],
-  asOf = new Date().toISOString().slice(0, 10),
-) {
+export function partitionOwnership(records: PropertyOwnershipRecord[], asOf: string) {
   return {
     current: records.filter((record) => ownershipPeriod(record, asOf) === 'CURRENT'),
     scheduled: records.filter((record) => ownershipPeriod(record, asOf) === 'SCHEDULED'),
@@ -65,10 +62,7 @@ export function partitionOwnership(
   };
 }
 
-export function effectivePayoutPercent(
-  record: PropertyOwnershipRecord,
-  asOf = new Date().toISOString().slice(0, 10),
-): string {
+export function effectivePayoutPercent(record: PropertyOwnershipRecord, asOf: string): string {
   return (
     record.entitlements.find(
       (entitlement) =>
@@ -87,13 +81,13 @@ export function shareTotals(shares: OwnershipShareInput[]) {
   return { ownership: sum('ownershipPercent'), payout: sum('payoutPercent') };
 }
 
-export function ownershipReadiness(records: PropertyOwnershipRecord[] = []) {
-  const current = partitionOwnership(records).current;
+export function ownershipReadiness(records: PropertyOwnershipRecord[], asOf: string) {
+  const current = partitionOwnership(records, asOf).current;
   const totals = shareTotals(
     current.map((record) => ({
       ownerPartyId: record.ownerPartyId,
       ownershipPercent: record.ownershipPercent,
-      payoutPercent: effectivePayoutPercent(record),
+      payoutPercent: effectivePayoutPercent(record, asOf),
     })),
   );
   const activeOwners = current.every((record) => record.owner?.owner?.status === 'ACTIVE');

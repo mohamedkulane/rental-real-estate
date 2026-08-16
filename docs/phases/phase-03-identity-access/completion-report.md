@@ -95,7 +95,7 @@ PASS: `pnpm build`. Shared packages, Prisma package, NestJS API, and the optimiz
 
 ## Known issues
 
-No blocking Phase 3 issues remain. Prisma 6 reports that the legacy `package.json#prisma` seed configuration will need migration to `prisma.config.ts` before Prisma 7; this does not affect the pinned 6.19.3 toolchain.
+No blocking Phase 3 issues remain. Prisma configuration and seed execution are centralized in `prisma.config.ts`; the previously documented legacy `package.json#prisma` seed warning has been resolved.
 
 ## Deferred items
 
@@ -103,7 +103,7 @@ No blocking Phase 3 issues remain. Prisma 6 reports that the legacy `package.jso
 - Optional HTTP-only same-site cookie transport for the browser’s opaque session token.
 - Future identity providers and portal identities.
 - Business-specific approval policies and all downstream domain workflows.
-- Departments, which were not justified by an approved Phase 3 design.
+- Department operations: the persisted foundation-only `Department` reference has no API/UI, hierarchy, assignments, or authorization semantics; those capabilities require a future approved design.
 
 ## Scope verification
 

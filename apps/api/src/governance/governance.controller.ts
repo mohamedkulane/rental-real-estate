@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { CursorPageQueryDto } from '../common/cursor-pagination';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -10,8 +21,11 @@ import { GovernanceService } from './governance.service';
 @Controller({ path: 'audit', version: '1' })
 export class AuditController {
   constructor(private readonly governance: GovernanceService) {}
-  @Get() @RequirePermissions('governance.audit.read') list(@Req() request: AuthenticatedRequest) {
-    return this.governance.listAudit(request.principal);
+  @Get() @RequirePermissions('governance.audit.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.governance.listAudit(request.principal, query);
   }
 }
 

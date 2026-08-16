@@ -6,6 +6,7 @@ export interface Principal {
   userId: string;
   employeeId: string;
   companyId: string;
+  businessDate: string;
   accessMode: 'BRANCH' | 'MULTI_BRANCH' | 'COMPANY_WIDE';
   roles: Array<{ code: string; name: string; branchId: string | null }>;
   permissions: string[];
@@ -14,6 +15,13 @@ export interface Principal {
   branches: Array<{ id: string; code: string; name: string }>;
 }
 
+export interface CursorPage<T> {
+  items: T[];
+  pageInfo: { nextCursor: string | null; hasNextPage: boolean };
+}
+
+export const pageItems = <T>(value: T[] | CursorPage<T>): T[] =>
+  Array.isArray(value) ? value : value.items;
 export class ApiError extends Error {
   constructor(
     message: string,

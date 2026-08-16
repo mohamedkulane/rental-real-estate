@@ -7,7 +7,7 @@ The web app is organized by business feature so a developer can locate a page wi
 - `features/admin/pages/` — branches, employees, roles, user accounts, and settings pages.
 - `features/portfolio/portfolio-console.tsx` — portfolio route orchestration and section selection.
 - `features/portfolio/pages/` — parties, owners, properties, and amenities pages.
-- `features/portfolio/portfolio-actions.tsx` — scoped rentable-space and related portfolio workflows.
+- `features/portfolio/rentable-space-operations.tsx` — scoped RentableSpace lifecycle, hierarchy, amenity, and document workflows.`n- `features/portfolio/property-operations.tsx` — property branch, Building, amenity, and document workflows.
 - `components/shared/` — reusable shell, loading/status UI, and pagination.
 - `lib/` — API client, permission helpers, and presentation helpers.
 

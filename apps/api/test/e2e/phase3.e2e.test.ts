@@ -107,11 +107,12 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
     expect(JSON.stringify(employee.body)).not.toContain('passwordHash');
     const employeeList = await request(app.getHttpServer())
       .get('/api/v1/employees')
+      .query({ search: `T-${suffix}` })
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
-    const listedEmployee = (employeeList.body as Array<{ id: string; displayName?: string }>).find(
-      (item) => item.id === staffEmployeeId,
-    );
+    const listedEmployee = (
+      employeeList.body as { items: Array<{ id: string; displayName?: string }> }
+    ).items.find((item) => item.id === staffEmployeeId);
     expect(listedEmployee?.displayName).toBe('Sahra Ibrahim Aden');
     const roles = await request(app.getHttpServer())
       .get('/api/v1/roles')
@@ -177,7 +178,7 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(
-      (audit.body as Array<{ action: string }>).some(
+      (audit.body as { items: Array<{ action: string }> }).items.some(
         (row) => row.action === 'governance.approval.requested',
       ),
     ).toBe(true);

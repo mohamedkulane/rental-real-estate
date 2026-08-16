@@ -21,6 +21,54 @@ export function usePagination<T>(items: T[], pageSize = DEFAULT_PAGE_SIZE) {
   return { page, pageCount, pageItems, pageSize, setPage };
 }
 
+export function CursorPaginationControls({
+  page,
+  itemCount,
+  hasPrevious,
+  hasNext,
+  busy = false,
+  onPrevious,
+  onNext,
+}: {
+  page: number;
+  itemCount: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  busy?: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  if (!itemCount && !hasPrevious) return null;
+  return (
+    <nav
+      className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      aria-label="Server result pages"
+    >
+      <p className="text-xs font-semibold text-slate-500">
+        Dataset page {page} · {itemCount} {itemCount === 1 ? 'record' : 'records'}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={busy || !hasPrevious}
+          onClick={onPrevious}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ChevronLeft className="h-4 w-4" /> Previous
+        </button>
+        <span className="min-w-20 text-center text-xs font-bold text-slate-600">Page {page}</span>
+        <button
+          type="button"
+          disabled={busy || !hasNext}
+          onClick={onNext}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </nav>
+  );
+}
 export function PaginationControls({
   page,
   pageCount,
@@ -34,7 +82,7 @@ export function PaginationControls({
   total: number;
   onPageChange: (page: number) => void;
 }) {
-  if (!total) return null;
+  if (!total || pageCount <= 1) return null;
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
 

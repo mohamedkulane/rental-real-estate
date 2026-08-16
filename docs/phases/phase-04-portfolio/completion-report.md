@@ -58,3 +58,13 @@ No Phase 5 ServiceEngagement, CRM, listing, viewing, application, reservation, o
 Phase gate result: **PASS**.
 
 The next phase has not been started.
+
+## Final Phase 1–4 closure remediation — 2026-08-16
+
+The final closure remediation completed the missing Building lifecycle APIs, full RentableSpace creation profiles and hierarchy controls, Property branch-history/transfer operations, amenity assignment/removal, and entity-scoped document metadata read/update workflows. All scalable Phase 1–4 directory endpoints now use stable cursor pagination and server-side authorization filters. Business-date decisions use the company timezone and audit redaction covers encrypted PII and cryptographic material.
+
+A new additive migration adds required Document display metadata and its list index. Fresh-install deployment applied all 10 migrations, repeat seed execution was idempotent, and the upgrade database remained current. Record-number acceptance proved the next space sequence (13) exceeded the highest persisted SPC number (12).
+
+Final automated evidence: formatting, lint, strict typecheck, unit (52), integration (10), E2E (36), governance, Prisma validation/status, repeat seed, and production build all passed. The complete Phase 4 focused portfolio E2E set passed 14/14.
+
+The required current visual/interactive UI review could not be executed because the Codex browser runtime failed during sandbox setup with `helper_unknown_error: apply deny-read ACLs`. This is an audit-environment evidence blocker, not an asserted product defect, but the hard gate forbids claiming UI/UX PASS without that evidence. Accordingly, the final Phase 1–4 closure gate remains incomplete and Phase 5 remains blocked. The historical ownership-remediation UI review above remains valid only for that earlier, narrower change set.

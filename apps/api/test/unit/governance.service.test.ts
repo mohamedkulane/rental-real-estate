@@ -37,6 +37,7 @@ describe('GovernanceService', () => {
       sessionId: 'session',
       employeeId: 'employee',
       companyId: 'company',
+      businessDate: '2026-08-16',
       accessMode: BranchAccessMode.COMPANY_WIDE,
       roles: [],
       permissions: new Set(),

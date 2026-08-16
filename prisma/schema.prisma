@@ -691,6 +691,7 @@ model AuditLog {
 model Document {
   id           String            @id @db.Uuid
   companyId    String            @db.Uuid
+  displayName  String            @db.VarChar(240)
   categoryCode String            @db.VarChar(50)
   accessClass  String            @db.VarChar(30)
   status       String            @db.VarChar(30)
@@ -699,6 +700,7 @@ model Document {
   versions     DocumentVersion[]
   company      Company           @relation(fields: [companyId], references: [id], onUpdate: NoAction)
 
+  @@index([companyId, createdAt(sort: Desc), id(sort: Desc)], map: "documents_company_created_id_idx")
   @@map("documents")
 }
 

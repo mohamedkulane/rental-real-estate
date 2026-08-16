@@ -2,6 +2,7 @@ import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BuildingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
+import { cursorPage, type CursorPageQueryDto } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
 import { nextRecordNumber } from '../common/record-number';
 import { DatabaseService } from '../database/database.service';
@@ -10,12 +11,15 @@ import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import type {
   AmenityAssignmentDto,
+  BuildingLifecycleDto,
   CorrectMeasurementDto,
   CreateAmenityDto,
   CreateBuildingDto,
   CreateDocumentMetadataDto,
   CreatePropertyDto,
   CreateSpaceDto,
+  ListDocumentsQueryDto,
+  ListSpacesQueryDto,
   DiscardPropertyDraftDto,
   PartitionSpaceDto,
   PropertyLifecycleTransitionDto,
@@ -24,6 +28,8 @@ import type {
   RetireSpaceDto,
   TransferPropertyBranchDto,
   UpdateAmenityDto,
+  UpdateBuildingDto,
+  UpdateDocumentMetadataDto,
   UpdatePropertyDto,
 } from './portfolio.dto';
 
@@ -116,12 +122,21 @@ export class PortfolioService {
     return branchIds;
   }
 
-  async listProperties(principal: AuthenticatedPrincipal) {
+  async listProperties(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
     const at = await this.businessDate.today(principal.companyId);
     const branchIds = this.authorization.authorizedBranchIds(principal, 'portfolio.property.read');
-    return this.database.property.findMany({
+    const rows = await this.database.property.findMany({
       where: {
         companyId: principal.companyId,
+        ...(query.search
+          ? {
+              OR: [
+                { propertyCode: { contains: query.search, mode: 'insensitive' } },
+                { name: { contains: query.search, mode: 'insensitive' } },
+                { city: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
         ...(branchIds === null
           ? {}
           : {
@@ -134,6 +149,8 @@ export class PortfolioService {
               },
             }),
       },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
       include: {
         branchAssignments: {
           include: { branch: { select: { id: true, code: true, name: true } } },
@@ -141,10 +158,10 @@ export class PortfolioService {
         },
         _count: { select: { spaces: true, buildings: true } },
       },
-      orderBy: { propertyCode: 'asc' },
+      orderBy: { id: 'asc' },
     });
+    return cursorPage(rows, query.limit, (property) => property.id);
   }
-
   async getProperty(principal: AuthenticatedPrincipal, propertyId: string) {
     await this.assertPropertyPermission(principal, propertyId, 'portfolio.property.read');
     return this.database.property.findFirstOrThrow({
@@ -678,6 +695,129 @@ export class PortfolioService {
     });
   }
 
+  async listBuildings(principal: AuthenticatedPrincipal, propertyId: string) {
+    await this.assertPropertyPermission(principal, propertyId, 'portfolio.building.read');
+    return this.database.building.findMany({
+      where: { propertyId, property: { companyId: principal.companyId } },
+      include: {
+        property: { select: { id: true, propertyCode: true, name: true } },
+        _count: { select: { spaces: true } },
+      },
+      orderBy: [{ buildingCode: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  async getBuilding(principal: AuthenticatedPrincipal, buildingId: string) {
+    const building = await this.database.building.findFirstOrThrow({
+      where: { id: buildingId, property: { companyId: principal.companyId } },
+      select: { propertyId: true },
+    });
+    await this.assertPropertyPermission(principal, building.propertyId, 'portfolio.building.read');
+    return this.database.building.findUniqueOrThrow({
+      where: { id: buildingId },
+      include: {
+        property: { select: { id: true, propertyCode: true, name: true } },
+        spaces: {
+          include: { type: true, versions: { orderBy: { effectiveFrom: 'desc' }, take: 1 } },
+          orderBy: [{ spaceCode: 'asc' }, { id: 'asc' }],
+        },
+        _count: { select: { spaces: true } },
+      },
+    });
+  }
+
+  async updateBuilding(
+    principal: AuthenticatedPrincipal,
+    buildingId: string,
+    input: UpdateBuildingDto,
+    correlationId?: string,
+  ) {
+    const existing = await this.database.building.findFirstOrThrow({
+      where: { id: buildingId, property: { companyId: principal.companyId } },
+    });
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      existing.propertyId,
+      'portfolio.building.manage',
+    );
+    return this.database.$transaction(async (transaction) => {
+      const after = await transaction.building.update({
+        where: { id: buildingId },
+        data: {
+          ...(input.name === undefined ? {} : { name: input.name.trim() }),
+          ...(input.numberOfFloors === undefined ? {} : { numberOfFloors: input.numberOfFloors }),
+          ...(input.attributes === undefined
+            ? {}
+            : { attributes: input.attributes as Prisma.InputJsonValue }),
+        },
+      });
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: 'portfolio.building.updated',
+        entityType: 'Building',
+        entityId: buildingId,
+        branchId,
+        correlationId,
+        before: { name: existing.name, numberOfFloors: existing.numberOfFloors },
+        after: { name: after.name, numberOfFloors: after.numberOfFloors },
+      });
+      return after;
+    });
+  }
+
+  async transitionBuilding(
+    principal: AuthenticatedPrincipal,
+    buildingId: string,
+    input: BuildingLifecycleDto,
+    correlationId?: string,
+  ) {
+    const existing = await this.database.building.findFirstOrThrow({
+      where: { id: buildingId, property: { companyId: principal.companyId } },
+    });
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      existing.propertyId,
+      'portfolio.building.manage',
+    );
+    const allowed: Record<BuildingStatus, readonly BuildingStatus[]> = {
+      ACTIVE: [BuildingStatus.INACTIVE],
+      INACTIVE: [BuildingStatus.ACTIVE, BuildingStatus.RETIRED],
+      RETIRED: [],
+    };
+    if (!allowed[existing.status].includes(input.status)) {
+      throw new BadRequestException(
+        `Building transition ${existing.status} -> ${input.status} is not allowed.`,
+      );
+    }
+    if (input.status === BuildingStatus.RETIRED) {
+      const activeSpaces = await this.database.rentableSpace.count({
+        where: { buildingId, status: { not: RentableSpaceStatus.RETIRED } },
+      });
+      if (activeSpaces) {
+        throw new BadRequestException(
+          'Retire associated RentableSpaces before retiring the Building.',
+        );
+      }
+    }
+    return this.database.$transaction(async (transaction) => {
+      const after = await transaction.building.update({
+        where: { id: buildingId },
+        data: { status: input.status },
+      });
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: `portfolio.building.${input.status.toLowerCase()}`,
+        entityType: 'Building',
+        entityId: buildingId,
+        branchId,
+        correlationId,
+        reason: input.reason,
+        before: { status: existing.status },
+        after: { status: after.status },
+      });
+      return after;
+    });
+  }
   listSpaceTypes() {
     return this.database.rentableSpaceType.findMany({
       where: { active: true },
@@ -685,14 +825,23 @@ export class PortfolioService {
     });
   }
 
-  async listSpaces(principal: AuthenticatedPrincipal, propertyId?: string) {
+  async listSpaces(principal: AuthenticatedPrincipal, query: ListSpacesQueryDto) {
+    const { propertyId } = query;
     if (propertyId)
       await this.assertPropertyPermission(principal, propertyId, 'portfolio.space.read');
     const at = await this.businessDate.today(principal.companyId);
     const branchIds = this.authorization.authorizedBranchIds(principal, 'portfolio.space.read');
-    return this.database.rentableSpace.findMany({
+    const rows = await this.database.rentableSpace.findMany({
       where: {
         ...(propertyId ? { propertyId } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { spaceCode: { contains: query.search, mode: 'insensitive' } },
+                { name: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
         property: {
           companyId: principal.companyId,
           ...(branchIds === null
@@ -708,6 +857,8 @@ export class PortfolioService {
               }),
         },
       },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
       include: {
         property: {
           select: {
@@ -732,10 +883,10 @@ export class PortfolioService {
         commercialProfile: true,
         amenities: { include: { amenity: true } },
       },
-      orderBy: { spaceCode: 'asc' },
+      orderBy: { id: 'asc' },
     });
+    return cursorPage(rows, query.limit, (space) => space.id);
   }
-
   async getSpace(principal: AuthenticatedPrincipal, spaceId: string) {
     const space = await this.database.rentableSpace.findUniqueOrThrow({ where: { id: spaceId } });
     await this.assertPropertyPermission(principal, space.propertyId, 'portfolio.space.read');
@@ -803,7 +954,11 @@ export class PortfolioService {
           Prisma.sql`SELECT id FROM rentable_spaces WHERE id = ${input.parentSpaceId}::uuid FOR UPDATE`,
         );
         const parent = await transaction.rentableSpace.findFirstOrThrow({
-          where: { id: input.parentSpaceId, propertyId: input.propertyId },
+          where: {
+            id: input.parentSpaceId,
+            propertyId: input.propertyId,
+            status: { not: RentableSpaceStatus.RETIRED },
+          },
           include: { versions: true },
         });
         const parentVersion = parent.versions.find(
@@ -1384,41 +1539,230 @@ export class PortfolioService {
     });
   }
 
+  async removePropertyAmenity(
+    principal: AuthenticatedPrincipal,
+    propertyId: string,
+    amenityId: string,
+    correlationId?: string,
+  ) {
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      propertyId,
+      'portfolio.amenity.manage',
+    );
+    return this.database.$transaction(async (transaction) => {
+      const removed = await transaction.propertyAmenity.deleteMany({
+        where: { propertyId, amenityId },
+      });
+      if (!removed.count) throw new NotFoundException('Amenity assignment was not found.');
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: 'portfolio.property.amenity-unassigned',
+        entityType: 'Property',
+        entityId: propertyId,
+        branchId,
+        correlationId,
+        before: { amenityId },
+      });
+      return { propertyId, amenityId, removed: true };
+    });
+  }
+
+  async removeSpaceAmenity(
+    principal: AuthenticatedPrincipal,
+    spaceId: string,
+    amenityId: string,
+    correlationId?: string,
+  ) {
+    const space = await this.database.rentableSpace.findFirstOrThrow({
+      where: { id: spaceId, property: { companyId: principal.companyId } },
+    });
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      space.propertyId,
+      'portfolio.amenity.manage',
+    );
+    return this.database.$transaction(async (transaction) => {
+      const removed = await transaction.spaceAmenity.deleteMany({
+        where: { rentableSpaceId: spaceId, amenityId },
+      });
+      if (!removed.count) throw new NotFoundException('Amenity assignment was not found.');
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: 'portfolio.space.amenity-unassigned',
+        entityType: 'RentableSpace',
+        entityId: spaceId,
+        branchId,
+        correlationId,
+        before: { amenityId },
+      });
+      return { spaceId, amenityId, removed: true };
+    });
+  }
+
+  private async assertDocumentEntityPermission(
+    principal: AuthenticatedPrincipal,
+    entityType: 'Property' | 'RentableSpace' | 'Owner',
+    entityId: string,
+    permission: string,
+  ): Promise<string | undefined> {
+    if (entityType === 'Property') {
+      return this.assertPropertyPermission(principal, entityId, permission);
+    }
+    if (entityType === 'RentableSpace') {
+      const space = await this.database.rentableSpace.findFirstOrThrow({
+        where: { id: entityId, property: { companyId: principal.companyId } },
+      });
+      return this.assertPropertyPermission(principal, space.propertyId, permission);
+    }
+    const ownerBranchIds = await this.assertOwnerPermission(principal, entityId, permission);
+    return ownerBranchIds.length === 1 ? ownerBranchIds[0] : undefined;
+  }
+
+  private serializeDocument<T extends { versions: Array<{ sizeBytes: bigint }> }>(document: T) {
+    return {
+      ...document,
+      versions: document.versions.map((version) => ({
+        ...version,
+        sizeBytes: version.sizeBytes.toString(),
+      })),
+    };
+  }
+
+  async listDocuments(principal: AuthenticatedPrincipal, query: ListDocumentsQueryDto) {
+    if ((query.entityType && !query.entityId) || (!query.entityType && query.entityId)) {
+      throw new BadRequestException('Document entity type and record must be supplied together.');
+    }
+    if (query.entityType && query.entityId) {
+      await this.assertDocumentEntityPermission(
+        principal,
+        query.entityType,
+        query.entityId,
+        'portfolio.document.read',
+      );
+    } else {
+      this.authorization.assertCompanyPermission(principal, 'portfolio.document.read');
+    }
+    const documents = await this.database.document.findMany({
+      where: {
+        companyId: principal.companyId,
+        ...(query.search
+          ? {
+              OR: [
+                { displayName: { contains: query.search, mode: 'insensitive' } },
+                { categoryCode: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+        ...(query.entityType && query.entityId
+          ? { links: { some: { entityType: query.entityType, entityId: query.entityId } } }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return cursorPage(
+      documents.map((document) => this.serializeDocument(document)),
+      query.limit,
+      (document) => document.id,
+    );
+  }
+
+  async getDocument(principal: AuthenticatedPrincipal, documentId: string) {
+    const document = await this.database.document.findFirstOrThrow({
+      where: { id: documentId, companyId: principal.companyId },
+      include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
+    });
+    const link = document.links[0];
+    if (!link || !['Property', 'RentableSpace', 'Owner'].includes(link.entityType)) {
+      throw new NotFoundException('Document relation was not found.');
+    }
+    await this.assertDocumentEntityPermission(
+      principal,
+      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityId,
+      'portfolio.document.read',
+    );
+    return this.serializeDocument(document);
+  }
+
+  async updateDocument(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    input: UpdateDocumentMetadataDto,
+    correlationId?: string,
+  ) {
+    const document = await this.database.document.findFirstOrThrow({
+      where: { id: documentId, companyId: principal.companyId },
+      include: { links: true },
+    });
+    const link = document.links[0];
+    if (!link || !['Property', 'RentableSpace', 'Owner'].includes(link.entityType)) {
+      throw new NotFoundException('Document relation was not found.');
+    }
+    const branchId = await this.assertDocumentEntityPermission(
+      principal,
+      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityId,
+      'portfolio.document.manage',
+    );
+    return this.database.$transaction(async (transaction) => {
+      const after = await transaction.document.update({
+        where: { id: documentId },
+        data: {
+          ...(input.displayName === undefined ? {} : { displayName: input.displayName.trim() }),
+          ...(input.categoryCode === undefined ? {} : { categoryCode: input.categoryCode.trim() }),
+          ...(input.accessClass === undefined ? {} : { accessClass: input.accessClass }),
+          ...(input.status === undefined ? {} : { status: input.status }),
+        },
+        include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
+      });
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: 'portfolio.document.metadata-updated',
+        entityType: link.entityType,
+        entityId: link.entityId,
+        branchId,
+        correlationId,
+        before: {
+          displayName: document.displayName,
+          categoryCode: document.categoryCode,
+          accessClass: document.accessClass,
+          status: document.status,
+        },
+        after: {
+          displayName: after.displayName,
+          categoryCode: after.categoryCode,
+          accessClass: after.accessClass,
+          status: after.status,
+        },
+      });
+      return this.serializeDocument(after);
+    });
+  }
   async createDocument(
     principal: AuthenticatedPrincipal,
     input: CreateDocumentMetadataDto,
     correlationId?: string,
   ) {
-    let branchId: string | undefined;
-    if (input.entityType === 'Property')
-      branchId = await this.assertPropertyPermission(
-        principal,
-        input.entityId,
-        'portfolio.document.manage',
-      );
-    else if (input.entityType === 'RentableSpace') {
-      const space = await this.database.rentableSpace.findUniqueOrThrow({
-        where: { id: input.entityId },
-      });
-      branchId = await this.assertPropertyPermission(
-        principal,
-        space.propertyId,
-        'portfolio.document.manage',
-      );
-    } else {
-      const ownerBranchIds = await this.assertOwnerPermission(
-        principal,
-        input.entityId,
-        'portfolio.document.manage',
-      );
-      branchId = ownerBranchIds.length === 1 ? ownerBranchIds[0] : undefined;
-    }
+    const branchId = await this.assertDocumentEntityPermission(
+      principal,
+      input.entityType,
+      input.entityId,
+      'portfolio.document.manage',
+    );
     return this.database.$transaction(async (transaction) => {
       const document = await transaction.document.create({
         data: {
           id: uuidv7(),
           companyId: principal.companyId,
-          categoryCode: input.categoryCode,
+          displayName:
+            input.displayName?.trim() ??
+            input.storageKey.split(/[\\/]/).pop() ??
+            input.categoryCode.trim(),
+          categoryCode: input.categoryCode.trim(),
           accessClass: input.accessClass,
           status: input.status,
           versions: {
@@ -1456,13 +1800,7 @@ export class PortfolioService {
           purpose: input.purpose,
         },
       });
-      return {
-        ...document,
-        versions: document.versions.map((version) => ({
-          ...version,
-          sizeBytes: version.sizeBytes.toString(),
-        })),
-      };
+      return this.serializeDocument(document);
     });
   }
 }

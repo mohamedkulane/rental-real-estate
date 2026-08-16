@@ -1,6 +1,8 @@
 import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BranchAccessMode, PartyKind, UserStatus, type Prisma } from '@prisma/client';
+import { BusinessDateService } from '../common/business-date.service';
+import { cursorPage, type CursorPageQueryDto } from '../common/cursor-pagination';
 import { nextRecordNumber } from '../common/record-number';
 import { EffectiveDatingService } from '../common/effective-dating.service';
 import { DatabaseService } from '../database/database.service';
@@ -25,6 +27,7 @@ import type {
 export class OrganizationService {
   constructor(
     private readonly database: DatabaseService,
+    private readonly businessDate: BusinessDateService,
     private readonly effectiveDating: EffectiveDatingService,
     private readonly audit: AuditService,
     private readonly passwords: PasswordService,
@@ -143,14 +146,14 @@ export class OrganizationService {
     employeeId: string,
     permission: string,
   ) {
-    const now = new Date();
+    const at = await this.businessDate.today(principal.companyId);
     const employee = await this.database.employee.findFirst({
       where: { id: employeeId, companyId: principal.companyId },
       include: {
         branchAssignments: {
           where: {
-            effectiveFrom: { lte: now },
-            OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+            effectiveFrom: { lte: at },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
           },
         },
       },
@@ -193,8 +196,8 @@ export class OrganizationService {
     return { ...record, displayName: party.displayName };
   }
 
-  async listEmployees(principal: AuthenticatedPrincipal) {
-    const now = new Date();
+  async listEmployees(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
+    const at = await this.businessDate.today(principal.companyId);
     const branchIds = this.authorization.authorizedBranchIds(principal, 'identity.employee.read');
     const branchFilter: Prisma.EmployeeWhereInput =
       branchIds === null
@@ -204,30 +207,41 @@ export class OrganizationService {
             branchAssignments: {
               some: {
                 branchId: { in: [...branchIds] },
-                effectiveFrom: { lte: now },
-                OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
               },
             },
           };
-    return this.database.employee
-      .findMany({
-        where: { companyId: principal.companyId, ...branchFilter },
-        include: {
-          party: { select: { displayName: true } },
-          user: { select: { id: true, emailNormalized: true, status: true } },
-          branchAssignments: true,
-          roles: { include: { role: true } },
-        },
-        orderBy: { employeeNumber: 'asc' },
-      })
-      .then((employees) =>
-        employees.map(({ party, ...employee }) => ({
-          ...employee,
-          displayName: party.displayName,
-        })),
-      );
+    const rows = await this.database.employee.findMany({
+      where: {
+        companyId: principal.companyId,
+        ...branchFilter,
+        ...(query.search
+          ? {
+              OR: [
+                { employeeNumber: { contains: query.search, mode: 'insensitive' } },
+                { jobTitle: { contains: query.search, mode: 'insensitive' } },
+                { party: { displayName: { contains: query.search, mode: 'insensitive' } } },
+              ],
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: {
+        party: { select: { displayName: true } },
+        user: { select: { id: true, emailNormalized: true, status: true } },
+        branchAssignments: true,
+        roles: { include: { role: true } },
+      },
+      orderBy: { id: 'asc' },
+    });
+    return cursorPage(
+      rows.map(({ party, ...employee }) => ({ ...employee, displayName: party.displayName })),
+      query.limit,
+      (employee) => employee.id,
+    );
   }
-
   async createEmployee(
     principal: AuthenticatedPrincipal,
     input: CreateEmployeeDto,
@@ -243,6 +257,7 @@ export class OrganizationService {
     if ((input.email && !input.password) || (!input.email && input.password))
       throw new BadRequestException('Email and password must be supplied together.');
     const passwordHash = input.password ? await this.passwords.hash(input.password) : undefined;
+    const effectiveFrom = await this.businessDate.today(principal.companyId);
     return this.database.$transaction(async (transaction) => {
       const employeeNumber =
         input.employeeNumber?.trim().toUpperCase() ??
@@ -262,7 +277,7 @@ export class OrganizationService {
             create: {
               id: uuidv7(),
               branchId: input.branchId,
-              effectiveFrom: new Date(),
+              effectiveFrom,
             },
           },
         },
@@ -294,7 +309,7 @@ export class OrganizationService {
           id: uuidv7(),
           employeeId: employee.id,
           branchId: input.branchId ?? null,
-          effectiveFrom: new Date(),
+          effectiveFrom,
         },
       });
       await this.audit.write(transaction, {
@@ -562,8 +577,8 @@ export class OrganizationService {
     });
   }
 
-  listUsers(principal: AuthenticatedPrincipal) {
-    const now = new Date();
+  async listUsers(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
+    const at = await this.businessDate.today(principal.companyId);
     const branchIds = this.authorization.authorizedBranchIds(principal, 'identity.user.read');
     const employeeScope: Prisma.EmployeeWhereInput =
       branchIds === null
@@ -574,13 +589,30 @@ export class OrganizationService {
             branchAssignments: {
               some: {
                 branchId: { in: [...branchIds] },
-                effectiveFrom: { lte: now },
-                OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
               },
             },
           };
-    return this.database.user.findMany({
-      where: { employee: employeeScope },
+    const rows = await this.database.user.findMany({
+      where: {
+        employee: employeeScope,
+        ...(query.search
+          ? {
+              OR: [
+                { emailNormalized: { contains: query.search, mode: 'insensitive' } },
+                {
+                  employee: {
+                    ...employeeScope,
+                    party: { displayName: { contains: query.search, mode: 'insensitive' } },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
       select: {
         id: true,
         emailNormalized: true,
@@ -595,8 +627,8 @@ export class OrganizationService {
             party: { select: { displayName: true } },
             branchAssignments: {
               where: {
-                effectiveFrom: { lte: now },
-                OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
               },
               select: { branchId: true },
             },
@@ -612,10 +644,10 @@ export class OrganizationService {
           },
         },
       },
-      orderBy: { emailNormalized: 'asc' },
+      orderBy: { id: 'asc' },
     });
+    return cursorPage(rows, query.limit, (user) => user.id);
   }
-
   async createUser(
     principal: AuthenticatedPrincipal,
     input: CreateUserDto,
