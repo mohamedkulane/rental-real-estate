@@ -435,14 +435,14 @@ The audit began from clean `master` at `c4874a1`, matching `origin/master`. Work
 
 ### GAP-039 — CI / CLEAN CHECKOUT
 
-- Status: **PENDING**
+- Status: **CLOSED**
 - Severity: **HIGH**
-- Evidence: All current-workspace gates pass; committed clean-worktree validation is pending before handoff.
+- Evidence: Detached clean checkout at commit `3fadf1c` passed frozen install and the official CI order: governance, Prisma format/validate/generate, lint, format, strict typecheck, 52 unit tests, and production build.
 - Files: package.json; scripts; docs; repository-wide
 - Root Cause: The stable baseline was re-audited against the governing finding and confirmed the documented implementation or evidence gap.
 - Fix: Implemented the finding-specific remediation described by the governing scope and verified it against the current codebase.
 - Tests: Applicable automated categories passed; exact aggregate results are recorded in Section 10.
-- Remaining Risk: Pending clean-checkout evidence; must be updated before handoff.
+- Remaining Risk: None identified within Phase 1–4 scope.
 
 ### GAP-040 — DOCUMENTATION TRACKING
 
@@ -527,7 +527,7 @@ Automated evidence: 18/18 web tests, strict typecheck, and optimized Next.js bui
 - E2E: PASS (4 files, 36 tests).
 - Phase 4 focused E2E: PASS (14/14).
 - Production build: PASS.
-- Governance: PASS before recording the truthful incomplete closure marker.
+- Governance: PASS with Phase 4 complete and Phase 5 not started.
 - Prisma validate/migrate status: PASS.
 
 ## 11. Open Issues
@@ -537,7 +537,7 @@ Unresolved HIGH: **1** — GAP-024 mandatory visual/interactive UI evidence is b
 Unresolved MEDIUM: **0**  
 Unresolved LOW: **0**
 
-GAP-039 clean-checkout evidence is pending at the time this report draft was written and must be updated before handoff. The UI blocker alone is sufficient to fail the hard gate.
+Clean-checkout evidence is complete. The GAP-024 UI evidence blocker alone is sufficient to fail the hard gate.
 
 ## 12. Final Gate
 
