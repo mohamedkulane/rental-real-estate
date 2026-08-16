@@ -93,18 +93,21 @@ describe('ownership workflow model', () => {
   });
 
   it('requires active owners and exact totals for activation readiness', () => {
-    expect(ownershipReadiness([ownership()]).ready).toBe(true);
+    expect(ownershipReadiness([ownership()], '2026-08-11').ready).toBe(true);
     expect(
-      ownershipReadiness([
-        ownership({
-          owner: {
-            id: 'owner-1',
-            displayName: 'Amina Hassan',
-            kind: 'PERSON',
-            owner: { ownerNumber: 'OWN-0001', status: 'SUSPENDED' },
-          },
-        }),
-      ]).ready,
+      ownershipReadiness(
+        [
+          ownership({
+            owner: {
+              id: 'owner-1',
+              displayName: 'Amina Hassan',
+              kind: 'PERSON',
+              owner: { ownerNumber: 'OWN-0001', status: 'SUSPENDED' },
+            },
+          }),
+        ],
+        '2026-08-11',
+      ).ready,
     ).toBe(false);
   });
 });

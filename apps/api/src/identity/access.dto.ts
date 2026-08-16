@@ -1,4 +1,12 @@
-import { IsBoolean, IsOptional, IsString, IsUUID, Length } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+} from 'class-validator';
 
 export class CreateRoleDto {
   @IsString() @Length(2, 64) code!: string;
@@ -17,4 +25,15 @@ export class PermissionGrantDto {
 
 export class ReasonDto {
   @IsString() @Length(3, 255) reason!: string;
+}
+
+export class UpdateUserPrivilegesDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  permissionIds!: string[];
+
+  @IsString()
+  @Length(3, 255)
+  reason!: string;
 }

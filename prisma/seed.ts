@@ -39,8 +39,8 @@ async function synchronizeRecordNumberSequences(): Promise<void> {
         INTO maximum_value FROM properties WHERE "propertyCode" ~ '^PROP-[0-9]+$';
       PERFORM setval('property_record_number_seq', COALESCE(maximum_value + 1, 1), false);
 
-      SELECT MAX(substring("spaceCode" FROM '^UNIT-([0-9]+)$')::bigint)
-        INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^UNIT-[0-9]+$';
+      SELECT MAX(substring("spaceCode" FROM '^SPC-([0-9]+)$')::bigint)
+        INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^SPC-[0-9]+$';
       PERFORM setval('space_record_number_seq', COALESCE(maximum_value + 1, 1), false);
     END $$;
   `;
@@ -56,6 +56,8 @@ const permissions = [
   ['identity.user.create', 'Create user access'],
   ['identity.user.update', 'Update user access'],
   ['identity.user.suspend', 'Suspend or activate users'],
+  ['identity.user.privilege.read', 'Read user-specific privileges'],
+  ['identity.user.privilege.manage', 'Manage user-specific privileges'],
   ['identity.session.revoke', 'Revoke user sessions'],
   ['identity.role.read', 'Read roles and role grants'],
   ['identity.role.manage', 'Manage role permissions and assignments'],
@@ -77,6 +79,7 @@ const permissions = [
   ['portfolio.property.read', 'Read properties'],
   ['portfolio.property.create', 'Create properties'],
   ['portfolio.property.update', 'Update properties and operating branch'],
+  ['portfolio.building.read', 'Read property buildings'],
   ['portfolio.building.manage', 'Manage property buildings'],
   ['portfolio.space.read', 'Read RentableSpace hierarchy'],
   ['portfolio.space.create', 'Create RentableSpaces'],
@@ -94,7 +97,7 @@ const rolePermissions: Record<string, readonly string[]> = {
   SUPER_ADMIN: permissions.map(([code]) => code),
   GENERAL_MANAGER: permissions
     .map(([code]) => code)
-    .filter((code) => code !== 'identity.role.manage'),
+    .filter((code) => code !== 'identity.role.manage' && code !== 'identity.user.privilege.manage'),
   BRANCH_MANAGER: [
     'organization.company.read',
     'organization.branch.read',
@@ -122,6 +125,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'owner.create',
     'owner.update',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.property.create',
     'portfolio.property.update',
     'portfolio.building.manage',
@@ -147,6 +151,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'owner.create',
     'owner.update',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.property.create',
     'portfolio.property.update',
     'portfolio.building.manage',
@@ -170,6 +175,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'party.update',
     'owner.read',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.space.read',
     'portfolio.ownership.read',
     'portfolio.amenity.read',
@@ -184,6 +190,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'party.contact.read',
     'owner.read',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.ownership.read',
     'portfolio.document.read',
   ],
@@ -193,6 +200,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'party.read',
     'party.contact.read',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.space.read',
     'portfolio.amenity.read',
     'portfolio.document.read',
@@ -200,6 +208,7 @@ const rolePermissions: Record<string, readonly string[]> = {
   INSPECTOR: [
     'organization.branch.read',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.space.read',
     'portfolio.amenity.read',
     'portfolio.document.read',
@@ -213,6 +222,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'party.update',
     'owner.read',
     'portfolio.property.read',
+    'portfolio.building.read',
     'portfolio.space.read',
     'portfolio.amenity.read',
   ],

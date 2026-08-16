@@ -21,8 +21,15 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
   let ownerPartyId = '';
   let organizationOwnerId = '';
   let propertyId = '';
+  let buildingId = '';
+  let parkingAmenityId = '';
   let parentSpaceId = '';
   let childSpaceId = '';
+  let businessDate = '';
+  let date30 = '';
+  let date60 = '';
+  let date90 = '';
+  let date120 = '';
   const suffix = randomUUID().slice(0, 8);
 
   beforeAll(async () => {
@@ -48,6 +55,20 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .send({ email: adminEmail, password: adminPassword })
       .expect(201);
     token = sessionToken(login);
+    const me = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    businessDate = me.body.businessDate as string;
+    const offsetDate = (days: number) => {
+      const value = new Date(`${businessDate}T00:00:00.000Z`);
+      value.setUTCDate(value.getUTCDate() + days);
+      return value.toISOString().slice(0, 10);
+    };
+    date30 = offsetDate(30);
+    date60 = offsetDate(60);
+    date90 = offsetDate(90);
+    date120 = offsetDate(120);
     const branches = await request(app.getHttpServer())
       .get('/api/v1/branches')
       .set('authorization', `Bearer ${token}`)
@@ -68,9 +89,11 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect((amenities.body as Array<{ code: string }>).length).toBeGreaterThanOrEqual(10);
-    expect(
-      (amenities.body as Array<{ code: string }>).some((item) => item.code === 'PARKING'),
-    ).toBe(true);
+    const parking = (amenities.body as Array<{ id: string; code: string }>).find(
+      (item) => item.code === 'PARKING',
+    );
+    expect(parking).toBeDefined();
+    parkingAmenityId = parking!.id;
   });
 
   it('creates a party and owner without exposing encrypted contact storage', async () => {
@@ -100,12 +123,17 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(detail.body.contacts[0].value).toBe('+252611234567');
     expect(detail.body.contacts[0].masked).toBe(false);
     const directory = await request(app.getHttpServer())
-      .get('/api/v1/parties')
+      .get(`/api/v1/parties?search=P-${suffix}`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     const directoryParty = (
-      directory.body as Array<{ id: string; contacts: Array<{ value: string; masked: boolean }> }>
-    ).find((party) => party.id === ownerPartyId);
+      directory.body as {
+        items: Array<{
+          id: string;
+          contacts: Array<{ value: string; masked: boolean }>;
+        }>;
+      }
+    ).items.find((party) => party.id === ownerPartyId);
     expect(directoryParty?.contacts[0]).toMatchObject({ value: '***4567', masked: true });
     expect(JSON.stringify(directory.body)).not.toContain('valueEncrypted');
     expect(JSON.stringify(directory.body)).not.toContain('normalizedHash');
@@ -159,7 +187,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         name: 'Daryeel Business Centre',
         propertyType: 'MIXED_USE',
         branchId: hodanId,
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         city: 'Mogadishu',
       })
       .expect(201);
@@ -172,7 +200,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         name: 'Duplicate code proof',
         propertyType: 'HOUSE',
         branchId: hodanId,
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         city: 'Mogadishu',
       })
       .expect(409);
@@ -180,7 +208,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .put(`/api/v1/properties/${propertyId}/ownership`)
       .set('authorization', `Bearer ${token}`)
       .send({
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         shares: [{ ownerPartyId, ownershipPercent: '100', payoutPercent: '99' }],
         reason: 'Invalid payout total proof',
       })
@@ -189,7 +217,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .put(`/api/v1/properties/${propertyId}/ownership`)
       .set('authorization', `Bearer ${token}`)
       .send({
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         shares: [
           { ownerPartyId, ownershipPercent: '60', payoutPercent: '55' },
           { ownerPartyId: organizationOwnerId, ownershipPercent: '40', payoutPercent: '45' },
@@ -203,11 +231,12 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .send({ reason: 'Ownership and operating setup approved' })
       .expect(201);
     expect(activated.body.status).toBe('ACTIVE');
-    await request(app.getHttpServer())
+    const building = await request(app.getHttpServer())
       .post(`/api/v1/properties/${propertyId}/buildings`)
       .set('authorization', `Bearer ${token}`)
       .send({ buildingCode: `B-${suffix}`, name: 'Main Building', numberOfFloors: 3 })
       .expect(201);
+    buildingId = building.body.id as string;
     const ownerPortfolio = await request(app.getHttpServer())
       .get(`/api/v1/owners/${ownerPartyId}`)
       .set('authorization', `Bearer ${token}`)
@@ -220,7 +249,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .put(`/api/v1/properties/${propertyId}/ownership`)
       .set('authorization', `Bearer ${token}`)
       .send({
-        effectiveFrom: '2027-01-01',
+        effectiveFrom: date120,
         shares: [
           { ownerPartyId, ownershipPercent: '50', payoutPercent: '50' },
           { ownerPartyId: organizationOwnerId, ownershipPercent: '50', payoutPercent: '50' },
@@ -231,10 +260,67 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     const history = await database.propertyOwnership.findMany({ where: { propertyId } });
     expect(history).toHaveLength(4);
     expect(
-      history.filter((row) => row.effectiveTo?.toISOString().startsWith('2027-01-01')),
+      history.filter((row) => row.effectiveTo?.toISOString().startsWith(date120)),
     ).toHaveLength(2);
   });
 
+  it('supports building read, update, and reversible lifecycle transitions', async () => {
+    const list = await request(app.getHttpServer())
+      .get(`/api/v1/properties/${propertyId}/buildings`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect((list.body as Array<{ id: string }>).some((item) => item.id === buildingId)).toBe(true);
+
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/v1/buildings/${buildingId}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: 'Main Operations Building', numberOfFloors: 4 })
+      .expect(200);
+    expect(updated.body).toMatchObject({ name: 'Main Operations Building', numberOfFloors: 4 });
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/buildings/${buildingId}/status`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ status: 'INACTIVE', reason: 'Building lifecycle verification' })
+      .expect(201);
+    const active = await request(app.getHttpServer())
+      .post(`/api/v1/buildings/${buildingId}/status`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ status: 'ACTIVE', reason: 'Building returned to operations' })
+      .expect(201);
+    expect(active.body.status).toBe('ACTIVE');
+
+    const detail = await request(app.getHttpServer())
+      .get(`/api/v1/buildings/${buildingId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(detail.body.id).toBe(buildingId);
+  });
+
+  it('paginates and searches party records with stable cursors', async () => {
+    const first = await request(app.getHttpServer())
+      .get('/api/v1/parties?limit=1')
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(first.body.items).toHaveLength(1);
+    expect(first.body.pageInfo.hasNextPage).toBe(true);
+    expect(first.body.pageInfo.nextCursor).toBeTypeOf('string');
+
+    const second = await request(app.getHttpServer())
+      .get(`/api/v1/parties?limit=1&cursor=${first.body.pageInfo.nextCursor}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(second.body.items).toHaveLength(1);
+    expect(second.body.items[0].id).not.toBe(first.body.items[0].id);
+
+    const searched = await request(app.getHttpServer())
+      .get(`/api/v1/parties?search=${suffix}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (searched.body.items as Array<{ id: string }>).some((item) => item.id === ownerPartyId),
+    ).toBe(true);
+  });
   it('supports the standalone Villa to ENTIRE_PROPERTY space pattern', async () => {
     const villa = await request(app.getHttpServer())
       .post('/api/v1/properties')
@@ -244,7 +330,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         name: 'Standalone Villa',
         propertyType: 'VILLA',
         branchId: hodanId,
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         city: 'Mogadishu',
       })
       .expect(201);
@@ -257,7 +343,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         typeCode: 'ENTIRE_PROPERTY',
         spaceCode: `EV-${suffix}`,
         name: 'Entire Villa',
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         usableArea: '240',
         areaUnit: 'SQM',
         residential: { bedrooms: 4, bathrooms: '3' },
@@ -280,7 +366,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         typeCode: 'HALL',
         spaceCode: `U-${suffix}`,
         name: 'Main Hall',
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         usableArea: '100',
         areaUnit: 'SQM',
       })
@@ -290,7 +376,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .post(`/api/v1/rentable-spaces/${parentSpaceId}/partition`)
       .set('authorization', `Bearer ${token}`)
       .send({
-        effectiveFrom: '2026-02-01',
+        effectiveFrom: date30,
         areaUnit: 'SQM',
         reason: 'Approved subdivision',
         children: [
@@ -307,12 +393,106 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(await database.rentableSpaceParentHistory.count({ where: { parentSpaceId } })).toBe(2);
   });
 
+  it('assigns and removes amenities and supports document read/update metadata workflows', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/properties/${propertyId}/amenities`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ amenityId: parkingAmenityId })
+      .expect(201);
+    await request(app.getHttpServer())
+      .delete(`/api/v1/properties/${propertyId}/amenities/${parkingAmenityId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      await database.propertyAmenity.count({ where: { propertyId, amenityId: parkingAmenityId } }),
+    ).toBe(0);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/rentable-spaces/${childSpaceId}/amenities`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ amenityId: parkingAmenityId })
+      .expect(201);
+    await request(app.getHttpServer())
+      .delete(`/api/v1/rentable-spaces/${childSpaceId}/amenities/${parkingAmenityId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      await database.spaceAmenity.count({
+        where: { rentableSpaceId: childSpaceId, amenityId: parkingAmenityId },
+      }),
+    ).toBe(0);
+
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/portfolio-documents')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        displayName: 'Ownership verification file',
+        categoryCode: 'OWNERSHIP',
+        accessClass: 'CONFIDENTIAL',
+        status: 'ACTIVE',
+        storageKey: `properties/${propertyId}/ownership-${suffix}.pdf`,
+        checksum: '0123456789abcdef0123456789abcdef',
+        mimeType: 'application/pdf',
+        sizeBytes: 4096,
+        entityType: 'Property',
+        entityId: propertyId,
+        purpose: 'OWNERSHIP_EVIDENCE',
+      })
+      .expect(201);
+    const documentId = created.body.id as string;
+    expect(created.body.displayName).toBe('Ownership verification file');
+
+    const listed = await request(app.getHttpServer())
+      .get(`/api/v1/portfolio-documents?entityType=Property&entityId=${propertyId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (listed.body.items as Array<{ id: string }>).some((item) => item.id === documentId),
+    ).toBe(true);
+
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/v1/portfolio-documents/${documentId}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ displayName: 'Verified ownership evidence', status: 'ARCHIVED' })
+      .expect(200);
+    expect(updated.body).toMatchObject({
+      id: documentId,
+      displayName: 'Verified ownership evidence',
+      status: 'ARCHIVED',
+    });
+
+    const detail = await request(app.getHttpServer())
+      .get(`/api/v1/portfolio-documents/${documentId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(detail.body.versions).toHaveLength(1);
+    expect(JSON.stringify(detail.body)).not.toContain('valueEncrypted');
+  });
+  it('combines property filtering with cursor pagination without cross-property leakage', async () => {
+    const first = await request(app.getHttpServer())
+      .get(`/api/v1/rentable-spaces?propertyId=${propertyId}&limit=1`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(first.body.items).toHaveLength(1);
+    expect(first.body.items[0].propertyId).toBe(propertyId);
+    expect(first.body.pageInfo.hasNextPage).toBe(true);
+
+    const second = await request(app.getHttpServer())
+      .get(
+        `/api/v1/rentable-spaces?propertyId=${propertyId}&limit=1&cursor=${first.body.pageInfo.nextCursor}`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(second.body.items).toHaveLength(1);
+    expect(second.body.items[0].propertyId).toBe(propertyId);
+    expect(second.body.items[0].id).not.toBe(first.body.items[0].id);
+  });
   it('rejects excess partition area and hierarchy cycles', async () => {
     await request(app.getHttpServer())
       .post(`/api/v1/rentable-spaces/${parentSpaceId}/partition`)
       .set('authorization', `Bearer ${token}`)
       .send({
-        effectiveFrom: '2026-03-01',
+        effectiveFrom: date60,
         areaUnit: 'SQM',
         reason: 'Invalid excess area proof',
         children: [
@@ -325,7 +505,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${token}`)
       .send({
         parentSpaceId: childSpaceId,
-        effectiveFrom: '2026-03-01',
+        effectiveFrom: date60,
         reason: 'Invalid cycle proof',
       })
       .expect(400);
@@ -340,7 +520,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         typeCode: 'LAND',
         spaceCode: `BADL-${suffix}`,
         name: 'Invalid Land',
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         land: { permittedUse: 'Agriculture' },
         residential: { bedrooms: 2 },
       })
@@ -353,7 +533,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         typeCode: 'LAND',
         spaceCode: `L-${suffix}`,
         name: 'East Plot',
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         usableArea: '2.5',
         areaUnit: 'ACRE',
         land: { permittedUse: 'Agriculture', fenced: true, roadAccess: 'Eastern road' },
@@ -368,7 +548,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         typeCode: 'PARKING_SPACE',
         spaceCode: `PK-${suffix}`,
         name: 'Parking Bay',
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         usableArea: '15',
         areaUnit: 'SQM',
       })
@@ -376,7 +556,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     const retired = await request(app.getHttpServer())
       .post(`/api/v1/rentable-spaces/${parking.body.id}/retire`)
       .set('authorization', `Bearer ${token}`)
-      .send({ effectiveDate: '2026-04-01', reason: 'Physical parking reconfiguration' })
+      .send({ effectiveDate: date90, reason: 'Physical parking reconfiguration' })
       .expect(201);
     expect(retired.body.status).toBe('RETIRED');
   });
@@ -416,11 +596,13 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${managerToken}`)
       .expect(403);
     const scopedParties = await request(app.getHttpServer())
-      .get('/api/v1/parties')
+      .get(`/api/v1/parties?search=P-${suffix}`)
       .set('authorization', `Bearer ${managerToken}`)
       .expect(200);
     expect(
-      (scopedParties.body as Array<{ id: string }>).some((party) => party.id === ownerPartyId),
+      (scopedParties.body as { items: Array<{ id: string }> }).items.some(
+        (party) => party.id === ownerPartyId,
+      ),
     ).toBe(false);
     await request(app.getHttpServer())
       .get(`/api/v1/properties/${propertyId}`)
@@ -434,7 +616,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         name: 'Wadajir Scope Proof',
         propertyType: 'HOUSE',
         branchId: wadajirId,
-        effectiveFrom: '2026-01-01',
+        effectiveFrom: businessDate,
         city: 'Mogadishu',
       })
       .expect(201);
@@ -442,13 +624,32 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .get(`/api/v1/properties/${allowed.body.id}`)
       .set('authorization', `Bearer ${managerToken}`)
       .expect(200);
+    await request(app.getHttpServer())
+      .post('/api/v1/properties')
+      .set('authorization', `Bearer ${managerToken}`)
+      .send({
+        propertyCode: `W2-${suffix}`,
+        name: 'Second Wadajir Scope Proof',
+        propertyType: 'APARTMENT_BUILDING',
+        branchId: wadajirId,
+        effectiveFrom: businessDate,
+        city: 'Mogadishu',
+      })
+      .expect(201);
     const list = await request(app.getHttpServer())
-      .get('/api/v1/properties')
+      .get('/api/v1/properties?limit=1')
       .set('authorization', `Bearer ${managerToken}`)
       .expect(200);
-    expect(
-      (list.body as Array<{ id: string }>).some((property) => property.id === propertyId),
-    ).toBe(false);
+    expect(list.body.items).toHaveLength(1);
+    expect(list.body.items[0].id).not.toBe(propertyId);
+    expect(list.body.pageInfo.hasNextPage).toBe(true);
+    const next = await request(app.getHttpServer())
+      .get(`/api/v1/properties?limit=1&cursor=${list.body.pageInfo.nextCursor}`)
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(next.body.items).toHaveLength(1);
+    expect(next.body.items[0].id).not.toBe(propertyId);
+    expect(next.body.items[0].id).not.toBe(list.body.items[0].id);
   });
 
   it('writes sensitive portfolio audit evidence without contact values', async () => {

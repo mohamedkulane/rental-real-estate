@@ -17,4 +17,4 @@
 
 Owners, properties, rentable spaces, engagements, CRM, leads, listings, viewings, applications, tenants, leasing, brokerage, charges, payments, accounting, deposits, maintenance, payouts, and operational reports remain out of scope. Manual payment processing remains the approved MVP direction; no payment-gateway dependency was introduced.
 
-Departments were not added because the approved model does not yet justify them. Payroll and complete business approval workflows are also deferred.
+A minimal `Department` table/model was added as foundation-only reference data. Department hierarchy, assignments, API/UI, authorization semantics, and operational behavior were not approved and remain deferred. Payroll and complete business approval workflows are also deferred.

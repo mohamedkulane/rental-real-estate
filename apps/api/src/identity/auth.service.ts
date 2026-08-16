@@ -10,6 +10,7 @@ import {
 import { BranchAccessMode, UserStatus } from '@prisma/client';
 import { API_ENVIRONMENT } from '../config/foundation-config.module';
 import type { ApiEnvironment } from '@rerms/config';
+import { BusinessDateService } from '../common/business-date.service';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
@@ -26,6 +27,7 @@ interface SessionMetadata {
 export class AuthService {
   constructor(
     private readonly database: DatabaseService,
+    private readonly businessDate: BusinessDateService,
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
     private readonly authorization: AuthorizationService,
@@ -84,6 +86,7 @@ export class AuthService {
       include: {
         user: {
           include: {
+            permissionOverrides: { include: { permission: true } },
             employee: {
               include: {
                 branchAssignments: {
@@ -110,7 +113,9 @@ export class AuthService {
       throw new UnauthorizedException('Session is invalid or expired.');
     }
     const employee = session.user.employee;
-    const activeAt = (from: Date, to: Date | null) => from <= now && (!to || now < to);
+    const businessDate = await this.businessDate.today(employee.companyId, now);
+    const activeAt = (from: Date, to: Date | null) =>
+      from <= businessDate && (!to || businessDate < to);
     const roles = employee.roles.filter(
       (assignment) =>
         activeAt(assignment.effectiveFrom, assignment.effectiveTo) && assignment.role.active,
@@ -132,6 +137,19 @@ export class AuthService {
     const activeBranchAssignments = employee.branchAssignments.filter((assignment) =>
       activeAt(assignment.effectiveFrom, assignment.effectiveTo),
     );
+    for (const override of session.user.permissionOverrides ?? []) {
+      const code = override.permission.code;
+      if (!override.allowed) {
+        permissions.delete(code);
+        permissionBranchScopes.delete(code);
+        continue;
+      }
+      permissions.add(code);
+      const scopes = new Set<string | null>();
+      if (employee.accessMode === BranchAccessMode.COMPANY_WIDE) scopes.add(null);
+      else for (const assignment of activeBranchAssignments) scopes.add(assignment.branchId);
+      permissionBranchScopes.set(code, scopes);
+    }
     const branchIds = new Set(activeBranchAssignments.map((assignment) => assignment.branchId));
     const activityWriteBefore = new Date(
       now.getTime() - this.environment.SESSION_ACTIVITY_WRITE_INTERVAL_MINUTES * 60 * 1000,
@@ -147,6 +165,7 @@ export class AuthService {
       sessionId: session.id,
       employeeId: employee.id,
       companyId: employee.companyId,
+      businessDate: businessDate.toISOString().slice(0, 10),
       accessMode: employee.accessMode,
       roles: roles.map((assignment) => ({
         code: assignment.role.code,
@@ -174,7 +193,7 @@ export class AuthService {
     reason: string,
     correlationId?: string,
   ): Promise<void> {
-    const now = new Date();
+    const at = await this.businessDate.today(principal.companyId);
     const session = await this.database.session.findUnique({
       where: { id: sessionId },
       select: {
@@ -187,8 +206,8 @@ export class AuthService {
                 accessMode: true,
                 branchAssignments: {
                   where: {
-                    effectiveFrom: { lte: now },
-                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+                    effectiveFrom: { lte: at },
+                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
                   },
                   select: { branchId: true },
                 },

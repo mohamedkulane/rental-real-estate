@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import {
   Building2,
@@ -48,7 +50,7 @@ function Panel({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -152,17 +154,17 @@ export function BranchDirectory({
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <label className="relative block w-full sm:max-w-lg">
             <span className="sr-only">Search branches</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search branch name, code, phone, or email…"
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <div className="flex items-center gap-4">
-            <select
+            <SearchableSelect
               value={status}
               onChange={(event) => setStatus(event.target.value)}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold"
@@ -170,7 +172,7 @@ export function BranchDirectory({
               <option value="all">All statuses</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
-            </select>
+            </SearchableSelect>
             <span className="text-xs font-semibold text-slate-500">
               {filtered.length} of {records.length}
             </span>

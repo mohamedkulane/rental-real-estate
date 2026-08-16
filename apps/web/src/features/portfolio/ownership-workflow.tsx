@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import {
   AlertCircle,
   CalendarClock,
@@ -22,11 +24,18 @@ import {
   type ReplaceOwnershipInput,
 } from './ownership-model';
 
-const today = () => new Date().toISOString().slice(0, 10);
 const inputClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100';
 
-function OwnerRows({ records, label }: { records: PropertyOwnershipRecord[]; label: string }) {
+function OwnerRows({
+  records,
+  label,
+  businessDate,
+}: {
+  records: PropertyOwnershipRecord[];
+  label: string;
+  businessDate: string;
+}) {
   if (!records.length)
     return (
       <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
@@ -55,7 +64,9 @@ function OwnerRows({ records, label }: { records: PropertyOwnershipRecord[]; lab
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-md bg-slate-50 p-2">
               <span className="text-slate-500">Payout</span>
-              <strong className="ml-1 text-slate-800">{effectivePayoutPercent(record)}%</strong>
+              <strong className="ml-1 text-slate-800">
+                {effectivePayoutPercent(record, businessDate)}%
+              </strong>
             </div>
             <div className="rounded-md bg-slate-50 p-2">
               <span className="text-slate-500">Effective</span>
@@ -97,12 +108,14 @@ function Total({ label, value }: { label: string; value: number }) {
 export function OwnershipEditor({
   owners,
   current,
+  businessDate,
   busy,
   onCancel,
   onSave,
 }: {
   owners: OwnerOption[];
   current: PropertyOwnershipRecord[];
+  businessDate: string;
   busy: boolean;
   onCancel: () => void;
   onSave: (input: ReplaceOwnershipInput) => Promise<void>;
@@ -111,12 +124,12 @@ export function OwnershipEditor({
     ? current.map((record) => ({
         ownerPartyId: record.ownerPartyId,
         ownershipPercent: record.ownershipPercent,
-        payoutPercent: effectivePayoutPercent(record),
+        payoutPercent: effectivePayoutPercent(record, businessDate),
       }))
     : [{ ownerPartyId: '', ownershipPercent: '100', payoutPercent: '100' }];
   const [shares, setShares] = useState(initialShares);
   const [ownerQueries, setOwnerQueries] = useState(() => initialShares.map(() => ''));
-  const [effectiveFrom, setEffectiveFrom] = useState(today());
+  const [effectiveFrom, setEffectiveFrom] = useState(businessDate);
   const [reason, setReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const totals = shareTotals(shares);
@@ -188,7 +201,7 @@ export function OwnershipEditor({
                 aria-label={'Search owner ' + (index + 1)}
                 placeholder="Search by name, owner number, or type"
               />
-              <select
+              <SearchableSelect
                 value={share.ownerPartyId}
                 onChange={(event) => update(index, 'ownerPartyId', event.target.value)}
                 required
@@ -201,7 +214,7 @@ export function OwnershipEditor({
                     {owner.party.displayName} — {owner.ownerNumber} ({humanize(owner.party.kind)})
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <label className="space-y-1.5 text-xs font-bold text-slate-600">
@@ -309,17 +322,19 @@ export function OwnershipEditor({
 
 export function OwnershipWorkspace({
   records,
+  businessDate,
   canManage,
   onManage,
   activationContext,
 }: {
   records: PropertyOwnershipRecord[];
+  businessDate: string;
   canManage: boolean;
   onManage: () => void;
   activationContext: { branchAssigned: boolean; detailsComplete: boolean; isDraft: boolean };
 }) {
-  const groups = useMemo(() => partitionOwnership(records), [records]);
-  const readiness = ownershipReadiness(records);
+  const groups = useMemo(() => partitionOwnership(records, businessDate), [businessDate, records]);
+  const readiness = ownershipReadiness(records, businessDate);
   const activationChecks = [
     { label: 'Operating branch assigned', pass: activationContext.branchAssigned },
     { label: 'Property details complete', pass: activationContext.detailsComplete },
@@ -363,7 +378,7 @@ export function OwnershipWorkspace({
           <Total label="Payout" value={readiness.totals.payout} />
         </div>
       </section>
-      <OwnerRows records={groups.current} label="Current ownership" />
+      <OwnerRows records={groups.current} label="Current ownership" businessDate={businessDate} />
       <section
         className={
           'rounded-xl border p-4 ' +
@@ -399,14 +414,22 @@ export function OwnershipWorkspace({
           <h3 className="flex items-center gap-2 text-sm font-bold">
             <CalendarClock className="h-4 w-4 text-blue-600" /> Scheduled ownership
           </h3>
-          <OwnerRows records={groups.scheduled} label="Scheduled ownership" />
+          <OwnerRows
+            records={groups.scheduled}
+            label="Scheduled ownership"
+            businessDate={businessDate}
+          />
         </section>
       ) : null}
       <section className="space-y-2">
         <h3 className="flex items-center gap-2 text-sm font-bold">
           <History className="h-4 w-4 text-slate-500" /> Ownership history
         </h3>
-        <OwnerRows records={groups.historical} label="Historical ownership" />
+        <OwnerRows
+          records={groups.historical}
+          label="Historical ownership"
+          businessDate={businessDate}
+        />
       </section>
     </div>
   );
@@ -414,7 +437,9 @@ export function OwnershipWorkspace({
 
 export function OwnerPropertyPortfolio({
   ownerships,
+  businessDate,
 }: {
+  businessDate: string;
   ownerships: (PropertyOwnershipRecord & {
     property: {
       id: string;
@@ -431,7 +456,7 @@ export function OwnerPropertyPortfolio({
     };
   })[];
 }) {
-  const groups = partitionOwnership(ownerships);
+  const groups = partitionOwnership(ownerships, businessDate);
   const render = (records: typeof ownerships, empty: string) =>
     records.length ? (
       records.map((record) => {
@@ -458,7 +483,7 @@ export function OwnerPropertyPortfolio({
               </div>
             </div>
             <p className="mt-2 text-xs text-slate-500">
-              Payout {effectivePayoutPercent(record)}% · Effective{' '}
+              Payout {effectivePayoutPercent(record, businessDate)}% · Effective{' '}
               {record.effectiveFrom.slice(0, 10)}
               {record.effectiveTo ? ` to ${record.effectiveTo.slice(0, 10)}` : ''}
             </p>

@@ -19,7 +19,7 @@ It is not a public multi-tenant SaaS platform.
 
 ## Critical Business Rules
 
-- A unit cannot have more than one overlapping active lease.
+- A RentableSpace cannot have more than one overlapping active lease.
 - Signed contracts must not be overwritten.
 - Posted financial transactions must not be deleted.
 - Financial corrections must use reversal or adjustment transactions.
@@ -57,5 +57,4 @@ A task is complete only when:
 - Documentation is updated.
 - No unrelated regressions are introduced.
 
-
-- Before implementing or modifying any user-facing interface, read and follow docs/design/   Real_Estate_Rental_UI_UX_Design_System_v1.md. Any frontend-containing phase requires UI/UX REVIEW: PASS before its phase gate can pass.
+- Before implementing or modifying any user-facing interface, read and follow docs/design/ Real_Estate_Rental_UI_UX_Design_System_v1.md. Any frontend-containing phase requires UI/UX REVIEW: PASS before its phase gate can pass.

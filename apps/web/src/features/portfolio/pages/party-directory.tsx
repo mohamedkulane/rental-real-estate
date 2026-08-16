@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import { Edit3, Eye, MoreHorizontal, Plus, Search, UserRound, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -64,7 +66,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] flex justify-end bg-slate-950/40"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/40"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -75,7 +77,7 @@ function Drawer({
         aria-label="Close panel"
         onClick={onClose}
       />
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
+      <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl scroll-smooth">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
           <div>
             <h2 className="text-lg font-bold">{title}</h2>
@@ -200,16 +202,16 @@ export function PartyDirectory({
         <div className="grid gap-3 border-b border-slate-200 p-4 lg:grid-cols-[minmax(260px,1fr)_180px_180px]">
           <label className="relative">
             <span className="sr-only">Search people and organizations</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, number, phone or email…"
-              className={inputClass + ' pl-9'}
+              className={inputClass + ' pl-10'}
             />
           </label>
-          <select
+          <SearchableSelect
             value={kind}
             onChange={(event) => setKind(event.target.value)}
             className={inputClass}
@@ -218,8 +220,8 @@ export function PartyDirectory({
             <option value="all">All types</option>
             <option value="PERSON">People</option>
             <option value="ORGANIZATION">Organizations</option>
-          </select>
-          <select
+          </SearchableSelect>
+          <SearchableSelect
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className={inputClass}
@@ -228,7 +230,7 @@ export function PartyDirectory({
             <option value="all">All statuses</option>
             <option value="true">Active</option>
             <option value="false">Inactive</option>
-          </select>
+          </SearchableSelect>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left">
@@ -384,21 +386,21 @@ export function PartyDirectory({
           >
             <label className="space-y-1.5 text-sm font-semibold">
               Responsible branch
-              <select name="branchId" className={inputClass} required>
+              <SearchableSelect name="branchId" className={inputClass} required>
                 <option value="">Choose a branch</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Record type
-              <select name="kind" className={inputClass}>
+              <SearchableSelect name="kind" className={inputClass}>
                 <option value="PERSON">Person</option>
                 <option value="ORGANIZATION">Organization</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Full or legal name
@@ -413,11 +415,11 @@ export function PartyDirectory({
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-1.5 text-sm font-semibold">
                 Contact type
-                <select name="contactType" className={inputClass}>
+                <SearchableSelect name="contactType" className={inputClass}>
                   <option value="PHONE">Phone</option>
                   <option value="EMAIL">Email</option>
                   <option value="WHATSAPP">WhatsApp</option>
-                </select>
+                </SearchableSelect>
               </label>
               <label className="space-y-1.5 text-sm font-semibold">
                 Contact (optional)
@@ -555,10 +557,14 @@ export function PartyDirectory({
               </label>
               <label className="space-y-1.5 text-sm font-semibold">
                 Status
-                <select name="active" defaultValue={String(selected.active)} className={inputClass}>
+                <SearchableSelect
+                  name="active"
+                  defaultValue={String(selected.active)}
+                  className={inputClass}
+                >
                   <option value="true">Active</option>
                   <option value="false">Inactive</option>
-                </select>
+                </SearchableSelect>
               </label>
             </div>
             {selected.kind === 'PERSON' ? (
@@ -683,7 +689,7 @@ export function PartyDirectory({
                   key={contact.id ?? index}
                   className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[140px_1fr_auto]"
                 >
-                  <select
+                  <SearchableSelect
                     value={contact.type}
                     onChange={(event) =>
                       setEditContacts((items) =>
@@ -703,7 +709,7 @@ export function PartyDirectory({
                     <option value="PHONE">Phone</option>
                     <option value="WHATSAPP">WhatsApp</option>
                     <option value="EMAIL">Email</option>
-                  </select>
+                  </SearchableSelect>
                   <input
                     value={contact.value ?? ''}
                     onChange={(event) =>

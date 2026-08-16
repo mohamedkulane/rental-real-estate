@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,15 +16,21 @@ import {
   canPerformInBranch,
   hasCompanyPermission,
   hasPermission,
+  pageItems,
+  type CursorPage,
   userFacingError,
 } from '@/lib/phase3-api';
 import styles from './portfolio-console.module.css';
-import { PortfolioActions } from './portfolio-actions';
+import { RentableSpaceOperations } from './rentable-space-operations';
 import { AppShell } from '@/components/shared/app-shell';
 import { EmptyState, LoadingState, StatusBadge, WorkspaceLoading } from '@/components/shared/ui';
 import { humanize } from '@/lib/presentation';
 import { PropertyRegistry, type PropertyRecord } from './pages/property-registry';
-import { PaginationControls, usePagination } from '@/components/shared/pagination';
+import {
+  CursorPaginationControls,
+  PaginationControls,
+  usePagination,
+} from '@/components/shared/pagination';
 import { PartyDirectory, type PartyRecord } from './pages/party-directory';
 import { OwnerDirectory, type OwnerRecord } from './pages/owner-directory';
 import { AmenityDirectory, type AmenityRecord } from './pages/amenity-directory';
@@ -43,8 +51,9 @@ type Space = {
   childRelations: { parentSpaceId: string; effectiveTo: string | null }[];
 };
 type Amenity = AmenityRecord;
+type SpaceType = { id: string; code: string; name: string };
+type Building = { id: string; buildingCode: string; name: string; status: string };
 
-const today = () => new Date().toISOString().slice(0, 10);
 const tabs: { key: Tab; label: string; permission: string }[] = [
   { key: 'parties', label: 'Parties', permission: 'party.read' },
   { key: 'owners', label: 'Owners', permission: 'owner.read' },
@@ -68,20 +77,35 @@ export function PortfolioConsole() {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([]);
+  const [spaceBuildings, setSpaceBuildings] = useState<Building[]>([]);
+  const [spaceTypeCode, setSpaceTypeCode] = useState('ENTIRE_PROPERTY');
   const [propertyFilter, setPropertyFilter] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showActions, setShowActions] = useState(false);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([null]);
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const [pageInfo, setPageInfo] = useState({
+    nextCursor: null as string | null,
+    hasNextPage: false,
+  });
 
-  const loadTab = useCallback(async (tab: Tab, filter = '') => {
-    const path =
-      tab === 'spaces' && filter
-        ? `/rentable-spaces?propertyId=${filter}`
-        : `/${tab === 'spaces' ? 'rentable-spaces' : tab}`;
-    const result = await apiCached<Party[] | Owner[] | Property[] | Space[] | Amenity[]>(path);
+  const loadTab = useCallback(async (tab: Tab, filter = '', cursor: string | null = null) => {
+    const resource = tab === 'spaces' ? 'rentable-spaces' : tab;
+    const parameters = new URLSearchParams();
+    if (tab !== 'amenities') parameters.set('limit', '10');
+    if (tab === 'spaces' && filter) parameters.set('propertyId', filter);
+    if (cursor) parameters.set('cursor', cursor);
+    const path = `/${resource}${parameters.size ? `?${parameters.toString()}` : ''}`;
+    const response = await apiCached<CursorPage<unknown> | unknown[]>(path);
+    const result = pageItems(response) as Party[] | Owner[] | Property[] | Space[] | Amenity[];
     setRecords(result);
+    setPageInfo(
+      Array.isArray(response) ? { nextCursor: null, hasNextPage: false } : response.pageInfo,
+    );
     if (tab === 'parties') setParties(result as Party[]);
     if (tab === 'properties') setProperties(result as Property[]);
     if (tab === 'spaces') setSpaces(result as Space[]);
@@ -105,13 +129,13 @@ export function PortfolioConsole() {
             ? apiCached<Branch[]>('/branches')
             : null,
           first === 'owners' && hasPermission(current, 'party.read')
-            ? apiCached<Party[]>('/parties')
+            ? apiCached<CursorPage<Party>>('/parties').then(pageItems)
             : null,
           first === 'spaces' && hasPermission(current, 'portfolio.property.read')
-            ? apiCached<Property[]>('/properties')
+            ? apiCached<CursorPage<Property>>('/properties').then(pageItems)
             : null,
           first === 'properties' && hasPermission(current, 'owner.read')
-            ? apiCached<Owner[]>('/owners')
+            ? apiCached<CursorPage<Owner>>('/owners').then(pageItems)
             : null,
         ]);
         if (branchData) setBranches(branchData);
@@ -126,6 +150,22 @@ export function PortfolioConsole() {
       });
   }, [loadTab, router]);
 
+  useEffect(() => {
+    if (!principal || !hasPermission(principal, 'portfolio.space.read')) return;
+    apiCached<SpaceType[]>('/rentable-spaces/types')
+      .then(setSpaceTypes)
+      .catch(() => setSpaceTypes([]));
+  }, [principal]);
+
+  useEffect(() => {
+    if (!propertyFilter) {
+      setSpaceBuildings([]);
+      return;
+    }
+    apiCached<Building[]>(`/properties/${propertyFilter}/buildings`)
+      .then(setSpaceBuildings)
+      .catch(() => setSpaceBuildings([]));
+  }, [propertyFilter]);
   const visibleTabs = principal
     ? tabs.filter((tab) => hasPermission(principal, tab.permission))
     : [];
@@ -136,7 +176,7 @@ export function PortfolioConsole() {
     : false;
   const spacePagination = usePagination(spaces);
   const activePropertyBranchIds = (property: PropertyRecord): string[] => {
-    const currentDate = today();
+    const currentDate = principal?.businessDate ?? '';
     return property.branchAssignments
       .filter(
         (assignment) =>
@@ -166,19 +206,50 @@ export function PortfolioConsole() {
         ? apiCached<Branch[]>('/branches')
         : null,
       tab === 'owners' && hasPermission(principal, 'party.read')
-        ? apiCached<Party[]>('/parties')
+        ? apiCached<CursorPage<Party>>('/parties').then(pageItems)
         : null,
       tab === 'spaces' && hasPermission(principal, 'portfolio.property.read')
-        ? apiCached<Property[]>('/properties')
+        ? apiCached<CursorPage<Property>>('/properties').then(pageItems)
         : null,
       tab === 'properties' && hasPermission(principal, 'owner.read')
-        ? apiCached<Owner[]>('/owners')
+        ? apiCached<CursorPage<Owner>>('/owners').then(pageItems)
         : null,
     ]);
     if (branchData) setBranches(branchData);
     if (partyData) setParties(partyData);
     if (propertyData) setProperties(propertyData);
     if (ownerData) setOwners(ownerData);
+  }
+  const resetCursor = () => {
+    setCursorHistory([null]);
+    setCursorIndex(0);
+  };
+  async function nextServerPage() {
+    if (!pageInfo.nextCursor || loading) return;
+    const nextHistory = [...cursorHistory.slice(0, cursorIndex + 1), pageInfo.nextCursor];
+    setCursorHistory(nextHistory);
+    setCursorIndex(cursorIndex + 1);
+    setLoading(true);
+    try {
+      await loadTab(active, active === 'spaces' ? propertyFilter : '', pageInfo.nextCursor);
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function previousServerPage() {
+    if (cursorIndex <= 0 || loading) return;
+    const previousIndex = cursorIndex - 1;
+    setCursorIndex(previousIndex);
+    setLoading(true);
+    try {
+      await loadTab(
+        active,
+        active === 'spaces' ? propertyFilter : '',
+        cursorHistory[previousIndex] ?? null,
+      );
+    } finally {
+      setLoading(false);
+    }
   }
   async function choose(tab: Tab) {
     if (tab === active) return;
@@ -187,6 +258,7 @@ export function PortfolioConsole() {
     setError('');
     setSuccess('');
     setShowActions(false);
+    resetCursor();
     try {
       await Promise.all([
         loadTab(tab, tab === 'spaces' ? propertyFilter : ''),
@@ -201,6 +273,7 @@ export function PortfolioConsole() {
 
   async function refreshProperties(message?: string) {
     clearApiCache();
+    resetCursor();
     await loadTab('properties');
     if (message) {
       setSuccess(message);
@@ -242,8 +315,10 @@ export function PortfolioConsole() {
     try {
       await api(path, { method, body: JSON.stringify(body) });
       clearApiCache();
+      resetCursor();
       await loadTab(active, active === 'spaces' ? propertyFilter : '');
-      if (active === 'parties') setParties(await apiCached<Party[]>('/parties'));
+      if (active === 'parties')
+        setParties(await apiCached<CursorPage<Party>>('/parties').then(pageItems));
       setSuccess(message);
       toast.success(message);
     } catch (cause) {
@@ -280,6 +355,7 @@ export function PortfolioConsole() {
       clearApiCache();
       event.currentTarget.reset();
       setSuccess(message);
+      resetCursor();
       await loadTab(active, active === 'spaces' ? propertyFilter : '');
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
@@ -348,7 +424,7 @@ export function PortfolioConsole() {
         name: formValue(form, 'name'),
         propertyType: formValue(form, 'propertyType'),
         branchId: formValue(form, 'branchId'),
-        effectiveFrom: today(),
+        effectiveFrom: principal?.businessDate ?? '',
         city: formValue(form, 'city'),
         addressLine1: formValue(form, 'addressLine1') || undefined,
       },
@@ -359,26 +435,61 @@ export function PortfolioConsole() {
   function spaceForm(event: FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget);
     const typeCode = formValue(form, 'typeCode');
-    const area = formValue(form, 'usableArea');
+    const usableArea = formValue(form, 'usableArea');
+    const totalArea = formValue(form, 'totalArea');
+    const areaUnit = formValue(form, 'areaUnit');
+    const integer = (name: string) => {
+      const value = formValue(form, name);
+      return value === '' ? undefined : Number.parseInt(value, 10);
+    };
+    const residential = {
+      bedrooms: integer('bedrooms'),
+      bathrooms: formValue(form, 'bathrooms') || undefined,
+      kitchens: integer('kitchens'),
+      livingRooms: integer('livingRooms'),
+      balconies: integer('balconies'),
+      furnishedStatus: formValue(form, 'furnishedStatus') || undefined,
+    };
+    const commercial = {
+      frontageMeters: formValue(form, 'frontageMeters') || undefined,
+      classification: formValue(form, 'classification') || undefined,
+    };
+    const hasResidential = Object.values(residential).some((value) => value !== undefined);
+    const hasCommercial = Object.values(commercial).some((value) => value !== undefined);
     void submit(
       event,
       '/rentable-spaces',
       {
         propertyId: formValue(form, 'propertyId'),
+        buildingId: formValue(form, 'buildingId') || undefined,
         parentSpaceId: formValue(form, 'parentSpaceId') || undefined,
         typeCode,
+        spaceCode: formValue(form, 'spaceCode') || undefined,
         name: formValue(form, 'name'),
-        effectiveFrom: today(),
-        usableArea: area || undefined,
-        areaUnit: area ? formValue(form, 'areaUnit') : undefined,
+        effectiveFrom: principal?.businessDate ?? '',
+        usableArea: usableArea || undefined,
+        totalArea: totalArea || undefined,
+        areaUnit: usableArea || totalArea ? areaUnit : undefined,
+        floorNumber: integer('floorNumber'),
+        capacity: integer('capacity'),
         ...(typeCode === 'LAND'
-          ? { land: { permittedUse: formValue(form, 'permittedUse') || 'General use' } }
+          ? {
+              land: {
+                permittedUse: formValue(form, 'permittedUse'),
+                dimensions: formValue(form, 'dimensions') || undefined,
+                currentUse: formValue(form, 'currentUse') || undefined,
+                boundaryDescription: formValue(form, 'boundaryDescription') || undefined,
+                roadAccess: formValue(form, 'roadAccess') || undefined,
+                fenced: formValue(form, 'fenced') === 'true',
+              },
+            }
           : {}),
+        ...(typeCode !== 'LAND' && hasResidential ? { residential } : {}),
+        ...(typeCode !== 'LAND' && hasCommercial ? { commercial } : {}),
       },
       'Rentable space created.',
     );
   }
-
   function renderForm() {
     if (!principal) return null;
     if (active === 'parties' && hasPermission(principal, 'party.create'))
@@ -388,10 +499,10 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Party kind
-              <select name="kind">
+              <SearchableSelect name="kind">
                 <option value="PERSON">Person</option>
                 <option value="ORGANIZATION">Organization</option>
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <label>
@@ -401,11 +512,11 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Contact type
-              <select name="contactType">
+              <SearchableSelect name="contactType">
                 <option value="PHONE">Phone</option>
                 <option value="EMAIL">Email</option>
                 <option value="WHATSAPP">WhatsApp</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               Contact (optional)
@@ -423,14 +534,14 @@ export function PortfolioConsole() {
           <h2>Create owner profile</h2>
           <label>
             Party
-            <select name="partyId" required>
+            <SearchableSelect name="partyId" required>
               <option value="">Choose a party</option>
               {parties.map((party) => (
                 <option key={party.id} value={party.id}>
                   {party.partyNumber} — {party.displayName}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <button className={styles.submit} disabled={busy}>
             Create owner
@@ -444,12 +555,12 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Property type
-              <select name="propertyType">
+              <SearchableSelect name="propertyType">
                 <option value="RESIDENTIAL">Residential</option>
                 <option value="COMMERCIAL">Commercial</option>
                 <option value="MIXED_USE">Mixed use</option>
                 <option value="VACANT_LAND">Vacant land</option>
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <label>
@@ -459,14 +570,14 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Operating branch
-              <select name="branchId" required>
+              <SearchableSelect name="branchId" required>
                 <option value="">Choose a branch</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               City
@@ -488,11 +599,19 @@ export function PortfolioConsole() {
           <h2>Add a rentable space</h2>
           <label>
             Property
-            <select
+            <SearchableSelect
               name="propertyId"
               required
               value={propertyFilter}
-              onChange={(event) => setPropertyFilter(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value;
+                setPropertyFilter(propertyId);
+                setSpaceBuildings([]);
+                if (propertyId)
+                  void apiCached<Building[]>(`/properties/${propertyId}/buildings`).then(
+                    setSpaceBuildings,
+                  );
+              }}
             >
               <option value="">Choose a property</option>
               {properties.map((property) => (
@@ -500,59 +619,168 @@ export function PortfolioConsole() {
                   {property.propertyCode} — {property.name}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <div className={styles.row}>
             <label>
               Type
-              <select name="typeCode">
-                <option value="ENTIRE_PROPERTY">Entire property</option>
-                <option value="HALL">Hall</option>
-                <option value="APARTMENT">Apartment</option>
-                <option value="ROOM">Room</option>
-                <option value="SHOP">Shop</option>
-                <option value="OFFICE">Office</option>
-                <option value="LAND">Land</option>
-              </select>
+              <SearchableSelect
+                name="typeCode"
+                required
+                value={spaceTypeCode}
+                onChange={(event) => setSpaceTypeCode(event.target.value)}
+              >
+                {spaceTypes.map((type) => (
+                  <option key={type.id} value={type.code}>
+                    {type.name}
+                  </option>
+                ))}
+              </SearchableSelect>
+            </label>
+            <label>
+              Space code (optional)
+              <input name="spaceCode" maxLength={50} />
             </label>
           </div>
           <label>
             Space name
-            <input name="name" required />
+            <input name="name" required maxLength={160} />
           </label>
-          <label>
-            Parent space (optional)
-            <select name="parentSpaceId">
-              <option value="">Standalone / top level</option>
-              {spaces
-                .filter((space) => !propertyFilter || space.propertyId === propertyFilter)
-                .map((space) => (
-                  <option key={space.id} value={space.id}>
-                    {space.spaceCode} — {space.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <div className={styles.row}>
+            <label>
+              Building (optional)
+              <SearchableSelect name="buildingId">
+                <option value="">No building</option>
+                {spaceBuildings
+                  .filter((building) => building.status !== 'RETIRED')
+                  .map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.buildingCode} — {building.name}
+                    </option>
+                  ))}
+              </SearchableSelect>
+            </label>
+            <label>
+              Parent space (optional)
+              <SearchableSelect name="parentSpaceId">
+                <option value="">Standalone / top level</option>
+                {spaces
+                  .filter(
+                    (space) => space.propertyId === propertyFilter && space.status !== 'RETIRED',
+                  )
+                  .map((space) => (
+                    <option key={space.id} value={space.id}>
+                      {space.spaceCode} — {space.name}
+                    </option>
+                  ))}
+              </SearchableSelect>
+            </label>
+          </div>
           <div className={styles.row}>
             <label>
               Usable area
               <input name="usableArea" inputMode="decimal" />
             </label>
             <label>
+              Total area
+              <input name="totalArea" inputMode="decimal" />
+            </label>
+            <label>
               Area unit
-              <select name="areaUnit">
+              <SearchableSelect name="areaUnit">
                 <option value="SQM">Square metres</option>
                 <option value="SQFT">Square feet</option>
                 <option value="ACRE">Acres</option>
                 <option value="HECTARE">Hectares</option>
-              </select>
+              </SearchableSelect>
             </label>
           </div>
-          <label>
-            Land permitted use (land only)
-            <input name="permittedUse" />
-          </label>
-          <button className={styles.submit} disabled={busy}>
+          <div className={styles.row}>
+            <label>
+              Floor number
+              <input name="floorNumber" type="number" />
+            </label>
+            <label>
+              Capacity
+              <input name="capacity" type="number" min="0" />
+            </label>
+          </div>
+          {spaceTypeCode === 'LAND' ? (
+            <>
+              <h3>Land details</h3>
+              <label>
+                Permitted use
+                <input name="permittedUse" required maxLength={200} />
+              </label>
+              <div className={styles.row}>
+                <label>
+                  Dimensions
+                  <input name="dimensions" maxLength={160} />
+                </label>
+                <label>
+                  Current use
+                  <input name="currentUse" maxLength={200} />
+                </label>
+                <label>
+                  Road access
+                  <input name="roadAccess" maxLength={200} />
+                </label>
+              </div>
+              <label>
+                Boundary description
+                <textarea name="boundaryDescription" maxLength={2000} />
+              </label>
+              <label>
+                Fenced
+                <SearchableSelect name="fenced" defaultValue="false">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </SearchableSelect>
+              </label>
+            </>
+          ) : (
+            <>
+              <h3>Optional residential details</h3>
+              <div className={styles.row}>
+                <label>
+                  Bedrooms
+                  <input name="bedrooms" type="number" min="0" />
+                </label>
+                <label>
+                  Bathrooms
+                  <input name="bathrooms" inputMode="decimal" />
+                </label>
+                <label>
+                  Kitchens
+                  <input name="kitchens" type="number" min="0" />
+                </label>
+                <label>
+                  Living rooms
+                  <input name="livingRooms" type="number" min="0" />
+                </label>
+                <label>
+                  Balconies
+                  <input name="balconies" type="number" min="0" />
+                </label>
+                <label>
+                  Furnished status
+                  <input name="furnishedStatus" maxLength={30} />
+                </label>
+              </div>
+              <h3>Optional commercial details</h3>
+              <div className={styles.row}>
+                <label>
+                  Frontage (metres)
+                  <input name="frontageMeters" inputMode="decimal" />
+                </label>
+                <label>
+                  Classification
+                  <input name="classification" maxLength={60} />
+                </label>
+              </div>
+            </>
+          )}
+          <button className={styles.submit} disabled={busy || !spaceTypes.length}>
             Create space
           </button>
         </form>
@@ -757,11 +985,18 @@ export function PortfolioConsole() {
             <LoadingState label="Loading property owners" />
           ) : (
             <OwnerDirectory
+              businessDate={principal.businessDate}
               records={records as OwnerRecord[]}
               parties={parties}
               busy={busy}
               canCreate={(record) => canAcross('owner.create', record.scopeBranchIds)}
               canUpdate={(record) => canAcross('owner.update', record.scopeBranchIds)}
+              canReadDocuments={(record) =>
+                canAcross('portfolio.document.read', record.scopeBranchIds)
+              }
+              canManageDocuments={(record) =>
+                canAcross('portfolio.document.manage', record.scopeBranchIds)
+              }
               onCreate={(input) =>
                 portfolioMutation('/owners', 'POST', input, 'Owner profile created.')
               }
@@ -835,6 +1070,8 @@ export function PortfolioConsole() {
             <LoadingState label="Loading property registry" />
           ) : (
             <PropertyRegistry
+              principal={principal}
+              businessDate={principal.businessDate}
               records={records as PropertyRecord[]}
               branches={branches}
               owners={owners}
@@ -925,10 +1162,11 @@ export function PortfolioConsole() {
           {active === 'spaces' ? (
             <label className="block max-w-md space-y-1.5 text-sm font-semibold text-slate-700">
               <span>Filter by property</span>
-              <select
+              <SearchableSelect
                 value={propertyFilter}
                 onChange={(event) => {
                   setPropertyFilter(event.target.value);
+                  resetCursor();
                   void loadTab('spaces', event.target.value);
                 }}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
@@ -939,7 +1177,7 @@ export function PortfolioConsole() {
                     {property.propertyCode} — {property.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
           ) : null}
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -959,7 +1197,7 @@ export function PortfolioConsole() {
           </section>
           {showActions ? (
             <div
-              className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35"
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35"
               role="dialog"
               aria-modal="true"
               aria-label="Portfolio actions"
@@ -970,7 +1208,7 @@ export function PortfolioConsole() {
                 aria-label="Close actions"
                 onClick={() => setShowActions(false)}
               />
-              <aside className="relative h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white p-6 shadow-2xl">
+              <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl scroll-smooth">
                 <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
                   <div>
                     <h2 className="text-lg font-bold">
@@ -990,23 +1228,37 @@ export function PortfolioConsole() {
                 </div>
                 <div className="space-y-6">
                   {renderForm()}
-                  <PortfolioActions
-                    principal={principal}
-                    active={active}
-                    records={records}
-                    spaces={spaces}
-                    branches={branches}
-                    onSaved={async () => {
-                      await loadTab(active, active === 'spaces' ? propertyFilter : '');
-                      setShowActions(false);
-                    }}
-                  />
+                  {active === 'spaces' ? (
+                    <RentableSpaceOperations
+                      principal={principal}
+                      spaces={spaces}
+                      typeCatalog={spaceTypes}
+                      onSaved={async () => {
+                        resetCursor();
+                        await loadTab('spaces', propertyFilter);
+                        setShowActions(false);
+                      }}
+                    />
+                  ) : null}
                 </div>
               </aside>
             </div>
           ) : null}
         </section>
       )}
+      {active !== 'amenities' && !loading ? (
+        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <CursorPaginationControls
+            page={cursorIndex + 1}
+            itemCount={records.length}
+            hasPrevious={cursorIndex > 0}
+            hasNext={pageInfo.hasNextPage}
+            busy={loading}
+            onPrevious={() => void previousServerPage()}
+            onNext={() => void nextServerPage()}
+          />
+        </div>
+      ) : null}
     </AppShell>
   );
 }

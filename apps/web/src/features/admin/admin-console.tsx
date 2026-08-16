@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -30,8 +32,13 @@ import { EmployeeDirectory, type EmployeeRecord } from './pages/employee-directo
 import { BranchDirectory, type BranchRecord } from './pages/branch-directory';
 import { SettingsPanel, type CompanySettings } from './pages/settings-panel';
 import { RoleManager, type PermissionRecord, type RoleRecord } from './pages/role-manager';
-import { PaginationControls, usePagination } from '@/components/shared/pagination';
+import {
+  CursorPaginationControls,
+  PaginationControls,
+  usePagination,
+} from '@/components/shared/pagination';
 import { UserAccountDirectory, type UserAccountRecord } from './pages/user-account-directory';
+import { PrivilegeManager } from './pages/privilege-manager';
 import type { Principal } from '@/lib/phase3-api';
 import {
   api,
@@ -42,6 +49,8 @@ import {
   canPerformInBranch,
   hasCompanyPermission,
   hasPermission,
+  pageItems,
+  type CursorPage,
   userFacingError,
 } from '@/lib/phase3-api';
 
@@ -61,6 +70,7 @@ type SectionKey =
   | 'roles'
   | 'permissions'
   | 'users'
+  | 'privileges'
   | 'audit'
   | 'settings';
 type Section = {
@@ -98,6 +108,8 @@ const roleWorkspaceDescriptions: Record<string, string> = {
   INSPECTOR: 'Read-only property, space, amenity, and document reference access.',
   RECEPTIONIST: 'Branch directory and people registration with portfolio reference access.',
 };
+
+const cursorSections = new Set<SectionKey>(['employees', 'users', 'audit']);
 
 const sections: Section[] = [
   {
@@ -156,6 +168,13 @@ const sections: Section[] = [
     path: '/users',
   },
   {
+    key: 'privileges',
+    label: 'Privileges',
+    description: 'Manage exact user-level capabilities with audited allow and deny overrides.',
+    permission: 'identity.user.privilege.read',
+    path: '/users',
+  },
+  {
     key: 'audit',
     label: 'Audit trail',
     description: 'Sensitive and administrative activity in your authorized scope.',
@@ -168,6 +187,10 @@ const stringValue = (form: FormData, key: string) => {
   const value = form.get(key);
   return typeof value === 'string' ? value.trim() : '';
 };
+const unwrapPage = (value: unknown): unknown =>
+  value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items)
+    ? (value as { items: unknown[] }).items
+    : value;
 const asRows = (value: unknown): Row[] =>
   Array.isArray(value)
     ? value.filter((item): item is Row => Boolean(item) && typeof item === 'object')
@@ -251,15 +274,31 @@ export function AdminConsole() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([null]);
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const [pageInfo, setPageInfo] = useState({
+    nextCursor: null as string | null,
+    hasNextPage: false,
+  });
 
   const load = useCallback(
-    async (section: Section, current: Principal) => {
+    async (section: Section, current: Principal, cursor: string | null = null) => {
       setLoading(true);
       setError('');
       try {
-        const result =
-          section.key === 'profile' ? current : await apiCached<unknown>(section.path ?? '');
+        const isCursorSection = cursorSections.has(section.key);
+        const parameters = new URLSearchParams();
+        if (isCursorSection) parameters.set('limit', '10');
+        if (cursor) parameters.set('cursor', cursor);
+        const path = `${section.path ?? ''}${parameters.size ? `?${parameters.toString()}` : ''}`;
+        const response = section.key === 'profile' ? current : await apiCached<unknown>(path);
+        const result = unwrapPage(response);
         setData(result);
+        setPageInfo(
+          isCursorSection && response && typeof response === 'object' && 'pageInfo' in response
+            ? (response as CursorPage<Row>).pageInfo
+            : { nextCursor: null, hasNextPage: false },
+        );
         if (section.key !== 'profile')
           setCatalogs((existing) => ({
             ...existing,
@@ -285,7 +324,8 @@ export function AdminConsole() {
   const loadCatalogs = useCallback(async (section: SectionKey, current: Principal) => {
     const needsBranches = section === 'employees';
     const needsRoles = section === 'employees' || section === 'permissions';
-    const needsPermissions = section === 'roles' || section === 'permissions';
+    const needsPermissions =
+      section === 'roles' || section === 'permissions' || section === 'privileges';
     const requests = await Promise.all([
       needsBranches && hasPermission(current, 'organization.branch.read')
         ? apiCached<Catalog[]>('/branches')
@@ -308,7 +348,11 @@ export function AdminConsole() {
   const loadDashboardData = useCallback(async (current: Principal) => {
     setDashboardLoading(true);
     const request = async (permission: string, path: string) =>
-      hasPermission(current, permission) ? apiCached<Row[]>(path).catch(() => []) : [];
+      hasPermission(current, permission)
+        ? apiCached<Row[] | CursorPage<Row>>(path)
+            .then(pageItems)
+            .catch(() => [])
+        : [];
     const [branches, employees, owners, properties, spaces, activity] = await Promise.all([
       request('organization.branch.read', '/branches'),
       request('identity.employee.read', '/employees'),
@@ -376,6 +420,23 @@ export function AdminConsole() {
   }, [data, query, statusFilter]);
   const listPagination = usePagination(records);
 
+  const resetCursor = () => {
+    setCursorHistory([null]);
+    setCursorIndex(0);
+  };
+  async function nextServerPage() {
+    if (!principal || !pageInfo.nextCursor || loading) return;
+    const nextHistory = [...cursorHistory.slice(0, cursorIndex + 1), pageInfo.nextCursor];
+    setCursorHistory(nextHistory);
+    setCursorIndex(cursorIndex + 1);
+    await load(selected, principal, pageInfo.nextCursor);
+  }
+  async function previousServerPage() {
+    if (!principal || cursorIndex <= 0 || loading) return;
+    const previousIndex = cursorIndex - 1;
+    setCursorIndex(previousIndex);
+    await load(selected, principal, cursorHistory[previousIndex] ?? null);
+  }
   async function choose(section: Section) {
     if (!principal || section.key === active) return;
     setActive(section.key);
@@ -383,6 +444,7 @@ export function AdminConsole() {
     setQuery('');
     setStatusFilter('all');
     setShowForm(false);
+    resetCursor();
     await Promise.all([
       load(section, principal),
       loadCatalogs(section.key, principal),
@@ -417,6 +479,7 @@ export function AdminConsole() {
       setShowForm(false);
       toast.success(message);
       if (principal) {
+        resetCursor();
         await Promise.all([load(selected, principal), loadCatalogs(selected.key, principal)]);
       }
     } catch (cause) {
@@ -438,6 +501,7 @@ export function AdminConsole() {
       clearApiCache();
       setSuccess(message);
       toast.success(message);
+      resetCursor();
       await Promise.all([load(selected, principal), loadCatalogs(selected.key, principal)]);
     } catch (cause) {
       const messageText = userFacingError(cause, 'The change could not be saved.');
@@ -548,22 +612,22 @@ export function AdminConsole() {
               </label>
               <label>
                 Access scope
-                <select name="accessMode" required>
+                <SearchableSelect name="accessMode" required>
                   <option value="BRANCH">Branch Restricted</option>
                   <option value="MULTI_BRANCH">Multiple Branches</option>
                   <option value="COMPANY_WIDE">Company Wide</option>
-                </select>
+                </SearchableSelect>
               </label>
               <label>
                 Primary branch
-                <select name="branchId" required>
+                <SearchableSelect name="branchId" required>
                   <option value="">Choose a branch</option>
                   {catalogs.branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
                       {branch.name}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </label>
               <label>
                 Login email (optional)
@@ -595,7 +659,7 @@ export function AdminConsole() {
                     {
                       roleId: stringValue(form, 'roleId'),
                       branchId: stringValue(form, 'branchId') || undefined,
-                      effectiveFrom: new Date().toISOString().slice(0, 10),
+                      effectiveFrom: principal.businessDate,
                     },
                     'Role assigned.',
                   );
@@ -603,36 +667,36 @@ export function AdminConsole() {
               >
                 <label>
                   Employee
-                  <select name="employeeId" required>
+                  <SearchableSelect name="employeeId" required>
                     <option value="">Choose an employee</option>
                     {catalogs.employees.map((employee) => (
                       <option key={employee.id} value={employee.id}>
                         {employee.employeeNumber} - {employee.displayName}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label>
                   Role
-                  <select name="roleId" required>
+                  <SearchableSelect name="roleId" required>
                     <option value="">Choose a role</option>
                     {catalogs.roles.map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.name ?? humanize(role.code)}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="full">
                   Role scope
-                  <select name="branchId">
+                  <SearchableSelect name="branchId">
                     <option value="">Company level</option>
                     {catalogs.branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>
                         {branch.name}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <button className="button primary full" disabled={busy}>
                   {busy ? 'Assigning...' : 'Assign role'}
@@ -705,18 +769,18 @@ export function AdminConsole() {
           >
             <label>
               Role
-              <select name="roleId" required>
+              <SearchableSelect name="roleId" required>
                 <option value="">Choose a role</option>
                 {catalogs.roles.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.name ?? humanize(role.code)}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               Capability
-              <select name="permissionId" required>
+              <SearchableSelect name="permissionId" required>
                 <option value="">Choose a capability</option>
                 {catalogs.permissions.map((permission) => (
                   <option key={permission.id} value={permission.id}>
@@ -724,7 +788,7 @@ export function AdminConsole() {
                     {permissionLabel(permission.code ?? '')}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <button className="button primary full" disabled={busy}>
               {busy ? 'Granting...' : 'Grant capability'}
@@ -755,22 +819,22 @@ export function AdminConsole() {
             >
               <label>
                 User account
-                <select name="userId" required>
+                <SearchableSelect name="userId" required>
                   <option value="">Choose a user</option>
                   {catalogs.users.map((user) => (
                     <option key={text(user.id)} value={text(user.id)}>
                       {text(user.emailNormalized)} - {text(object(user.employee).employeeNumber)}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </label>
               <label>
                 Status
-                <select name="status" required>
+                <SearchableSelect name="status" required>
                   <option value="ACTIVE">Active</option>
                   <option value="SUSPENDED">Suspended</option>
                   <option value="DISABLED">Disabled</option>
-                </select>
+                </SearchableSelect>
               </label>
               <label className="full">
                 Reason
@@ -802,7 +866,7 @@ export function AdminConsole() {
               >
                 <label className="full">
                   Active session
-                  <select name="sessionId" required>
+                  <SearchableSelect name="sessionId" required>
                     <option value="">Choose a session</option>
                     {catalogs.users.flatMap((user) =>
                       array(user.sessions)
@@ -814,7 +878,7 @@ export function AdminConsole() {
                           </option>
                         )),
                     )}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="full">
                   Revocation reason
@@ -1227,7 +1291,9 @@ export function AdminConsole() {
         onSelect: () => void choose(section),
       })),
     administration: visible
-      .filter((section) => ['roles', 'permissions', 'users', 'audit'].includes(section.key))
+      .filter((section) =>
+        ['roles', 'permissions', 'users', 'privileges', 'audit'].includes(section.key),
+      )
       .map((section) => ({
         key: section.key,
         label: section.label,
@@ -1293,6 +1359,7 @@ export function AdminConsole() {
             <LoadingState label="Loading employee directory" />
           ) : (
             <EmployeeDirectory
+              businessDate={principal.businessDate}
               records={records as EmployeeRecord[]}
               branches={catalogs.branches}
               roles={catalogs.roles}
@@ -1354,6 +1421,21 @@ export function AdminConsole() {
             />
           )}
         </>
+      ) : active === 'privileges' ? (
+        loading ? (
+          <LoadingState label="Loading privilege manager" />
+        ) : (
+          <PrivilegeManager
+            users={
+              records as unknown as Array<{
+                id: string;
+                emailNormalized: string;
+                employee?: { employeeNumber?: string; party?: { displayName?: string } };
+              }>
+            }
+            canManage={hasCompanyPermission(principal, 'identity.user.privilege.manage')}
+          />
+        )
       ) : active === 'roles' ? (
         <>
           {error ? (
@@ -1522,7 +1604,7 @@ export function AdminConsole() {
                 {supportsStatusFilter ? (
                   <label>
                     <span className="sr-only">Filter by status</span>
-                    <select
+                    <SearchableSelect
                       className="status-filter"
                       value={statusFilter}
                       onChange={(event) => setStatusFilter(event.target.value)}
@@ -1530,7 +1612,7 @@ export function AdminConsole() {
                       <option value="all">All statuses</option>
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
-                    </select>
+                    </SearchableSelect>
                   </label>
                 ) : null}
               </div>
@@ -1548,7 +1630,18 @@ export function AdminConsole() {
               ) : (
                 renderRecords()
               )}
-              {!loading && ['permissions', 'audit'].includes(active) ? (
+              {!loading && cursorSections.has(active) ? (
+                <CursorPaginationControls
+                  page={cursorIndex + 1}
+                  itemCount={rawRecords.length}
+                  hasPrevious={cursorIndex > 0}
+                  hasNext={pageInfo.hasNextPage}
+                  busy={loading}
+                  onPrevious={() => void previousServerPage()}
+                  onNext={() => void nextServerPage()}
+                />
+              ) : null}
+              {!loading && active === 'permissions' ? (
                 <PaginationControls
                   page={listPagination.page}
                   pageCount={listPagination.pageCount}

@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PropertyStatus } from '@prisma/client';
+import { CursorPageQueryDto } from '../common/cursor-pagination';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -21,6 +22,7 @@ import { PartyService } from './party.service';
 import { PortfolioService } from './portfolio.service';
 import {
   AmenityAssignmentDto,
+  BuildingLifecycleDto,
   CorrectMeasurementDto,
   CreateAmenityDto,
   CreateBuildingDto,
@@ -32,12 +34,15 @@ import {
   DiscardPropertyDraftDto,
   PartitionSpaceDto,
   PropertyLifecycleTransitionDto,
+  ListDocumentsQueryDto,
   ListSpacesQueryDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
   RetireSpaceDto,
   TransferPropertyBranchDto,
   UpdateAmenityDto,
+  UpdateBuildingDto,
+  UpdateDocumentMetadataDto,
   UpdateOwnerDto,
   UpdatePartyDto,
   UpdatePropertyDto,
@@ -47,8 +52,11 @@ import {
 @Controller({ path: 'parties', version: '1' })
 export class PartyController {
   constructor(private readonly parties: PartyService) {}
-  @Get() @RequirePermissions('party.read') list(@Req() request: AuthenticatedRequest) {
-    return this.parties.list(request.principal);
+  @Get() @RequirePermissions('party.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.parties.list(request.principal, query);
   }
   @Get(':partyId') @RequirePermissions('party.read') get(
     @Req() request: AuthenticatedRequest,
@@ -75,8 +83,11 @@ export class PartyController {
 @Controller({ path: 'owners', version: '1' })
 export class OwnerController {
   constructor(private readonly parties: PartyService) {}
-  @Get() @RequirePermissions('owner.read') list(@Req() request: AuthenticatedRequest) {
-    return this.parties.listOwners(request.principal);
+  @Get() @RequirePermissions('owner.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.parties.listOwners(request.principal, query);
   }
   @Get(':partyId') @RequirePermissions('owner.read') get(
     @Req() request: AuthenticatedRequest,
@@ -103,8 +114,11 @@ export class OwnerController {
 @Controller({ path: 'properties', version: '1' })
 export class PropertyController {
   constructor(private readonly portfolio: PortfolioService) {}
-  @Get() @RequirePermissions('portfolio.property.read') list(@Req() request: AuthenticatedRequest) {
-    return this.portfolio.listProperties(request.principal);
+  @Get() @RequirePermissions('portfolio.property.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.portfolio.listProperties(request.principal, query);
   }
   @Get(':propertyId') @RequirePermissions('portfolio.property.read') get(
     @Req() request: AuthenticatedRequest,
@@ -224,6 +238,14 @@ export class PropertyController {
       request.correlationId,
     );
   }
+  @Get(':propertyId/buildings')
+  @RequirePermissions('portfolio.building.read')
+  buildings(
+    @Req() request: AuthenticatedRequest,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+  ) {
+    return this.portfolio.listBuildings(request.principal, propertyId);
+  }
   @Post(':propertyId/buildings') @RequirePermissions('portfolio.building.manage') building(
     @Req() request: AuthenticatedRequest,
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
@@ -248,6 +270,65 @@ export class PropertyController {
       request.correlationId,
     );
   }
+  @Delete(':propertyId/amenities/:amenityId')
+  @RequirePermissions('portfolio.amenity.manage')
+  removeAmenity(
+    @Req() request: AuthenticatedRequest,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('amenityId', ParseUUIDPipe) amenityId: string,
+  ) {
+    return this.portfolio.removePropertyAmenity(
+      request.principal,
+      propertyId,
+      amenityId,
+      request.correlationId,
+    );
+  }
+}
+
+@UseGuards(SessionAuthGuard, PermissionGuard)
+@Controller({ path: 'buildings', version: '1' })
+export class BuildingController {
+  constructor(private readonly portfolio: PortfolioService) {}
+
+  @Get(':buildingId')
+  @RequirePermissions('portfolio.building.read')
+  get(
+    @Req() request: AuthenticatedRequest,
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+  ) {
+    return this.portfolio.getBuilding(request.principal, buildingId);
+  }
+
+  @Patch(':buildingId')
+  @RequirePermissions('portfolio.building.manage')
+  update(
+    @Req() request: AuthenticatedRequest,
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+    @Body() input: UpdateBuildingDto,
+  ) {
+    return this.portfolio.updateBuilding(
+      request.principal,
+      buildingId,
+      input,
+      request.correlationId,
+    );
+  }
+
+  @Post(':buildingId/status')
+  @RequirePermissions('portfolio.building.manage')
+  transition(
+    @Req() request: AuthenticatedRequest,
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+    @Body() input: BuildingLifecycleDto,
+  ) {
+    return this.portfolio.transitionBuilding(
+      request.principal,
+      buildingId,
+      input,
+      request.correlationId,
+    );
+  }
 }
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
@@ -261,7 +342,7 @@ export class RentableSpaceController {
     @Req() request: AuthenticatedRequest,
     @Query() query: ListSpacesQueryDto,
   ) {
-    return this.portfolio.listSpaces(request.principal, query.propertyId);
+    return this.portfolio.listSpaces(request.principal, query);
   }
   @Get(':spaceId') @RequirePermissions('portfolio.space.read') get(
     @Req() request: AuthenticatedRequest,
@@ -320,6 +401,20 @@ export class RentableSpaceController {
       request.correlationId,
     );
   }
+  @Delete(':spaceId/amenities/:amenityId')
+  @RequirePermissions('portfolio.amenity.manage')
+  removeAmenity(
+    @Req() request: AuthenticatedRequest,
+    @Param('spaceId', ParseUUIDPipe) spaceId: string,
+    @Param('amenityId', ParseUUIDPipe) amenityId: string,
+  ) {
+    return this.portfolio.removeSpaceAmenity(
+      request.principal,
+      spaceId,
+      amenityId,
+      request.correlationId,
+    );
+  }
 }
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
@@ -348,6 +443,35 @@ export class AmenityController {
 @Controller({ path: 'portfolio-documents', version: '1' })
 export class PortfolioDocumentController {
   constructor(private readonly portfolio: PortfolioService) {}
+  @Get()
+  @RequirePermissions('portfolio.document.read')
+  list(@Req() request: AuthenticatedRequest, @Query() query: ListDocumentsQueryDto) {
+    return this.portfolio.listDocuments(request.principal, query);
+  }
+
+  @Get(':documentId')
+  @RequirePermissions('portfolio.document.read')
+  get(
+    @Req() request: AuthenticatedRequest,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ) {
+    return this.portfolio.getDocument(request.principal, documentId);
+  }
+
+  @Patch(':documentId')
+  @RequirePermissions('portfolio.document.manage')
+  update(
+    @Req() request: AuthenticatedRequest,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body() input: UpdateDocumentMetadataDto,
+  ) {
+    return this.portfolio.updateDocument(
+      request.principal,
+      documentId,
+      input,
+      request.correlationId,
+    );
+  }
   @Post() @RequirePermissions('portfolio.document.manage') create(
     @Req() request: AuthenticatedRequest,
     @Body() input: CreateDocumentMetadataDto,

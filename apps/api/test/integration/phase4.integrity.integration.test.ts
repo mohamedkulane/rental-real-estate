@@ -270,6 +270,7 @@ describe.skipIf(!databaseUrl)('Phase 4 native data integrity', () => {
       data: {
         id: documentId,
         companyId,
+        displayName: 'Title document',
         categoryCode: 'TITLE',
         accessClass: 'RESTRICTED',
         status: 'ACTIVE',

@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import {
   BriefcaseBusiness,
@@ -73,7 +75,7 @@ function Panel({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -115,8 +117,8 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
   );
 }
 
-function currentBranches(employee: EmployeeRecord, branches: Branch[]) {
-  const now = new Date().toISOString().slice(0, 10);
+function currentBranches(employee: EmployeeRecord, branches: Branch[], businessDate: string) {
+  const now = businessDate;
   return employee.branchAssignments
     .filter(
       (assignment) =>
@@ -134,6 +136,7 @@ export function EmployeeDirectory({
   records,
   branches,
   roles,
+  businessDate,
   busy,
   canCreate,
   canUpdate,
@@ -147,6 +150,7 @@ export function EmployeeDirectory({
   records: EmployeeRecord[];
   branches: Branch[];
   roles: Role[];
+  businessDate: string;
   busy: boolean;
   canCreate: boolean;
   canUpdate: (record: EmployeeRecord) => boolean;
@@ -256,16 +260,16 @@ export function EmployeeDirectory({
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <label className="relative block w-full sm:max-w-md">
             <span className="sr-only">Search employees</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, employee number, title, or email…"
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
-          <select
+          <SearchableSelect
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold"
@@ -274,7 +278,7 @@ export function EmployeeDirectory({
             <option value="all">All staff</option>
             <option value="restricted">Login suspended or disabled</option>
             <option value="inactive">Employment inactive</option>
-          </select>
+          </SearchableSelect>
         </div>
         {filtered.length ? (
           <div className="overflow-x-auto">
@@ -304,7 +308,7 @@ export function EmployeeDirectory({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pagination.pageItems.map((employee) => {
-                  const employeeBranches = currentBranches(employee, branches);
+                  const employeeBranches = currentBranches(employee, branches, businessDate);
                   return (
                     <tr key={employee.id} className="hover:bg-slate-50">
                       <td className="px-5 py-4">
@@ -482,21 +486,21 @@ export function EmployeeDirectory({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Access scope">
-                <select name="accessMode" required className={inputClass}>
+                <SearchableSelect name="accessMode" required className={inputClass}>
                   <option value="BRANCH">One branch</option>
                   <option value="MULTI_BRANCH">Multiple branches</option>
                   <option value="COMPANY_WIDE">Company wide</option>
-                </select>
+                </SearchableSelect>
               </Field>
               <Field label="Primary branch">
-                <select name="branchId" required className={inputClass}>
+                <SearchableSelect name="branchId" required className={inputClass}>
                   <option value="">Choose a branch</option>
                   {branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
                       {branch.name}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </Field>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -575,11 +579,15 @@ export function EmployeeDirectory({
               </Field>
             </div>
             <Field label="Access scope">
-              <select name="accessMode" defaultValue={selected.accessMode} className={inputClass}>
+              <SearchableSelect
+                name="accessMode"
+                defaultValue={selected.accessMode}
+                className={inputClass}
+              >
                 <option value="BRANCH">One branch</option>
                 <option value="MULTI_BRANCH">Multiple branches</option>
                 <option value="COMPANY_WIDE">Company wide</option>
-              </select>
+              </SearchableSelect>
             </Field>
             <button
               disabled={busy}
@@ -658,30 +666,30 @@ export function EmployeeDirectory({
               <input value={selected.displayName} disabled className={inputClass} />
             </Field>
             <Field label="Business role">
-              <select name="roleId" required className={inputClass}>
+              <SearchableSelect name="roleId" required className={inputClass}>
                 <option value="">Choose a role</option>
                 {roles.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.name ?? humanize(role.code)}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </Field>
             <Field label="Applies to">
-              <select name="branchId" className={inputClass}>
+              <SearchableSelect name="branchId" className={inputClass}>
                 <option value="">Company level</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </Field>
             <Field label="Effective from">
               <input
                 name="effectiveFrom"
                 type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
+                defaultValue={businessDate}
                 required
                 className={inputClass}
               />
@@ -741,7 +749,7 @@ export function EmployeeDirectory({
               <section>
                 <h3 className="mb-2 text-sm font-bold">Current branches</h3>
                 <div className="space-y-2">
-                  {currentBranches(selected, branches).map((branch) => (
+                  {currentBranches(selected, branches, businessDate).map((branch) => (
                     <div
                       key={branch.id}
                       className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold"

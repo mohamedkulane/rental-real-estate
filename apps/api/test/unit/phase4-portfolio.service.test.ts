@@ -14,6 +14,7 @@ const principal: AuthenticatedPrincipal = {
   userId: '00000000-0000-4000-8000-000000000001',
   employeeId: '00000000-0000-4000-8000-000000000002',
   companyId: '00000000-0000-4000-8000-000000000003',
+  businessDate: '2026-08-16',
   sessionId: '00000000-0000-4000-8000-000000000004',
   accessMode: BranchAccessMode.COMPANY_WIDE,
   roles: [],
@@ -47,6 +48,7 @@ describe('Phase 4 portfolio services', () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const service = new PartyService(
       { party: { findMany } } as unknown as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-08-16T00:00:00.000Z')) } as never,
       {} as PartyCryptoService,
       {} as AuditService,
       {
@@ -54,14 +56,19 @@ describe('Phase 4 portfolio services', () => {
       } as unknown as AuthorizationService,
     );
 
-    await service.list(principal);
+    await service.list(principal, { limit: 25 });
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          companyId: principal.companyId,
-          employee: { is: null },
+          AND: [
+            expect.objectContaining({
+              companyId: principal.companyId,
+              employee: { is: null },
+            }),
+          ],
         },
+        take: 26,
       }),
     );
   });
@@ -77,6 +84,7 @@ describe('Phase 4 portfolio services', () => {
         },
         $transaction: transaction,
       } as unknown as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-08-16T00:00:00.000Z')) } as never,
       {} as PartyCryptoService,
       {} as AuditService,
       {} as AuthorizationService,

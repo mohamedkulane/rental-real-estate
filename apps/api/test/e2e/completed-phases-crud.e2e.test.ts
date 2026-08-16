@@ -33,6 +33,11 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
     let parentTwoId = '';
     let childId = '';
     let amenityId = '';
+    let businessDate = '';
+    let date30 = '';
+    let date60 = '';
+    let date90 = '';
+    let date120 = '';
     const suffix = randomUUID().slice(0, 8);
     const employeeEmail = `crud.employee.${suffix}@example.test`;
     const initialPassword = 'Completed-Phases-Initial!';
@@ -53,6 +58,20 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .send({ email: adminEmail, password: adminPassword })
         .expect(201);
       token = sessionToken(login);
+      const me = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      businessDate = me.body.businessDate as string;
+      const offsetDate = (days: number) => {
+        const value = new Date(`${businessDate}T00:00:00.000Z`);
+        value.setUTCDate(value.getUTCDate() + days);
+        return value.toISOString().slice(0, 10);
+      };
+      date30 = offsetDate(30);
+      date60 = offsetDate(60);
+      date90 = offsetDate(90);
+      date120 = offsetDate(120);
     });
 
     afterAll(async () => {
@@ -130,19 +149,23 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         })
         .expect(201);
       employeeId = created.body.id as string;
-      expect(created.body.employeeNumber).toMatch(/^EMP-\d{4,}$/);
+      const employeeNumber = created.body.employeeNumber as string;
+      expect(employeeNumber).toMatch(/^EMP-\d{4,}$/);
       await request(app.getHttpServer())
         .post(`/api/v1/employees/${employeeId}/branches`)
         .set('authorization', `Bearer ${token}`)
-        .send({ branchId: branchTwoId, effectiveFrom: '2027-01-01' })
+        .send({ branchId: branchTwoId, effectiveFrom: date120 })
         .expect(201);
       const list = await request(app.getHttpServer())
         .get('/api/v1/employees')
+        .query({ search: employeeNumber })
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       const listed = (
-        list.body as Array<{ id: string; displayName?: string; branchAssignments: unknown[] }>
-      ).find((item) => item.id === employeeId);
+        list.body as {
+          items: Array<{ id: string; displayName?: string; branchAssignments: unknown[] }>;
+        }
+      ).items.find((item) => item.id === employeeId);
       expect(listed?.displayName).toBe(`Ayaan Cabdi`);
       expect(listed?.displayName).not.toBe('Not available');
       expect(listed?.branchAssignments).toHaveLength(2);
@@ -282,14 +305,17 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .expect(200);
       const users = await request(app.getHttpServer())
         .get('/api/v1/users')
+        .query({ search: employeeEmail })
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       const listed = (
-        users.body as Array<{
-          id: string;
-          sessions: Array<{ id: string; revokedAt: string | null }>;
-        }>
-      ).find((item) => item.id === userId)!;
+        users.body as {
+          items: Array<{
+            id: string;
+            sessions: Array<{ id: string; revokedAt: string | null }>;
+          }>;
+        }
+      ).items.find((item) => item.id === userId)!;
       const changedTokenHash = createHash('sha256').update(changedToken).digest('hex');
       const changedDatabaseSession = await database.session.findUniqueOrThrow({
         where: { tokenHash: changedTokenHash },
@@ -337,7 +363,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .send({
           branchId: branchOneId,
           kind: 'PERSON',
-          displayName: `Hodan Property Holdings`,
+          displayName: `Hodan Property Holdings ${suffix}`,
           person: { givenName: 'CRUD', familyName: 'Owner' },
           contacts: [{ type: 'EMAIL', value: `owner.${suffix}@example.test`, primary: true }],
           addresses: [{ line1: 'Maka Al-Mukarama Road', city: 'Mogadishu', countryCode: 'SO' }],
@@ -348,20 +374,22 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
       const updatedParty = await request(app.getHttpServer())
         .patch(`/api/v1/parties/${ownerPartyId}`)
         .set('authorization', `Bearer ${token}`)
-        .send({ displayName: `Hodan Property Holdings Ltd` })
+        .send({ displayName: `Hodan Property Holdings ${suffix} Ltd` })
         .expect(200);
-      expect(updatedParty.body.displayName).toBe(`Hodan Property Holdings Ltd`);
+      expect(updatedParty.body.displayName).toBe(`Hodan Property Holdings ${suffix} Ltd`);
       const partyDetail = await request(app.getHttpServer())
         .get(`/api/v1/parties/${ownerPartyId}`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       expect(partyDetail.body.contacts[0].value).toBe(`owner.${suffix}@example.test`);
       const partyList = await request(app.getHttpServer())
-        .get('/api/v1/parties')
+        .get(`/api/v1/parties?search=${suffix}`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       expect(
-        (partyList.body as Array<{ id: string }>).some((item) => item.id === ownerPartyId),
+        (partyList.body as { items: Array<{ id: string }> }).items.some(
+          (item) => item.id === ownerPartyId,
+        ),
       ).toBe(true);
       await request(app.getHttpServer())
         .post('/api/v1/owners')
@@ -383,11 +411,11 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .expect(200);
       expect(updatedOwner.body.communicationPreference).toBe('WHATSAPP');
       const ownerList = await request(app.getHttpServer())
-        .get('/api/v1/owners')
+        .get(`/api/v1/owners?search=${suffix}`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       expect(
-        (ownerList.body as Array<{ partyId: string }>).some(
+        (ownerList.body as { items: Array<{ partyId: string }> }).items.some(
           (item) => item.partyId === ownerPartyId,
         ),
       ).toBe(true);
@@ -405,7 +433,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
           name: `Barwaaqo Residence`,
           propertyType: 'COMMERCIAL_BUILDING',
           branchId: branchOneId,
-          effectiveFrom: '2026-01-01',
+          effectiveFrom: businessDate,
           city: 'Mogadishu',
           addressLine1: 'KM4 Avenue',
         })
@@ -422,7 +450,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .put(`/api/v1/properties/${propertyId}/ownership`)
         .set('authorization', `Bearer ${token}`)
         .send({
-          effectiveFrom: '2026-01-01',
+          effectiveFrom: businessDate,
           shares: [{ ownerPartyId, ownershipPercent: '100', payoutPercent: '100' }],
           reason: 'Ownership documents verified by portfolio manager',
         })
@@ -442,7 +470,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .set('authorization', `Bearer ${token}`)
         .send({
           branchId: branchTwoId,
-          effectiveFrom: '2027-01-01',
+          effectiveFrom: date120,
           reason: 'Property operations transferred to the service branch',
         })
         .expect(201);
@@ -483,12 +511,14 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
       expect(detail.body.buildings).toHaveLength(1);
       expect(detail.body.amenities).toHaveLength(1);
       const list = await request(app.getHttpServer())
-        .get('/api/v1/properties')
+        .get('/api/v1/properties?search=Barwaaqo%20Residence%20Tower')
         .set('authorization', `Bearer ${token}`)
         .expect(200);
-      expect((list.body as Array<{ id: string }>).some((item) => item.id === propertyId)).toBe(
-        true,
-      );
+      expect(
+        (list.body as { items: Array<{ id: string }> }).items.some(
+          (item) => item.id === propertyId,
+        ),
+      ).toBe(true);
     });
 
     it('discards only an unused draft Property and preserves protected Property history', async () => {
@@ -500,7 +530,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
           name: `Discardable Draft ${suffix}`,
           propertyType: 'HOUSE',
           branchId: branchOneId,
-          effectiveFrom: '2026-01-01',
+          effectiveFrom: businessDate,
           city: 'Mogadishu',
         })
         .expect(201);
@@ -531,7 +561,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
             typeCode: 'HALL',
             spaceCode,
             name,
-            effectiveFrom: '2026-01-01',
+            effectiveFrom: businessDate,
             usableArea: '100',
             areaUnit: 'SQM',
           });
@@ -547,7 +577,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
           parentSpaceId: parentOneId,
           typeCode: 'ROOM',
           name: 'Office Suite 101',
-          effectiveFrom: '2026-01-01',
+          effectiveFrom: businessDate,
           usableArea: '40',
           areaUnit: 'SQM',
           residential: { bedrooms: 1, bathrooms: '1' },
@@ -559,7 +589,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .post(`/api/v1/rentable-spaces/${childId}/measurements`)
         .set('authorization', `Bearer ${token}`)
         .send({
-          effectiveFrom: '2026-02-01',
+          effectiveFrom: date30,
           usableArea: '35',
           areaUnit: 'SQM',
           reason: 'Surveyor supplied the corrected usable area',
@@ -570,7 +600,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .set('authorization', `Bearer ${token}`)
         .send({
           parentSpaceId: parentTwoId,
-          effectiveFrom: '2026-03-01',
+          effectiveFrom: date60,
           reason: 'Space reassigned to the correct building wing',
         })
         .expect(201);
@@ -590,12 +620,14 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .get(`/api/v1/rentable-spaces?propertyId=${propertyId}`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
-      expect((list.body as Array<{ id: string }>).some((item) => item.id === childId)).toBe(true);
+      expect(
+        (list.body as { items: Array<{ id: string }> }).items.some((item) => item.id === childId),
+      ).toBe(true);
       const retired = await request(app.getHttpServer())
         .post(`/api/v1/rentable-spaces/${childId}/retire`)
         .set('authorization', `Bearer ${token}`)
         .send({
-          effectiveDate: '2026-04-01',
+          effectiveDate: date90,
           reason: 'Space removed from future rental availability',
         })
         .expect(201);
@@ -626,10 +658,12 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .expect(200);
       expect(Array.isArray(approvals.body)).toBe(true);
       const audit = await request(app.getHttpServer())
-        .get('/api/v1/audit')
+        .get('/api/v1/audit?limit=100')
         .set('authorization', `Bearer ${token}`)
         .expect(200);
-      const actions = new Set((audit.body as Array<{ action: string }>).map((item) => item.action));
+      const actions = new Set(
+        (audit.body as { items: Array<{ action: string }> }).items.map((item) => item.action),
+      );
       expect(actions).toContain('organization.branch.created');
       expect(actions).toContain('identity.employee.created');
       expect(actions).toContain('identity.employee.updated');

@@ -1,4 +1,4 @@
-﻿@import 'tailwindcss';
+@import 'tailwindcss';
 
 :root {
   color-scheme: light;
@@ -907,7 +907,7 @@ textarea:focus {
   .mobile-menu {
     position: fixed;
     top: 11px;
-    left: 12px;
+    left: 14px;
     z-index: 25;
     width: 40px;
     height: 40px;
@@ -1059,7 +1059,7 @@ textarea:focus {
 .input-with-icon > svg {
   position: absolute;
   top: 50%;
-  left: 12px;
+  left: 14px;
   z-index: 1;
   width: 17px;
   color: var(--muted);
@@ -1310,14 +1310,14 @@ textarea:focus {
 .search-control svg {
   position: absolute;
   top: 50%;
-  left: 12px;
+  left: 14px;
   width: 17px;
   color: var(--muted-foreground);
   pointer-events: none;
   transform: translateY(-50%);
 }
 .search-control input {
-  padding-left: 38px;
+  padding-left: 44px;
 }
 .status-filter {
   width: 150px;
@@ -1338,15 +1338,19 @@ textarea:focus {
 }
 .form-drawer {
   position: fixed;
-  inset: 0 0 0 auto;
+  inset: 50% auto auto 50%;
   z-index: 61;
-  width: min(100%, 520px);
+  width: min(680px, calc(100% - 2rem));
+  max-height: calc(100vh - 2rem);
   padding: 24px;
   overflow-y: auto;
+  scroll-behavior: smooth;
   background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: -18px 0 50px rgb(15 23 42 / 0.12);
-  animation: drawer-in 180ms ease-out;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+  transform: translate(-50%, -50%);
+  animation: modal-in 180ms ease-out;
 }
 .drawer-header {
   display: flex;
@@ -1386,13 +1390,13 @@ textarea:focus {
   border: 0;
   box-shadow: none;
 }
-@keyframes drawer-in {
+@keyframes modal-in {
   from {
-    transform: translateX(18px);
+    transform: translate(-50%, calc(-50% + 18px));
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translate(-50%, -50%);
     opacity: 1;
   }
 }
@@ -1408,5 +1412,86 @@ textarea:focus {
   }
   .form-drawer {
     padding: 20px 16px;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.sidebar-scrollbar:hover {
+  scrollbar-color: rgb(148 163 184 / 18%) transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184 / 18%);
+}
+.header-action {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.65rem;
+  background: #fff;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.header-action:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+.searchable-select {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+}
+.searchable-select-search {
+  position: relative;
+  display: block;
+}
+.searchable-select-search svg {
+  position: absolute;
+  z-index: 1;
+  left: 0.85rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+.searchable-select-search input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.75rem 0.45rem 2.45rem;
+  background: #fff;
+  color: #0f172a;
+}
+.form-section {
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

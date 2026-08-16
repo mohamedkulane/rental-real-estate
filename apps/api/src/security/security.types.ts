@@ -6,6 +6,7 @@ export interface AuthenticatedPrincipal {
   sessionId: string;
   employeeId: string;
   companyId: string;
+  businessDate: string;
   accessMode: BranchAccessMode;
   roles: ReadonlyArray<{ code: string; name: string; branchId: string | null }>;
   permissions: ReadonlySet<string>;

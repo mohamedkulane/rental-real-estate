@@ -6,9 +6,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { CursorPageQueryDto } from '../common/cursor-pagination';
+import { UpdateUserPrivilegesDto } from '../identity/access.dto';
+import { AccessService } from '../identity/access.service';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -81,8 +86,11 @@ export class BranchController {
 @Controller({ path: 'employees', version: '1' })
 export class EmployeeController {
   constructor(private readonly organization: OrganizationService) {}
-  @Get() @RequirePermissions('identity.employee.read') list(@Req() request: AuthenticatedRequest) {
-    return this.organization.listEmployees(request.principal);
+  @Get() @RequirePermissions('identity.employee.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.organization.listEmployees(request.principal, query);
   }
   @Get(':employeeId') @RequirePermissions('identity.employee.read') get(
     @Req() request: AuthenticatedRequest,
@@ -149,9 +157,34 @@ export class EmployeeController {
 @UseGuards(SessionAuthGuard, PermissionGuard)
 @Controller({ path: 'users', version: '1' })
 export class UserController {
-  constructor(private readonly organization: OrganizationService) {}
-  @Get() @RequirePermissions('identity.user.read') list(@Req() request: AuthenticatedRequest) {
-    return this.organization.listUsers(request.principal);
+  constructor(
+    private readonly organization: OrganizationService,
+    private readonly access: AccessService,
+  ) {}
+  @Get() @RequirePermissions('identity.user.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CursorPageQueryDto,
+  ) {
+    return this.organization.listUsers(request.principal, query);
+  }
+  @Get(':userId/privileges')
+  @RequirePermissions('identity.user.privilege.read')
+  privileges(@Req() request: AuthenticatedRequest, @Param('userId', ParseUUIDPipe) userId: string) {
+    return this.access.getUserPrivileges(request.principal, userId);
+  }
+  @Put(':userId/privileges')
+  @RequirePermissions('identity.user.privilege.manage')
+  replacePrivileges(
+    @Req() request: AuthenticatedRequest,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() input: UpdateUserPrivilegesDto,
+  ) {
+    return this.access.replaceUserPrivileges(
+      request.principal,
+      userId,
+      input,
+      request.correlationId,
+    );
   }
   @Post() @RequirePermissions('identity.user.create') create(
     @Req() request: AuthenticatedRequest,

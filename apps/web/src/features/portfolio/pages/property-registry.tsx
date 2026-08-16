@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import {
   Archive,
@@ -19,6 +21,8 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
+import type { Principal } from '@/lib/phase3-api';
+import { PropertyOperations } from '../property-operations';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 import { OwnershipEditor, OwnershipWorkspace } from '../ownership-workflow';
@@ -74,14 +78,13 @@ type PropertyInput = {
   description?: string | undefined;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
 const field = (form: FormData, key: string) => {
   const value = form.get(key);
   return typeof value === 'string' ? value.trim() : '';
 };
 
-function currentBranch(property: PropertyRecord): BranchOption | undefined {
-  const now = today();
+function currentBranch(property: PropertyRecord, businessDate: string): BranchOption | undefined {
+  const now = businessDate;
   return property.branchAssignments.find(
     (assignment) =>
       assignment.effectiveFrom.slice(0, 10) <= now &&
@@ -129,7 +132,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35 backdrop-blur-[1px]"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35 backdrop-blur-[1px]"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -188,6 +191,8 @@ const inputClass =
 export function PropertyRegistry({
   records,
   branches,
+  principal,
+  businessDate,
   busy,
   canCreate,
   creatableBranchIds,
@@ -204,6 +209,8 @@ export function PropertyRegistry({
 }: {
   records: PropertyRecord[];
   branches: BranchOption[];
+  principal: Principal;
+  businessDate: string;
   busy: boolean;
   canCreate: boolean;
   creatableBranchIds: string[];
@@ -231,14 +238,14 @@ export function PropertyRegistry({
   >(null);
   const [selected, setSelected] = useState<PropertyRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailTab, setDetailTab] = useState<'overview' | 'spaces' | 'ownership' | 'activity'>(
-    'overview',
-  );
+  const [detailTab, setDetailTab] = useState<
+    'overview' | 'spaces' | 'ownership' | 'operations' | 'activity'
+  >('overview');
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return records.filter((property) => {
-      const branch = currentBranch(property);
+      const branch = currentBranch(property, businessDate);
       const matchesSearch =
         !normalized ||
         [property.name, property.propertyCode, property.city, property.addressLine1, branch?.name]
@@ -321,23 +328,23 @@ export function PropertyRegistry({
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center xl:justify-between">
           <label className="relative block min-w-0 flex-1 xl:max-w-md">
             <span className="sr-only">Search properties</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               type="search"
               placeholder="Search name, code, city, or branch..."
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <label className="relative">
               <span className="sr-only">Filter by branch</span>
-              <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select
+              <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <SearchableSelect
                 value={branchFilter}
                 onChange={(event) => setBranchFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
               >
                 <option value="all">All branches</option>
                 {branches.map((branch) => (
@@ -345,15 +352,15 @@ export function PropertyRegistry({
                     {branch.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="relative">
               <span className="sr-only">Filter by type</span>
-              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select
+              <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <SearchableSelect
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
               >
                 <option value="all">All types</option>
                 {propertyTypes.map((type) => (
@@ -361,9 +368,9 @@ export function PropertyRegistry({
                     {humanize(type)}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
-            <select
+            <SearchableSelect
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -374,7 +381,7 @@ export function PropertyRegistry({
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
               <option value="RETIRED">Retired</option>
-            </select>
+            </SearchableSelect>
           </div>
         </div>
 
@@ -400,7 +407,7 @@ export function PropertyRegistry({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pagination.pageItems.map((property) => {
-                  const branch = currentBranch(property);
+                  const branch = currentBranch(property, businessDate);
                   return (
                     <tr key={property.id} className="group transition-colors hover:bg-slate-50/80">
                       <td className="px-5 py-4">
@@ -553,7 +560,7 @@ export function PropertyRegistry({
             </FormField>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Property type">
-                <select name="propertyType" required className={inputClass}>
+                <SearchableSelect name="propertyType" required className={inputClass}>
                   <option value="HOUSE">House</option>
                   <option value="VILLA">Villa</option>
                   <option value="APARTMENT_BUILDING">Apartment building</option>
@@ -563,10 +570,10 @@ export function PropertyRegistry({
                   <option value="LAND">Land</option>
                   <option value="MIXED_USE">Mixed use</option>
                   <option value="OTHER">Other</option>
-                </select>
+                </SearchableSelect>
               </FormField>
               <FormField label="Operating branch">
-                <select name="branchId" required className={inputClass}>
+                <SearchableSelect name="branchId" required className={inputClass}>
                   <option value="">Choose a branch</option>
                   {branches
                     .filter((branch) => creatableBranchIds.includes(branch.id))
@@ -575,7 +582,7 @@ export function PropertyRegistry({
                         {branch.name}
                       </option>
                     ))}
-                </select>
+                </SearchableSelect>
               </FormField>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -583,7 +590,7 @@ export function PropertyRegistry({
                 <input
                   name="effectiveFrom"
                   type="date"
-                  defaultValue={today()}
+                  defaultValue={businessDate}
                   required
                   className={inputClass}
                 />
@@ -742,7 +749,7 @@ export function PropertyRegistry({
               </p>
             </div>
             <FormField label="Lifecycle action">
-              <select name="action" className={inputClass} required>
+              <SearchableSelect name="action" className={inputClass} required>
                 {selected.status === 'DRAFT' ? <option value="activate">Activate</option> : null}
                 {selected.status === 'ACTIVE' ? (
                   <option value="deactivate">Deactivate</option>
@@ -753,7 +760,7 @@ export function PropertyRegistry({
                     <option value="retire">Retire permanently</option>
                   </>
                 ) : null}
-              </select>
+              </SearchableSelect>
             </FormField>
             <FormField label="Reason">
               <textarea
@@ -840,27 +847,29 @@ export function PropertyRegistry({
                     {selected.addressLine1 || selected.city}
                   </p>
                   <p className="mt-1 text-sm font-bold text-slate-900">
-                    {currentBranch(selected)?.name ?? 'No current branch'}
+                    {currentBranch(selected, businessDate)?.name ?? 'No current branch'}
                   </p>
                 </div>
                 <StatusBadge value={selected.status} />
               </div>
               <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-                {(['overview', 'spaces', 'ownership', 'activity'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setDetailTab(tab)}
-                    className={
-                      'whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold capitalize ' +
-                      (detailTab === tab
-                        ? 'border-emerald-600 text-emerald-700'
-                        : 'border-transparent text-slate-500 hover:text-slate-800')
-                    }
-                  >
-                    {tab}
-                  </button>
-                ))}
+                {(['overview', 'spaces', 'ownership', 'operations', 'activity'] as const).map(
+                  (tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setDetailTab(tab)}
+                      className={
+                        'whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold capitalize ' +
+                        (detailTab === tab
+                          ? 'border-emerald-600 text-emerald-700'
+                          : 'border-transparent text-slate-500 hover:text-slate-800')
+                      }
+                    >
+                      {tab}
+                    </button>
+                  ),
+                )}
               </div>
               {detailTab === 'overview' ? (
                 <dl className="grid gap-4 sm:grid-cols-2">
@@ -914,10 +923,11 @@ export function PropertyRegistry({
               {detailTab === 'ownership' ? (
                 canReadOwnership(selected) ? (
                   <OwnershipWorkspace
+                    businessDate={businessDate}
                     records={selected.ownerships ?? []}
                     canManage={canManageOwnership(selected)}
                     activationContext={{
-                      branchAssigned: Boolean(currentBranch(selected)),
+                      branchAssigned: Boolean(currentBranch(selected, businessDate)),
                       detailsComplete: Boolean(
                         selected.name && selected.propertyType && selected.city,
                       ),
@@ -930,6 +940,9 @@ export function PropertyRegistry({
                     You do not have permission to view property ownership in this branch.
                   </p>
                 )
+              ) : null}
+              {detailTab === 'operations' ? (
+                <PropertyOperations property={selected} branches={branches} principal={principal} />
               ) : null}
               {detailTab === 'activity' ? (
                 <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
@@ -969,12 +982,13 @@ export function PropertyRegistry({
           }}
         >
           <OwnershipEditor
+            businessDate={businessDate}
             key={selected.id + ':' + (selected.ownerships?.length ?? 0)}
             owners={owners}
             current={(selected.ownerships ?? []).filter(
               (record) =>
-                record.effectiveFrom.slice(0, 10) <= today() &&
-                (!record.effectiveTo || record.effectiveTo.slice(0, 10) > today()),
+                record.effectiveFrom.slice(0, 10) <= businessDate &&
+                (!record.effectiveTo || record.effectiveTo.slice(0, 10) > businessDate),
             )}
             busy={busy}
             onCancel={() => {

@@ -17,4 +17,4 @@ Accepted for Phase 3.
 
 ## Consequences
 
-Every future module must use backend permissions plus object scope. The Phase 3 browser token transport is replaceable without changing session semantics. No department hierarchy was invented, and no owner, property, lease, payment, or accounting behavior was added.
+Every future module must use backend permissions plus object scope. The Phase 3 browser token transport is replaceable without changing session semantics. Phase 3 created a minimal `Department` persistence model (`companyId`, code, name, active) as a foundation-only organization reference. It is intentionally backend-only: no Department API, UI, employee assignment, hierarchy, authorization meaning, or operational workflow is approved. Removing the table would require a separate migration/data-dependency review; adding behavior requires an explicit future phase decision. No owner, property, lease, payment, or accounting behavior was added in Phase 3.

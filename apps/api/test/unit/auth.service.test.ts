@@ -37,16 +37,24 @@ function fixture(
       Promise.resolve(work(transaction)),
     ),
   } as unknown as DatabaseService;
+  const businessDate = { today: vi.fn().mockResolvedValue(new Date('2026-08-16T00:00:00.000Z')) };
   const passwords = {
     verify: verifyPassword,
     hash: vi.fn(),
   } as unknown as PasswordService;
   const audit = { write: vi.fn() } as unknown as AuditService;
   return {
-    service: new AuthService(database, passwords, audit, new AuthorizationService(), {
-      ...environment,
-      ...environmentOverrides,
-    }),
+    service: new AuthService(
+      database,
+      businessDate as never,
+      passwords,
+      audit,
+      new AuthorizationService(),
+      {
+        ...environment,
+        ...environmentOverrides,
+      },
+    ),
     database,
     transaction,
     passwords,
@@ -78,7 +86,7 @@ describe('AuthService', () => {
     }
   });
 
-  it('aggregates active role permissions with their branch scopes', async () => {
+  it('applies user allow and deny overrides to active role permissions', async () => {
     const { service, sessionFindUnique } = fixture();
     sessionFindUnique.mockResolvedValue({
       id: 'session-id',
@@ -87,6 +95,10 @@ describe('AuthService', () => {
       expiresAt: new Date(Date.now() + 60_000),
       user: {
         status: UserStatus.ACTIVE,
+        permissionOverrides: [
+          { allowed: false, permission: { code: 'organization.branch.read' } },
+          { allowed: true, permission: { code: 'party.read' } },
+        ],
         employee: {
           id: 'employee-id',
           companyId: 'company-id',
@@ -117,10 +129,9 @@ describe('AuthService', () => {
       },
     });
     const principal = await service.resolveSession('opaque-token');
-    expect(principal.permissions).toEqual(new Set(['organization.branch.read']));
-    expect(principal.permissionBranchScopes.get('organization.branch.read')).toEqual(
-      new Set(['hodan']),
-    );
+    expect(principal.permissions).toEqual(new Set(['party.read']));
+    expect(principal.permissionBranchScopes.has('organization.branch.read')).toBe(false);
+    expect(principal.permissionBranchScopes.get('party.read')).toEqual(new Set(['hodan']));
     expect(principal.branchIds).toEqual(new Set(['hodan']));
     expect(principal.branches).toEqual([{ id: 'hodan', code: 'HODAN', name: 'Hodan Branch' }]);
     expect(principal.roles).toEqual([

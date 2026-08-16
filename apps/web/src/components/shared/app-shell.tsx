@@ -136,7 +136,7 @@ export function AppShell({
       ];
   const localTeamAccess = [
     ...pick(organization, ['employees'], { employees: Users }),
-    ...pick(administration, ['users', 'roles'], {
+    ...pick(administration, ['users', 'roles', 'privileges'], {
       users: UserCog,
       roles: ShieldCheck,
       permissions: ShieldCheck,
@@ -156,6 +156,10 @@ export function AppShell({
         ...allowed(
           'identity.role.read',
           go('roles', 'Roles & permissions', '/admin?section=roles', ShieldCheck),
+        ),
+        ...allowed(
+          'identity.user.privilege.read',
+          go('privileges', 'Privileges', '/admin?section=privileges', ShieldCheck),
         ),
       ];
   const portfolioItems = portfolio.length
@@ -236,7 +240,10 @@ export function AppShell({
           </button>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5" aria-label="Main navigation">
+        <nav
+          className="sidebar-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-5"
+          aria-label="Main navigation"
+        >
           <div>
             <Link
               href="/admin"
@@ -281,25 +288,7 @@ export function AppShell({
             activeItem={activeItem}
             onNavigate={() => setOpen(false)}
           />
-          <NavGroup
-            title="Preferences"
-            items={settings}
-            activeItem={activeItem}
-            onNavigate={() => setOpen(false)}
-          />
         </nav>
-
-        <div className="space-y-3 border-t border-slate-800 p-4">
-          <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
-          <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-            onClick={onLogout}
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            Sign out
-          </button>
-        </div>
       </aside>
 
       <div className="min-h-screen lg:pl-64">
@@ -310,7 +299,24 @@ export function AppShell({
             </p>
             <p className="text-sm font-semibold text-slate-700">Secure staff workspace</p>
           </div>
-          <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
+          <div className="flex items-center gap-2">
+            {settings[0] ? (
+              <button
+                type="button"
+                onClick={settings[0].onSelect}
+                className="header-action"
+                aria-label="Open settings"
+              >
+                <Settings className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+            ) : null}
+            <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
+            <button type="button" className="header-action" onClick={onLogout}>
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </header>
         <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</main>
       </div>

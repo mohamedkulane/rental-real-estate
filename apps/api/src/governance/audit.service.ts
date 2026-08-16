@@ -14,7 +14,8 @@ export interface AuditInput {
   after?: Prisma.InputJsonValue | undefined;
 }
 
-const sensitiveKey = /password|token|secret|authorization|cookie/i;
+const sensitiveKey =
+  /password|token|secret|authorization|cookie|valueencrypted|normalizedhash|cipher(?:text)?|authtag|initializationvector|privatekey|apikey|lookupkey/i;
 
 @Injectable()
 export class AuditService {
