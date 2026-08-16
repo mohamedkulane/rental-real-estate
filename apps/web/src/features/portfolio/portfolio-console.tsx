@@ -35,6 +35,12 @@ import { PartyDirectory, type PartyRecord } from './pages/party-directory';
 import { OwnerDirectory, type OwnerDetailTab, type OwnerRecord } from './pages/owner-directory';
 import { AmenityDirectory, type AmenityRecord } from './pages/amenity-directory';
 import { PORTFOLIO_NAVIGATION, portfolioNavigationView } from './portfolio-ia';
+import {
+  OwnerSectionWorkspace,
+  PropertySectionWorkspace,
+  SpaceSectionWorkspace,
+} from './portfolio-section-workspaces';
+import { isAggregatePortfolioView } from './portfolio-workspace-model';
 
 type Tab = 'parties' | 'owners' | 'properties' | 'spaces' | 'amenities';
 type Branch = { id: string; code: string; name: string };
@@ -1036,16 +1042,7 @@ export function PortfolioConsole() {
           {activeChildLabel}
         </span>
       </nav>
-      {active !== 'amenities' && activeView !== PORTFOLIO_NAVIGATION[active][0].key ? (
-        <section className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <h1 className="text-sm font-bold text-emerald-950">
-            {activeSectionLabel} / {activeChildLabel}
-          </h1>
-          <p className="mt-1 text-xs text-emerald-800">
-            Choose a record below to open this workspace directly in the selected section.
-          </p>
-        </section>
-      ) : null}
+
       {active === 'parties' ? (
         <>
           {error ? (
@@ -1111,6 +1108,12 @@ export function PortfolioConsole() {
           ) : null}
           {loading ? (
             <LoadingState label="Loading property owners" />
+          ) : isAggregatePortfolioView('owners', activeView) ? (
+            <OwnerSectionWorkspace
+              view={activeView as 'owned-properties' | 'documents'}
+              records={records as OwnerRecord[]}
+              canReadDocuments={hasPermission(principal, 'portfolio.document.read')}
+            />
           ) : (
             <OwnerDirectory
               initialDetailTab={ownerDetailTab}
@@ -1197,6 +1200,13 @@ export function PortfolioConsole() {
           ) : null}
           {loading ? (
             <LoadingState label="Loading property registry" />
+          ) : isAggregatePortfolioView('properties', activeView) ? (
+            <PropertySectionWorkspace
+              view={activeView as Exclude<PropertyDetailTab, 'overview'>}
+              records={records as PropertyRecord[]}
+              businessDate={principal.businessDate}
+              canReadDocuments={hasPermission(principal, 'portfolio.document.read')}
+            />
           ) : (
             <PropertyRegistry
               initialDetailTab={propertyDetailTab}
@@ -1407,7 +1417,25 @@ export function PortfolioConsole() {
               <span className="text-xs font-semibold text-slate-500">{records.length} records</span>
             </div>
             <div className="w-full min-w-0">
-              {loading ? <LoadingState label="Loading portfolio records" /> : renderRecords()}
+              {loading ? (
+                <LoadingState label="Loading portfolio records" />
+              ) : isAggregatePortfolioView('spaces', activeView) ? (
+                <SpaceSectionWorkspace
+                  view={
+                    activeView as
+                      | 'hierarchy'
+                      | 'measurements'
+                      | 'profile'
+                      | 'amenities'
+                      | 'documents'
+                      | 'lifecycle'
+                  }
+                  records={records as Space[]}
+                  canReadDocuments={hasPermission(principal, 'portfolio.document.read')}
+                />
+              ) : (
+                renderRecords()
+              )}
             </div>
           </section>
           {showActions ? (
