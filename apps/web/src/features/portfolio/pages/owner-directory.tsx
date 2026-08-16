@@ -1,6 +1,8 @@
 'use client';
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
+import { DetailTabs } from '@/components/shared/detail-tabs';
+import { OWNER_DETAIL_TABS } from '../portfolio-ia';
 
 import { Building2, Edit3, Eye, MoreHorizontal, Plus, Search, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
@@ -39,6 +41,7 @@ export type OwnerRecord = {
 };
 
 type Panel = 'create' | 'view' | 'edit' | null;
+export type OwnerDetailTab = (typeof OWNER_DETAIL_TABS)[number]['key'];
 const inputClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
 const value = (form: FormData, key: string) => {
@@ -103,6 +106,7 @@ export function OwnerDirectory({
   onCreate,
   onUpdate,
   onLoadDetails,
+  initialDetailTab = 'overview',
 }: {
   records: OwnerRecord[];
   parties: PartyRecord[];
@@ -115,12 +119,18 @@ export function OwnerDirectory({
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
   onLoadDetails: (partyId: string) => Promise<OwnerRecord>;
+  initialDetailTab?: OwnerDetailTab;
 }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [panel, setPanel] = useState<Panel>(null);
   const [selected, setSelected] = useState<OwnerRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailTab, setDetailTab] = useState<OwnerDetailTab>(initialDetailTab);
+  useEffect(() => {
+    setDetailTab(initialDetailTab);
+  }, [initialDetailTab]);
+
   const filtered = useMemo(
     () =>
       records.filter((owner) => {
@@ -153,6 +163,7 @@ export function OwnerDirectory({
   };
   const openView = async (record: OwnerRecord) => {
     setSelected(record);
+    setDetailTab(initialDetailTab);
     setPanel('view');
     setDetailLoading(true);
     try {
@@ -163,6 +174,7 @@ export function OwnerDirectory({
   };
   const close = () => {
     setPanel(null);
+    setDetailTab(initialDetailTab);
     setSelected(null);
   };
   return (
@@ -323,7 +335,7 @@ export function OwnerDirectory({
           >
             <label className="space-y-1.5 text-sm font-semibold">
               Person or organization
-              <SearchableSelect name="partyId" required className={inputClass}>
+              <SearchableSelect searchable name="partyId" required className={inputClass}>
                 <option value="">Choose by name</option>
                 {eligibleParties.map((party) => (
                   <option key={party.id} value={party.id}>
@@ -337,7 +349,7 @@ export function OwnerDirectory({
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Status
-              <SearchableSelect name="status" className={inputClass}>
+              <SearchableSelect searchable={false} name="status" className={inputClass}>
                 <option value="PROSPECTIVE">Prospective</option>
                 <option value="ACTIVE">Active</option>
               </SearchableSelect>
@@ -373,44 +385,101 @@ export function OwnerDirectory({
           onClose={close}
         >
           {detailLoading ? (
-            <div className="mb-4 space-y-2" aria-label="Loading owner properties">
-              <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
+            <div className="space-y-3" aria-label="Loading owner details">
+              <div className="h-12 animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-28 animate-pulse rounded-lg bg-slate-100" />
             </div>
           ) : (
-            <>
-              <dl className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ['Owner number', selected.ownerNumber],
-                  ['Party number', selected.party.partyNumber],
-                  ['Record type', humanize(selected.party.kind)],
-                  ['Communication', selected.communicationPreference || 'Not specified'],
-                  ['Status', humanize(selected.status)],
-                  ['Notes', selected.notes || 'No notes'],
-                ].map(([term, content]) => (
-                  <div key={term} className="rounded-lg border border-slate-200 p-3">
-                    <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {term}
-                    </dt>
-                    <dd className="mt-1 text-sm font-semibold text-slate-800">{content}</dd>
-                  </div>
-                ))}
-              </dl>
-              {canReadDocuments(selected) ? (
-                <div className="mt-6 border-t border-slate-200 pt-5">
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">{selected.ownerNumber}</p>
+                  <p className="text-xs text-slate-500">
+                    {humanize(selected.party.kind)} owner profile
+                  </p>
+                </div>
+                <StatusBadge value={selected.status} />
+              </div>
+              <DetailTabs
+                tabs={OWNER_DETAIL_TABS}
+                active={detailTab}
+                onChange={setDetailTab}
+                label="Owner detail sections"
+              />
+              {detailTab === 'overview' ? (
+                <div className="space-y-4">
+                  <dl className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      ['Owner number', selected.ownerNumber],
+                      ['Party number', selected.party.partyNumber],
+                      ['Record type', humanize(selected.party.kind)],
+                      ['Communication', selected.communicationPreference || 'Not specified'],
+                      ['Status', humanize(selected.status)],
+                      ['Notes', selected.notes || 'No notes'],
+                    ].map(([term, content]) => (
+                      <div key={term} className="rounded-lg border border-slate-200 p-3">
+                        <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {term}
+                        </dt>
+                        <dd className="mt-1 text-sm font-semibold text-slate-800">{content}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <section>
+                    <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Contact information
+                    </h3>
+                    {selected.party.contacts?.length ? (
+                      <div className="space-y-2">
+                        {selected.party.contacts.map((contact, index) => (
+                          <p
+                            key={contact.id ?? `${contact.type}-${index}`}
+                            className="rounded-lg border border-slate-200 p-3 text-sm"
+                          >
+                            <strong>{contact.value || 'Protected contact'}</strong>
+                            <span className="ml-2 text-xs text-slate-500">
+                              {humanize(contact.type)}
+                              {contact.primary ? ' · Primary' : ''}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                        No contact information recorded.
+                      </p>
+                    )}
+                  </section>
+                </div>
+              ) : null}
+              {detailTab === 'owned-properties' ? (
+                <OwnerPropertyPortfolio
+                  ownerships={selected.ownerships ?? []}
+                  businessDate={businessDate}
+                  mode="current"
+                />
+              ) : null}
+              {detailTab === 'documents' ? (
+                canReadDocuments(selected) ? (
                   <EntityDocuments
                     entityType="Owner"
                     entityId={selected.partyId}
                     canManage={canManageDocuments(selected)}
                   />
-                </div>
+                ) : (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    You do not have permission to view owner documents.
+                  </p>
+                )
               ) : null}
-              <div className="mt-6 border-t border-slate-200 pt-5">
+              {detailTab === 'ownership-history' ? (
                 <OwnerPropertyPortfolio
                   ownerships={selected.ownerships ?? []}
                   businessDate={businessDate}
+                  mode="history"
                 />
-              </div>
-            </>
+              ) : null}
+            </div>
           )}{' '}
         </Drawer>
       ) : null}
@@ -440,7 +509,12 @@ export function OwnerDirectory({
             </div>
             <label className="space-y-1.5 text-sm font-semibold">
               Status
-              <SearchableSelect name="status" defaultValue={selected.status} className={inputClass}>
+              <SearchableSelect
+                searchable={false}
+                name="status"
+                defaultValue={selected.status}
+                className={inputClass}
+              >
                 {['PROSPECTIVE', 'ACTIVE', 'SUSPENDED', 'INACTIVE'].map((item) => (
                   <option key={item} value={item}>
                     {humanize(item)}

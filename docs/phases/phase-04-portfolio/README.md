@@ -18,3 +18,6 @@ No Phase 5 workflow is included.
 - [test-plan.md](test-plan.md)
 - [completion-report.md](completion-report.md)
 - [ownership-remediation-report.md](ownership-remediation-report.md)
+- [Canonical Portfolio information architecture](../../design/phase-04-portfolio-information-architecture.md)
+- [Portfolio UX/IA implementation review](../../design/phase-04-portfolio-ux-ia-review.md)
+- [Portfolio hierarchical navigation](../../design/phase-04-portfolio-hierarchical-navigation.md)

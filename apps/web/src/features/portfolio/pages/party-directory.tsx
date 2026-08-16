@@ -107,6 +107,7 @@ export function PartyDirectory({
   onCreate,
   onUpdate,
   onLoadDetails,
+  initialKind = 'all',
 }: {
   records: PartyRecord[];
   branches: { id: string; name: string }[];
@@ -116,15 +117,20 @@ export function PartyDirectory({
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
   onLoadDetails: (partyId: string) => Promise<PartyRecord>;
+  initialKind?: 'all' | 'PERSON' | 'ORGANIZATION';
 }) {
   const [query, setQuery] = useState('');
-  const [kind, setKind] = useState('all');
+  const [kind, setKind] = useState(initialKind);
   const [status, setStatus] = useState('all');
   const [panel, setPanel] = useState<Panel>(null);
   const [selected, setSelected] = useState<PartyRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [editContacts, setEditContacts] = useState<NonNullable<PartyRecord['contacts']>>([]);
   const [editAddresses, setEditAddresses] = useState<NonNullable<PartyRecord['addresses']>>([]);
+  useEffect(() => {
+    setKind(initialKind);
+  }, [initialKind]);
+
   const filtered = useMemo(
     () =>
       records.filter((party) => {
@@ -152,6 +158,19 @@ export function PartyDirectory({
   const open = (next: Exclude<Panel, null>, party?: PartyRecord) => {
     setSelected(party ?? null);
     setPanel(next);
+  };
+  const openView = async (party: PartyRecord) => {
+    setSelected(party);
+    setPanel('view');
+    setDetailLoading(true);
+    try {
+      setSelected(await onLoadDetails(party.id));
+    } catch {
+      setPanel(null);
+      setSelected(null);
+    } finally {
+      setDetailLoading(false);
+    }
   };
   const openEdit = async (party: PartyRecord) => {
     setSelected(party);
@@ -213,7 +232,7 @@ export function PartyDirectory({
           </label>
           <SearchableSelect
             value={kind}
-            onChange={(event) => setKind(event.target.value)}
+            onChange={(event) => setKind(event.target.value as typeof kind)}
             className={inputClass}
             aria-label="Filter by type"
           >
@@ -260,7 +279,7 @@ export function PartyDirectory({
                     <td className="px-5 py-4">
                       <button
                         type="button"
-                        onClick={() => open('view', party)}
+                        onClick={() => void openView(party)}
                         className="flex items-center gap-3 text-left"
                       >
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
@@ -302,7 +321,7 @@ export function PartyDirectory({
                         <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
                           <button
                             type="button"
-                            onClick={() => open('view', party)}
+                            onClick={() => void openView(party)}
                             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
                           >
                             <Eye className="h-4 w-4" /> View details
@@ -387,7 +406,7 @@ export function PartyDirectory({
           >
             <label className="space-y-1.5 text-sm font-semibold">
               Responsible branch
-              <SearchableSelect name="branchId" className={inputClass} required>
+              <SearchableSelect searchable name="branchId" className={inputClass} required>
                 <option value="">Choose a branch</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -442,44 +461,128 @@ export function PartyDirectory({
           description="Business identity and contact summary."
           onClose={close}
         >
-          <div className="space-y-5">
-            <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white">
-                <UserRound className="h-6 w-6" />
-              </span>
-              <div>
-                <strong>{selected.displayName}</strong>
-                <p className="text-xs text-slate-500">
-                  {selected.partyNumber} · {humanize(selected.kind)}
-                </p>
-              </div>
-              <span className="ml-auto">
-                <StatusBadge value={selected.active} />
-              </span>
+          {detailLoading ? (
+            <div className="space-y-3" aria-label="Loading Party details">
+              <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-32 animate-pulse rounded-lg bg-slate-100" />
             </div>
-            <section>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                Contacts
-              </h3>
-              <div className="space-y-2">
-                {selected.contacts?.length ? (
-                  selected.contacts.map((contact) => (
-                    <div key={contact.id} className="rounded-lg border border-slate-200 p-3">
-                      <strong className="text-sm">{contact.value || 'Protected contact'}</strong>
-                      <p className="text-xs text-slate-500">
-                        {humanize(contact.type)}
-                        {contact.primary ? ' · Primary' : ''}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                    No contact recorded.
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white">
+                  <UserRound className="h-6 w-6" />
+                </span>
+                <div>
+                  <strong>{selected.displayName}</strong>
+                  <p className="text-xs text-slate-500">
+                    {selected.partyNumber} · {humanize(selected.kind)}
                   </p>
-                )}
+                </div>
+                <span className="ml-auto">
+                  <StatusBadge value={selected.active} />
+                </span>
               </div>
-            </section>
-          </div>
+              <section>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Identity
+                </h3>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  {(selected.kind === 'PERSON'
+                    ? [
+                        ['Given name', selected.person?.givenName || 'Not recorded'],
+                        ['Family name', selected.person?.familyName || 'Not recorded'],
+                        ['Preferred name', selected.person?.preferredName || 'Not recorded'],
+                        ['Nationality', selected.person?.nationalityCode || 'Not recorded'],
+                      ]
+                    : [
+                        ['Legal name', selected.organization?.legalName || selected.displayName],
+                        ['Trading name', selected.organization?.tradingName || 'Not recorded'],
+                        [
+                          'Registration number',
+                          selected.organization?.registrationNumber || 'Not recorded',
+                        ],
+                        [
+                          'Contact person',
+                          selected.organization?.contactPersonName || 'Not recorded',
+                        ],
+                      ]
+                  ).map(([term, content]) => (
+                    <div key={term} className="rounded-lg border border-slate-200 p-3">
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {term}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-slate-800">{content}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+              <section>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Owner profile
+                </h3>
+                <p className="rounded-lg border border-slate-200 p-3 text-sm font-semibold text-slate-800">
+                  {selected.owner
+                    ? `${selected.owner.ownerNumber} · ${humanize(selected.owner.status)}`
+                    : 'This Party does not have an owner profile.'}
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Contacts
+                </h3>
+                <div className="space-y-2">
+                  {selected.contacts?.length ? (
+                    selected.contacts.map((contact, index) => (
+                      <div
+                        key={contact.id ?? `${contact.type}-${index}`}
+                        className="rounded-lg border border-slate-200 p-3"
+                      >
+                        <strong className="text-sm">{contact.value || 'Protected contact'}</strong>
+                        <p className="text-xs text-slate-500">
+                          {humanize(contact.type)}
+                          {contact.primary ? ' · Primary' : ''}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                      No contact recorded.
+                    </p>
+                  )}
+                </div>
+              </section>
+              <section>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Addresses
+                </h3>
+                <div className="space-y-2">
+                  {selected.addresses?.length ? (
+                    selected.addresses.map((address, index) => (
+                      <div
+                        key={address.id ?? `${address.line1}-${index}`}
+                        className="rounded-lg border border-slate-200 p-3"
+                      >
+                        <strong className="text-sm">{address.line1}</strong>
+                        <p className="text-xs text-slate-500">
+                          {[
+                            address.city,
+                            address.countryCode,
+                            address.type ? humanize(address.type) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                      No address recorded.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}{' '}
         </Drawer>
       ) : null}
       {panel === 'edit' && selected ? (

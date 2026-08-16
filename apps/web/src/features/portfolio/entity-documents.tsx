@@ -5,6 +5,7 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, type CursorPage, userFacingError } from '@/lib/phase3-api';
+import { documentTypeLabel, formatFileSize, humanize } from '@/lib/presentation';
 import { EmptyState, LoadingState, StatusBadge } from '@/components/shared/ui';
 
 interface DocumentRecord {
@@ -103,7 +104,8 @@ export function EntityDocuments({
               <div>
                 <strong>{document.displayName}</strong>
                 <p className="text-xs text-slate-500">
-                  {document.categoryCode} · {document.versions.length} version
+                  {humanize(document.categoryCode)} · {humanize(document.accessClass)} ·{' '}
+                  {document.versions.length} version
                   {document.versions.length === 1 ? '' : 's'} · Added{' '}
                   {document.createdAt.slice(0, 10)}
                 </p>
@@ -112,7 +114,8 @@ export function EntityDocuments({
             </div>
             {document.versions.map((version) => (
               <p key={version.id} className="mt-1 text-xs text-slate-500">
-                Version {version.sequence} · {version.mimeType} · {version.sizeBytes} bytes
+                Version {version.sequence} · {documentTypeLabel(version.mimeType)} ·{' '}
+                {formatFileSize(version.sizeBytes)}
                 {version.expiresOn ? ` · expires ${version.expiresOn.slice(0, 10)}` : ''}
               </p>
             ))}
@@ -121,40 +124,49 @@ export function EntityDocuments({
                 className="mt-3 grid gap-2 sm:grid-cols-2"
                 onSubmit={(event) => void update(event, document.id)}
               >
-                <input
-                  aria-label="Document name"
-                  className={inputClass}
-                  name="displayName"
-                  defaultValue={document.displayName}
-                  required
-                />
-                <input
-                  aria-label="Category"
-                  className={inputClass}
-                  name="categoryCode"
-                  defaultValue={document.categoryCode}
-                  required
-                />
-                <SearchableSelect
-                  aria-label="Access class"
-                  className={inputClass}
-                  name="accessClass"
-                  defaultValue={document.accessClass}
-                >
-                  <option>INTERNAL</option>
-                  <option>CONFIDENTIAL</option>
-                  <option>RESTRICTED</option>
-                </SearchableSelect>
-                <SearchableSelect
-                  aria-label="Status"
-                  className={inputClass}
-                  name="status"
-                  defaultValue={document.status}
-                >
-                  <option>PENDING</option>
-                  <option>ACTIVE</option>
-                  <option>ARCHIVED</option>
-                </SearchableSelect>
+                <label className="space-y-1 text-xs font-bold text-slate-600">
+                  <span>Document name</span>
+                  <input
+                    className={inputClass}
+                    name="displayName"
+                    defaultValue={document.displayName}
+                    required
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-bold text-slate-600">
+                  <span>Category</span>
+                  <input
+                    className={inputClass}
+                    name="categoryCode"
+                    defaultValue={document.categoryCode}
+                    required
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-bold text-slate-600">
+                  <span>Access</span>
+                  <SearchableSelect
+                    className={inputClass}
+                    name="accessClass"
+                    defaultValue={document.accessClass}
+                  >
+                    <option value="INTERNAL">Internal</option>
+                    <option value="CONFIDENTIAL">Confidential</option>
+                    <option value="RESTRICTED">Restricted</option>
+                  </SearchableSelect>
+                </label>
+                <label className="space-y-1 text-xs font-bold text-slate-600">
+                  <span>Status</span>
+                  <SearchableSelect
+                    searchable={false}
+                    className={inputClass}
+                    name="status"
+                    defaultValue={document.status}
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </SearchableSelect>
+                </label>
                 <button
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold sm:col-span-2"
                   disabled={busy}

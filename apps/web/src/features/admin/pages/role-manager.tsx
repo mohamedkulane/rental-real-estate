@@ -426,7 +426,7 @@ export function RoleManager({
                     .catch(() => undefined);
                 }}
               >
-                <SearchableSelect name="permissionId" required className={inputClass}>
+                <SearchableSelect searchable name="permissionId" required className={inputClass}>
                   <option value="">Choose a capability</option>
                   {permissions
                     .filter(

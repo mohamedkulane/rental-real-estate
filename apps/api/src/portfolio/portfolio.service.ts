@@ -180,6 +180,8 @@ export class PortfolioService {
         spaces: {
           include: {
             type: true,
+            building: true,
+            childRelations: { include: { parent: { select: { name: true, spaceCode: true } } } },
             versions: { orderBy: { effectiveFrom: 'desc' } },
             landProfile: true,
             residentialProfile: true,
@@ -826,7 +828,7 @@ export class PortfolioService {
   }
 
   async listSpaces(principal: AuthenticatedPrincipal, query: ListSpacesQueryDto) {
-    const { propertyId } = query;
+    const { propertyId, buildingId, typeCode, status } = query;
     if (propertyId)
       await this.assertPropertyPermission(principal, propertyId, 'portfolio.space.read');
     const at = await this.businessDate.today(principal.companyId);
@@ -834,6 +836,9 @@ export class PortfolioService {
     const rows = await this.database.rentableSpace.findMany({
       where: {
         ...(propertyId ? { propertyId } : {}),
+        ...(buildingId ? { buildingId } : {}),
+        ...(typeCode ? { type: { code: typeCode } } : {}),
+        ...(status ? { status } : {}),
         ...(query.search
           ? {
               OR: [
@@ -897,8 +902,17 @@ export class PortfolioService {
         building: true,
         type: true,
         versions: { orderBy: { effectiveFrom: 'desc' } },
-        childRelations: { include: { child: { include: { type: true, versions: true } } } },
-        parentRelations: true,
+        childRelations: {
+          include: {
+            child: { include: { type: true, versions: true } },
+            parent: { select: { id: true, name: true, spaceCode: true } },
+          },
+        },
+        parentRelations: {
+          include: {
+            child: { select: { id: true, name: true, spaceCode: true, type: true } },
+          },
+        },
         landProfile: true,
         residentialProfile: true,
         commercialProfile: true,

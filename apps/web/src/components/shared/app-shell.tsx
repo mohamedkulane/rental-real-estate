@@ -16,11 +16,17 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccessScopeBadge } from './ui';
+import {
+  expandedParentForActive,
+  navigationItemIsActive,
+  nextExpandedParent,
+  type NavigationItem,
+} from './navigation-model';
 
 export type ShellSection = 'overview' | 'organization' | 'portfolio' | 'administration';
-export type ShellSubItem = { key: string; label: string; onSelect: () => void };
+export type ShellSubItem = NavigationItem;
 
 type NavItem = ShellSubItem & { icon?: typeof Home | undefined };
 
@@ -35,6 +41,13 @@ function NavGroup({
   activeItem: string | undefined;
   onNavigate: () => void;
 }) {
+  const activeParent = expandedParentForActive(items, activeItem);
+  const [expanded, setExpanded] = useState<string | undefined>(activeParent);
+
+  useEffect(() => {
+    if (activeParent) setExpanded(activeParent);
+  }, [activeParent]);
+
   if (!items.length) return null;
   return (
     <div className="space-y-1">
@@ -43,42 +56,105 @@ function NavGroup({
       </p>
       {items.map((item) => {
         const Icon = item.icon;
-        const selected = activeItem === item.key;
+        const selected = navigationItemIsActive(item, activeItem);
+        const hasChildren = Boolean(item.children?.length);
+        const isExpanded = expanded === item.key;
         return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => {
-              item.onSelect();
-              onNavigate();
-            }}
-            className={
-              'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ' +
-              (selected
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-300 hover:bg-slate-800/70 hover:text-white')
-            }
-          >
-            {Icon ? (
-              <Icon
-                className={
-                  'h-[18px] w-[18px] ' + (selected ? 'text-emerald-400' : 'text-slate-400')
+          <div key={item.key}>
+            <button
+              type="button"
+              aria-expanded={hasChildren ? isExpanded : undefined}
+              aria-controls={hasChildren ? `nav-children-${item.key}` : undefined}
+              aria-current={!hasChildren && selected ? 'page' : undefined}
+              onClick={() => {
+                if (hasChildren) {
+                  setExpanded((current) => nextExpandedParent(current, item.key));
+                  return;
                 }
-                aria-hidden="true"
-              />
-            ) : (
-              <span
+                item.onSelect?.();
+                onNavigate();
+              }}
+              className={
+                'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ' +
+                (selected
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'text-slate-300 hover:bg-slate-800/70 hover:text-white')
+              }
+            >
+              {Icon ? (
+                <Icon
+                  className={
+                    'h-[18px] w-[18px] shrink-0 ' +
+                    (selected ? 'text-emerald-400' : 'text-slate-400')
+                  }
+                  aria-hidden="true"
+                />
+              ) : (
+                <span
+                  className={
+                    'ml-1 h-1.5 w-1.5 shrink-0 rounded-full ' +
+                    (selected ? 'bg-emerald-400' : 'bg-slate-600')
+                  }
+                  aria-hidden="true"
+                />
+              )}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {hasChildren ? (
+                <ChevronRight
+                  className={
+                    'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ' +
+                    (isExpanded ? 'rotate-90' : '')
+                  }
+                  aria-hidden="true"
+                />
+              ) : selected ? (
+                <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              ) : null}
+            </button>
+            {hasChildren ? (
+              <div
+                id={`nav-children-${item.key}`}
                 className={
-                  'ml-1 h-1.5 w-1.5 rounded-full ' + (selected ? 'bg-emerald-400' : 'bg-slate-600')
+                  'grid transition-[grid-template-rows,opacity] duration-200 ease-out ' +
+                  (isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')
                 }
-                aria-hidden="true"
-              />
-            )}
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {selected ? (
-              <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              >
+                <div className="overflow-hidden">
+                  <div className="space-y-0.5 pb-1 pl-8 pt-1">
+                    {item.children?.map((child) => {
+                      const childSelected = activeItem === child.key;
+                      return (
+                        <button
+                          key={child.key}
+                          type="button"
+                          aria-current={childSelected ? 'page' : undefined}
+                          onClick={() => {
+                            child.onSelect?.();
+                            onNavigate();
+                          }}
+                          className={
+                            'flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ' +
+                            (childSelected
+                              ? 'bg-emerald-500/15 text-emerald-300'
+                              : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')
+                          }
+                        >
+                          <span
+                            className={
+                              'h-1.5 w-1.5 shrink-0 rounded-full ' +
+                              (childSelected ? 'bg-emerald-400' : 'bg-slate-700')
+                            }
+                            aria-hidden="true"
+                          />
+                          <span className="truncate">{child.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             ) : null}
-          </button>
+          </div>
         );
       })}
     </div>
@@ -179,6 +255,16 @@ export function AppShell({
           go('amenities', 'Amenities', '/portfolio?section=amenities', Building2),
         ),
       ];
+  const decoratedPortfolioItems: NavItem[] = portfolioItems.map((item) => ({
+    ...item,
+    icon:
+      item.key === 'parties' || item.key === 'owners'
+        ? Users
+        : item.key === 'properties' || item.key === 'spaces' || item.key === 'amenities'
+          ? Building2
+          : undefined,
+  }));
+
   const oversight = administration.length
     ? pick(administration, ['audit'], { audit: ClipboardList })
     : allowed(
@@ -274,7 +360,7 @@ export function AppShell({
           />
           <NavGroup
             title="Portfolio"
-            items={portfolioItems}
+            items={decoratedPortfolioItems}
             activeItem={activeItem}
             onNavigate={() => setOpen(false)}
           />

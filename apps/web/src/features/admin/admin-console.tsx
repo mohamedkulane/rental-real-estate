@@ -610,7 +610,7 @@ export function AdminConsole() {
               </label>
               <label>
                 Primary branch
-                <SearchableSelect name="branchId" required>
+                <SearchableSelect searchable name="branchId" required>
                   <option value="">Choose a branch</option>
                   {catalogs.branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
@@ -657,7 +657,7 @@ export function AdminConsole() {
               >
                 <label>
                   Employee
-                  <SearchableSelect name="employeeId" required>
+                  <SearchableSelect searchable name="employeeId" required>
                     <option value="">Choose an employee</option>
                     {catalogs.employees.map((employee) => (
                       <option key={employee.id} value={employee.id}>
@@ -668,7 +668,7 @@ export function AdminConsole() {
                 </label>
                 <label>
                   Role
-                  <SearchableSelect name="roleId" required>
+                  <SearchableSelect searchable name="roleId" required>
                     <option value="">Choose a role</option>
                     {catalogs.roles.map((role) => (
                       <option key={role.id} value={role.id}>
@@ -679,7 +679,7 @@ export function AdminConsole() {
                 </label>
                 <label className="full">
                   Role scope
-                  <SearchableSelect name="branchId">
+                  <SearchableSelect searchable name="branchId">
                     <option value="">Company level</option>
                     {catalogs.branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>
@@ -759,7 +759,7 @@ export function AdminConsole() {
           >
             <label>
               Role
-              <SearchableSelect name="roleId" required>
+              <SearchableSelect searchable name="roleId" required>
                 <option value="">Choose a role</option>
                 {catalogs.roles.map((role) => (
                   <option key={role.id} value={role.id}>
@@ -770,7 +770,7 @@ export function AdminConsole() {
             </label>
             <label>
               Capability
-              <SearchableSelect name="permissionId" required>
+              <SearchableSelect searchable name="permissionId" required>
                 <option value="">Choose a capability</option>
                 {catalogs.permissions.map((permission) => (
                   <option key={permission.id} value={permission.id}>
@@ -809,7 +809,7 @@ export function AdminConsole() {
             >
               <label>
                 User account
-                <SearchableSelect name="userId" required>
+                <SearchableSelect searchable name="userId" required>
                   <option value="">Choose a user</option>
                   {catalogs.users.map((user) => (
                     <option key={text(user.id)} value={text(user.id)}>
@@ -856,7 +856,7 @@ export function AdminConsole() {
               >
                 <label className="full">
                   Active session
-                  <SearchableSelect name="sessionId" required>
+                  <SearchableSelect searchable name="sessionId" required>
                     <option value="">Choose a session</option>
                     {catalogs.users.flatMap((user) =>
                       array(user.sessions)

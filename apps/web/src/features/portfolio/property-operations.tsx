@@ -13,9 +13,10 @@ import {
   type Principal,
   userFacingError,
 } from '@/lib/phase3-api';
-import { humanize } from '@/lib/presentation';
+import { documentTypeLabel, formatFileSize, humanize } from '@/lib/presentation';
 import { EmptyState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import type { BranchOption, PropertyRecord } from './pages/property-registry';
+import type { PropertyDetailSection } from './portfolio-ia';
 
 interface BuildingRecord {
   id: string;
@@ -59,10 +60,12 @@ export function PropertyOperations({
   property: initialProperty,
   branches,
   principal,
+  section,
 }: {
   property: PropertyRecord;
   branches: BranchOption[];
   principal: Principal;
+  section: PropertyDetailSection;
 }) {
   const [property, setProperty] = useState(initialProperty);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
@@ -105,13 +108,13 @@ export function PropertyOperations({
     try {
       const [nextProperty, nextBuildings, amenityCatalog, documentPage] = await Promise.all([
         api<PropertyRecord>(`/properties/${initialProperty.id}`),
-        can('portfolio.building.read')
+        section === 'buildings' && can('portfolio.building.read')
           ? api<BuildingRecord[]>(`/properties/${initialProperty.id}/buildings`)
           : Promise.resolve([]),
-        can('portfolio.amenity.read')
+        section === 'amenities' && can('portfolio.amenity.read')
           ? apiCached<AmenityRecord[]>('/amenities')
           : Promise.resolve([]),
-        can('portfolio.document.read')
+        section === 'documents' && can('portfolio.document.read')
           ? api<CursorPage<DocumentRecord>>(
               `/portfolio-documents?entityType=Property&entityId=${initialProperty.id}`,
             )
@@ -122,11 +125,11 @@ export function PropertyOperations({
       setAmenities(amenityCatalog);
       setDocuments(documentPage.items);
     } catch (cause) {
-      setError(userFacingError(cause, 'Property operations could not be loaded.'));
+      setError(userFacingError(cause, 'This property section could not be loaded.'));
     } finally {
       setLoading(false);
     }
-  }, [can, initialProperty.id]);
+  }, [can, initialProperty.id, section]);
 
   useEffect(() => {
     void load();
@@ -138,7 +141,7 @@ export function PropertyOperations({
     try {
       await api(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       await load();
-      toast.success('Property operations updated.');
+      toast.success('Property updated.');
     } catch (cause) {
       const message = userFacingError(cause, 'The change could not be saved.');
       setError(message);
@@ -148,7 +151,15 @@ export function PropertyOperations({
     }
   };
 
-  if (loading) return <LoadingState label="Loading property operations" />;
+  if (loading) return <LoadingState label={`Loading ${section.replace('-', ' ')}`} />;
+  const currentAssignment = property.branchAssignments.find(
+    (assignment) =>
+      assignment.effectiveFrom.slice(0, 10) <= principal.businessDate &&
+      (!assignment.effectiveTo || assignment.effectiveTo.slice(0, 10) > principal.businessDate),
+  );
+  const historicalAssignments = property.branchAssignments.filter(
+    (assignment) => assignment !== currentAssignment,
+  );
   const assignedAmenities = property.amenities?.map((item) => item.amenity) ?? [];
   const availableAmenities = amenities.filter(
     (amenity) =>
@@ -166,27 +177,62 @@ export function PropertyOperations({
         </div>
       ) : null}
 
-      <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+      <section
+        className={
+          (section === 'branch-history' ? '' : 'hidden ') +
+          'space-y-3 rounded-xl border border-slate-200 p-4'
+        }
+      >
         <div>
           <h3 className="font-bold text-slate-900">Operating branch</h3>
           <p className="text-xs text-slate-500">
             Current assignment and complete effective-dated history.
           </p>
         </div>
-        <div className="space-y-2">
-          {property.branchAssignments.map((assignment) => (
-            <div
-              key={`${assignment.branchId}-${assignment.effectiveFrom}`}
-              className="flex flex-wrap justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm"
-            >
-              <strong>{assignment.branch?.name ?? assignment.branchId}</strong>
-              <span>
-                {assignment.effectiveFrom.slice(0, 10)} —{' '}
-                {assignment.effectiveTo?.slice(0, 10) ?? 'Current'}
-              </span>
+        <section className="space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Current operating branch
+          </h4>
+          {currentAssignment ? (
+            <div className="flex flex-wrap justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+              <strong>{currentAssignment.branch?.name ?? 'Branch record unavailable'}</strong>
+              <span>{currentAssignment.effectiveFrom.slice(0, 10)} — Present</span>
             </div>
-          ))}
-        </div>
+          ) : (
+            <EmptyState
+              title="No current branch"
+              description="This property has no effective operating branch assignment."
+            />
+          )}
+        </section>
+        <section className="space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Historical branch assignments
+          </h4>
+          {historicalAssignments.length ? (
+            historicalAssignments.map((assignment) => (
+              <div
+                key={`${assignment.branchId}-${assignment.effectiveFrom}`}
+                className="flex flex-wrap justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm"
+              >
+                <strong>{assignment.branch?.name ?? 'Branch record unavailable'}</strong>
+                <span>
+                  {assignment.effectiveFrom.slice(0, 10)} —{' '}
+                  {assignment.effectiveTo?.slice(0, 10) ?? 'Scheduled / open'}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+              No historical branch assignments.
+            </p>
+          )}
+        </section>
+        {can('portfolio.property.update') ? (
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Transfer operating branch
+          </h4>
+        ) : null}{' '}
         {can('portfolio.property.update') ? (
           <form
             className="grid gap-3 md:grid-cols-3"
@@ -202,7 +248,7 @@ export function PropertyOperations({
           >
             <label className="text-sm font-semibold">
               New branch
-              <SearchableSelect className={inputClass} name="branchId" required>
+              <SearchableSelect searchable className={inputClass} name="branchId" required>
                 <option value="">Choose branch</option>
                 {branches
                   .filter((branch) => !branchIds.includes(branch.id))
@@ -238,7 +284,12 @@ export function PropertyOperations({
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+      <section
+        className={
+          (section === 'buildings' ? '' : 'hidden ') +
+          'space-y-3 rounded-xl border border-slate-200 p-4'
+        }
+      >
         <div>
           <h3 className="font-bold text-slate-900">Buildings</h3>
           <p className="text-xs text-slate-500">Create, update, and control building lifecycle.</p>
@@ -306,6 +357,7 @@ export function PropertyOperations({
                     }}
                   >
                     <SearchableSelect
+                      searchable={false}
                       aria-label="Building status"
                       className={inputClass}
                       name="status"
@@ -382,7 +434,12 @@ export function PropertyOperations({
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+      <section
+        className={
+          (section === 'amenities' ? '' : 'hidden ') +
+          'space-y-3 rounded-xl border border-slate-200 p-4'
+        }
+      >
         <div>
           <h3 className="font-bold text-slate-900">Amenities</h3>
           <p className="text-xs text-slate-500">
@@ -426,7 +483,13 @@ export function PropertyOperations({
               });
             }}
           >
-            <SearchableSelect aria-label="Amenity" className={inputClass} name="amenityId" required>
+            <SearchableSelect
+              searchable
+              aria-label="Amenity"
+              className={inputClass}
+              name="amenityId"
+              required
+            >
               <option value="">Choose amenity</option>
               {availableAmenities.map((amenity) => (
                 <option key={amenity.id} value={amenity.id}>
@@ -444,7 +507,12 @@ export function PropertyOperations({
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+      <section
+        className={
+          (section === 'documents' ? '' : 'hidden ') +
+          'space-y-3 rounded-xl border border-slate-200 p-4'
+        }
+      >
         <div>
           <h3 className="font-bold text-slate-900">Documents</h3>
           <p className="text-xs text-slate-500">
@@ -465,7 +533,8 @@ export function PropertyOperations({
                 <div>
                   <strong>{document.displayName}</strong>
                   <p className="text-xs text-slate-500">
-                    {humanize(document.categoryCode)} · {document.versions.length} version
+                    {humanize(document.categoryCode)} · {humanize(document.accessClass)} ·{' '}
+                    {document.versions.length} version
                     {document.versions.length === 1 ? '' : 's'} · Added{' '}
                     {document.createdAt.slice(0, 10)}
                   </p>
@@ -474,7 +543,8 @@ export function PropertyOperations({
               </div>
               {document.versions.map((version) => (
                 <p key={version.id} className="mt-2 text-xs text-slate-500">
-                  Version {version.sequence} · {version.mimeType} · {version.sizeBytes} bytes
+                  Version {version.sequence} · {documentTypeLabel(version.mimeType)} ·{' '}
+                  {formatFileSize(version.sizeBytes)}
                   {version.expiresOn ? ` · expires ${version.expiresOn.slice(0, 10)}` : ''}
                 </p>
               ))}
@@ -492,40 +562,49 @@ export function PropertyOperations({
                     });
                   }}
                 >
-                  <input
-                    aria-label="Document name"
-                    className={inputClass}
-                    name="displayName"
-                    defaultValue={document.displayName}
-                    required
-                  />
-                  <input
-                    aria-label="Document category"
-                    className={inputClass}
-                    name="categoryCode"
-                    defaultValue={document.categoryCode}
-                    required
-                  />
-                  <SearchableSelect
-                    aria-label="Access class"
-                    className={inputClass}
-                    name="accessClass"
-                    defaultValue={document.accessClass}
-                  >
-                    <option>INTERNAL</option>
-                    <option>CONFIDENTIAL</option>
-                    <option>RESTRICTED</option>
-                  </SearchableSelect>
-                  <SearchableSelect
-                    aria-label="Document status"
-                    className={inputClass}
-                    name="status"
-                    defaultValue={document.status}
-                  >
-                    <option>PENDING</option>
-                    <option>ACTIVE</option>
-                    <option>ARCHIVED</option>
-                  </SearchableSelect>
+                  <label className="space-y-1 text-xs font-bold text-slate-600">
+                    <span>Document name</span>
+                    <input
+                      className={inputClass}
+                      name="displayName"
+                      defaultValue={document.displayName}
+                      required
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold text-slate-600">
+                    <span>Category</span>
+                    <input
+                      className={inputClass}
+                      name="categoryCode"
+                      defaultValue={document.categoryCode}
+                      required
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-bold text-slate-600">
+                    <span>Access</span>
+                    <SearchableSelect
+                      className={inputClass}
+                      name="accessClass"
+                      defaultValue={document.accessClass}
+                    >
+                      <option value="INTERNAL">Internal</option>
+                      <option value="CONFIDENTIAL">Confidential</option>
+                      <option value="RESTRICTED">Restricted</option>
+                    </SearchableSelect>
+                  </label>
+                  <label className="space-y-1 text-xs font-bold text-slate-600">
+                    <span>Status</span>
+                    <SearchableSelect
+                      searchable={false}
+                      className={inputClass}
+                      name="status"
+                      defaultValue={document.status}
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="ARCHIVED">Archived</option>
+                    </SearchableSelect>
+                  </label>
                   <button
                     disabled={busy}
                     className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold md:col-span-4"

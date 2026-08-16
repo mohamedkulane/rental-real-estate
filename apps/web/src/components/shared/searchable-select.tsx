@@ -21,6 +21,9 @@ export const searchableOptionText = (option: OptionElement): string => {
   return label || String(option.props.value ?? '');
 };
 
+export const matchesSearchableOption = (option: OptionElement, query: string): boolean =>
+  searchableOptionText(option).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+
 export const isStatusSelection = (name?: string, ariaLabel?: string, className?: string): boolean =>
   [name, ariaLabel, className]
     .filter((value): value is string => Boolean(value))
@@ -38,7 +41,9 @@ export function SearchableSelect({
   const selectRef = useRef<HTMLSelectElement>(null);
   const lastAutoSelection = useRef('');
   const selectedValue = String(props.value ?? props.defaultValue ?? '');
-  const showSearch = searchable !== false && !isStatusSelection(props.name, ariaLabel, className);
+  // Compact selects are the default. Search is opt-in for genuinely long,
+  // data-backed lists (people, properties, buildings, roles, and similar).
+  const showSearch = searchable === true && !isStatusSelection(props.name, ariaLabel, className);
   const childOptions = useMemo(
     () =>
       Children.toArray(children).filter((child): child is OptionElement => isValidElement(child)),
@@ -51,7 +56,7 @@ export function SearchableSelect({
         (option) =>
           !normalizedQuery ||
           String(option.props.value ?? '') === selectedValue ||
-          searchableOptionText(option).toLowerCase().includes(normalizedQuery),
+          matchesSearchableOption(option, normalizedQuery),
       ),
     [childOptions, normalizedQuery, selectedValue],
   );

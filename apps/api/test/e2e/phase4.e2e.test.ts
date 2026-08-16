@@ -363,6 +363,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${token}`)
       .send({
         propertyId,
+        buildingId,
         typeCode: 'HALL',
         spaceCode: `U-${suffix}`,
         name: 'Main Hall',
@@ -486,6 +487,23 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(second.body.items).toHaveLength(1);
     expect(second.body.items[0].propertyId).toBe(propertyId);
     expect(second.body.items[0].id).not.toBe(first.body.items[0].id);
+  });
+  it('filters rentable spaces by search, building, type, and status on the server', async () => {
+    const filtered = await request(app.getHttpServer())
+      .get(
+        `/api/v1/rentable-spaces?propertyId=${propertyId}&buildingId=${buildingId}&typeCode=HALL&status=ACTIVE&search=Main`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(filtered.body.items).toHaveLength(1);
+    expect(filtered.body.items[0]).toMatchObject({
+      id: parentSpaceId,
+      propertyId,
+      buildingId,
+      status: 'ACTIVE',
+      name: 'Main Hall',
+    });
+    expect(filtered.body.items[0].type.code).toBe('HALL');
   });
   it('rejects excess partition area and hierarchy cycles', async () => {
     await request(app.getHttpServer())

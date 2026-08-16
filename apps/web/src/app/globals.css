@@ -1459,11 +1459,17 @@ html {
 .searchable-select {
   display: grid;
   gap: 0.45rem;
+  min-width: 0;
   width: 100%;
 }
 .searchable-select-search {
   position: relative;
   display: block;
+  min-width: 0;
+}
+.searchable-select > select,
+.searchable-select-search input {
+  max-width: 100%;
 }
 .searchable-select-search svg {
   position: absolute;

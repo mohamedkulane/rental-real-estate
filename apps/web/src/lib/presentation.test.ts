@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatDate,
+  documentTypeLabel,
+  formatFileSize,
   humanize,
   permissionDomain,
   permissionLabel,
@@ -11,6 +13,13 @@ describe('presentation helpers', () => {
   it('turns backend values into readable business labels', () => {
     expect(humanize('COMPANY_WIDE')).toBe('Company Wide');
     expect(humanize('rent_collection_only')).toBe('Rent Collection Only');
+  });
+
+  it('formats document metadata for normal users', () => {
+    expect(documentTypeLabel('application/pdf')).toBe('PDF Document');
+    expect(documentTypeLabel('image/jpeg')).toBe('JPEG Image');
+    expect(formatFileSize('1024')).toBe('1 KB');
+    expect(formatFileSize(1536)).toBe('1.5 KB');
   });
 
   it('uses a human-friendly fallback when a date is absent', () => {

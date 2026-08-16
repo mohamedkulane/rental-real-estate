@@ -1,6 +1,7 @@
 'use client';
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
+import { DetailTabs } from '@/components/shared/detail-tabs';
 
 import type { FormEvent, ReactNode } from 'react';
 import {
@@ -18,10 +19,12 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import type { Principal } from '@/lib/phase3-api';
 import { PropertyOperations } from '../property-operations';
+import { PROPERTY_DETAIL_TABS, type PropertyDetailSection } from '../portfolio-ia';
+import { PropertyActivity } from '../property-activity';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 import { OwnershipEditor, OwnershipWorkspace } from '../ownership-workflow';
@@ -32,6 +35,7 @@ import type {
 } from '../ownership-model';
 
 export type BranchOption = { id: string; code: string; name: string };
+export type PropertyDetailTab = (typeof PROPERTY_DETAIL_TABS)[number]['key'];
 export type PropertyRecord = {
   id: string;
   propertyCode: string;
@@ -39,6 +43,8 @@ export type PropertyRecord = {
   propertyType: string;
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'RETIRED';
   description?: string | null;
+  plotArea?: string | null;
+  plotAreaUnit?: string | null;
   addressLine1?: string | null;
   city: string;
   district?: string | null;
@@ -51,13 +57,24 @@ export type PropertyRecord = {
     branch?: BranchOption;
   }[];
   ownerships?: PropertyOwnershipRecord[];
-  buildings?: unknown[];
+  buildings?: { id: string; name: string; buildingCode: string }[];
   spaces?: {
     id: string;
     name: string;
     spaceCode: string;
     status: string;
     type?: { name: string };
+    building?: { name: string } | null;
+    versions?: {
+      usableArea: string | null;
+      totalArea: string | null;
+      areaUnit: string | null;
+      floorNumber: number | null;
+    }[];
+    childRelations?: {
+      parent?: { name: string; spaceCode: string };
+      effectiveTo: string | null;
+    }[];
   }[];
   amenities?: { amenity: { id: string; name: string } }[];
   _count?: { spaces: number; buildings: number };
@@ -142,7 +159,7 @@ function Drawer({
         aria-label="Close panel"
         onClick={onClose}
       />
-      <section className="relative flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+      <section className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200">
         <header className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{title}</h2>
@@ -201,6 +218,7 @@ export function PropertyRegistry({
   onTransition,
   onDiscard,
   onLoadDetails,
+  initialDetailTab = 'overview',
   owners,
   canReadOwnership,
   canManageOwnership,
@@ -223,6 +241,7 @@ export function PropertyRegistry({
   ) => Promise<void>;
   onDiscard: (id: string, reason: string) => Promise<void>;
   onLoadDetails: (id: string) => Promise<PropertyRecord>;
+  initialDetailTab?: PropertyDetailTab;
   owners: OwnerOption[];
   canReadOwnership: (record: PropertyRecord) => boolean;
   canManageOwnership: (record: PropertyRecord) => boolean;
@@ -237,9 +256,11 @@ export function PropertyRegistry({
   >(null);
   const [selected, setSelected] = useState<PropertyRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailTab, setDetailTab] = useState<
-    'overview' | 'spaces' | 'ownership' | 'operations' | 'activity'
-  >('overview');
+  const [detailTab, setDetailTab] = useState<PropertyDetailTab>(initialDetailTab);
+
+  useEffect(() => {
+    setDetailTab(initialDetailTab);
+  }, [initialDetailTab]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -263,6 +284,7 @@ export function PropertyRegistry({
   const openDetails = async (property: PropertyRecord) => {
     setSelected(property);
     setPanel('details');
+    setDetailTab(initialDetailTab);
     setDetailLoading(true);
     try {
       setSelected(await onLoadDetails(property.id));
@@ -274,7 +296,7 @@ export function PropertyRegistry({
   const propertyTypes = [...new Set(records.map((property) => property.propertyType))];
   const closePanel = () => {
     setPanel(null);
-    setDetailTab('overview');
+    setDetailTab(initialDetailTab);
   };
 
   return (
@@ -573,7 +595,7 @@ export function PropertyRegistry({
                 </SearchableSelect>
               </FormField>
               <FormField label="Operating branch">
-                <SearchableSelect name="branchId" required className={inputClass}>
+                <SearchableSelect searchable name="branchId" required className={inputClass}>
                   <option value="">Choose a branch</option>
                   {branches
                     .filter((branch) => creatableBranchIds.includes(branch.id))
@@ -850,27 +872,34 @@ export function PropertyRegistry({
                     {currentBranch(selected, businessDate)?.name ?? 'No current branch'}
                   </p>
                 </div>
-                <StatusBadge value={selected.status} />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <StatusBadge value={selected.status} />
+                  {canUpdate(selected) ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPanel('edit')}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                      >
+                        <Edit3 className="h-4 w-4" /> Edit property
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPanel('status')}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                      >
+                        <Archive className="h-4 w-4" /> Change status
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </div>
-              <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-                {(['overview', 'spaces', 'ownership', 'operations', 'activity'] as const).map(
-                  (tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setDetailTab(tab)}
-                      className={
-                        'whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold capitalize ' +
-                        (detailTab === tab
-                          ? 'border-emerald-600 text-emerald-700'
-                          : 'border-transparent text-slate-500 hover:text-slate-800')
-                      }
-                    >
-                      {tab}
-                    </button>
-                  ),
-                )}
-              </div>
+              <DetailTabs
+                tabs={PROPERTY_DETAIL_TABS}
+                active={detailTab}
+                onChange={setDetailTab}
+                label="Property detail sections"
+              />
               {detailTab === 'overview' ? (
                 <dl className="grid gap-4 sm:grid-cols-2">
                   {[
@@ -884,6 +913,16 @@ export function PropertyRegistry({
                     [
                       'Rentable spaces',
                       String(selected._count?.spaces ?? selected.spaces?.length ?? 0),
+                    ],
+                    [
+                      'Current owners',
+                      String(
+                        (selected.ownerships ?? []).filter(
+                          (record) =>
+                            record.effectiveFrom.slice(0, 10) <= businessDate &&
+                            (!record.effectiveTo || record.effectiveTo.slice(0, 10) > businessDate),
+                        ).length,
+                      ),
                     ],
                     ['Description', selected.description || 'Not recorded'],
                   ].map(([term, value]) => (
@@ -908,6 +947,23 @@ export function PropertyRegistry({
                           <p className="text-sm font-bold">{space.name}</p>
                           <p className="text-xs text-slate-500">
                             {space.spaceCode} · {space.type?.name ?? 'Rentable space'}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {[
+                              space.building?.name,
+                              space.childRelations?.find((relation) => !relation.effectiveTo)
+                                ?.parent
+                                ? `Parent: ${space.childRelations.find((relation) => !relation.effectiveTo)?.parent?.name}`
+                                : null,
+                              space.versions?.[0]?.floorNumber != null
+                                ? `Floor ${space.versions[0].floorNumber}`
+                                : null,
+                              space.versions?.[0]?.usableArea
+                                ? `${space.versions[0].usableArea} ${space.versions[0].areaUnit ?? ''}`.trim()
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || 'Standalone space'}
                           </p>
                         </div>
                         <StatusBadge value={space.status} />
@@ -941,32 +997,17 @@ export function PropertyRegistry({
                   </p>
                 )
               ) : null}
-              {detailTab === 'operations' ? (
-                <PropertyOperations property={selected} branches={branches} principal={principal} />
+              {(['buildings', 'amenities', 'documents', 'branch-history'] as const).includes(
+                detailTab as PropertyDetailSection,
+              ) ? (
+                <PropertyOperations
+                  property={selected}
+                  branches={branches}
+                  principal={principal}
+                  section={detailTab as PropertyDetailSection}
+                />
               ) : null}
-              {detailTab === 'activity' ? (
-                <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-                  Property changes are recorded in the Audit log under Oversight.
-                </p>
-              ) : null}
-              {canUpdate(selected) ? (
-                <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setPanel('edit')}
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
-                  >
-                    <Edit3 className="h-4 w-4" /> Edit property
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPanel('status')}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700"
-                  >
-                    <Archive className="h-4 w-4" /> Change status
-                  </button>
-                </div>
-              ) : null}
+              {detailTab === 'activity' ? <PropertyActivity property={selected} /> : null}
             </div>
           )}
         </Drawer>

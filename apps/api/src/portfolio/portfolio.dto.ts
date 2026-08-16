@@ -328,4 +328,7 @@ export class ListDocumentsQueryDto extends CursorPageQueryDto {
 }
 export class ListSpacesQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsUUID() buildingId?: string;
+  @IsOptional() @IsString() @Length(1, 50) typeCode?: string;
+  @IsOptional() @IsEnum(RentableSpaceStatus) status?: RentableSpaceStatus;
 }

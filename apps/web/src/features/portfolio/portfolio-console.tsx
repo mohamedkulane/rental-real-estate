@@ -21,19 +21,20 @@ import {
   userFacingError,
 } from '@/lib/phase3-api';
 import styles from './portfolio-console.module.css';
-import { RentableSpaceOperations } from './rentable-space-operations';
+import { RentableSpaceOperations, type RentableSpaceDetailTab } from './rentable-space-operations';
 import { AppShell } from '@/components/shared/app-shell';
 import { EmptyState, LoadingState, StatusBadge, WorkspaceLoading } from '@/components/shared/ui';
 import { humanize } from '@/lib/presentation';
-import { PropertyRegistry, type PropertyRecord } from './pages/property-registry';
 import {
-  CursorPaginationControls,
-  PaginationControls,
-  usePagination,
-} from '@/components/shared/pagination';
+  PropertyRegistry,
+  type PropertyDetailTab,
+  type PropertyRecord,
+} from './pages/property-registry';
+import { CursorPaginationControls } from '@/components/shared/pagination';
 import { PartyDirectory, type PartyRecord } from './pages/party-directory';
-import { OwnerDirectory, type OwnerRecord } from './pages/owner-directory';
+import { OwnerDirectory, type OwnerDetailTab, type OwnerRecord } from './pages/owner-directory';
 import { AmenityDirectory, type AmenityRecord } from './pages/amenity-directory';
+import { PORTFOLIO_NAVIGATION, portfolioNavigationView } from './portfolio-ia';
 
 type Tab = 'parties' | 'owners' | 'properties' | 'spaces' | 'amenities';
 type Branch = { id: string; code: string; name: string };
@@ -49,6 +50,7 @@ type Space = {
   type: { code: string; name: string };
   versions: { usableArea: string | null; areaUnit: string | null }[];
   childRelations: { parentSpaceId: string; effectiveTo: string | null }[];
+  building?: { id: string; name: string; buildingCode: string } | null;
 };
 type Amenity = AmenityRecord;
 type SpaceType = { id: string; code: string; name: string };
@@ -71,6 +73,7 @@ export function PortfolioConsole() {
   const router = useRouter();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [active, setActive] = useState<Tab>('properties');
+  const [activeView, setActiveView] = useState('overview');
   const [records, setRecords] = useState<Party[] | Owner[] | Property[] | Space[] | Amenity[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
@@ -81,6 +84,17 @@ export function PortfolioConsole() {
   const [spaceBuildings, setSpaceBuildings] = useState<Building[]>([]);
   const [spaceTypeCode, setSpaceTypeCode] = useState('ENTIRE_PROPERTY');
   const [propertyFilter, setPropertyFilter] = useState('');
+  const [spaceSearch, setSpaceSearch] = useState('');
+  const [spaceBuildingFilter, setSpaceBuildingFilter] = useState('');
+  const [spaceTypeFilter, setSpaceTypeFilter] = useState('');
+  const [spaceStatusFilter, setSpaceStatusFilter] = useState('');
+  const [selectedSpaceId, setSelectedSpaceId] = useState('');
+  const spaceFilterQuery = {
+    search: spaceSearch,
+    buildingId: spaceBuildingFilter,
+    typeCode: spaceTypeFilter,
+    status: spaceStatusFilter,
+  };
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
@@ -93,36 +107,52 @@ export function PortfolioConsole() {
     hasNextPage: false,
   });
 
-  const loadTab = useCallback(async (tab: Tab, filter = '', cursor: string | null = null) => {
-    const resource = tab === 'spaces' ? 'rentable-spaces' : tab;
-    const parameters = new URLSearchParams();
-    if (tab !== 'amenities') parameters.set('limit', '10');
-    if (tab === 'spaces' && filter) parameters.set('propertyId', filter);
-    if (cursor) parameters.set('cursor', cursor);
-    const path = `/${resource}${parameters.size ? `?${parameters.toString()}` : ''}`;
-    const response = await apiCached<CursorPage<unknown> | unknown[]>(path);
-    const result = pageItems(response) as Party[] | Owner[] | Property[] | Space[] | Amenity[];
-    setRecords(result);
-    setPageInfo(
-      Array.isArray(response) ? { nextCursor: null, hasNextPage: false } : response.pageInfo,
-    );
-    if (tab === 'parties') setParties(result as Party[]);
-    if (tab === 'properties') setProperties(result as Property[]);
-    if (tab === 'spaces') setSpaces(result as Space[]);
-    if (tab === 'owners') setOwners(result as Owner[]);
-  }, []);
+  const loadTab = useCallback(
+    async (
+      tab: Tab,
+      filter = '',
+      cursor: string | null = null,
+      spaceFilters?: { search?: string; buildingId?: string; typeCode?: string; status?: string },
+    ) => {
+      const resource = tab === 'spaces' ? 'rentable-spaces' : tab;
+      const parameters = new URLSearchParams();
+      if (tab !== 'amenities') parameters.set('limit', '10');
+      if (tab === 'spaces' && filter) parameters.set('propertyId', filter);
+      if (tab === 'spaces' && spaceFilters?.search) parameters.set('search', spaceFilters.search);
+      if (tab === 'spaces' && spaceFilters?.buildingId)
+        parameters.set('buildingId', spaceFilters.buildingId);
+      if (tab === 'spaces' && spaceFilters?.typeCode)
+        parameters.set('typeCode', spaceFilters.typeCode);
+      if (tab === 'spaces' && spaceFilters?.status) parameters.set('status', spaceFilters.status);
+      if (cursor) parameters.set('cursor', cursor);
+      const path = `/${resource}${parameters.size ? `?${parameters.toString()}` : ''}`;
+      const response = await apiCached<CursorPage<unknown> | unknown[]>(path);
+      const result = pageItems(response) as Party[] | Owner[] | Property[] | Space[] | Amenity[];
+      setRecords(result);
+      setPageInfo(
+        Array.isArray(response) ? { nextCursor: null, hasNextPage: false } : response.pageInfo,
+      );
+      if (tab === 'parties') setParties(result as Party[]);
+      if (tab === 'properties') setProperties(result as Property[]);
+      if (tab === 'spaces') setSpaces(result as Space[]);
+      if (tab === 'owners') setOwners(result as Owner[]);
+    },
+    [],
+  );
 
   useEffect(() => {
     api<Principal>('/auth/me')
       .then(async (current) => {
         setPrincipal(current);
-        const requested = new URLSearchParams(window.location.search).get('section');
+        const parameters = new URLSearchParams(window.location.search);
+        const requested = parameters.get('section');
         const first =
           tabs.find((item) => item.key === requested && hasPermission(current, item.permission))
             ?.key ??
           tabs.find((item) => hasPermission(current, item.permission))?.key ??
           'properties';
         setActive(first);
+        setActiveView(portfolioNavigationView(first, parameters.get('view')));
         const [branchData, partyData, propertyData, ownerData] = await Promise.all([
           (first === 'properties' || first === 'parties') &&
           hasPermission(current, 'organization.branch.read')
@@ -174,7 +204,6 @@ export function PortfolioConsole() {
         (permission) => hasPermission(principal, permission),
       )
     : false;
-  const spacePagination = usePagination(spaces);
   const activePropertyBranchIds = (property: PropertyRecord): string[] => {
     const currentDate = principal?.businessDate ?? '';
     return property.branchAssignments
@@ -231,7 +260,12 @@ export function PortfolioConsole() {
     setCursorIndex(cursorIndex + 1);
     setLoading(true);
     try {
-      await loadTab(active, active === 'spaces' ? propertyFilter : '', pageInfo.nextCursor);
+      await loadTab(
+        active,
+        active === 'spaces' ? propertyFilter : '',
+        pageInfo.nextCursor,
+        active === 'spaces' ? spaceFilterQuery : undefined,
+      );
     } finally {
       setLoading(false);
     }
@@ -246,13 +280,22 @@ export function PortfolioConsole() {
         active,
         active === 'spaces' ? propertyFilter : '',
         cursorHistory[previousIndex] ?? null,
+        active === 'spaces' ? spaceFilterQuery : undefined,
       );
     } finally {
       setLoading(false);
     }
   }
-  async function choose(tab: Tab) {
+  async function choose(tab: Tab, requestedView?: string) {
+    const view = portfolioNavigationView(tab, requestedView);
+    setActiveView(view);
+    const url = new URL(window.location.href);
+    url.searchParams.set('section', tab);
+    if (tab === 'amenities') url.searchParams.delete('view');
+    else url.searchParams.set('view', view);
+    window.history.pushState({}, '', url);
     if (tab === active) return;
+
     setLoading(true);
     setActive(tab);
     setError('');
@@ -261,7 +304,12 @@ export function PortfolioConsole() {
     resetCursor();
     try {
       await Promise.all([
-        loadTab(tab, tab === 'spaces' ? propertyFilter : ''),
+        loadTab(
+          tab,
+          tab === 'spaces' ? propertyFilter : '',
+          null,
+          tab === 'spaces' ? spaceFilterQuery : undefined,
+        ),
         loadDependencies(tab),
       ]);
     } catch (cause) {
@@ -316,7 +364,12 @@ export function PortfolioConsole() {
       await api(path, { method, body: JSON.stringify(body) });
       clearApiCache();
       resetCursor();
-      await loadTab(active, active === 'spaces' ? propertyFilter : '');
+      await loadTab(
+        active,
+        active === 'spaces' ? propertyFilter : '',
+        null,
+        active === 'spaces' ? spaceFilterQuery : undefined,
+      );
       if (active === 'parties')
         setParties(await apiCached<CursorPage<Party>>('/parties').then(pageItems));
       setSuccess(message);
@@ -356,7 +409,12 @@ export function PortfolioConsole() {
       event.currentTarget.reset();
       setSuccess(message);
       resetCursor();
-      await loadTab(active, active === 'spaces' ? propertyFilter : '');
+      await loadTab(
+        active,
+        active === 'spaces' ? propertyFilter : '',
+        null,
+        active === 'spaces' ? spaceFilterQuery : undefined,
+      );
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
       const message = userFacingError(cause, 'The record could not be saved.');
@@ -534,7 +592,7 @@ export function PortfolioConsole() {
           <h2>Create owner profile</h2>
           <label>
             Party
-            <SearchableSelect name="partyId" required>
+            <SearchableSelect searchable name="partyId" required>
               <option value="">Choose a party</option>
               {parties.map((party) => (
                 <option key={party.id} value={party.id}>
@@ -570,7 +628,7 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Operating branch
-              <SearchableSelect name="branchId" required>
+              <SearchableSelect searchable name="branchId" required>
                 <option value="">Choose a branch</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -600,6 +658,7 @@ export function PortfolioConsole() {
           <label>
             Property
             <SearchableSelect
+              searchable
               name="propertyId"
               required
               value={propertyFilter}
@@ -649,7 +708,7 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Building (optional)
-              <SearchableSelect name="buildingId">
+              <SearchableSelect searchable name="buildingId">
                 <option value="">No building</option>
                 {spaceBuildings
                   .filter((building) => building.status !== 'RETIRED')
@@ -662,7 +721,7 @@ export function PortfolioConsole() {
             </label>
             <label>
               Parent space (optional)
-              <SearchableSelect name="parentSpaceId">
+              <SearchableSelect searchable name="parentSpaceId">
                 <option value="">Standalone / top level</option>
                 {spaces
                   .filter(
@@ -849,26 +908,33 @@ export function PortfolioConsole() {
     };
     return (
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] text-left">
+        <table className="w-full min-w-[1020px] text-left">
           <thead className="border-b border-slate-200 bg-slate-50">
             <tr>
-              {['Rentable space', 'Property', 'Type', 'Parent', 'Area', 'Status', 'Actions'].map(
-                (header) => (
-                  <th
-                    key={header}
-                    className={
-                      'px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 ' +
-                      (header === 'Actions' ? 'text-right' : '')
-                    }
-                  >
-                    {header}
-                  </th>
-                ),
-              )}
+              {[
+                'Rentable space',
+                'Property',
+                'Building',
+                'Type',
+                'Parent',
+                'Area',
+                'Status',
+                'Actions',
+              ].map((header) => (
+                <th
+                  key={header}
+                  className={
+                    'px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 ' +
+                    (header === 'Actions' ? 'text-right' : '')
+                  }
+                >
+                  {header}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {spacePagination.pageItems.map((item) => (
+            {spaces.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-4">
                   <strong className="block text-sm text-slate-900">{item.name}</strong>
@@ -876,6 +942,9 @@ export function PortfolioConsole() {
                 </td>
                 <td className="px-4 py-4 text-sm text-slate-700">
                   {propertyName(item.propertyId)}
+                </td>
+                <td className="px-4 py-4 text-sm text-slate-700">
+                  {item.building?.name ?? 'Standalone'}
                 </td>
                 <td className="px-4 py-4 text-sm text-slate-700">{item.type.name}</td>
                 <td className="px-4 py-4 text-sm text-slate-600">{parentName(item)}</td>
@@ -888,7 +957,10 @@ export function PortfolioConsole() {
                 <td className="px-4 py-4 text-right">
                   <button
                     type="button"
-                    onClick={() => setShowActions(true)}
+                    onClick={() => {
+                      setSelectedSpaceId(item.id);
+                      setShowActions(true);
+                    }}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                   >
                     {canManageSpaces ? 'Manage' : 'View'}
@@ -902,23 +974,78 @@ export function PortfolioConsole() {
     );
   }
 
+  const hierarchicalPortfolioNavigation = visibleTabs.map((tab) => {
+    if (tab.key === 'amenities') {
+      return {
+        key: tab.key,
+        label: tab.label,
+        onSelect: () => void choose(tab.key),
+      };
+    }
+    return {
+      key: tab.key,
+      label: tab.label,
+      children: PORTFOLIO_NAVIGATION[tab.key].map((item) => ({
+        key: `${tab.key}:${item.key}`,
+        label: item.label,
+        onSelect: () => void choose(tab.key, item.key),
+      })),
+    };
+  });
+  const activeNavigationItem = active === 'amenities' ? 'amenities' : `${active}:${activeView}`;
+  const activeSectionLabel = tabs.find((tab) => tab.key === active)?.label ?? 'Portfolio';
+  const activeChildLabel =
+    active === 'amenities'
+      ? 'Amenity Catalog'
+      : (PORTFOLIO_NAVIGATION[active].find((item) => item.key === activeView)?.label ??
+        PORTFOLIO_NAVIGATION[active][0].label);
+
+  const partyKind =
+    activeView === 'people' ? 'PERSON' : activeView === 'organizations' ? 'ORGANIZATION' : 'all';
+  const ownerDetailTab: OwnerDetailTab =
+    activeView === 'owned-properties'
+      ? 'owned-properties'
+      : activeView === 'documents'
+        ? 'documents'
+        : 'overview';
+  const propertyDetailTab = activeView as PropertyDetailTab;
+  const rentableSpaceDetailTab = activeView as RentableSpaceDetailTab;
+
   if (!principal) return <WorkspaceLoading label="Checking your secure session" />;
   return (
     <AppShell
       active="portfolio"
-      activeItem={active}
+      activeItem={activeNavigationItem}
       subNavigation={{
-        portfolio: visibleTabs.map((tab) => ({
-          key: tab.key,
-          label: tab.label,
-          onSelect: () => void choose(tab.key),
-        })),
+        portfolio: hierarchicalPortfolioNavigation,
       }}
       accessMode={principal.accessMode}
       accessBranches={principal.branches}
       permissions={principal.permissions}
       onLogout={() => void logout()}
     >
+      <nav
+        className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500"
+        aria-label="Breadcrumb"
+      >
+        <span>Portfolio</span>
+        <span aria-hidden="true">/</span>
+        <span>{activeSectionLabel}</span>
+        <span aria-hidden="true">/</span>
+        <span className="text-slate-900" aria-current="page">
+          {activeChildLabel}
+        </span>
+      </nav>
+      {active !== 'amenities' && activeView !== PORTFOLIO_NAVIGATION[active][0].key ? (
+        <section className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <h1 className="text-sm font-bold text-emerald-950">
+            {activeSectionLabel} / {activeChildLabel}
+          </h1>
+          <p className="mt-1 text-xs text-emerald-800">
+            Choose a record below to open this workspace directly in the selected section.
+          </p>
+        </section>
+      ) : null}
       {active === 'parties' ? (
         <>
           {error ? (
@@ -941,6 +1068,7 @@ export function PortfolioConsole() {
             <LoadingState label="Loading people and organizations" />
           ) : (
             <PartyDirectory
+              initialKind={partyKind}
               records={records as PartyRecord[]}
               branches={partyCreateBranches}
               busy={busy}
@@ -985,6 +1113,7 @@ export function PortfolioConsole() {
             <LoadingState label="Loading property owners" />
           ) : (
             <OwnerDirectory
+              initialDetailTab={ownerDetailTab}
               businessDate={principal.businessDate}
               records={records as OwnerRecord[]}
               parties={parties}
@@ -1070,6 +1199,7 @@ export function PortfolioConsole() {
             <LoadingState label="Loading property registry" />
           ) : (
             <PropertyRegistry
+              initialDetailTab={propertyDetailTab}
               principal={principal}
               businessDate={principal.businessDate}
               records={records as PropertyRecord[]}
@@ -1137,10 +1267,16 @@ export function PortfolioConsole() {
             </div>
             <button
               type="button"
-              onClick={() => setShowActions(true)}
-              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
+              onClick={() => {
+                setSelectedSpaceId('');
+                setShowActions(true);
+              }}
+              className={
+                (hasPermission(principal, 'portfolio.space.create') ? 'inline-flex' : 'hidden') +
+                ' items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700'
+              }
             >
-              {canManageSpaces ? 'Add or manage' : 'View space details'}
+              Add rentable space
             </button>
           </header>
           {error ? (
@@ -1160,25 +1296,110 @@ export function PortfolioConsole() {
             </div>
           ) : null}
           {active === 'spaces' ? (
-            <label className="block max-w-md space-y-1.5 text-sm font-semibold text-slate-700">
-              <span>Filter by property</span>
-              <SearchableSelect
-                value={propertyFilter}
-                onChange={(event) => {
-                  setPropertyFilter(event.target.value);
-                  resetCursor();
-                  void loadTab('spaces', event.target.value);
-                }}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
-              >
-                <option value="">All properties</option>
-                {properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.propertyCode} — {property.name}
-                  </option>
-                ))}
-              </SearchableSelect>
-            </label>
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-5">
+              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+                <span>Search</span>
+                <input
+                  type="search"
+                  value={spaceSearch}
+                  onChange={(event) => {
+                    const search = event.target.value;
+                    setSpaceSearch(search);
+                    resetCursor();
+                    void loadTab('spaces', propertyFilter, null, { ...spaceFilterQuery, search });
+                  }}
+                  placeholder="Name or space code"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+                <span>Property</span>
+                <SearchableSelect
+                  value={propertyFilter}
+                  searchable
+                  onChange={(event) => {
+                    const propertyId = event.target.value;
+                    setPropertyFilter(propertyId);
+                    setSpaceBuildingFilter('');
+                    resetCursor();
+                    void loadTab('spaces', propertyId, null, {
+                      ...spaceFilterQuery,
+                      buildingId: '',
+                    });
+                  }}
+                >
+                  <option value="">All properties</option>
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.propertyCode} — {property.name}
+                    </option>
+                  ))}
+                </SearchableSelect>
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+                <span>Building</span>
+                <SearchableSelect
+                  value={spaceBuildingFilter}
+                  searchable
+                  onChange={(event) => {
+                    const buildingId = event.target.value;
+                    setSpaceBuildingFilter(buildingId);
+                    resetCursor();
+                    void loadTab('spaces', propertyFilter, null, {
+                      ...spaceFilterQuery,
+                      buildingId,
+                    });
+                  }}
+                  disabled={!propertyFilter}
+                >
+                  <option value="">All buildings</option>
+                  {spaceBuildings.map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.buildingCode} — {building.name}
+                    </option>
+                  ))}
+                </SearchableSelect>
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+                <span>Type</span>
+                <SearchableSelect
+                  value={spaceTypeFilter}
+                  onChange={(event) => {
+                    const typeCode = event.target.value;
+                    setSpaceTypeFilter(typeCode);
+                    resetCursor();
+                    void loadTab('spaces', propertyFilter, null, { ...spaceFilterQuery, typeCode });
+                  }}
+                >
+                  <option value="">All types</option>
+                  {spaceTypes.map((type) => (
+                    <option key={type.id} value={type.code}>
+                      {type.name}
+                    </option>
+                  ))}
+                </SearchableSelect>
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+                <span>Status</span>
+                <SearchableSelect
+                  searchable={false}
+                  value={spaceStatusFilter}
+                  onChange={(event) => {
+                    const status = event.target.value;
+                    setSpaceStatusFilter(status);
+                    resetCursor();
+                    void loadTab('spaces', propertyFilter, null, { ...spaceFilterQuery, status });
+                  }}
+                >
+                  <option value="">All statuses</option>
+                  {['DRAFT', 'ACTIVE', 'INACTIVE', 'RETIRED'].map((status) => (
+                    <option key={status} value={status}>
+                      {humanize(status)}
+                    </option>
+                  ))}
+                </SearchableSelect>
+              </label>
+            </div>
           ) : null}
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-4">
@@ -1188,55 +1409,63 @@ export function PortfolioConsole() {
             <div className="w-full min-w-0">
               {loading ? <LoadingState label="Loading portfolio records" /> : renderRecords()}
             </div>
-            <PaginationControls
-              page={spacePagination.page}
-              pageCount={spacePagination.pageCount}
-              total={spaces.length}
-              onPageChange={spacePagination.setPage}
-            />
           </section>
           {showActions ? (
             <div
               className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35"
               role="dialog"
               aria-modal="true"
-              aria-label="Portfolio actions"
+              aria-label={selectedSpaceId ? 'Rentable space details' : 'Add rentable space'}
             >
               <button
                 type="button"
                 className="absolute inset-0"
                 aria-label="Close actions"
-                onClick={() => setShowActions(false)}
+                onClick={() => {
+                  setShowActions(false);
+                  setSelectedSpaceId('');
+                }}
               />
-              <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl scroll-smooth">
+              <aside
+                className={
+                  'relative max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl scroll-smooth ' +
+                  (selectedSpaceId ? 'max-w-5xl' : 'max-w-2xl')
+                }
+              >
                 <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
                   <div>
                     <h2 className="text-lg font-bold">
-                      {tabs.find((tab) => tab.key === active)?.label} actions
+                      {selectedSpaceId ? 'Rentable space details' : 'Add rentable space'}
                     </h2>
                     <p className="mt-1 text-sm text-slate-500">
-                      Complete the required information and save the change.
+                      {selectedSpaceId
+                        ? 'Review hierarchy, measurements, profile, assignments, history, and lifecycle.'
+                        : 'Complete the required information and save the new space.'}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowActions(false)}
+                    onClick={() => {
+                      setShowActions(false);
+                      setSelectedSpaceId('');
+                    }}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
                   >
                     Close
                   </button>
                 </div>
                 <div className="space-y-6">
-                  {renderForm()}
-                  {active === 'spaces' ? (
+                  {!selectedSpaceId ? renderForm() : null}
+                  {active === 'spaces' && selectedSpaceId ? (
                     <RentableSpaceOperations
                       principal={principal}
+                      initialSelectedId={selectedSpaceId}
+                      initialTab={rentableSpaceDetailTab}
                       spaces={spaces}
                       typeCatalog={spaceTypes}
                       onSaved={async () => {
                         resetCursor();
-                        await loadTab('spaces', propertyFilter);
-                        setShowActions(false);
+                        await loadTab('spaces', propertyFilter, null, spaceFilterQuery);
                       }}
                     />
                   ) : null}

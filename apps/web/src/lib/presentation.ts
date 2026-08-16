@@ -8,6 +8,34 @@ export function humanize(value: string | null | undefined): string {
     .join(' ');
 }
 
+export function formatFileSize(value: string | number): string {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return 'Size unavailable';
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let amount = bytes / 1024;
+  let unitIndex = 0;
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024;
+    unitIndex += 1;
+  }
+  return `${new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(amount)} ${units[unitIndex]}`;
+}
+
+export function documentTypeLabel(mimeType: string): string {
+  const normalized = mimeType.toLowerCase();
+  const known: Record<string, string> = {
+    'application/pdf': 'PDF Document',
+    'image/jpeg': 'JPEG Image',
+    'image/png': 'PNG Image',
+    'application/msword': 'Word Document',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document',
+  };
+  if (known[normalized]) return known[normalized];
+  const subtype = normalized.split('/')[1];
+  return subtype ? `${humanize(subtype)} File` : 'Document';
+}
+
 export function formatDate(value: unknown, includeTime = false): string {
   if (typeof value !== 'string' && !(value instanceof Date)) return 'No date recorded';
   const date = new Date(value);

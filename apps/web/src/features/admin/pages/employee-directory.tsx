@@ -493,7 +493,7 @@ export function EmployeeDirectory({
                 </SearchableSelect>
               </Field>
               <Field label="Primary branch">
-                <SearchableSelect name="branchId" required className={inputClass}>
+                <SearchableSelect searchable name="branchId" required className={inputClass}>
                   <option value="">Choose a branch</option>
                   {branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
@@ -666,7 +666,7 @@ export function EmployeeDirectory({
               <input value={selected.displayName} disabled className={inputClass} />
             </Field>
             <Field label="Business role">
-              <SearchableSelect name="roleId" required className={inputClass}>
+              <SearchableSelect searchable name="roleId" required className={inputClass}>
                 <option value="">Choose a role</option>
                 {roles.map((role) => (
                   <option key={role.id} value={role.id}>
@@ -676,7 +676,7 @@ export function EmployeeDirectory({
               </SearchableSelect>
             </Field>
             <Field label="Applies to">
-              <SearchableSelect name="branchId" className={inputClass}>
+              <SearchableSelect searchable name="branchId" className={inputClass}>
                 <option value="">Company level</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>

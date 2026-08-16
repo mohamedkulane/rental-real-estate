@@ -438,8 +438,10 @@ export function OwnershipWorkspace({
 export function OwnerPropertyPortfolio({
   ownerships,
   businessDate,
+  mode = 'all',
 }: {
   businessDate: string;
+  mode?: 'all' | 'current' | 'history';
   ownerships: (PropertyOwnershipRecord & {
     property: {
       id: string;
@@ -495,21 +497,28 @@ export function OwnerPropertyPortfolio({
     );
   return (
     <div className="space-y-5">
-      <section className="space-y-2">
-        <h3 className="flex items-center gap-2 text-sm font-bold">
-          <Users className="h-4 w-4 text-emerald-600" /> Current properties
-        </h3>
-        {render(
-          groups.current as typeof ownerships,
-          'This owner has no current property ownership.',
-        )}
-      </section>
-      <section className="space-y-2">
-        <h3 className="flex items-center gap-2 text-sm font-bold">
-          <History className="h-4 w-4 text-slate-500" /> Ownership history
-        </h3>
-        {render(groups.historical as typeof ownerships, 'No historical ownership records.')}
-      </section>
+      {mode !== 'history' ? (
+        <section className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
+            <Users className="h-4 w-4 text-emerald-600" /> Current properties
+          </h3>
+          {render(
+            groups.current as typeof ownerships,
+            'This owner has no current property ownership.',
+          )}
+        </section>
+      ) : null}
+      {mode !== 'current' ? (
+        <section className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
+            <History className="h-4 w-4 text-slate-500" /> Ownership history
+          </h3>
+          {render(
+            [...groups.scheduled, ...groups.historical] as typeof ownerships,
+            'No scheduled or historical ownership records.',
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
