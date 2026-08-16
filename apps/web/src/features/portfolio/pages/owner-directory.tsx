@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import { Building2, Edit3, Eye, MoreHorizontal, Plus, Search, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -57,7 +59,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] flex justify-end bg-slate-950/40"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/40"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -68,7 +70,7 @@ function Drawer({
         aria-label="Close panel"
         onClick={onClose}
       />
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
+      <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl scroll-smooth">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
           <div>
             <h2 className="text-lg font-bold">{title}</h2>
@@ -189,16 +191,16 @@ export function OwnerDirectory({
         <div className="grid gap-3 border-b border-slate-200 p-4 lg:grid-cols-[minmax(260px,1fr)_200px]">
           <label className="relative">
             <span className="sr-only">Search owners</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search owner name or number…"
-              className={inputClass + ' pl-9'}
+              className={inputClass + ' pl-10'}
             />
           </label>
-          <select
+          <SearchableSelect
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className={inputClass}
@@ -210,7 +212,7 @@ export function OwnerDirectory({
                 {humanize(item)}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-left">
@@ -320,33 +322,33 @@ export function OwnerDirectory({
           >
             <label className="space-y-1.5 text-sm font-semibold">
               Person or organization
-              <select name="partyId" required className={inputClass}>
+              <SearchableSelect name="partyId" required className={inputClass}>
                 <option value="">Choose by name</option>
                 {eligibleParties.map((party) => (
                   <option key={party.id} value={party.id}>
                     {party.displayName} — {party.partyNumber} ({humanize(party.kind)})
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
               <span className="block text-xs font-normal text-slate-500">
                 Only active records without an existing owner profile are shown.
               </span>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Status
-              <select name="status" className={inputClass}>
+              <SearchableSelect name="status" className={inputClass}>
                 <option value="PROSPECTIVE">Prospective</option>
                 <option value="ACTIVE">Active</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Preferred communication
-              <select name="communicationPreference" className={inputClass}>
+              <SearchableSelect name="communicationPreference" className={inputClass}>
                 <option value="">Not specified</option>
                 <option value="PHONE">Phone</option>
                 <option value="EMAIL">Email</option>
                 <option value="WHATSAPP">WhatsApp</option>
-              </select>
+              </SearchableSelect>
             </label>
             <button
               disabled={busy || !eligibleParties.length}
@@ -437,17 +439,17 @@ export function OwnerDirectory({
             </div>
             <label className="space-y-1.5 text-sm font-semibold">
               Status
-              <select name="status" defaultValue={selected.status} className={inputClass}>
+              <SearchableSelect name="status" defaultValue={selected.status} className={inputClass}>
                 {['PROSPECTIVE', 'ACTIVE', 'SUSPENDED', 'INACTIVE'].map((item) => (
                   <option key={item} value={item}>
                     {humanize(item)}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Preferred communication
-              <select
+              <SearchableSelect
                 name="communicationPreference"
                 defaultValue={selected.communicationPreference ?? ''}
                 className={inputClass}
@@ -456,7 +458,7 @@ export function OwnerDirectory({
                 <option value="PHONE">Phone</option>
                 <option value="EMAIL">Email</option>
                 <option value="WHATSAPP">WhatsApp</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Notes

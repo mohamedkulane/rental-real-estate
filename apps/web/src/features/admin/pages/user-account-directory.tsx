@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import {
   Clock3,
   Eye,
@@ -62,7 +64,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] flex justify-end bg-slate-950/40"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/40"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -73,7 +75,7 @@ function Drawer({
         onClick={onClose}
         aria-label="Close panel"
       />
-      <aside className="relative h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
+      <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl scroll-smooth">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
           <div>
             <h2 className="text-lg font-bold">{title}</h2>
@@ -184,16 +186,16 @@ export function UserAccountDirectory({
         <div className="grid gap-3 border-b border-slate-200 p-4 lg:grid-cols-[minmax(260px,1fr)_200px]">
           <label className="relative">
             <span className="sr-only">Search user accounts</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search employee, number or email…"
-              className={inputClass + ' pl-9'}
+              className={inputClass + ' pl-10'}
             />
           </label>
-          <select
+          <SearchableSelect
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className={inputClass}
@@ -203,7 +205,7 @@ export function UserAccountDirectory({
             <option value="ACTIVE">Active</option>
             <option value="SUSPENDED">Suspended</option>
             <option value="DISABLED">Disabled</option>
-          </select>
+          </SearchableSelect>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-left">
@@ -468,11 +470,11 @@ export function UserAccountDirectory({
             </div>
             <label className="space-y-1.5 text-sm font-semibold">
               New status
-              <select name="status" defaultValue={selected.status} className={inputClass}>
+              <SearchableSelect name="status" defaultValue={selected.status} className={inputClass}>
                 <option value="ACTIVE">Active</option>
                 <option value="SUSPENDED">Suspended</option>
                 <option value="DISABLED">Disabled</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="space-y-1.5 text-sm font-semibold">
               Reason

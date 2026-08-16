@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import {
   Archive,
@@ -130,7 +132,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35 backdrop-blur-[1px]"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35 backdrop-blur-[1px]"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -326,23 +328,23 @@ export function PropertyRegistry({
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center xl:justify-between">
           <label className="relative block min-w-0 flex-1 xl:max-w-md">
             <span className="sr-only">Search properties</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               type="search"
               placeholder="Search name, code, city, or branch..."
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <label className="relative">
               <span className="sr-only">Filter by branch</span>
-              <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select
+              <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <SearchableSelect
                 value={branchFilter}
                 onChange={(event) => setBranchFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
               >
                 <option value="all">All branches</option>
                 {branches.map((branch) => (
@@ -350,15 +352,15 @@ export function PropertyRegistry({
                     {branch.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="relative">
               <span className="sr-only">Filter by type</span>
-              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select
+              <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <SearchableSelect
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
               >
                 <option value="all">All types</option>
                 {propertyTypes.map((type) => (
@@ -366,9 +368,9 @@ export function PropertyRegistry({
                     {humanize(type)}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
-            <select
+            <SearchableSelect
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -379,7 +381,7 @@ export function PropertyRegistry({
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
               <option value="RETIRED">Retired</option>
-            </select>
+            </SearchableSelect>
           </div>
         </div>
 
@@ -558,7 +560,7 @@ export function PropertyRegistry({
             </FormField>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Property type">
-                <select name="propertyType" required className={inputClass}>
+                <SearchableSelect name="propertyType" required className={inputClass}>
                   <option value="HOUSE">House</option>
                   <option value="VILLA">Villa</option>
                   <option value="APARTMENT_BUILDING">Apartment building</option>
@@ -568,10 +570,10 @@ export function PropertyRegistry({
                   <option value="LAND">Land</option>
                   <option value="MIXED_USE">Mixed use</option>
                   <option value="OTHER">Other</option>
-                </select>
+                </SearchableSelect>
               </FormField>
               <FormField label="Operating branch">
-                <select name="branchId" required className={inputClass}>
+                <SearchableSelect name="branchId" required className={inputClass}>
                   <option value="">Choose a branch</option>
                   {branches
                     .filter((branch) => creatableBranchIds.includes(branch.id))
@@ -580,7 +582,7 @@ export function PropertyRegistry({
                         {branch.name}
                       </option>
                     ))}
-                </select>
+                </SearchableSelect>
               </FormField>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -747,7 +749,7 @@ export function PropertyRegistry({
               </p>
             </div>
             <FormField label="Lifecycle action">
-              <select name="action" className={inputClass} required>
+              <SearchableSelect name="action" className={inputClass} required>
                 {selected.status === 'DRAFT' ? <option value="activate">Activate</option> : null}
                 {selected.status === 'ACTIVE' ? (
                   <option value="deactivate">Deactivate</option>
@@ -758,7 +760,7 @@ export function PropertyRegistry({
                     <option value="retire">Retire permanently</option>
                   </>
                 ) : null}
-              </select>
+              </SearchableSelect>
             </FormField>
             <FormField label="Reason">
               <textarea

@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import { Edit3, MoreHorizontal, Plus, Search, Sparkles, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -33,7 +35,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] flex justify-end bg-slate-950/40"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/40"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -44,7 +46,7 @@ function Drawer({
         onClick={onClose}
         aria-label="Close panel"
       />
-      <aside className="relative h-full w-full max-w-lg overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
+      <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl scroll-smooth">
         <header className="flex items-start justify-between border-b border-slate-200 p-5">
           <div>
             <h2 className="text-lg font-bold">{title}</h2>
@@ -127,16 +129,16 @@ export function AmenityDirectory({
         <div className="grid gap-3 border-b border-slate-200 p-4 lg:grid-cols-[minmax(260px,1fr)_190px]">
           <label className="relative">
             <span className="sr-only">Search amenities</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search amenity name or code…"
-              className={inputClass + ' pl-9'}
+              className={inputClass + ' pl-10'}
             />
           </label>
-          <select
+          <SearchableSelect
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className={inputClass}
@@ -145,7 +147,7 @@ export function AmenityDirectory({
             <option value="all">All statuses</option>
             <option value="true">Active</option>
             <option value="false">Inactive</option>
-          </select>
+          </SearchableSelect>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left">

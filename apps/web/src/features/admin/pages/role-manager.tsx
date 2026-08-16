@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import {
   ChevronRight,
@@ -45,7 +47,7 @@ function Panel({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -168,13 +170,13 @@ export function RoleManager({
         <div className="border-b border-slate-200 p-4">
           <label className="relative block max-w-lg">
             <span className="sr-only">Search roles</span>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search roles or capabilities…"
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
         </div>
@@ -424,7 +426,7 @@ export function RoleManager({
                     .catch(() => undefined);
                 }}
               >
-                <select name="permissionId" required className={inputClass}>
+                <SearchableSelect name="permissionId" required className={inputClass}>
                   <option value="">Choose a capability</option>
                   {permissions
                     .filter(
@@ -436,7 +438,7 @@ export function RoleManager({
                         {permissionDomain(permission.code)} — {permissionLabel(permission.code)}
                       </option>
                     ))}
-                </select>
+                </SearchableSelect>
                 <button
                   disabled={busy}
                   className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white"

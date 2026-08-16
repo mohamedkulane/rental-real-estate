@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -36,6 +38,7 @@ import {
   usePagination,
 } from '@/components/shared/pagination';
 import { UserAccountDirectory, type UserAccountRecord } from './pages/user-account-directory';
+import { PrivilegeManager } from './pages/privilege-manager';
 import type { Principal } from '@/lib/phase3-api';
 import {
   api,
@@ -67,6 +70,7 @@ type SectionKey =
   | 'roles'
   | 'permissions'
   | 'users'
+  | 'privileges'
   | 'audit'
   | 'settings';
 type Section = {
@@ -161,6 +165,13 @@ const sections: Section[] = [
     label: 'Users & sessions',
     description: 'Login accounts, access state, and revocable sessions.',
     permission: 'identity.user.read',
+    path: '/users',
+  },
+  {
+    key: 'privileges',
+    label: 'Privileges',
+    description: 'Manage exact user-level capabilities with audited allow and deny overrides.',
+    permission: 'identity.user.privilege.read',
     path: '/users',
   },
   {
@@ -313,7 +324,8 @@ export function AdminConsole() {
   const loadCatalogs = useCallback(async (section: SectionKey, current: Principal) => {
     const needsBranches = section === 'employees';
     const needsRoles = section === 'employees' || section === 'permissions';
-    const needsPermissions = section === 'roles' || section === 'permissions';
+    const needsPermissions =
+      section === 'roles' || section === 'permissions' || section === 'privileges';
     const requests = await Promise.all([
       needsBranches && hasPermission(current, 'organization.branch.read')
         ? apiCached<Catalog[]>('/branches')
@@ -600,22 +612,22 @@ export function AdminConsole() {
               </label>
               <label>
                 Access scope
-                <select name="accessMode" required>
+                <SearchableSelect name="accessMode" required>
                   <option value="BRANCH">Branch Restricted</option>
                   <option value="MULTI_BRANCH">Multiple Branches</option>
                   <option value="COMPANY_WIDE">Company Wide</option>
-                </select>
+                </SearchableSelect>
               </label>
               <label>
                 Primary branch
-                <select name="branchId" required>
+                <SearchableSelect name="branchId" required>
                   <option value="">Choose a branch</option>
                   {catalogs.branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
                       {branch.name}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </label>
               <label>
                 Login email (optional)
@@ -655,36 +667,36 @@ export function AdminConsole() {
               >
                 <label>
                   Employee
-                  <select name="employeeId" required>
+                  <SearchableSelect name="employeeId" required>
                     <option value="">Choose an employee</option>
                     {catalogs.employees.map((employee) => (
                       <option key={employee.id} value={employee.id}>
                         {employee.employeeNumber} - {employee.displayName}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label>
                   Role
-                  <select name="roleId" required>
+                  <SearchableSelect name="roleId" required>
                     <option value="">Choose a role</option>
                     {catalogs.roles.map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.name ?? humanize(role.code)}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="full">
                   Role scope
-                  <select name="branchId">
+                  <SearchableSelect name="branchId">
                     <option value="">Company level</option>
                     {catalogs.branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>
                         {branch.name}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <button className="button primary full" disabled={busy}>
                   {busy ? 'Assigning...' : 'Assign role'}
@@ -757,18 +769,18 @@ export function AdminConsole() {
           >
             <label>
               Role
-              <select name="roleId" required>
+              <SearchableSelect name="roleId" required>
                 <option value="">Choose a role</option>
                 {catalogs.roles.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.name ?? humanize(role.code)}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               Capability
-              <select name="permissionId" required>
+              <SearchableSelect name="permissionId" required>
                 <option value="">Choose a capability</option>
                 {catalogs.permissions.map((permission) => (
                   <option key={permission.id} value={permission.id}>
@@ -776,7 +788,7 @@ export function AdminConsole() {
                     {permissionLabel(permission.code ?? '')}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <button className="button primary full" disabled={busy}>
               {busy ? 'Granting...' : 'Grant capability'}
@@ -807,22 +819,22 @@ export function AdminConsole() {
             >
               <label>
                 User account
-                <select name="userId" required>
+                <SearchableSelect name="userId" required>
                   <option value="">Choose a user</option>
                   {catalogs.users.map((user) => (
                     <option key={text(user.id)} value={text(user.id)}>
                       {text(user.emailNormalized)} - {text(object(user.employee).employeeNumber)}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </label>
               <label>
                 Status
-                <select name="status" required>
+                <SearchableSelect name="status" required>
                   <option value="ACTIVE">Active</option>
                   <option value="SUSPENDED">Suspended</option>
                   <option value="DISABLED">Disabled</option>
-                </select>
+                </SearchableSelect>
               </label>
               <label className="full">
                 Reason
@@ -854,7 +866,7 @@ export function AdminConsole() {
               >
                 <label className="full">
                   Active session
-                  <select name="sessionId" required>
+                  <SearchableSelect name="sessionId" required>
                     <option value="">Choose a session</option>
                     {catalogs.users.flatMap((user) =>
                       array(user.sessions)
@@ -866,7 +878,7 @@ export function AdminConsole() {
                           </option>
                         )),
                     )}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="full">
                   Revocation reason
@@ -1279,7 +1291,9 @@ export function AdminConsole() {
         onSelect: () => void choose(section),
       })),
     administration: visible
-      .filter((section) => ['roles', 'permissions', 'users', 'audit'].includes(section.key))
+      .filter((section) =>
+        ['roles', 'permissions', 'users', 'privileges', 'audit'].includes(section.key),
+      )
       .map((section) => ({
         key: section.key,
         label: section.label,
@@ -1407,6 +1421,21 @@ export function AdminConsole() {
             />
           )}
         </>
+      ) : active === 'privileges' ? (
+        loading ? (
+          <LoadingState label="Loading privilege manager" />
+        ) : (
+          <PrivilegeManager
+            users={
+              records as unknown as Array<{
+                id: string;
+                emailNormalized: string;
+                employee?: { employeeNumber?: string; party?: { displayName?: string } };
+              }>
+            }
+            canManage={hasCompanyPermission(principal, 'identity.user.privilege.manage')}
+          />
+        )
       ) : active === 'roles' ? (
         <>
           {error ? (
@@ -1575,7 +1604,7 @@ export function AdminConsole() {
                 {supportsStatusFilter ? (
                   <label>
                     <span className="sr-only">Filter by status</span>
-                    <select
+                    <SearchableSelect
                       className="status-filter"
                       value={statusFilter}
                       onChange={(event) => setStatusFilter(event.target.value)}
@@ -1583,7 +1612,7 @@ export function AdminConsole() {
                       <option value="all">All statuses</option>
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
-                    </select>
+                    </SearchableSelect>
                   </label>
                 ) : null}
               </div>

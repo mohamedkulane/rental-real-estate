@@ -86,6 +86,7 @@ export class AuthService {
       include: {
         user: {
           include: {
+            permissionOverrides: { include: { permission: true } },
             employee: {
               include: {
                 branchAssignments: {
@@ -136,6 +137,19 @@ export class AuthService {
     const activeBranchAssignments = employee.branchAssignments.filter((assignment) =>
       activeAt(assignment.effectiveFrom, assignment.effectiveTo),
     );
+    for (const override of session.user.permissionOverrides ?? []) {
+      const code = override.permission.code;
+      if (!override.allowed) {
+        permissions.delete(code);
+        permissionBranchScopes.delete(code);
+        continue;
+      }
+      permissions.add(code);
+      const scopes = new Set<string | null>();
+      if (employee.accessMode === BranchAccessMode.COMPANY_WIDE) scopes.add(null);
+      else for (const assignment of activeBranchAssignments) scopes.add(assignment.branchId);
+      permissionBranchScopes.set(code, scopes);
+    }
     const branchIds = new Set(activeBranchAssignments.map((assignment) => assignment.branchId));
     const activityWriteBefore = new Date(
       now.getTime() - this.environment.SESSION_ACTIVITY_WRITE_INTERVAL_MINUTES * 60 * 1000,

@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -200,7 +202,7 @@ export function PropertyOperations({
           >
             <label className="text-sm font-semibold">
               New branch
-              <select className={inputClass} name="branchId" required>
+              <SearchableSelect className={inputClass} name="branchId" required>
                 <option value="">Choose branch</option>
                 {branches
                   .filter((branch) => !branchIds.includes(branch.id))
@@ -209,7 +211,7 @@ export function PropertyOperations({
                       {branch.name}
                     </option>
                   ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="text-sm font-semibold">
               Effective date
@@ -303,7 +305,7 @@ export function PropertyOperations({
                       });
                     }}
                   >
-                    <select
+                    <SearchableSelect
                       aria-label="Building status"
                       className={inputClass}
                       name="status"
@@ -317,7 +319,7 @@ export function PropertyOperations({
                           <option value="RETIRED">Retire</option>
                         </>
                       )}
-                    </select>
+                    </SearchableSelect>
                     <input
                       aria-label="Status reason"
                       className={inputClass}
@@ -424,14 +426,14 @@ export function PropertyOperations({
               });
             }}
           >
-            <select aria-label="Amenity" className={inputClass} name="amenityId" required>
+            <SearchableSelect aria-label="Amenity" className={inputClass} name="amenityId" required>
               <option value="">Choose amenity</option>
               {availableAmenities.map((amenity) => (
                 <option key={amenity.id} value={amenity.id}>
                   {amenity.name}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
             <button
               disabled={busy}
               className="rounded-lg border border-slate-300 px-4 text-sm font-bold"
@@ -504,7 +506,7 @@ export function PropertyOperations({
                     defaultValue={document.categoryCode}
                     required
                   />
-                  <select
+                  <SearchableSelect
                     aria-label="Access class"
                     className={inputClass}
                     name="accessClass"
@@ -513,8 +515,8 @@ export function PropertyOperations({
                     <option>INTERNAL</option>
                     <option>CONFIDENTIAL</option>
                     <option>RESTRICTED</option>
-                  </select>
-                  <select
+                  </SearchableSelect>
+                  <SearchableSelect
                     aria-label="Document status"
                     className={inputClass}
                     name="status"
@@ -523,7 +525,7 @@ export function PropertyOperations({
                     <option>PENDING</option>
                     <option>ACTIVE</option>
                     <option>ARCHIVED</option>
-                  </select>
+                  </SearchableSelect>
                   <button
                     disabled={busy}
                     className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold md:col-span-4"

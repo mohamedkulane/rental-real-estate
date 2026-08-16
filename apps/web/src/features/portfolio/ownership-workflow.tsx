@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import {
   AlertCircle,
   CalendarClock,
@@ -199,7 +201,7 @@ export function OwnershipEditor({
                 aria-label={'Search owner ' + (index + 1)}
                 placeholder="Search by name, owner number, or type"
               />
-              <select
+              <SearchableSelect
                 value={share.ownerPartyId}
                 onChange={(event) => update(index, 'ownerPartyId', event.target.value)}
                 required
@@ -212,7 +214,7 @@ export function OwnershipEditor({
                     {owner.party.displayName} — {owner.ownerNumber} ({humanize(owner.party.kind)})
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <label className="space-y-1.5 text-xs font-bold text-slate-600">

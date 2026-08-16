@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -497,10 +499,10 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Party kind
-              <select name="kind">
+              <SearchableSelect name="kind">
                 <option value="PERSON">Person</option>
                 <option value="ORGANIZATION">Organization</option>
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <label>
@@ -510,11 +512,11 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Contact type
-              <select name="contactType">
+              <SearchableSelect name="contactType">
                 <option value="PHONE">Phone</option>
                 <option value="EMAIL">Email</option>
                 <option value="WHATSAPP">WhatsApp</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               Contact (optional)
@@ -532,14 +534,14 @@ export function PortfolioConsole() {
           <h2>Create owner profile</h2>
           <label>
             Party
-            <select name="partyId" required>
+            <SearchableSelect name="partyId" required>
               <option value="">Choose a party</option>
               {parties.map((party) => (
                 <option key={party.id} value={party.id}>
                   {party.partyNumber} — {party.displayName}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <button className={styles.submit} disabled={busy}>
             Create owner
@@ -553,12 +555,12 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Property type
-              <select name="propertyType">
+              <SearchableSelect name="propertyType">
                 <option value="RESIDENTIAL">Residential</option>
                 <option value="COMMERCIAL">Commercial</option>
                 <option value="MIXED_USE">Mixed use</option>
                 <option value="VACANT_LAND">Vacant land</option>
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <label>
@@ -568,14 +570,14 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Operating branch
-              <select name="branchId" required>
+              <SearchableSelect name="branchId" required>
                 <option value="">Choose a branch</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               City
@@ -597,7 +599,7 @@ export function PortfolioConsole() {
           <h2>Add a rentable space</h2>
           <label>
             Property
-            <select
+            <SearchableSelect
               name="propertyId"
               required
               value={propertyFilter}
@@ -617,12 +619,12 @@ export function PortfolioConsole() {
                   {property.propertyCode} — {property.name}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <div className={styles.row}>
             <label>
               Type
-              <select
+              <SearchableSelect
                 name="typeCode"
                 required
                 value={spaceTypeCode}
@@ -633,7 +635,7 @@ export function PortfolioConsole() {
                     {type.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               Space code (optional)
@@ -647,7 +649,7 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Building (optional)
-              <select name="buildingId">
+              <SearchableSelect name="buildingId">
                 <option value="">No building</option>
                 {spaceBuildings
                   .filter((building) => building.status !== 'RETIRED')
@@ -656,11 +658,11 @@ export function PortfolioConsole() {
                       {building.buildingCode} — {building.name}
                     </option>
                   ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               Parent space (optional)
-              <select name="parentSpaceId">
+              <SearchableSelect name="parentSpaceId">
                 <option value="">Standalone / top level</option>
                 {spaces
                   .filter(
@@ -671,7 +673,7 @@ export function PortfolioConsole() {
                       {space.spaceCode} — {space.name}
                     </option>
                   ))}
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <div className={styles.row}>
@@ -685,12 +687,12 @@ export function PortfolioConsole() {
             </label>
             <label>
               Area unit
-              <select name="areaUnit">
+              <SearchableSelect name="areaUnit">
                 <option value="SQM">Square metres</option>
                 <option value="SQFT">Square feet</option>
                 <option value="ACRE">Acres</option>
                 <option value="HECTARE">Hectares</option>
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <div className={styles.row}>
@@ -730,10 +732,10 @@ export function PortfolioConsole() {
               </label>
               <label>
                 Fenced
-                <select name="fenced" defaultValue="false">
+                <SearchableSelect name="fenced" defaultValue="false">
                   <option value="false">No</option>
                   <option value="true">Yes</option>
-                </select>
+                </SearchableSelect>
               </label>
             </>
           ) : (
@@ -1160,7 +1162,7 @@ export function PortfolioConsole() {
           {active === 'spaces' ? (
             <label className="block max-w-md space-y-1.5 text-sm font-semibold text-slate-700">
               <span>Filter by property</span>
-              <select
+              <SearchableSelect
                 value={propertyFilter}
                 onChange={(event) => {
                   setPropertyFilter(event.target.value);
@@ -1175,7 +1177,7 @@ export function PortfolioConsole() {
                     {property.propertyCode} — {property.name}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
           ) : null}
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1195,7 +1197,7 @@ export function PortfolioConsole() {
           </section>
           {showActions ? (
             <div
-              className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35"
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/35"
               role="dialog"
               aria-modal="true"
               aria-label="Portfolio actions"
@@ -1206,7 +1208,7 @@ export function PortfolioConsole() {
                 aria-label="Close actions"
                 onClick={() => setShowActions(false)}
               />
-              <aside className="relative h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white p-6 shadow-2xl">
+              <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl scroll-smooth">
                 <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
                   <div>
                     <h2 className="text-lg font-bold">

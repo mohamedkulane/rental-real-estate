@@ -56,6 +56,8 @@ const permissions = [
   ['identity.user.create', 'Create user access'],
   ['identity.user.update', 'Update user access'],
   ['identity.user.suspend', 'Suspend or activate users'],
+  ['identity.user.privilege.read', 'Read user-specific privileges'],
+  ['identity.user.privilege.manage', 'Manage user-specific privileges'],
   ['identity.session.revoke', 'Revoke user sessions'],
   ['identity.role.read', 'Read roles and role grants'],
   ['identity.role.manage', 'Manage role permissions and assignments'],
@@ -95,7 +97,7 @@ const rolePermissions: Record<string, readonly string[]> = {
   SUPER_ADMIN: permissions.map(([code]) => code),
   GENERAL_MANAGER: permissions
     .map(([code]) => code)
-    .filter((code) => code !== 'identity.role.manage'),
+    .filter((code) => code !== 'identity.role.manage' && code !== 'identity.user.privilege.manage'),
   BRANCH_MANAGER: [
     'organization.company.read',
     'organization.branch.read',

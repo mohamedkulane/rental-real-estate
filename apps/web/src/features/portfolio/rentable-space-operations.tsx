@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -198,14 +200,14 @@ export function RentableSpaceOperations({
       </div>
       <label className="block text-sm font-semibold">
         Rentable space
-        <select value={selectedId} onChange={(event) => void load(event.target.value)}>
+        <SearchableSelect value={selectedId} onChange={(event) => void load(event.target.value)}>
           <option value="">Choose a space</option>
           {spaces.map((space) => (
             <option key={space.id} value={space.id}>
               {space.spaceCode} — {space.name}
             </option>
           ))}
-        </select>
+        </SearchableSelect>
       </label>
       {error ? (
         <div
@@ -264,12 +266,15 @@ export function RentableSpaceOperations({
                 </label>
                 <label>
                   Area unit
-                  <select name="areaUnit" defaultValue={currentVersion?.areaUnit ?? 'SQM'}>
+                  <SearchableSelect
+                    name="areaUnit"
+                    defaultValue={currentVersion?.areaUnit ?? 'SQM'}
+                  >
                     <option>SQM</option>
                     <option>SQFT</option>
                     <option>ACRE</option>
                     <option>HECTARE</option>
-                  </select>
+                  </SearchableSelect>
                 </label>
               </div>
               <div className={styles.row}>
@@ -309,14 +314,14 @@ export function RentableSpaceOperations({
               <h3>Change parent</h3>
               <label>
                 Eligible parent
-                <select name="parentSpaceId" required>
+                <SearchableSelect name="parentSpaceId" required>
                   <option value="">Choose a parent</option>
                   {parentOptions.map((space) => (
                     <option key={space.id} value={space.id}>
                       {space.spaceCode} — {space.name}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </label>
               <p className="text-xs text-slate-500">
                 Only non-retired spaces in the same property are shown; self and descendants are
@@ -369,13 +374,13 @@ export function RentableSpaceOperations({
               <div className={styles.row}>
                 <label>
                   Child type
-                  <select name="typeCode" required>
+                  <SearchableSelect name="typeCode" required>
                     {typeCatalog.map((type) => (
                       <option key={type.id} value={type.code}>
                         {type.name}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label>
                   Child code (optional)
@@ -397,12 +402,15 @@ export function RentableSpaceOperations({
                 </label>
                 <label>
                   Area unit
-                  <select name="areaUnit" defaultValue={currentVersion?.areaUnit ?? 'SQM'}>
+                  <SearchableSelect
+                    name="areaUnit"
+                    defaultValue={currentVersion?.areaUnit ?? 'SQM'}
+                  >
                     <option>SQM</option>
                     <option>SQFT</option>
                     <option>ACRE</option>
                     <option>HECTARE</option>
-                  </select>
+                  </SearchableSelect>
                 </label>
               </div>
               <div className={styles.row}>
@@ -467,14 +475,14 @@ export function RentableSpaceOperations({
                   });
                 }}
               >
-                <select name="amenityId" required>
+                <SearchableSelect name="amenityId" required>
                   <option value="">Choose amenity</option>
                   {availableAmenities.map((amenity) => (
                     <option key={amenity.id} value={amenity.id}>
                       {amenity.name}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
                 <button disabled={busy}>Assign</button>
               </form>
             ) : null}
@@ -519,7 +527,7 @@ export function RentableSpaceOperations({
                       defaultValue={document.categoryCode}
                       required
                     />
-                    <select
+                    <SearchableSelect
                       aria-label="Access class"
                       name="accessClass"
                       defaultValue={document.accessClass}
@@ -527,12 +535,16 @@ export function RentableSpaceOperations({
                       <option>INTERNAL</option>
                       <option>CONFIDENTIAL</option>
                       <option>RESTRICTED</option>
-                    </select>
-                    <select aria-label="Status" name="status" defaultValue={document.status}>
+                    </SearchableSelect>
+                    <SearchableSelect
+                      aria-label="Status"
+                      name="status"
+                      defaultValue={document.status}
+                    >
                       <option>PENDING</option>
                       <option>ACTIVE</option>
                       <option>ARCHIVED</option>
-                    </select>
+                    </SearchableSelect>
                     <button className="md:col-span-4" disabled={busy}>
                       Save metadata
                     </button>

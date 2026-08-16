@@ -1,5 +1,7 @@
 'use client';
 
+import { SearchableSelect } from '@/components/shared/searchable-select';
+
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, type CursorPage, userFacingError } from '@/lib/phase3-api';
@@ -133,7 +135,7 @@ export function EntityDocuments({
                   defaultValue={document.categoryCode}
                   required
                 />
-                <select
+                <SearchableSelect
                   aria-label="Access class"
                   className={inputClass}
                   name="accessClass"
@@ -142,8 +144,8 @@ export function EntityDocuments({
                   <option>INTERNAL</option>
                   <option>CONFIDENTIAL</option>
                   <option>RESTRICTED</option>
-                </select>
-                <select
+                </SearchableSelect>
+                <SearchableSelect
                   aria-label="Status"
                   className={inputClass}
                   name="status"
@@ -152,7 +154,7 @@ export function EntityDocuments({
                   <option>PENDING</option>
                   <option>ACTIVE</option>
                   <option>ARCHIVED</option>
-                </select>
+                </SearchableSelect>
                 <button
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold sm:col-span-2"
                   disabled={busy}
