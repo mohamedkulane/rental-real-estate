@@ -10,7 +10,6 @@ import {
   CircleAlert,
   Edit3,
   Eye,
-  Filter,
   ImageIcon,
   MapPin,
   MoreHorizontal,
@@ -325,26 +324,26 @@ export function PropertyRegistry({
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-center xl:justify-between">
-          <label className="relative block min-w-0 flex-1 xl:max-w-md">
+        <div className="grid grid-cols-1 items-end gap-3 border-b border-slate-200 p-4 lg:grid-cols-[minmax(260px,1.2fr)_minmax(0,3fr)]">
+          <label className="relative block min-w-0">
             <span className="sr-only">Search properties</span>
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               type="search"
               placeholder="Search name, code, city, or branch..."
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-12 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="relative">
               <span className="sr-only">Filter by branch</span>
-              <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <SearchableSelect
+                aria-label="Filter by branch"
                 value={branchFilter}
                 onChange={(event) => setBranchFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
               >
                 <option value="all">All branches</option>
                 {branches.map((branch) => (
@@ -356,11 +355,11 @@ export function PropertyRegistry({
             </label>
             <label className="relative">
               <span className="sr-only">Filter by type</span>
-              <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <SearchableSelect
+                aria-label="Filter by type"
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
               >
                 <option value="all">All types</option>
                 {propertyTypes.map((type) => (
@@ -371,6 +370,7 @@ export function PropertyRegistry({
               </SearchableSelect>
             </label>
             <SearchableSelect
+              searchable={false}
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}

@@ -1,56 +1,98 @@
 'use client';
 
-import { Children, isValidElement, useId, useMemo, useState } from 'react';
+import { Children, isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactElement, ReactNode, SelectHTMLAttributes } from 'react';
 import { Search } from 'lucide-react';
 
 type OptionElement = ReactElement<{ children?: ReactNode; value?: string | number }>;
-
-const optionText = (option: OptionElement): string => {
-  const children = option.props.children;
-  return typeof children === 'string' || typeof children === 'number'
-    ? String(children)
-    : String(option.props.value ?? '');
+type SearchableSelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+  searchable?: boolean;
 };
+
+const nodeText = (node: ReactNode): string => {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join('');
+  if (isValidElement<{ children?: ReactNode }>(node)) return nodeText(node.props.children);
+  return '';
+};
+
+export const searchableOptionText = (option: OptionElement): string => {
+  const label = nodeText(option.props.children).trim();
+  return label || String(option.props.value ?? '');
+};
+
+export const isStatusSelection = (name?: string, ariaLabel?: string, className?: string): boolean =>
+  [name, ariaLabel, className]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes('status'));
 
 export function SearchableSelect({
   children,
   className,
+  searchable,
   'aria-label': ariaLabel,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) {
+}: SearchableSelectProps) {
   const [query, setQuery] = useState('');
   const searchId = useId();
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const lastAutoSelection = useRef('');
   const selectedValue = String(props.value ?? props.defaultValue ?? '');
+  const showSearch = searchable !== false && !isStatusSelection(props.name, ariaLabel, className);
+  const childOptions = useMemo(
+    () =>
+      Children.toArray(children).filter((child): child is OptionElement => isValidElement(child)),
+    [children],
+  );
+  const normalizedQuery = query.trim().toLowerCase();
   const options = useMemo(
     () =>
-      Children.toArray(children).filter((child) => {
-        if (!query || !isValidElement(child)) return true;
-        const option = child as OptionElement;
-        return (
+      childOptions.filter(
+        (option) =>
+          !normalizedQuery ||
           String(option.props.value ?? '') === selectedValue ||
-          optionText(option).toLowerCase().includes(query.trim().toLowerCase())
-        );
-      }),
-    [children, query, selectedValue],
+          searchableOptionText(option).toLowerCase().includes(normalizedQuery),
+      ),
+    [childOptions, normalizedQuery, selectedValue],
   );
+
+  useEffect(() => {
+    if (!showSearch || !normalizedQuery || !selectRef.current) return;
+    const exactMatches = childOptions.filter(
+      (option) =>
+        String(option.props.value ?? '') &&
+        searchableOptionText(option).trim().toLowerCase() === normalizedQuery,
+    );
+    if (exactMatches.length !== 1) return;
+    const exactValue = String(exactMatches[0]?.props.value ?? '');
+    const signature = normalizedQuery + ':' + exactValue;
+    if (!exactValue || lastAutoSelection.current === signature) return;
+    lastAutoSelection.current = signature;
+    selectRef.current.value = exactValue;
+    selectRef.current.dispatchEvent(new Event('change', { bubbles: true }));
+  }, [childOptions, normalizedQuery, showSearch]);
 
   return (
     <div className="searchable-select">
-      <div className="searchable-select-search">
-        <Search aria-hidden="true" />
-        <input
-          id={searchId}
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search options..."
-          autoComplete="off"
-          aria-label={'Search ' + (ariaLabel ?? props.name ?? 'options')}
-        />
-      </div>
-      <select {...props} aria-label={ariaLabel} className={className}>
-        {options}
+      {showSearch ? (
+        <div className="searchable-select-search">
+          <Search aria-hidden="true" />
+          <input
+            id={searchId}
+            type="search"
+            value={query}
+            onChange={(event) => {
+              lastAutoSelection.current = '';
+              setQuery(event.target.value);
+            }}
+            placeholder="Search options..."
+            autoComplete="off"
+            aria-label={'Search ' + (ariaLabel ?? props.name ?? 'options')}
+          />
+        </div>
+      ) : null}
+      <select ref={selectRef} {...props} aria-label={ariaLabel} className={className}>
+        {showSearch ? options : children}
       </select>
     </div>
   );

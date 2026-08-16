@@ -71,20 +71,19 @@ model Department {
 }
 
 model User {
-  id                                                String                   @id @db.Uuid
-  emailNormalized                                   String                   @unique @db.VarChar(320)
-  passwordHash                                      String?                  @db.VarChar(255)
-  status                                            UserStatus               @default(PENDING)
-  passwordChangedAt                                 DateTime?                @db.Timestamptz(6)
-  createdAt                                         DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedAt                                         DateTime                 @updatedAt @db.Timestamptz(6)
-  audit_logs_audit_logs_actorUserIdTousers          AuditLog[]               @relation("audit_logs_actorUserIdTousers")
-  audit_logs_audit_logs_effectiveActorUserIdTousers AuditLog[]               @relation("audit_logs_effectiveActorUserIdTousers")
+  id                                                String               @id @db.Uuid
+  emailNormalized                                   String               @unique @db.VarChar(320)
+  passwordHash                                      String?              @db.VarChar(255)
+  status                                            UserStatus           @default(PENDING)
+  passwordChangedAt                                 DateTime?            @db.Timestamptz(6)
+  createdAt                                         DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt                                         DateTime             @updatedAt @db.Timestamptz(6)
+  audit_logs_audit_logs_actorUserIdTousers          AuditLog[]           @relation("audit_logs_actorUserIdTousers")
+  audit_logs_audit_logs_effectiveActorUserIdTousers AuditLog[]           @relation("audit_logs_effectiveActorUserIdTousers")
   document_versions                                 DocumentVersion[]
   employee                                          Employee?
   passwordResets                                    PasswordResetToken[]
   sessions                                          Session[]
-  permissionOverrides                               UserPermissionOverride[]
 
   @@map("users")
 }
@@ -173,11 +172,10 @@ model Role {
 }
 
 model Permission {
-  id            String                   @id @db.Uuid
-  code          String                   @unique @db.VarChar(100)
-  description   String                   @db.VarChar(255)
-  roles         RolePermission[]
-  userOverrides UserPermissionOverride[]
+  id          String           @id @db.Uuid
+  code        String           @unique @db.VarChar(100)
+  description String           @db.VarChar(255)
+  roles       RolePermission[]
 
   @@map("permissions")
 }
@@ -190,19 +188,6 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
-}
-
-model UserPermissionOverride {
-  userId       String     @db.Uuid
-  permissionId String     @db.Uuid
-  allowed      Boolean
-  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([userId, permissionId])
-  @@index([permissionId])
-  @@map("user_permission_overrides")
 }
 
 model EmployeeRole {

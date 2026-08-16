@@ -201,6 +201,7 @@ export function OwnerDirectory({
             />
           </label>
           <SearchableSelect
+            searchable={false}
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className={inputClass}

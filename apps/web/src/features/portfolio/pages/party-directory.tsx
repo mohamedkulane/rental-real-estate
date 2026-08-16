@@ -222,6 +222,7 @@ export function PartyDirectory({
             <option value="ORGANIZATION">Organizations</option>
           </SearchableSelect>
           <SearchableSelect
+            searchable={false}
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className={inputClass}

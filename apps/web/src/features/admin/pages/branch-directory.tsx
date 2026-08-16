@@ -165,6 +165,7 @@ export function BranchDirectory({
           </label>
           <div className="flex items-center gap-4">
             <SearchableSelect
+              searchable={false}
               value={status}
               onChange={(event) => setStatus(event.target.value)}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold"

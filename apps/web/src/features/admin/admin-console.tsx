@@ -38,7 +38,6 @@ import {
   usePagination,
 } from '@/components/shared/pagination';
 import { UserAccountDirectory, type UserAccountRecord } from './pages/user-account-directory';
-import { PrivilegeManager } from './pages/privilege-manager';
 import type { Principal } from '@/lib/phase3-api';
 import {
   api,
@@ -70,7 +69,6 @@ type SectionKey =
   | 'roles'
   | 'permissions'
   | 'users'
-  | 'privileges'
   | 'audit'
   | 'settings';
 type Section = {
@@ -165,13 +163,6 @@ const sections: Section[] = [
     label: 'Users & sessions',
     description: 'Login accounts, access state, and revocable sessions.',
     permission: 'identity.user.read',
-    path: '/users',
-  },
-  {
-    key: 'privileges',
-    label: 'Privileges',
-    description: 'Manage exact user-level capabilities with audited allow and deny overrides.',
-    permission: 'identity.user.privilege.read',
     path: '/users',
   },
   {
@@ -324,8 +315,7 @@ export function AdminConsole() {
   const loadCatalogs = useCallback(async (section: SectionKey, current: Principal) => {
     const needsBranches = section === 'employees';
     const needsRoles = section === 'employees' || section === 'permissions';
-    const needsPermissions =
-      section === 'roles' || section === 'permissions' || section === 'privileges';
+    const needsPermissions = section === 'roles' || section === 'permissions';
     const requests = await Promise.all([
       needsBranches && hasPermission(current, 'organization.branch.read')
         ? apiCached<Catalog[]>('/branches')
@@ -1291,9 +1281,7 @@ export function AdminConsole() {
         onSelect: () => void choose(section),
       })),
     administration: visible
-      .filter((section) =>
-        ['roles', 'permissions', 'users', 'privileges', 'audit'].includes(section.key),
-      )
+      .filter((section) => ['roles', 'permissions', 'users', 'audit'].includes(section.key))
       .map((section) => ({
         key: section.key,
         label: section.label,
@@ -1421,21 +1409,6 @@ export function AdminConsole() {
             />
           )}
         </>
-      ) : active === 'privileges' ? (
-        loading ? (
-          <LoadingState label="Loading privilege manager" />
-        ) : (
-          <PrivilegeManager
-            users={
-              records as unknown as Array<{
-                id: string;
-                emailNormalized: string;
-                employee?: { employeeNumber?: string; party?: { displayName?: string } };
-              }>
-            }
-            canManage={hasCompanyPermission(principal, 'identity.user.privilege.manage')}
-          />
-        )
       ) : active === 'roles' ? (
         <>
           {error ? (
@@ -1605,6 +1578,7 @@ export function AdminConsole() {
                   <label>
                     <span className="sr-only">Filter by status</span>
                     <SearchableSelect
+                      searchable={false}
                       className="status-filter"
                       value={statusFilter}
                       onChange={(event) => setStatusFilter(event.target.value)}

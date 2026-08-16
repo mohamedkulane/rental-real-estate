@@ -136,7 +136,7 @@ export function AppShell({
       ];
   const localTeamAccess = [
     ...pick(organization, ['employees'], { employees: Users }),
-    ...pick(administration, ['users', 'roles', 'privileges'], {
+    ...pick(administration, ['users', 'roles'], {
       users: UserCog,
       roles: ShieldCheck,
       permissions: ShieldCheck,
@@ -156,10 +156,6 @@ export function AppShell({
         ...allowed(
           'identity.role.read',
           go('roles', 'Roles & permissions', '/admin?section=roles', ShieldCheck),
-        ),
-        ...allowed(
-          'identity.user.privilege.read',
-          go('privileges', 'Privileges', '/admin?section=privileges', ShieldCheck),
         ),
       ];
   const portfolioItems = portfolio.length

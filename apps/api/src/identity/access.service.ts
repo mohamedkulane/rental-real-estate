@@ -5,7 +5,7 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import type { CreateRoleDto, UpdateRoleDto, UpdateUserPrivilegesDto } from './access.dto';
+import type { CreateRoleDto, UpdateRoleDto } from './access.dto';
 
 @Injectable()
 export class AccessService {
@@ -26,118 +26,6 @@ export class AccessService {
       include: { permissions: { include: { permission: true } } },
       orderBy: { code: 'asc' },
     });
-  }
-
-  async getUserPrivileges(principal: AuthenticatedPrincipal, userId: string) {
-    this.authorization.assertCompanyPermission(principal, 'identity.user.privilege.read');
-    const businessDate = await this.businessDate.today(principal.companyId);
-    const user = await this.database.user.findFirstOrThrow({
-      where: { id: userId, employee: { companyId: principal.companyId } },
-      include: {
-        employee: {
-          include: {
-            party: { select: { displayName: true } },
-            roles: {
-              where: {
-                effectiveFrom: { lte: businessDate },
-                OR: [{ effectiveTo: null }, { effectiveTo: { gt: businessDate } }],
-                role: { active: true },
-              },
-              include: { role: { include: { permissions: true } } },
-            },
-          },
-        },
-        permissionOverrides: true,
-      },
-    });
-    const inheritedIds = new Set(
-      user.employee?.roles.flatMap((assignment) =>
-        assignment.role.permissions.map((grant) => grant.permissionId),
-      ) ?? [],
-    );
-    const overrides = new Map(
-      user.permissionOverrides.map((override) => [override.permissionId, override.allowed]),
-    );
-    const permissions = await this.database.permission.findMany({ orderBy: { code: 'asc' } });
-    return {
-      user: {
-        id: user.id,
-        email: user.emailNormalized,
-        displayName: user.employee?.party.displayName ?? user.emailNormalized,
-        employeeNumber: user.employee?.employeeNumber ?? null,
-      },
-      permissions: permissions.map((permission) => {
-        const inherited = inheritedIds.has(permission.id);
-        const override = overrides.get(permission.id);
-        return {
-          ...permission,
-          inherited,
-          override: override ?? null,
-          enabled: override ?? inherited,
-        };
-      }),
-    };
-  }
-
-  async replaceUserPrivileges(
-    principal: AuthenticatedPrincipal,
-    userId: string,
-    input: UpdateUserPrivilegesDto,
-    correlationId?: string,
-  ) {
-    this.authorization.assertCompanyPermission(principal, 'identity.user.privilege.manage');
-    const target = await this.database.user.findFirstOrThrow({
-      where: { id: userId, employee: { companyId: principal.companyId } },
-      select: { id: true, permissionOverrides: true },
-    });
-    const permissions = await this.database.permission.findMany({
-      select: { id: true, code: true },
-      orderBy: { code: 'asc' },
-    });
-    const knownIds = new Set(permissions.map((permission) => permission.id));
-    if (input.permissionIds.some((permissionId) => !knownIds.has(permissionId)))
-      throw new BadRequestException('One or more permissions are invalid.');
-    const managePermission = permissions.find(
-      (permission) => permission.code === 'identity.user.privilege.manage',
-    );
-    if (
-      target.id === principal.userId &&
-      managePermission &&
-      !input.permissionIds.includes(managePermission.id)
-    )
-      throw new BadRequestException('You cannot remove your own privilege-management access.');
-
-    const enabled = new Set(input.permissionIds);
-    await this.database.$transaction(async (transaction) => {
-      await transaction.userPermissionOverride.deleteMany({ where: { userId } });
-      await transaction.userPermissionOverride.createMany({
-        data: permissions.map((permission) => ({
-          userId,
-          permissionId: permission.id,
-          allowed: enabled.has(permission.id),
-        })),
-      });
-      await this.audit.write(transaction, {
-        actorUserId: principal.userId,
-        action: 'identity.user.privileges-replaced',
-        entityType: 'User',
-        entityId: userId,
-        correlationId,
-        reason: input.reason,
-        before: {
-          overrides: target.permissionOverrides.map((override) => ({
-            permissionId: override.permissionId,
-            allowed: override.allowed,
-          })),
-        },
-        after: {
-          permissionCodes: permissions
-            .filter((permission) => enabled.has(permission.id))
-            .map((permission) => permission.code),
-        },
-      });
-    });
-    return this.getUserPrivileges(principal, userId);
   }
 
   async createRole(
