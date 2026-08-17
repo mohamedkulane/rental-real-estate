@@ -47,7 +47,7 @@ export type PartyRecord = {
 
 type Panel = 'create' | 'view' | 'edit' | 'status' | null;
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
 const value = (form: FormData, key: string) => {
   const entry = form.get(key);
   return typeof entry === 'string' ? entry.trim() : '';
@@ -211,7 +211,7 @@ export function PartyDirectory({
           <button
             type="button"
             onClick={() => open('create')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0D47A1]"
           >
             <Plus className="h-4 w-4" /> Add record
           </button>
@@ -315,7 +315,7 @@ export function PartyDirectory({
                     </td>
                     <td className="px-5 py-4 text-right">
                       <details className="relative inline-block">
-                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:text-emerald-700">
+                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:text-[#0D47A1]">
                           <MoreHorizontal className="h-5 w-5" />
                         </summary>
                         <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
@@ -448,7 +448,7 @@ export function PartyDirectory({
             </div>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Saving…' : 'Create record'}
             </button>
@@ -946,7 +946,7 @@ export function PartyDirectory({
             </section>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
             >
               {busy ? 'Saving…' : 'Save changes'}
             </button>
@@ -974,7 +974,7 @@ export function PartyDirectory({
               }
               className={
                 'w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white ' +
-                (selected.active ? 'bg-red-600' : 'bg-emerald-600')
+                (selected.active ? 'bg-red-600' : 'bg-[#0D47A1]')
               }
             >
               {busy ? 'Updating…' : selected.active ? 'Deactivate' : 'Activate'}

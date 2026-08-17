@@ -28,7 +28,7 @@ const value = (form: FormData, key: string) => {
   return typeof entry === 'string' ? entry.trim() : '';
 };
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#0D47A1]';
 
 export function EntityDocuments({
   entityType,

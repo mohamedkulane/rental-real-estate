@@ -7,6 +7,8 @@ import { Search } from 'lucide-react';
 type OptionElement = ReactElement<{ children?: ReactNode; value?: string | number }>;
 type SearchableSelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   searchable?: boolean;
+  searchThreshold?: number;
+  searchPlaceholder?: string;
 };
 
 const nodeText = (node: ReactNode): string => {
@@ -24,6 +26,16 @@ export const searchableOptionText = (option: OptionElement): string => {
 export const matchesSearchableOption = (option: OptionElement, query: string): boolean =>
   searchableOptionText(option).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
 
+export const firstSearchableOptionValue = (
+  options: OptionElement[],
+  query: string,
+): string | undefined => {
+  const match = options.find(
+    (option) => String(option.props.value ?? '') && matchesSearchableOption(option, query),
+  );
+  return match ? String(match.props.value) : undefined;
+};
+
 export const isStatusSelection = (name?: string, ariaLabel?: string, className?: string): boolean =>
   [name, ariaLabel, className]
     .filter((value): value is string => Boolean(value))
@@ -33,6 +45,8 @@ export function SearchableSelect({
   children,
   className,
   searchable,
+  searchThreshold = 8,
+  searchPlaceholder = 'Search options...',
   'aria-label': ariaLabel,
   ...props
 }: SearchableSelectProps) {
@@ -41,14 +55,20 @@ export function SearchableSelect({
   const selectRef = useRef<HTMLSelectElement>(null);
   const lastAutoSelection = useRef('');
   const selectedValue = String(props.value ?? props.defaultValue ?? '');
-  // Compact selects are the default. Search is opt-in for genuinely long,
-  // data-backed lists (people, properties, buildings, roles, and similar).
-  const showSearch = searchable === true && !isStatusSelection(props.name, ariaLabel, className);
   const childOptions = useMemo(
     () =>
       Children.toArray(children).filter((child): child is OptionElement => isValidElement(child)),
     [children],
   );
+  const selectableOptionCount = childOptions.filter(
+    (option) => String(option.props.value ?? '') !== '',
+  ).length;
+  // Compact selects are the default. Search is opt-in and only appears for
+  // genuinely long, data-backed lists (people, properties, buildings, etc.).
+  const showSearch =
+    searchable === true &&
+    selectableOptionCount >= searchThreshold &&
+    !isStatusSelection(props.name, ariaLabel, className);
   const normalizedQuery = query.trim().toLowerCase();
   const options = useMemo(
     () =>
@@ -63,17 +83,11 @@ export function SearchableSelect({
 
   useEffect(() => {
     if (!showSearch || !normalizedQuery || !selectRef.current) return;
-    const exactMatches = childOptions.filter(
-      (option) =>
-        String(option.props.value ?? '') &&
-        searchableOptionText(option).trim().toLowerCase() === normalizedQuery,
-    );
-    if (exactMatches.length !== 1) return;
-    const exactValue = String(exactMatches[0]?.props.value ?? '');
-    const signature = normalizedQuery + ':' + exactValue;
-    if (!exactValue || lastAutoSelection.current === signature) return;
+    const firstValue = firstSearchableOptionValue(childOptions, normalizedQuery);
+    const signature = normalizedQuery + ':' + firstValue;
+    if (!firstValue || lastAutoSelection.current === signature) return;
     lastAutoSelection.current = signature;
-    selectRef.current.value = exactValue;
+    selectRef.current.value = firstValue;
     selectRef.current.dispatchEvent(new Event('change', { bubbles: true }));
   }, [childOptions, normalizedQuery, showSearch]);
 
@@ -90,7 +104,7 @@ export function SearchableSelect({
               lastAutoSelection.current = '';
               setQuery(event.target.value);
             }}
-            placeholder="Search options..."
+            placeholder={searchPlaceholder}
             autoComplete="off"
             aria-label={'Search ' + (ariaLabel ?? props.name ?? 'options')}
           />

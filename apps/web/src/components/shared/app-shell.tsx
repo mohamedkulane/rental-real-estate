@@ -75,7 +75,7 @@ function NavGroup({
                 onNavigate();
               }}
               className={
-                'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ' +
+                'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9] ' +
                 (selected
                   ? 'bg-slate-800 text-white shadow-sm'
                   : 'text-slate-300 hover:bg-slate-800/70 hover:text-white')
@@ -85,7 +85,7 @@ function NavGroup({
                 <Icon
                   className={
                     'h-[18px] w-[18px] shrink-0 ' +
-                    (selected ? 'text-emerald-400' : 'text-slate-400')
+                    (selected ? 'text-[#90CAF9]' : 'text-slate-400')
                   }
                   aria-hidden="true"
                 />
@@ -93,7 +93,7 @@ function NavGroup({
                 <span
                   className={
                     'ml-1 h-1.5 w-1.5 shrink-0 rounded-full ' +
-                    (selected ? 'bg-emerald-400' : 'bg-slate-600')
+                    (selected ? 'bg-[#90CAF9]' : 'bg-slate-600')
                   }
                   aria-hidden="true"
                 />
@@ -115,7 +115,7 @@ function NavGroup({
               <div
                 id={`nav-children-${item.key}`}
                 className={
-                  'grid transition-[grid-template-rows,opacity] duration-200 ease-out ' +
+                  'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ' +
                   (isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')
                 }
               >
@@ -133,16 +133,16 @@ function NavGroup({
                             onNavigate();
                           }}
                           className={
-                            'flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ' +
+                            'flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9] ' +
                             (childSelected
-                              ? 'bg-emerald-500/15 text-emerald-300'
+                              ? 'bg-[#2196F3]/15 text-[#90CAF9]'
                               : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')
                           }
                         >
                           <span
                             className={
                               'h-1.5 w-1.5 shrink-0 rounded-full ' +
-                              (childSelected ? 'bg-emerald-400' : 'bg-slate-700')
+                              (childSelected ? 'bg-[#90CAF9]' : 'bg-slate-700')
                             }
                             aria-hidden="true"
                           />
@@ -298,12 +298,12 @@ export function AppShell({
       ) : null}
       <aside
         className={
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-950 text-white shadow-xl transition-transform duration-200 lg:translate-x-0 ' +
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-950 text-white shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none lg:translate-x-0 ' +
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
         <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0D47A1] text-white shadow-sm">
             <Landmark className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1 leading-tight">
@@ -340,7 +340,7 @@ export function AppShell({
               <Home
                 className={
                   'h-[18px] w-[18px] ' +
-                  (active === 'overview' ? 'text-emerald-400' : 'text-slate-400')
+                  (active === 'overview' ? 'text-[#90CAF9]' : 'text-slate-400')
                 }
               />
               Overview

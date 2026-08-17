@@ -25,7 +25,7 @@ import {
 } from './ownership-model';
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
 
 function OwnerRows({
   records,
@@ -57,7 +57,7 @@ function OwnerRows({
                 {humanize(record.owner?.owner?.status ?? 'status unavailable')}
               </p>
             </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+            <span className="rounded-full bg-[#E3F2FD] px-2.5 py-1 text-xs font-bold text-[#0D47A1]">
               {record.ownershipPercent}% owned
             </span>
           </div>
@@ -88,16 +88,16 @@ function Total({ label, value }: { label: string; value: number }) {
     <div
       className={
         'rounded-lg border p-3 ' +
-        (valid ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50')
+        (valid ? 'border-[#90CAF9] bg-[#E3F2FD]' : 'border-amber-200 bg-amber-50')
       }
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-slate-600">{label}</span>
-        <strong className={valid ? 'text-emerald-700' : 'text-amber-700'}>{value}%</strong>
+        <strong className={valid ? 'text-[#0D47A1]' : 'text-amber-700'}>{value}%</strong>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
         <div
-          className={'h-full ' + (valid ? 'bg-emerald-500' : 'bg-amber-500')}
+          className={'h-full ' + (valid ? 'bg-[#2196F3]' : 'bg-amber-500')}
           style={{ width: Math.min(value, 100) + '%' }}
         />
       </div>
@@ -256,7 +256,7 @@ export function OwnershipEditor({
             setOwnerQueries((queries) => [...queries, '']);
           }}
           disabled={shares.length >= 20}
-          className="inline-flex items-center gap-2 rounded-lg border border-dashed border-emerald-400 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-dashed border-[#90CAF9] px-3 py-2 text-xs font-bold text-[#0D47A1] hover:bg-[#E3F2FD] disabled:opacity-50"
         >
           <Plus className="h-4 w-4" /> Add joint owner
         </button>
@@ -304,7 +304,7 @@ export function OwnershipEditor({
       <div className="flex gap-3 border-t border-slate-200 pt-4">
         <button
           disabled={busy}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex-1 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? 'Saving ownership…' : 'Save ownership change'}
         </button>
@@ -367,7 +367,7 @@ export function OwnershipWorkspace({
             <button
               type="button"
               onClick={onManage}
-              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+              className="rounded-lg bg-[#0D47A1] px-3 py-2 text-xs font-bold text-white hover:bg-[#0D47A1]"
             >
               Manage ownership
             </button>
@@ -382,7 +382,7 @@ export function OwnershipWorkspace({
       <section
         className={
           'rounded-xl border p-4 ' +
-          (activationReady ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50')
+          (activationReady ? 'border-[#90CAF9] bg-[#E3F2FD]' : 'border-amber-200 bg-amber-50')
         }
       >
         <h3 className="text-sm font-bold text-slate-900">Activation readiness</h3>
@@ -393,7 +393,7 @@ export function OwnershipWorkspace({
               className="flex items-center gap-2 text-xs font-semibold text-slate-700"
             >
               {check.pass ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0D47A1]" aria-hidden="true" />
               ) : (
                 <AlertCircle className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
               )}
@@ -476,7 +476,7 @@ export function OwnerPropertyPortfolio({
                 </p>
               </div>
               <div className="text-right">
-                <strong className="text-sm text-emerald-700">
+                <strong className="text-sm text-[#0D47A1]">
                   {record.ownershipPercent}% owned
                 </strong>
                 <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -500,7 +500,7 @@ export function OwnerPropertyPortfolio({
       {mode !== 'history' ? (
         <section className="space-y-2">
           <h3 className="flex items-center gap-2 text-sm font-bold">
-            <Users className="h-4 w-4 text-emerald-600" /> Current properties
+            <Users className="h-4 w-4 text-[#0D47A1]" /> Current properties
           </h3>
           {render(
             groups.current as typeof ownerships,

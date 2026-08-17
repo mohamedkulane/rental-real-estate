@@ -13,7 +13,7 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
 export function StatusBadge({ value }: { value: string | boolean | null | undefined }) {
   const label = typeof value === 'boolean' ? (value ? 'Active' : 'Inactive') : humanize(value);
   const tones = {
-    positive: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    positive: 'border-[#90CAF9] bg-[#E3F2FD] text-[#0D47A1]',
     warning: 'border-amber-200 bg-amber-50 text-amber-700',
     negative: 'border-red-200 bg-red-50 text-red-700',
     info: 'border-blue-200 bg-blue-50 text-blue-700',

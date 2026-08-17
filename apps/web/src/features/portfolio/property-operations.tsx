@@ -50,7 +50,7 @@ interface DocumentRecord {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
 const value = (form: FormData, key: string) => {
   const entry = form.get(key);
   return typeof entry === 'string' ? entry.trim() : '';
@@ -194,7 +194,7 @@ export function PropertyOperations({
             Current operating branch
           </h4>
           {currentAssignment ? (
-            <div className="flex flex-wrap justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+            <div className="flex flex-wrap justify-between gap-2 rounded-lg border border-[#90CAF9] bg-[#E3F2FD] p-3 text-sm">
               <strong>{currentAssignment.branch?.name ?? 'Branch record unavailable'}</strong>
               <span>{currentAssignment.effectiveFrom.slice(0, 10)} — Present</span>
             </div>
@@ -276,7 +276,7 @@ export function PropertyOperations({
             </label>
             <button
               disabled={busy}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white md:col-span-3"
+              className="rounded-lg bg-[#0D47A1] px-4 py-2 text-sm font-bold text-white md:col-span-3"
             >
               Transfer branch
             </button>
@@ -426,7 +426,7 @@ export function PropertyOperations({
             </label>
             <button
               disabled={busy}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white md:col-span-3"
+              className="rounded-lg bg-[#0D47A1] px-4 py-2 text-sm font-bold text-white md:col-span-3"
             >
               Add building
             </button>
@@ -451,7 +451,7 @@ export function PropertyOperations({
             assignedAmenities.map((amenity) => (
               <span
                 key={amenity.id}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
+                className="inline-flex items-center gap-2 rounded-full bg-[#E3F2FD] px-3 py-1 text-xs font-bold text-[#0D47A1]"
               >
                 {amenity.name}
                 {can('portfolio.amenity.manage') ? (

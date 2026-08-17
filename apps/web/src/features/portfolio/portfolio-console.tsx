@@ -1055,7 +1055,7 @@ export function PortfolioConsole() {
           ) : null}
           {success ? (
             <div
-              className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+              className="mb-4 rounded-lg border border-[#90CAF9] bg-[#E3F2FD] px-4 py-3 text-sm font-semibold text-[#0D47A1]"
               role="status"
             >
               {success}
@@ -1100,7 +1100,7 @@ export function PortfolioConsole() {
           ) : null}
           {success ? (
             <div
-              className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+              className="mb-4 rounded-lg border border-[#90CAF9] bg-[#E3F2FD] px-4 py-3 text-sm font-semibold text-[#0D47A1]"
               role="status"
             >
               {success}
@@ -1158,7 +1158,7 @@ export function PortfolioConsole() {
           ) : null}
           {success ? (
             <div
-              className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+              className="mb-4 rounded-lg border border-[#90CAF9] bg-[#E3F2FD] px-4 py-3 text-sm font-semibold text-[#0D47A1]"
               role="status"
             >
               {success}
@@ -1192,7 +1192,7 @@ export function PortfolioConsole() {
           ) : null}
           {success ? (
             <div
-              className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+              className="mb-4 rounded-lg border border-[#90CAF9] bg-[#E3F2FD] px-4 py-3 text-sm font-semibold text-[#0D47A1]"
               role="status"
             >
               {success}
@@ -1283,7 +1283,7 @@ export function PortfolioConsole() {
               }}
               className={
                 (hasPermission(principal, 'portfolio.space.create') ? 'inline-flex' : 'hidden') +
-                ' items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700'
+                ' items-center justify-center rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]'
               }
             >
               Add rentable space
@@ -1299,15 +1299,15 @@ export function PortfolioConsole() {
           ) : null}
           {success ? (
             <div
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+              className="rounded-lg border border-[#90CAF9] bg-[#E3F2FD] px-4 py-3 text-sm font-semibold text-[#0D47A1]"
               role="status"
             >
               {success}
             </div>
           ) : null}
           {active === 'spaces' ? (
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-5">
-              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+            <div className="grid items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-5">
+              <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
                 <span>Search</span>
                 <input
                   type="search"
@@ -1319,14 +1319,16 @@ export function PortfolioConsole() {
                     void loadTab('spaces', propertyFilter, null, { ...spaceFilterQuery, search });
                   }}
                   placeholder="Name or space code"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+                  className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#0D47A1]"
                 />
               </label>
-              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+              <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
                 <span>Property</span>
                 <SearchableSelect
                   value={propertyFilter}
                   searchable
+                  searchPlaceholder="Search properties..."
+                  className="h-11 text-sm"
                   onChange={(event) => {
                     const propertyId = event.target.value;
                     setPropertyFilter(propertyId);
@@ -1346,11 +1348,13 @@ export function PortfolioConsole() {
                   ))}
                 </SearchableSelect>
               </label>
-              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+              <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
                 <span>Building</span>
                 <SearchableSelect
                   value={spaceBuildingFilter}
                   searchable
+                  searchPlaceholder="Search buildings..."
+                  className="h-11 text-sm"
                   onChange={(event) => {
                     const buildingId = event.target.value;
                     setSpaceBuildingFilter(buildingId);
@@ -1370,10 +1374,11 @@ export function PortfolioConsole() {
                   ))}
                 </SearchableSelect>
               </label>
-              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+              <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
                 <span>Type</span>
                 <SearchableSelect
                   value={spaceTypeFilter}
+                  className="h-11 text-sm"
                   onChange={(event) => {
                     const typeCode = event.target.value;
                     setSpaceTypeFilter(typeCode);
@@ -1389,11 +1394,12 @@ export function PortfolioConsole() {
                   ))}
                 </SearchableSelect>
               </label>
-              <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+              <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
                 <span>Status</span>
                 <SearchableSelect
                   searchable={false}
                   value={spaceStatusFilter}
+                  className="h-11 text-sm"
                   onChange={(event) => {
                     const status = event.target.value;
                     setSpaceStatusFilter(status);
@@ -1412,10 +1418,14 @@ export function PortfolioConsole() {
             </div>
           ) : null}
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-4">
-              <h2 className="font-bold">Authorized records</h2>
-              <span className="text-xs font-semibold text-slate-500">{records.length} records</span>
-            </div>
+            {!isAggregatePortfolioView('spaces', activeView) ? (
+              <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-4">
+                <h2 className="font-bold">Authorized records</h2>
+                <span className="text-xs font-semibold text-slate-500">
+                  {records.length} records
+                </span>
+              </div>
+            ) : null}
             <div className="w-full min-w-0">
               {loading ? (
                 <LoadingState label="Loading portfolio records" />

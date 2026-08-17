@@ -24,7 +24,7 @@ export type CompanySettings = {
   active?: boolean;
 };
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
 const value = (form: FormData, key: string) => {
   const item = form.get(key);
   return typeof item === 'string' ? item.trim() : '';
@@ -96,7 +96,7 @@ export function SettingsPanel({
         >
           <div className="border-b border-slate-200 px-5 py-4">
             <div className="flex items-center gap-3">
-              <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
+              <span className="rounded-lg bg-[#E3F2FD] p-2 text-[#0D47A1]">
                 <Building2 className="h-5 w-5" />
               </span>
               <div>
@@ -180,7 +180,7 @@ export function SettingsPanel({
             <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
               <button
                 disabled={busy}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0D47A1] disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
                 {busy ? 'Saving…' : 'Save settings'}
@@ -209,16 +209,16 @@ export function SettingsPanel({
               <h2 className="font-bold">Appearance</h2>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              The workspace uses the approved navy, white, and emerald product theme with Montserrat
+              The workspace uses the approved navy, white, and emerald product theme with Inter
               typography and accessible contrast.
             </p>
           </section>
-          <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-            <div className="flex items-center gap-3 text-emerald-800">
+          <section className="rounded-xl border border-[#90CAF9] bg-[#E3F2FD] p-5">
+            <div className="flex items-center gap-3 text-[#0D47A1]">
               <Settings className="h-5 w-5" />
               <strong className="text-sm">Settings are company-wide</strong>
             </div>
-            <p className="mt-2 text-xs leading-5 text-emerald-800">
+            <p className="mt-2 text-xs leading-5 text-[#0D47A1]">
               Only authorized company administrators can save changes. Every update is recorded in
               the Audit log.
             </p>

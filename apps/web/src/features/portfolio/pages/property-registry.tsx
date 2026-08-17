@@ -119,7 +119,7 @@ function Metric({
 }) {
   const color =
     tone === 'emerald'
-      ? 'text-emerald-600'
+      ? 'text-[#0D47A1]'
       : tone === 'amber'
         ? 'text-amber-600'
         : 'text-slate-900';
@@ -202,7 +202,7 @@ function FormField({
 }
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
 
 export function PropertyRegistry({
   records,
@@ -320,7 +320,7 @@ export function PropertyRegistry({
           <button
             type="button"
             onClick={() => setPanel('create')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0D47A1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2196F3] focus-visible:ring-offset-2"
           >
             <Plus className="h-4 w-4" /> Add property
           </button>
@@ -355,7 +355,7 @@ export function PropertyRegistry({
               onChange={(event) => setQuery(event.target.value)}
               type="search"
               placeholder="Search name, code, city, or branch..."
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-12 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-12 pr-3 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
             />
           </label>
           <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -365,7 +365,7 @@ export function PropertyRegistry({
                 aria-label="Filter by branch"
                 value={branchFilter}
                 onChange={(event) => setBranchFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-[#0D47A1]"
               >
                 <option value="all">All branches</option>
                 {branches.map((branch) => (
@@ -381,7 +381,7 @@ export function PropertyRegistry({
                 aria-label="Filter by type"
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-[#0D47A1]"
               >
                 <option value="all">All types</option>
                 {propertyTypes.map((type) => (
@@ -396,7 +396,7 @@ export function PropertyRegistry({
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-emerald-600"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-[#0D47A1]"
             >
               <option value="all">All statuses</option>
               <option value="DRAFT">Draft</option>
@@ -436,13 +436,13 @@ export function PropertyRegistry({
                         <button
                           type="button"
                           onClick={() => void openDetails(property)}
-                          className="flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                          className="flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2196F3]"
                         >
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-slate-400">
                             <ImageIcon className="h-5 w-5" />
                           </span>
                           <span>
-                            <strong className="block text-sm font-bold text-slate-900 group-hover:text-emerald-700">
+                            <strong className="block text-sm font-bold text-slate-900 group-hover:text-[#0D47A1]">
                               {property.name}
                             </strong>
                             <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
@@ -470,7 +470,7 @@ export function PropertyRegistry({
                       <td className="px-5 py-4 text-right">
                         <details className="relative inline-block text-left">
                           <summary
-                            className="flex cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-emerald-700 hover:shadow-sm"
+                            className="flex cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-[#0D47A1] hover:shadow-sm"
                             aria-label={'Actions for ' + property.name}
                           >
                             <MoreHorizontal className="h-5 w-5" />
@@ -633,7 +633,7 @@ export function PropertyRegistry({
             <div className="flex gap-3 border-t border-slate-200 pt-5">
               <button
                 disabled={busy}
-                className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                className="flex-1 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0D47A1] disabled:opacity-60"
               >
                 {busy ? 'Saving...' : 'Create draft property'}
               </button>
@@ -728,7 +728,7 @@ export function PropertyRegistry({
             <div className="flex gap-3 border-t border-slate-200 pt-5">
               <button
                 disabled={busy}
-                className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+                className="flex-1 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
               >
                 {busy ? 'Saving...' : 'Save changes'}
               </button>
@@ -796,7 +796,7 @@ export function PropertyRegistry({
             </FormField>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Updating...' : 'Confirm lifecycle change'}
             </button>
@@ -879,7 +879,7 @@ export function PropertyRegistry({
                       <button
                         type="button"
                         onClick={() => setPanel('edit')}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                        className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0D47A1] px-3 py-2 text-xs font-bold text-white"
                       >
                         <Edit3 className="h-4 w-4" /> Edit property
                       </button>

@@ -41,7 +41,7 @@ export type UserAccountRecord = {
 };
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
 const value = (form: FormData, key: string) => {
   const entry = form.get(key);
   return typeof entry === 'string' ? entry.trim() : '';
@@ -169,9 +169,9 @@ export function UserAccountDirectory({
           <span className="text-xs font-semibold text-slate-500">All accounts</span>
           <strong className="mt-1 block text-2xl">{records.length}</strong>
         </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <span className="text-xs font-semibold text-emerald-700">Active accounts</span>
-          <strong className="mt-1 block text-2xl text-emerald-800">
+        <div className="rounded-xl border border-[#90CAF9] bg-[#E3F2FD] p-4">
+          <span className="text-xs font-semibold text-[#0D47A1]">Active accounts</span>
+          <strong className="mt-1 block text-2xl text-[#0D47A1]">
             {records.filter((item) => item.status === 'ACTIVE').length}
           </strong>
         </div>
@@ -483,7 +483,7 @@ export function UserAccountDirectory({
             </label>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
             >
               {busy ? 'Updating…' : 'Save account status'}
             </button>

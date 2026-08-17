@@ -36,48 +36,6 @@ type PropertyView =
 type OwnerView = 'owned-properties' | 'documents';
 type SpaceView = 'hierarchy' | 'measurements' | 'profile' | 'amenities' | 'documents' | 'lifecycle';
 
-const descriptions: Record<PropertyView | OwnerView | SpaceView, string> = {
-  buildings: 'Buildings grouped by their property, with operational status and floor details.',
-  spaces: 'Every rentable space grouped by property and building.',
-  ownership: 'Effective-dated owner shares and payout allocations across properties.',
-  amenities: 'Amenities currently assigned to properties or rentable spaces.',
-  documents: 'Document metadata and version counts grouped by the record they belong to.',
-  'branch-history': 'Current, scheduled, and historical operating-branch assignments.',
-  activity: 'A combined timeline of ownership and branch assignment changes.',
-  'owned-properties': 'Properties linked to each owner, including ownership and payout shares.',
-  hierarchy: 'Parent-child space relationships with property and building context.',
-  measurements: 'Effective-dated area, floor, and capacity measurements.',
-  profile: 'Residential, commercial, or land-specific details for each rentable space.',
-  lifecycle: 'Operational status and retirement state for every rentable space.',
-};
-
-function WorkspaceHeader({
-  title,
-  view,
-  count,
-}: {
-  title: string;
-  view: keyof typeof descriptions;
-  count: number;
-}) {
-  return (
-    <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
-          Dedicated workspace
-        </p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-          {title}
-        </h1>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{descriptions[view]}</p>
-      </div>
-      <span className="w-fit rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600">
-        {count} record{count === 1 ? '' : 's'}
-      </span>
-    </header>
-  );
-}
-
 function Metrics({ items }: { items: Array<{ label: string; value: number }> }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -108,7 +66,7 @@ function ZeroState({ title, description }: { title: string; description: string 
   return <EmptyState title={title} description={description} />;
 }
 
-function RecordCard({
+function RecordRow({
   icon: Icon,
   title,
   eyebrow,
@@ -122,23 +80,58 @@ function RecordCard({
   status?: string | undefined;
 }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-            <Icon className="h-5 w-5" aria-hidden="true" />
+    <tr className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
+      <td className="px-4 py-3 align-middle">
+        <div className="flex min-w-[220px] items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E3F2FD] text-[#0D47A1]">
+            <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-              {eyebrow}
-            </p>
-            <h2 className="truncate text-sm font-bold text-slate-950">{title}</h2>
-          </div>
+          <span className="text-[15px] font-semibold leading-5 tracking-[-0.01em] text-slate-900">
+            {title}
+          </span>
         </div>
-        {status ? <StatusBadge value={status} /> : null}
+      </td>
+      <td className="min-w-[220px] px-4 py-3 text-xs font-semibold text-slate-500">{eyebrow}</td>
+      <td className="min-w-[260px] px-4 py-3 text-[13px] leading-5 text-slate-600">
+        {children}
+      </td>
+      <td className="w-32 px-4 py-3 text-right align-middle">
+        {status ? (
+          <StatusBadge value={status} />
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function RecordTable({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] border-collapse text-left">
+          <caption className="sr-only">Workspace records</caption>
+          <thead className="bg-slate-50">
+            <tr className="border-b border-slate-200">
+              <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Record
+              </th>
+              <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Context
+              </th>
+              <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Details
+              </th>
+              <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>{children}</tbody>
+        </table>
       </div>
-      <div className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-600">{children}</div>
-    </article>
+    </div>
   );
 }
 
@@ -193,7 +186,6 @@ export function PropertySectionWorkspace({
   if (view === 'documents' && !canReadDocuments)
     return (
       <section className="space-y-5">
-        <WorkspaceHeader title="Documents" view="documents" count={0} />
         <ZeroState
           title="Document access required"
           description="Your role can read these property records but does not include document access. Ask an administrator for the portfolio document read permission."
@@ -201,7 +193,7 @@ export function PropertySectionWorkspace({
       </section>
     );
 
-  const cards: ReactNode[] = [];
+  const rows: ReactNode[] = [];
   if (view === 'buildings')
     details.forEach((property) =>
       property.buildings?.forEach((building) => {
@@ -209,8 +201,8 @@ export function PropertySectionWorkspace({
           status?: string | undefined;
           numberOfFloors?: number | null;
         };
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={building.id}
             icon={Building2}
             title={building.name}
@@ -220,15 +212,15 @@ export function PropertySectionWorkspace({
             <p>
               {building.buildingCode} · {record.numberOfFloors ?? 'Not recorded'} floors
             </p>
-          </RecordCard>,
+          </RecordRow>,
         );
       }),
     );
   if (view === 'spaces')
     details.forEach((property) =>
       property.spaces?.forEach((space) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={space.id}
             icon={Home}
             title={space.name}
@@ -238,15 +230,15 @@ export function PropertySectionWorkspace({
             <p>
               {space.spaceCode} · {space.type?.name ?? 'Type not recorded'}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'ownership')
     details.forEach((property) =>
       property.ownerships?.forEach((ownership) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={ownership.id}
             icon={Users}
             title={ownership.owner?.displayName ?? 'Owner record'}
@@ -261,30 +253,30 @@ export function PropertySectionWorkspace({
               Effective {ownership.effectiveFrom.slice(0, 10)}
               {ownership.effectiveTo ? ` to ${ownership.effectiveTo.slice(0, 10)}` : ''}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'amenities')
     details.forEach((property) =>
       property.amenities?.forEach(({ amenity }) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={`${property.id}:${amenity.id}`}
             icon={Sparkles}
             title={amenity.name}
             eyebrow={property.name}
           >
             <p>Property amenity assignment</p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'documents')
     details.forEach((property) =>
       property.documents?.forEach((document) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={document.id}
             icon={FileText}
             title={document.displayName}
@@ -295,7 +287,7 @@ export function PropertySectionWorkspace({
               {humanize(document.categoryCode)} · {humanize(document.accessClass)} ·{' '}
               {document.versions.length} version{document.versions.length === 1 ? '' : 's'}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
@@ -308,8 +300,8 @@ export function PropertySectionWorkspace({
             : assignment.effectiveTo && assignment.effectiveTo.slice(0, 10) <= businessDate
               ? 'HISTORICAL'
               : 'CURRENT';
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={`${property.id}:${assignment.branchId}:${index}`}
             icon={GitBranch}
             title={assignment.branch?.name ?? 'Branch assignment'}
@@ -320,15 +312,15 @@ export function PropertySectionWorkspace({
               Effective {assignment.effectiveFrom.slice(0, 10)}
               {assignment.effectiveTo ? ` to ${assignment.effectiveTo.slice(0, 10)}` : ' onward'}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         );
       }),
     );
   if (view === 'activity')
     details.forEach((property) =>
       propertyTimeline(property).forEach((item) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={`${property.id}:${item.key}`}
             icon={Activity}
             title={item.label}
@@ -337,7 +329,7 @@ export function PropertySectionWorkspace({
             <p>
               {item.date.slice(0, 10)} · {item.detail}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
@@ -346,21 +338,20 @@ export function PropertySectionWorkspace({
     view === 'branch-history'
       ? counts.branchAssignments
       : view === 'activity'
-        ? cards.length
+        ? rows.length
         : view === 'ownership'
           ? counts.ownerships
           : counts[view];
   return (
     <section className="space-y-5">
-      <WorkspaceHeader title={humanize(view)} view={view} count={count} />
       <Metrics
         items={[
           { label: 'Properties loaded', value: counts.properties },
           { label: humanize(view), value: count },
         ]}
       />
-      {cards.length ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{cards}</div>
+      {rows.length ? (
+        <RecordTable>{rows}</RecordTable>
       ) : (
         <ZeroState
           title={`No ${humanize(view).toLowerCase()} recorded`}
@@ -411,19 +402,18 @@ export function OwnerSectionWorkspace({
   if (view === 'documents' && !canReadDocuments)
     return (
       <section className="space-y-5">
-        <WorkspaceHeader title="Documents" view="documents" count={0} />
         <ZeroState
           title="Document access required"
           description="Your role can read these owner records but does not include document access. Ask an administrator for the portfolio document read permission."
         />
       </section>
     );
-  const cards: ReactNode[] = [];
+  const rows: ReactNode[] = [];
   if (view === 'owned-properties')
     details.forEach((owner) =>
       owner.ownerships?.forEach((ownership) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={ownership.id}
             icon={Building2}
             title={ownership.property.name}
@@ -433,15 +423,15 @@ export function OwnerSectionWorkspace({
             <p>
               {ownership.property.propertyCode} · {ownership.ownershipPercent}% ownership
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'documents')
     details.forEach((owner) =>
       owner.documents?.forEach((document) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={document.id}
             icon={FileText}
             title={document.displayName}
@@ -452,22 +442,21 @@ export function OwnerSectionWorkspace({
               {humanize(document.categoryCode)} · {document.versions.length} version
               {document.versions.length === 1 ? '' : 's'}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   const count = view === 'owned-properties' ? counts.properties : counts.documents;
   return (
     <section className="space-y-5">
-      <WorkspaceHeader title={humanize(view)} view={view} count={count} />
       <Metrics
         items={[
           { label: 'Owners loaded', value: counts.owners },
           { label: humanize(view), value: count },
         ]}
       />
-      {cards.length ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{cards}</div>
+      {rows.length ? (
+        <RecordTable>{rows}</RecordTable>
       ) : (
         <ZeroState
           title={`No ${humanize(view).toLowerCase()} recorded`}
@@ -519,18 +508,17 @@ export function SpaceSectionWorkspace({
   if (view === 'documents' && !canReadDocuments)
     return (
       <section className="space-y-5">
-        <WorkspaceHeader title="Documents" view="documents" count={0} />
         <ZeroState
           title="Document access required"
           description="Your role can read these rentable-space records but does not include document access. Ask an administrator for the portfolio document read permission."
         />
       </section>
     );
-  const cards: ReactNode[] = [];
+  const rows: ReactNode[] = [];
   if (view === 'hierarchy')
     details.forEach((space) =>
-      cards.push(
-        <RecordCard
+      rows.push(
+        <RecordRow
           key={space.id}
           icon={Map}
           title={space.name}
@@ -544,14 +532,14 @@ export function SpaceSectionWorkspace({
             · {space.parentRelations?.filter((relation) => !relation.effectiveTo).length ?? 0}{' '}
             children
           </p>
-        </RecordCard>,
+        </RecordRow>,
       ),
     );
   if (view === 'measurements')
     details.forEach((space) =>
       space.versions.map((version, index) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={`${space.id}:${version.id ?? index}`}
             icon={Ruler}
             title={space.name}
@@ -565,14 +553,14 @@ export function SpaceSectionWorkspace({
               Floor {version.floorNumber ?? 'not set'} · Capacity {version.capacity ?? 'not set'}
               {version.effectiveFrom ? ` · Effective ${version.effectiveFrom.slice(0, 10)}` : ''}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'profile')
     details.forEach((space) =>
-      cards.push(
-        <RecordCard
+      rows.push(
+        <RecordRow
           key={space.id}
           icon={Home}
           title={space.name}
@@ -593,29 +581,29 @@ export function SpaceSectionWorkspace({
           ) : (
             <p>No type-specific fields recorded.</p>
           )}
-        </RecordCard>,
+        </RecordRow>,
       ),
     );
   if (view === 'amenities')
     details.forEach((space) =>
       space.amenities?.forEach(({ amenity }) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={`${space.id}:${amenity.id}`}
             icon={Sparkles}
             title={amenity.name}
             eyebrow={space.name}
           >
             <p>Rentable-space amenity assignment</p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'documents')
     details.forEach((space) =>
       space.documents?.forEach((document) =>
-        cards.push(
-          <RecordCard
+        rows.push(
+          <RecordRow
             key={document.id}
             icon={FileText}
             title={document.displayName}
@@ -626,14 +614,14 @@ export function SpaceSectionWorkspace({
               {humanize(document.categoryCode)} · {document.versions.length} version
               {document.versions.length === 1 ? '' : 's'}
             </p>
-          </RecordCard>,
+          </RecordRow>,
         ),
       ),
     );
   if (view === 'lifecycle')
     details.forEach((space) =>
-      cards.push(
-        <RecordCard
+      rows.push(
+        <RecordRow
           key={space.id}
           icon={Activity}
           title={space.name}
@@ -645,7 +633,7 @@ export function SpaceSectionWorkspace({
               ? 'Retired and preserved for history.'
               : 'Available for permitted operational updates.'}
           </p>
-        </RecordCard>,
+        </RecordRow>,
       ),
     );
   const count =
@@ -654,11 +642,6 @@ export function SpaceSectionWorkspace({
       : counts[view];
   return (
     <section className="space-y-5">
-      <WorkspaceHeader
-        title={view === 'profile' ? 'Space details' : humanize(view)}
-        view={view}
-        count={count}
-      />
       <Metrics
         items={[
           { label: 'Spaces loaded', value: counts.spaces },
@@ -668,8 +651,8 @@ export function SpaceSectionWorkspace({
           },
         ]}
       />
-      {cards.length ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{cards}</div>
+      {rows.length ? (
+        <RecordTable>{rows}</RecordTable>
       ) : (
         <ZeroState
           title={`No ${humanize(view).toLowerCase()} recorded`}

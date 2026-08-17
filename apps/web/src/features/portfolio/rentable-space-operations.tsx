@@ -372,7 +372,7 @@ export function RentableSpaceOperations({
                     {detail.building.name}
                   </p>
                 ) : null}
-                <p className="ml-8 mt-2 border-l-2 border-emerald-300 pl-3 font-bold text-emerald-800">
+                <p className="ml-8 mt-2 border-l-2 border-[#90CAF9] pl-3 font-bold text-[#0D47A1]">
                   {detail.name}
                 </p>
                 {(detail.parentRelations ?? [])
@@ -741,7 +741,7 @@ export function RentableSpaceOperations({
                 assignedAmenities.map((amenity) => (
                   <span
                     key={amenity.id}
-                    className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
+                    className="rounded-full bg-[#E3F2FD] px-3 py-1 text-xs font-bold text-[#0D47A1]"
                   >
                     {amenity.name}{' '}
                     {actionAccess.manageAmenities ? (
@@ -749,7 +749,7 @@ export function RentableSpaceOperations({
                         type="button"
                         aria-label={`Remove ${amenity.name}`}
                         disabled={busy}
-                        className="ml-1 rounded-full p-0.5 hover:bg-emerald-100"
+                        className="ml-1 rounded-full p-0.5 hover:bg-[#E3F2FD]"
                         onClick={() =>
                           void mutate(
                             null,

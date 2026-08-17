@@ -31,7 +31,7 @@ export type BranchRecord = {
   updatedAt?: string;
 };
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
 const value = (form: FormData, key: string) => {
   const item = form.get(key);
   return typeof item === 'string' ? item.trim() : '';
@@ -144,7 +144,7 @@ export function BranchDirectory({
           <button
             type="button"
             onClick={() => setPanel('create')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]"
           >
             <Plus className="h-4 w-4" /> Add branch
           </button>
@@ -160,7 +160,7 @@ export function BranchDirectory({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search branch name, code, phone, or email…"
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
             />
           </label>
           <div className="flex items-center gap-4">
@@ -232,7 +232,7 @@ export function BranchDirectory({
                     </td>
                     <td className="px-5 py-4 text-right">
                       <details className="relative inline-block">
-                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-emerald-700">
+                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-[#0D47A1]">
                           <MoreHorizontal className="h-5 w-5" />
                         </summary>
                         <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
@@ -269,7 +269,7 @@ export function BranchDirectory({
                                 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ' +
                                 (branch.active
                                   ? 'text-red-700 hover:bg-red-50'
-                                  : 'text-emerald-700 hover:bg-emerald-50')
+                                  : 'text-[#0D47A1] hover:bg-[#E3F2FD]')
                               }
                             >
                               {branch.active ? 'Deactivate branch' : 'Activate branch'}
@@ -336,7 +336,7 @@ export function BranchDirectory({
             </div>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Creating…' : 'Create branch'}
             </button>
@@ -397,7 +397,7 @@ export function BranchDirectory({
             </div>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Saving…' : 'Save changes'}
             </button>
@@ -422,7 +422,7 @@ export function BranchDirectory({
                 'w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 ' +
                 (selected.active
                   ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-emerald-600 hover:bg-emerald-700')
+                  : 'bg-[#0D47A1] hover:bg-[#0D47A1]')
               }
             >
               {busy ? 'Updating…' : selected.active ? 'Deactivate branch' : 'Activate branch'}
@@ -481,7 +481,7 @@ export function BranchDirectory({
               <button
                 type="button"
                 onClick={() => setPanel('edit')}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#0D47A1] px-3 py-2 text-xs font-bold text-white"
               >
                 <Edit3 className="h-4 w-4" /> Edit branch
               </button>

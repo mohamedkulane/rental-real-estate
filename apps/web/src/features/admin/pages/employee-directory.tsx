@@ -56,7 +56,7 @@ export type EmployeeRecord = {
 };
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
 const value = (form: FormData, key: string) => {
   const item = form.get(key);
   return typeof item === 'string' ? item.trim() : '';
@@ -224,7 +224,7 @@ export function EmployeeDirectory({
           <button
             type="button"
             onClick={() => setPanel('create')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]"
           >
             <Plus className="h-4 w-4" /> Add employee
           </button>
@@ -237,7 +237,7 @@ export function EmployeeDirectory({
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active</p>
-          <strong className="mt-1 block text-xl text-emerald-600">
+          <strong className="mt-1 block text-xl text-[#0D47A1]">
             {records.filter((item) => item.active).length}
           </strong>
         </div>
@@ -266,7 +266,7 @@ export function EmployeeDirectory({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, employee number, title, or email…"
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
             />
           </label>
           <SearchableSelect
@@ -368,7 +368,7 @@ export function EmployeeDirectory({
                       </td>
                       <td className="px-5 py-4 text-right">
                         <details className="relative inline-block">
-                          <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-emerald-700 hover:shadow-sm">
+                          <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-[#0D47A1] hover:shadow-sm">
                             <MoreHorizontal className="h-5 w-5" />
                           </summary>
                           <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
@@ -414,7 +414,7 @@ export function EmployeeDirectory({
                                   'flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ' +
                                   (employee.active
                                     ? 'text-red-700 hover:bg-red-50'
-                                    : 'text-emerald-700 hover:bg-emerald-50')
+                                    : 'text-[#0D47A1] hover:bg-[#E3F2FD]')
                                 }
                               >
                                 {employee.active ? (
@@ -522,7 +522,7 @@ export function EmployeeDirectory({
             </div>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Saving…' : 'Create employee'}
             </button>
@@ -591,7 +591,7 @@ export function EmployeeDirectory({
             </Field>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Saving…' : 'Save changes'}
             </button>
@@ -633,7 +633,7 @@ export function EmployeeDirectory({
                 'w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 ' +
                 (selected.active
                   ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-emerald-600 hover:bg-emerald-700')
+                  : 'bg-[#0D47A1] hover:bg-[#0D47A1]')
               }
             >
               {busy ? 'Updating…' : selected.active ? 'Deactivate employee' : 'Activate employee'}
@@ -696,7 +696,7 @@ export function EmployeeDirectory({
             </Field>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {busy ? 'Assigning…' : 'Assign role'}
             </button>
@@ -781,7 +781,7 @@ export function EmployeeDirectory({
                   <button
                     type="button"
                     onClick={() => setPanel('edit')}
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#0D47A1] px-3 py-2 text-xs font-bold text-white"
                   >
                     <Edit3 className="h-4 w-4" /> Edit employee
                   </button>

@@ -17,7 +17,7 @@ export type AmenityRecord = {
 };
 type Panel = 'create' | 'edit' | 'status' | null;
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
 const value = (form: FormData, key: string) => {
   const entry = form.get(key);
   return typeof entry === 'string' ? entry.trim() : '';
@@ -119,7 +119,7 @@ export function AmenityDirectory({
           <button
             type="button"
             onClick={() => open('create')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" /> Add amenity
           </button>
@@ -172,7 +172,7 @@ export function AmenityDirectory({
                 <tr key={item.id} className="hover:bg-slate-50">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
+                      <span className="rounded-lg bg-[#E3F2FD] p-2 text-[#0D47A1]">
                         <Sparkles className="h-4 w-4" />
                       </span>
                       <span>
@@ -274,7 +274,7 @@ export function AmenityDirectory({
             </label>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
             >
               {busy ? 'Saving…' : 'Create amenity'}
             </button>
@@ -312,7 +312,7 @@ export function AmenityDirectory({
             </label>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
+              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
             >
               {busy ? 'Saving…' : 'Save amenity'}
             </button>
@@ -340,7 +340,7 @@ export function AmenityDirectory({
               }
               className={
                 'w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white ' +
-                (selected.active ? 'bg-red-600' : 'bg-emerald-600')
+                (selected.active ? 'bg-red-600' : 'bg-[#0D47A1]')
               }
             >
               {busy ? 'Updating…' : selected.active ? 'Deactivate' : 'Activate'}

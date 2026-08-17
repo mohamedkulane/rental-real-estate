@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -27,8 +27,8 @@ export function Providers({ children }: { children: ReactNode }) {
         toastOptions={{
           duration: 3500,
           className: 'product-toast',
-          success: { iconTheme: { primary: '#059669', secondary: '#ffffff' } },
-          error: { iconTheme: { primary: '#dc2626', secondary: '#ffffff' } },
+          success: { iconTheme: { primary: 'var(--success)', secondary: 'var(--surface)' } },
+          error: { iconTheme: { primary: 'var(--danger)', secondary: 'var(--surface)' } },
         }}
       />
     </QueryClientProvider>

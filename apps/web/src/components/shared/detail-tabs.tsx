@@ -31,9 +31,9 @@ export function DetailTabs<Key extends string>({
           tabIndex={active === tab.key ? 0 : -1}
           onClick={() => onChange(tab.key)}
           className={
-            'min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold transition-colors ' +
+            'min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold transition-colors duration-200 ease-out ' +
             (active === tab.key
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-[#0D47A1] text-[#0D47A1]'
               : 'border-transparent text-slate-500 hover:text-slate-800')
           }
         >
