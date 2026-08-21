@@ -1,5 +1,5 @@
 import { sessionToken } from '../session-cookie';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -25,6 +25,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
   let parkingAmenityId = '';
   let parentSpaceId = '';
   let childSpaceId = '';
+  let wadajirPropertyId = '';
   let businessDate = '';
   let date30 = '';
   let date60 = '';
@@ -34,6 +35,9 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
 
   beforeAll(async () => {
     process.env.WEB_URL = 'http://localhost:3000';
+    process.env.AUTH_RATE_LIMIT_KEY = createHash('sha256')
+      .update(`e2e-rate-limit:`)
+      .digest('hex');
     process.env.REDIS_URL ??= 'redis://localhost:56379';
     process.env.PARTY_DATA_ENCRYPTION_KEY ??=
       '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
@@ -297,6 +301,45 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(detail.body.id).toBe(buildingId);
   });
 
+  it('serves authorized global Buildings, Property Ownership, Branch Assignments, and Activity workspaces', async () => {
+    const buildings = await request(app.getHttpServer())
+      .get(
+        `/api/v1/buildings?propertyId=${propertyId}&branchId=${hodanId}&search=${suffix}&limit=1`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(buildings.body.items).toHaveLength(1);
+    expect(buildings.body.items[0]).toMatchObject({ id: buildingId, propertyId });
+
+    const ownerships = await request(app.getHttpServer())
+      .get(`/api/v1/property-ownerships?propertyId=${propertyId}&period=CURRENT`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(ownerships.body.items).toHaveLength(2);
+    expect(
+      (ownerships.body.items as Array<{ propertyId: string }>).every(
+        (row) => row.propertyId === propertyId,
+      ),
+    ).toBe(true);
+
+    const assignments = await request(app.getHttpServer())
+      .get(`/api/v1/property-branch-history?propertyId=${propertyId}&period=CURRENT`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(assignments.body.items).toHaveLength(1);
+    expect(assignments.body.items[0]).toMatchObject({ propertyId, branchId: hodanId });
+
+    const activity = await request(app.getHttpServer())
+      .get(`/api/v1/property-activity?propertyId=${propertyId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(activity.body.items.length).toBeGreaterThan(0);
+    expect(
+      (activity.body.items as Array<{ entityId: string }>).every(
+        (row) => row.entityId === propertyId,
+      ),
+    ).toBe(true);
+  });
   it('paginates and searches party records with stable cursors', async () => {
     const first = await request(app.getHttpServer())
       .get('/api/v1/parties?limit=1')
@@ -400,6 +443,18 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${token}`)
       .send({ amenityId: parkingAmenityId })
       .expect(201);
+    const amenityAssignments = await request(app.getHttpServer())
+      .get(
+        `/api/v1/property-amenities?propertyId=${propertyId}&amenitySearch=parking&branchSearch=hodan&limit=1`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(amenityAssignments.body.items).toHaveLength(1);
+    expect(amenityAssignments.body.items[0]).toMatchObject({
+      propertyId,
+      amenityId: parkingAmenityId,
+    });
+
     await request(app.getHttpServer())
       .delete(`/api/v1/properties/${propertyId}/amenities/${parkingAmenityId}`)
       .set('authorization', `Bearer ${token}`)
@@ -468,6 +523,212 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .expect(200);
     expect(detail.body.versions).toHaveLength(1);
     expect(JSON.stringify(detail.body)).not.toContain('valueEncrypted');
+  });
+  it('retrieves aggregate records beyond the first parent page without parent-page loading', async () => {
+    const branch = await database.branch.findUniqueOrThrow({
+      where: { id: hodanId },
+      select: { companyId: true },
+    });
+    const adminUser = await database.user.findFirstOrThrow({
+      where: { emailNormalized: adminEmail!.trim().toLowerCase() },
+      select: { id: true },
+    });
+    const spaceType = await database.rentableSpaceType.findUniqueOrThrow({
+      where: { code: 'HALL' },
+      select: { id: true },
+    });
+    const base = randomUUID().split('-');
+    const orderedId = (sequence: number) =>
+      `${base[0]}-${base[1]}-${base[2]}-${base[3]}-${sequence.toString(16).padStart(12, '0')}`;
+    const properties = Array.from({ length: 15 }, (_, index) => ({
+      id: orderedId(index + 1),
+      companyId: branch.companyId,
+      propertyCode: `BOUND-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      name: `Boundary-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      propertyType: 'APARTMENT_BUILDING' as const,
+      status: 'ACTIVE' as const,
+      city: 'Mogadishu',
+    }));
+    const target = properties[14]!;
+    const spaces = properties.map((property, index) => ({
+      id: orderedId(100 + index),
+      propertyId: property.id,
+      typeId: spaceType.id,
+      spaceCode: `BS-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      name: `BoundarySpace-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      status: 'ACTIVE' as const,
+    }));
+    const documents = properties.map((property, index) => ({
+      id: orderedId(215 - index),
+      companyId: branch.companyId,
+      displayName: `BoundaryDoc-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      categoryCode: 'BOUNDARY_TEST',
+      accessClass: 'INTERNAL',
+      status: 'ACTIVE',
+    }));
+    const ownerships = properties.map((property, index) => ({
+      id: orderedId(300 + index),
+      propertyId: property.id,
+      ownerPartyId,
+      ownershipPercent: '100',
+      effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
+    }));
+    const occurredAt = new Date();
+
+    await database.$transaction(async (transaction) => {
+      await transaction.property.createMany({ data: properties });
+      await transaction.propertyBranchAssignment.createMany({
+        data: properties.map((property, index) => ({
+          id: orderedId(400 + index),
+          propertyId: property.id,
+          branchId: hodanId,
+          effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
+        })),
+      });
+      await transaction.propertyOwnership.createMany({ data: ownerships });
+      await transaction.propertyAmenity.createMany({
+        data: properties.map((property) => ({
+          propertyId: property.id,
+          amenityId: parkingAmenityId,
+        })),
+      });
+      await transaction.rentableSpace.createMany({ data: spaces });
+      await transaction.document.createMany({ data: documents });
+      await transaction.documentVersion.createMany({
+        data: documents.map((document, index) => ({
+          id: orderedId(500 + index),
+          documentId: document.id,
+          sequence: 1,
+          storageKey: `boundary/${suffix}/${index + 1}.pdf`,
+          checksum: `boundary-${suffix}-${index + 1}`,
+          mimeType: 'application/pdf',
+          sizeBytes: BigInt(1024 + index),
+          uploadedByUserId: adminUser.id,
+        })),
+      });
+      await transaction.documentLink.createMany({
+        data: documents.map((document, index) => ({
+          id: orderedId(600 + index),
+          documentId: document.id,
+          entityType: 'Property',
+          entityId: properties[index]!.id,
+          purpose: 'COMPLETENESS_TEST',
+        })),
+      });
+      await transaction.auditLog.createMany({
+        data: properties.map((property, index) => ({
+          id: orderedId(700 + index),
+          actorUserId: adminUser.id,
+          action: `portfolio.property.boundary-${suffix}`,
+          entityType: 'Property',
+          entityId: property.id,
+          branchId: hodanId,
+          reason: 'Aggregate completeness fixture',
+          occurredAt,
+        })),
+      });
+    }, { timeout: 20_000 });
+
+    const propertyPage = await request(app.getHttpServer())
+      .get(`/api/v1/properties?search=Boundary-${suffix}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(propertyPage.body.items).toHaveLength(10);
+    expect(propertyPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (propertyPage.body.items as Array<{ id: string }>).some((item) => item.id === target.id),
+    ).toBe(false);
+
+    const ownershipPage = await request(app.getHttpServer())
+      .get(`/api/v1/property-ownerships?propertySearch=Boundary-${suffix}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(ownershipPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (ownershipPage.body.items as Array<{ propertyId: string }>).some(
+        (item) => item.propertyId === target.id,
+      ),
+    ).toBe(false);
+    const targetOwnership = await request(app.getHttpServer())
+      .get(`/api/v1/property-ownerships?propertySearch=${target.name}&ownerSearch=Fadumo`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (targetOwnership.body.items as Array<{ propertyId: string }>).some(
+        (item) => item.propertyId === target.id,
+      ),
+    ).toBe(true);
+
+    const amenityPage = await request(app.getHttpServer())
+      .get(
+        `/api/v1/property-amenities?propertySearch=Boundary-${suffix}&amenitySearch=PARK&limit=10`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(amenityPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (amenityPage.body.items as Array<{ propertyId: string }>).some(
+        (item) => item.propertyId === target.id,
+      ),
+    ).toBe(false);
+    const targetAmenity = await request(app.getHttpServer())
+      .get(`/api/v1/property-amenities?propertySearch=${target.name}&amenitySearch=parking`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(targetAmenity.body.items).toHaveLength(1);
+    expect(targetAmenity.body.items[0].propertyId).toBe(target.id);
+
+    const documentPage = await request(app.getHttpServer())
+      .get(
+        `/api/v1/portfolio-documents?entityType=Property&search=BoundaryDoc-${suffix}&categoryCode=boundary_test&limit=10`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(documentPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (documentPage.body.items as Array<{ id: string }>).some(
+        (item) => item.id === documents[14]!.id,
+      ),
+    ).toBe(false);
+    const targetDocument = await request(app.getHttpServer())
+      .get(
+        `/api/v1/portfolio-documents?entityType=Property&entitySearch=${target.name}&categoryCode=BOUNDARY_TEST&accessClass=INTERNAL&status=ACTIVE`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(targetDocument.body.items).toHaveLength(1);
+    expect(targetDocument.body.items[0].property.id).toBe(target.id);
+
+    const branchAssignment = await request(app.getHttpServer())
+      .get(`/api/v1/property-branch-history?propertySearch=${target.name}&branchSearch=HODAN`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(branchAssignment.body.items).toHaveLength(1);
+    expect(branchAssignment.body.items[0].propertyId).toBe(target.id);
+
+    const activity = await request(app.getHttpServer())
+      .get(`/api/v1/property-activity?propertySearch=${target.name}&action=boundary-${suffix}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(activity.body.items).toHaveLength(1);
+    expect(activity.body.items[0].entityId).toBe(target.id);
+
+    const spacePage = await request(app.getHttpServer())
+      .get(`/api/v1/rentable-spaces?search=BoundarySpace-${suffix}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(spacePage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (spacePage.body.items as Array<{ propertyId: string }>).some(
+        (item) => item.propertyId === target.id,
+      ),
+    ).toBe(false);
+    const targetSpace = await request(app.getHttpServer())
+      .get(`/api/v1/rentable-spaces?propertySearch=${target.name}&typeSearch=hall&status=ACTIVE`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(targetSpace.body.items).toHaveLength(1);
+    expect(targetSpace.body.items[0].propertyId).toBe(target.id);
   });
   it('combines property filtering with cursor pagination without cross-property leakage', async () => {
     const first = await request(app.getHttpServer())
@@ -626,6 +887,20 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .get(`/api/v1/properties/${propertyId}`)
       .set('authorization', `Bearer ${managerToken}`)
       .expect(403);
+    for (const path of [
+      `/api/v1/property-ownerships?propertySearch=Boundary-${suffix}`,
+      `/api/v1/property-amenities?propertySearch=Boundary-${suffix}`,
+      `/api/v1/portfolio-documents?entityType=Property&entitySearch=Boundary-${suffix}`,
+      `/api/v1/property-branch-history?propertySearch=Boundary-${suffix}`,
+      `/api/v1/property-activity?propertySearch=Boundary-${suffix}`,
+      `/api/v1/rentable-spaces?search=BoundarySpace-${suffix}`,
+    ]) {
+      const scopedAggregate = await request(app.getHttpServer())
+        .get(path)
+        .set('authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      expect(scopedAggregate.body.items).toHaveLength(0);
+    }
     const allowed = await request(app.getHttpServer())
       .post('/api/v1/properties')
       .set('authorization', `Bearer ${managerToken}`)
@@ -638,6 +913,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         city: 'Mogadishu',
       })
       .expect(201);
+    wadajirPropertyId = allowed.body.id as string;
     await request(app.getHttpServer())
       .get(`/api/v1/properties/${allowed.body.id}`)
       .set('authorization', `Bearer ${managerToken}`)
@@ -670,6 +946,69 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(next.body.items[0].id).not.toBe(list.body.items[0].id);
   });
 
+  it('serves focused aggregates across both explicitly authorized MULTI_BRANCH scopes', async () => {
+    const email = `phase4.multi.${suffix}@example.test`;
+    const password = 'Phase4-Multi-Branch-Password!';
+    const employee = await request(app.getHttpServer())
+      .post('/api/v1/employees')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        employeeNumber: `MB-${suffix}`,
+        displayName: 'Ayaan Multi Branch',
+        accessMode: 'MULTI_BRANCH',
+        branchId: hodanId,
+        email,
+        password,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${employee.body.id}/branches`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ branchId: wadajirId, effectiveFrom: businessDate })
+      .expect(201);
+    const role = await database.role.findFirstOrThrow({ where: { code: 'PROPERTY_MANAGER' } });
+    for (const branchId of [hodanId, wadajirId]) {
+      await request(app.getHttpServer())
+        .post(`/api/v1/employees/${employee.body.id}/roles`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ roleId: role.id, branchId, effectiveFrom: businessDate })
+        .expect(201);
+    }
+    const login = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(201);
+    const multiToken = sessionToken(login);
+
+    const hodanActivity = await request(app.getHttpServer())
+      .get(`/api/v1/property-activity?propertyId=${propertyId}`)
+      .set('authorization', `Bearer ${multiToken}`)
+      .expect(200);
+    expect(hodanActivity.body.items.length).toBeGreaterThan(0);
+    const wadajirActivity = await request(app.getHttpServer())
+      .get(`/api/v1/property-activity?propertyId=${wadajirPropertyId}`)
+      .set('authorization', `Bearer ${multiToken}`)
+      .expect(200);
+    expect(wadajirActivity.body.items.length).toBeGreaterThan(0);
+
+    const documents = await request(app.getHttpServer())
+      .get(`/api/v1/portfolio-documents?entityType=Property&entityId=${propertyId}&status=ARCHIVED`)
+      .set('authorization', `Bearer ${multiToken}`)
+      .expect(200);
+    expect(
+      (documents.body.items as Array<{ property?: { id: string } }>).some(
+        (document) => document.property?.id === propertyId,
+      ),
+    ).toBe(true);
+
+    const spaces = await request(app.getHttpServer())
+      .get(`/api/v1/rentable-spaces?propertyId=${propertyId}&search=Main`)
+      .set('authorization', `Bearer ${multiToken}`)
+      .expect(200);
+    expect(
+      (spaces.body.items as Array<{ id: string }>).some((space) => space.id === parentSpaceId),
+    ).toBe(true);
+  });
   it('writes sensitive portfolio audit evidence without contact values', async () => {
     const rows = await database.auditLog.findMany({
       where: { entityId: { in: [ownerPartyId, propertyId, parentSpaceId] } },

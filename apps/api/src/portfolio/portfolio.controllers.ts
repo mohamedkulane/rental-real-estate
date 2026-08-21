@@ -35,6 +35,11 @@ import {
   PartitionSpaceDto,
   PropertyLifecycleTransitionDto,
   ListDocumentsQueryDto,
+  ListBuildingsQueryDto,
+  ListPropertyOwnershipsQueryDto,
+  ListPropertyBranchHistoryQueryDto,
+  ListPropertyActivityQueryDto,
+  ListPropertyAmenitiesQueryDto,
   ListSpacesQueryDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
@@ -291,6 +296,11 @@ export class PropertyController {
 export class BuildingController {
   constructor(private readonly portfolio: PortfolioService) {}
 
+  @Get()
+  @RequirePermissions('portfolio.building.read')
+  list(@Req() request: AuthenticatedRequest, @Query() query: ListBuildingsQueryDto) {
+    return this.portfolio.listBuildingWorkspace(request.principal, query);
+  }
   @Get(':buildingId')
   @RequirePermissions('portfolio.building.read')
   get(
@@ -477,5 +487,54 @@ export class PortfolioDocumentController {
     @Body() input: CreateDocumentMetadataDto,
   ) {
     return this.portfolio.createDocument(request.principal, input, request.correlationId);
+  }
+}
+
+@UseGuards(SessionAuthGuard, PermissionGuard)
+@Controller({ path: 'property-ownerships', version: '1' })
+export class PropertyOwnershipController {
+  constructor(private readonly portfolio: PortfolioService) {}
+  @Get() @RequirePermissions('portfolio.ownership.read') list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ListPropertyOwnershipsQueryDto,
+  ) {
+    return this.portfolio.listPropertyOwnerships(request.principal, query);
+  }
+}
+@UseGuards(SessionAuthGuard, PermissionGuard)
+@Controller({ path: 'property-amenities', version: '1' })
+export class PropertyAmenityController {
+  constructor(private readonly portfolio: PortfolioService) {}
+
+  @Get()
+  @RequirePermissions('portfolio.amenity.read')
+  list(@Req() request: AuthenticatedRequest, @Query() query: ListPropertyAmenitiesQueryDto) {
+    return this.portfolio.listPropertyAmenities(request.principal, query);
+  }
+}
+@UseGuards(SessionAuthGuard, PermissionGuard)
+@Controller({ path: 'property-branch-history', version: '1' })
+export class PropertyBranchHistoryController {
+  constructor(private readonly portfolio: PortfolioService) {}
+
+  @Get()
+  @RequirePermissions('portfolio.property.read')
+  list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ListPropertyBranchHistoryQueryDto,
+  ) {
+    return this.portfolio.listPropertyBranchHistory(request.principal, query);
+  }
+}
+
+@UseGuards(SessionAuthGuard, PermissionGuard)
+@Controller({ path: 'property-activity', version: '1' })
+export class PropertyActivityController {
+  constructor(private readonly portfolio: PortfolioService) {}
+
+  @Get()
+  @RequirePermissions('portfolio.property.read')
+  list(@Req() request: AuthenticatedRequest, @Query() query: ListPropertyActivityQueryDto) {
+    return this.portfolio.listPropertyActivity(request.principal, query);
   }
 }

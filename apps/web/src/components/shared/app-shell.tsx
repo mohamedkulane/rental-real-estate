@@ -10,7 +10,6 @@ import {
   Landmark,
   LogOut,
   Menu,
-  Settings,
   ShieldCheck,
   UserCog,
   Users,
@@ -203,7 +202,7 @@ export function AppShell({
     : [
         ...allowed(
           'organization.company.read',
-          go('company', 'Company', '/admin?section=company', Landmark),
+          go('company', 'Company Profile', '/admin?section=company', Landmark),
         ),
         ...allowed(
           'organization.branch.read',
@@ -211,8 +210,8 @@ export function AppShell({
         ),
       ];
   const localTeamAccess = [
-    ...pick(organization, ['employees'], { employees: Users }),
-    ...pick(administration, ['users', 'roles'], {
+    ...pick(administration, ['employees', 'users', 'roles'], {
+      employees: Users,
       users: UserCog,
       roles: ShieldCheck,
       permissions: ShieldCheck,
@@ -227,11 +226,11 @@ export function AppShell({
         ),
         ...allowed(
           'identity.user.read',
-          go('users', 'User accounts', '/admin?section=users', UserCog),
+          go('users', 'User Accounts', '/admin?section=users', UserCog),
         ),
         ...allowed(
           'identity.role.read',
-          go('roles', 'Roles & permissions', '/admin?section=roles', ShieldCheck),
+          go('roles', 'Roles & Permissions', '/admin?section=roles', ShieldCheck),
         ),
       ];
   const portfolioItems = portfolio.length
@@ -239,7 +238,7 @@ export function AppShell({
     : [
         ...allowed(
           'party.read',
-          go('parties', 'People & organizations', '/portfolio?section=parties', Users),
+          go('parties', 'Parties', '/portfolio?section=parties', Users),
         ),
         ...allowed('owner.read', go('owners', 'Owners', '/portfolio?section=owners', Users)),
         ...allowed(
@@ -248,11 +247,11 @@ export function AppShell({
         ),
         ...allowed(
           'portfolio.space.read',
-          go('spaces', 'Rentable spaces', '/portfolio?section=spaces', Building2),
+          go('spaces', 'Rentable Spaces', '/portfolio?section=spaces', Building2),
         ),
         ...allowed(
           'portfolio.amenity.read',
-          go('amenities', 'Amenities', '/portfolio?section=amenities', Building2),
+          go('amenities', 'Amenities Catalog', '/portfolio?section=amenities', Building2),
         ),
       ];
   const decoratedPortfolioItems: NavItem[] = portfolioItems.map((item) => ({
@@ -269,13 +268,7 @@ export function AppShell({
     ? pick(administration, ['audit'], { audit: ClipboardList })
     : allowed(
         'governance.audit.read',
-        go('audit', 'Audit log', '/admin?section=audit', ClipboardList),
-      );
-  const settings = organization.length
-    ? pick(organization, ['settings'], { settings: Settings })
-    : allowed(
-        'organization.company.read',
-        go('settings', 'Settings', '/admin?section=settings', Settings),
+        go('audit', 'Audit Log', '/admin?section=audit', ClipboardList),
       );
 
   return (
@@ -343,11 +336,11 @@ export function AppShell({
                   (active === 'overview' ? 'text-[#90CAF9]' : 'text-slate-400')
                 }
               />
-              Overview
+              Dashboard
             </Link>
           </div>
           <NavGroup
-            title="Company setup"
+            title="Organization"
             items={companySetup}
             activeItem={activeItem}
             onNavigate={() => setOpen(false)}
@@ -382,17 +375,6 @@ export function AppShell({
             <p className="text-sm font-semibold text-slate-700">Secure staff workspace</p>
           </div>
           <div className="flex items-center gap-2">
-            {settings[0] ? (
-              <button
-                type="button"
-                onClick={settings[0].onSelect}
-                className="header-action"
-                aria-label="Open settings"
-              >
-                <Settings className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-            ) : null}
             <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
             <button type="button" className="header-action" onClick={onLogout}>
               <LogOut className="h-4 w-4" aria-hidden="true" />

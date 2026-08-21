@@ -13,27 +13,26 @@ import {
 describe('Phase 4 Portfolio information architecture', () => {
   it('exposes the complete Property hierarchy with no generic Operations item', () => {
     expect(PORTFOLIO_NAVIGATION.properties.map((item) => item.label)).toEqual([
-      'Overview',
+      'Property Register',
       'Buildings',
-      'Spaces',
-      'Ownership',
-      'Amenities',
-      'Documents',
-      'Branch History',
-      'Activity',
+      'Property Ownership',
+      'Property Amenities',
+      'Property Documents',
+      'Branch Assignments',
+      'Property Activity',
     ]);
     expect(PORTFOLIO_NAVIGATION.properties.map((item) => item.label)).not.toContain('Operations');
   });
 
   it('keeps the Rentable Space hierarchy short and context-aware', () => {
     expect(PORTFOLIO_NAVIGATION.spaces.map((item) => item.label)).toEqual([
-      'Overview',
-      'Hierarchy',
+      'Space Register',
+      'Space Hierarchy',
       'Measurements',
-      'Space Details',
-      'Amenities',
-      'Documents',
-      'Lifecycle',
+      'Space Profiles',
+      'Space Amenities',
+      'Space Documents',
+      'Space Lifecycle',
     ]);
   });
 
@@ -45,13 +44,13 @@ describe('Phase 4 Portfolio information architecture', () => {
 
   it('keeps every major Property workflow in a dedicated tab', () => {
     expect(PROPERTY_DETAIL_TABS.map((tab) => tab.label)).toEqual([
-      'Overview',
+      'Property Details',
       'Buildings',
-      'Spaces',
+      'Rentable Spaces',
       'Ownership',
       'Amenities',
       'Documents',
-      'Branch History',
+      'Branch Assignments',
       'Activity',
     ]);
     expect(PROPERTY_DETAIL_TABS.some((tab) => String(tab.label) === 'Operations')).toBe(false);
@@ -59,7 +58,7 @@ describe('Phase 4 Portfolio information architecture', () => {
 
   it('separates current Owner properties, documents, and ownership history', () => {
     expect(OWNER_DETAIL_TABS.map((tab) => tab.label)).toEqual([
-      'Overview',
+      'Owner Profile',
       'Owned Properties',
       'Documents',
       'Ownership History',
@@ -68,13 +67,13 @@ describe('Phase 4 Portfolio information architecture', () => {
 
   it('makes hierarchy, measurement history, specialization, and lifecycle discoverable', () => {
     expect(RENTABLE_SPACE_DETAIL_TABS.map((tab) => tab.label)).toEqual([
-      'Overview',
+      'Space Details',
       'Hierarchy',
       'Measurements',
       'Profile',
       'Amenities',
       'Documents',
-      'Activity / History',
+      'Activity',
       'Lifecycle',
     ]);
   });

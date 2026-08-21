@@ -35,12 +35,11 @@ import { PartyDirectory, type PartyRecord } from './pages/party-directory';
 import { OwnerDirectory, type OwnerDetailTab, type OwnerRecord } from './pages/owner-directory';
 import { AmenityDirectory, type AmenityRecord } from './pages/amenity-directory';
 import { PORTFOLIO_NAVIGATION, portfolioNavigationView } from './portfolio-ia';
+import { FocusedPortfolioWorkspace } from './focused-portfolio-workspace';
 import {
-  OwnerSectionWorkspace,
-  PropertySectionWorkspace,
-  SpaceSectionWorkspace,
-} from './portfolio-section-workspaces';
-import { isAggregatePortfolioView } from './portfolio-workspace-model';
+  isAggregatePortfolioView,
+  shouldLoadParentPortfolioList,
+} from './portfolio-workspace-model';
 
 type Tab = 'parties' | 'owners' | 'properties' | 'spaces' | 'amenities';
 type Branch = { id: string; code: string; name: string };
@@ -158,7 +157,12 @@ export function PortfolioConsole() {
           tabs.find((item) => hasPermission(current, item.permission))?.key ??
           'properties';
         setActive(first);
-        setActiveView(portfolioNavigationView(first, parameters.get('view')));
+        const firstView = portfolioNavigationView(first, parameters.get('view'));
+        setActiveView(firstView);
+        if (!shouldLoadParentPortfolioList(first, firstView)) {
+          setLoading(false);
+          return;
+        }
         const [branchData, partyData, propertyData, ownerData] = await Promise.all([
           (first === 'properties' || first === 'parties') &&
           hasPermission(current, 'organization.branch.read')
@@ -308,6 +312,10 @@ export function PortfolioConsole() {
     setSuccess('');
     setShowActions(false);
     resetCursor();
+    if (!shouldLoadParentPortfolioList(tab, view)) {
+      setLoading(false);
+      return;
+    }
     try {
       await Promise.all([
         loadTab(
@@ -1109,10 +1117,8 @@ export function PortfolioConsole() {
           {loading ? (
             <LoadingState label="Loading property owners" />
           ) : isAggregatePortfolioView('owners', activeView) ? (
-            <OwnerSectionWorkspace
-              view={activeView as 'owned-properties' | 'documents'}
-              records={records as OwnerRecord[]}
-              canReadDocuments={hasPermission(principal, 'portfolio.document.read')}
+            <FocusedPortfolioWorkspace
+              workspace={activeView === 'documents' ? 'owner-documents' : 'owner-properties'}
             />
           ) : (
             <OwnerDirectory
@@ -1201,11 +1207,20 @@ export function PortfolioConsole() {
           {loading ? (
             <LoadingState label="Loading property registry" />
           ) : isAggregatePortfolioView('properties', activeView) ? (
-            <PropertySectionWorkspace
-              view={activeView as Exclude<PropertyDetailTab, 'overview'>}
-              records={records as PropertyRecord[]}
-              businessDate={principal.businessDate}
-              canReadDocuments={hasPermission(principal, 'portfolio.document.read')}
+            <FocusedPortfolioWorkspace
+              workspace={
+                activeView === 'buildings'
+                  ? 'property-buildings'
+                  : activeView === 'ownership'
+                    ? 'property-ownership'
+                    : activeView === 'amenities'
+                      ? 'property-amenities'
+                      : activeView === 'documents'
+                        ? 'property-documents'
+                        : activeView === 'branch-history'
+                          ? 'property-branches'
+                          : 'property-activity'
+              }
             />
           ) : (
             <PropertyRegistry
@@ -1430,18 +1445,20 @@ export function PortfolioConsole() {
               {loading ? (
                 <LoadingState label="Loading portfolio records" />
               ) : isAggregatePortfolioView('spaces', activeView) ? (
-                <SpaceSectionWorkspace
-                  view={
-                    activeView as
-                      | 'hierarchy'
-                      | 'measurements'
-                      | 'profile'
-                      | 'amenities'
-                      | 'documents'
-                      | 'lifecycle'
+                <FocusedPortfolioWorkspace
+                  workspace={
+                    activeView === 'hierarchy'
+                      ? 'space-hierarchy'
+                      : activeView === 'measurements'
+                        ? 'space-measurements'
+                        : activeView === 'profile'
+                          ? 'space-profiles'
+                          : activeView === 'amenities'
+                            ? 'space-amenities'
+                            : activeView === 'documents'
+                              ? 'space-documents'
+                              : 'space-lifecycle'
                   }
-                  records={records as Space[]}
-                  canReadDocuments={hasPermission(principal, 'portfolio.document.read')}
                 />
               ) : (
                 renderRecords()

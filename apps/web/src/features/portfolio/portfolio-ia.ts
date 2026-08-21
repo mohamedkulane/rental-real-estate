@@ -2,33 +2,32 @@ import type { PropertyRecord } from './pages/property-registry';
 
 export const PORTFOLIO_NAVIGATION = {
   parties: [
-    { key: 'all', label: 'All Parties' },
+    { key: 'all', label: 'Party Register' },
     { key: 'people', label: 'People' },
     { key: 'organizations', label: 'Organizations' },
   ],
   owners: [
-    { key: 'directory', label: 'Owner Directory' },
+    { key: 'directory', label: 'Owner Register' },
     { key: 'owned-properties', label: 'Owned Properties' },
-    { key: 'documents', label: 'Documents' },
+    { key: 'documents', label: 'Owner Documents' },
   ],
   properties: [
-    { key: 'overview', label: 'Overview' },
+    { key: 'overview', label: 'Property Register' },
     { key: 'buildings', label: 'Buildings' },
-    { key: 'spaces', label: 'Spaces' },
-    { key: 'ownership', label: 'Ownership' },
-    { key: 'amenities', label: 'Amenities' },
-    { key: 'documents', label: 'Documents' },
-    { key: 'branch-history', label: 'Branch History' },
-    { key: 'activity', label: 'Activity' },
+    { key: 'ownership', label: 'Property Ownership' },
+    { key: 'amenities', label: 'Property Amenities' },
+    { key: 'documents', label: 'Property Documents' },
+    { key: 'branch-history', label: 'Branch Assignments' },
+    { key: 'activity', label: 'Property Activity' },
   ],
   spaces: [
-    { key: 'overview', label: 'Overview' },
-    { key: 'hierarchy', label: 'Hierarchy' },
+    { key: 'overview', label: 'Space Register' },
+    { key: 'hierarchy', label: 'Space Hierarchy' },
     { key: 'measurements', label: 'Measurements' },
-    { key: 'profile', label: 'Space Details' },
-    { key: 'amenities', label: 'Amenities' },
-    { key: 'documents', label: 'Documents' },
-    { key: 'lifecycle', label: 'Lifecycle' },
+    { key: 'profile', label: 'Space Profiles' },
+    { key: 'amenities', label: 'Space Amenities' },
+    { key: 'documents', label: 'Space Documents' },
+    { key: 'lifecycle', label: 'Space Lifecycle' },
   ],
 } as const;
 
@@ -43,31 +42,31 @@ export function portfolioNavigationView(
   return options.some((option) => option.key === requested) ? String(requested) : options[0].key;
 }
 export const PROPERTY_DETAIL_TABS = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Property Details' },
   { key: 'buildings', label: 'Buildings' },
-  { key: 'spaces', label: 'Spaces' },
+  { key: 'spaces', label: 'Rentable Spaces' },
   { key: 'ownership', label: 'Ownership' },
   { key: 'amenities', label: 'Amenities' },
   { key: 'documents', label: 'Documents' },
-  { key: 'branch-history', label: 'Branch History' },
+  { key: 'branch-history', label: 'Branch Assignments' },
   { key: 'activity', label: 'Activity' },
 ] as const;
 
 export const OWNER_DETAIL_TABS = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Owner Profile' },
   { key: 'owned-properties', label: 'Owned Properties' },
   { key: 'documents', label: 'Documents' },
   { key: 'ownership-history', label: 'Ownership History' },
 ] as const;
 
 export const RENTABLE_SPACE_DETAIL_TABS = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Space Details' },
   { key: 'hierarchy', label: 'Hierarchy' },
   { key: 'measurements', label: 'Measurements' },
   { key: 'profile', label: 'Profile' },
   { key: 'amenities', label: 'Amenities' },
   { key: 'documents', label: 'Documents' },
-  { key: 'history', label: 'Activity / History' },
+  { key: 'history', label: 'Activity' },
   { key: 'lifecycle', label: 'Lifecycle' },
 ] as const;
 

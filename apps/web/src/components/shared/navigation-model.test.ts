@@ -11,7 +11,7 @@ const items: NavigationItem[] = [
     key: 'parties',
     label: 'Parties',
     children: [
-      { key: 'parties:all', label: 'All Parties' },
+      { key: 'parties:all', label: 'Party Register' },
       { key: 'parties:people', label: 'People' },
       { key: 'parties:organizations', label: 'Organizations' },
     ],
@@ -20,7 +20,7 @@ const items: NavigationItem[] = [
     key: 'properties',
     label: 'Properties',
     children: [
-      { key: 'properties:overview', label: 'Overview' },
+      { key: 'properties:overview', label: 'Property Register' },
       { key: 'properties:buildings', label: 'Buildings' },
     ],
   },
@@ -44,7 +44,7 @@ describe('hierarchical navigation model', () => {
 
   it('uses human-readable child labels', () => {
     expect(items[0]?.children?.map((item) => item.label)).toEqual([
-      'All Parties',
+      'Party Register',
       'People',
       'Organizations',
     ]);

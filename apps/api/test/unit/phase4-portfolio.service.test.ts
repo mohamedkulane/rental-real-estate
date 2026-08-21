@@ -100,6 +100,120 @@ describe('Phase 4 portfolio services', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it('lists aggregate documents with company isolation and batched related-record enrichment', async () => {
+    const documentFindMany = vi.fn().mockResolvedValue([
+      {
+        id: '00000000-0000-4000-8000-000000000101',
+        companyId: principal.companyId,
+        displayName: 'Document one',
+        categoryCode: 'TITLE',
+        accessClass: 'INTERNAL',
+        status: 'ACTIVE',
+        createdAt: new Date('2026-01-02'),
+        versions: [{ sizeBytes: BigInt(100) }],
+        links: [{ entityType: 'Property', entityId: '00000000-0000-4000-8000-000000000201' }],
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000102',
+        companyId: principal.companyId,
+        displayName: 'Document two',
+        categoryCode: 'TITLE',
+        accessClass: 'INTERNAL',
+        status: 'ACTIVE',
+        createdAt: new Date('2026-01-01'),
+        versions: [{ sizeBytes: BigInt(200) }],
+        links: [{ entityType: 'Property', entityId: '00000000-0000-4000-8000-000000000202' }],
+      },
+    ]);
+    const propertyFindMany = vi.fn().mockResolvedValue([
+      { id: '00000000-0000-4000-8000-000000000201', propertyCode: 'P-1', name: 'One' },
+      { id: '00000000-0000-4000-8000-000000000202', propertyCode: 'P-2', name: 'Two' },
+    ]);
+    const service = new PortfolioService(
+      {
+        document: { findMany: documentFindMany },
+        property: { findMany: propertyFindMany },
+        ownerProfile: { findMany: vi.fn() },
+        rentableSpace: { findMany: vi.fn() },
+      } as unknown as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-08-16')) } as never,
+      {} as never,
+      { authorizedBranchIds: vi.fn().mockReturnValue(null) } as unknown as AuthorizationService,
+      {} as AuditService,
+    );
+
+    const result = await service.listDocuments(principal, {
+      limit: 25,
+      entityType: 'Property',
+      categoryCode: 'title',
+      accessClass: 'INTERNAL',
+      status: 'ACTIVE',
+    });
+
+    expect(result.items).toHaveLength(2);
+    expect(documentFindMany).toHaveBeenCalledTimes(1);
+    expect(propertyFindMany).toHaveBeenCalledTimes(1);
+    const documentQuery: unknown = documentFindMany.mock.calls[0]?.[0];
+    expect(documentQuery).toMatchObject({
+      where: {
+        companyId: principal.companyId,
+        categoryCode: { equals: 'title', mode: 'insensitive' },
+        accessClass: 'INTERNAL',
+        status: 'ACTIVE',
+      },
+      take: 26,
+    });
+  });
+
+  it.each([
+    ['BRANCH', new Set(['00000000-0000-4000-8000-000000000301'])],
+    [
+      'MULTI_BRANCH',
+      new Set(['00000000-0000-4000-8000-000000000301', '00000000-0000-4000-8000-000000000302']),
+    ],
+  ])('scopes %s document aggregates to authorized entity ids', async (_mode, branchIds) => {
+    const propertyFindMany = vi
+      .fn()
+      .mockResolvedValueOnce([{ id: '00000000-0000-4000-8000-000000000401' }])
+      .mockResolvedValueOnce([]);
+    const documentFindMany = vi.fn().mockResolvedValue([]);
+    const service = new PortfolioService(
+      {
+        document: { findMany: documentFindMany },
+        property: { findMany: propertyFindMany },
+        ownerProfile: { findMany: vi.fn() },
+        rentableSpace: { findMany: vi.fn() },
+      } as unknown as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-08-16')) } as never,
+      {} as never,
+      {
+        authorizedBranchIds: vi.fn().mockReturnValue(branchIds),
+      } as unknown as AuthorizationService,
+      {} as AuditService,
+    );
+
+    await service.listDocuments(principal, { limit: 25, entityType: 'Property' });
+
+    const propertyScopeQuery: unknown = propertyFindMany.mock.calls[0]?.[0];
+    expect(propertyScopeQuery).toMatchObject({
+      where: {
+        companyId: principal.companyId,
+        branchAssignments: { some: { branchId: { in: [...branchIds] } } },
+      },
+    });
+    const scopedDocumentQuery: unknown = documentFindMany.mock.calls[0]?.[0];
+    expect(scopedDocumentQuery).toMatchObject({
+      where: {
+        companyId: principal.companyId,
+        links: {
+          some: {
+            entityType: 'Property',
+            entityId: { in: ['00000000-0000-4000-8000-000000000401'] },
+          },
+        },
+      },
+    });
+  });
   it('requires the area unit whenever space area is supplied', async () => {
     const service = new PortfolioService(
       {} as DatabaseService,

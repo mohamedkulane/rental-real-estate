@@ -325,10 +325,65 @@ export class ListDocumentsQueryDto extends CursorPageQueryDto {
   @IsIn(['Property', 'RentableSpace', 'Owner'])
   entityType?: 'Property' | 'RentableSpace' | 'Owner';
   @IsOptional() @IsUUID() entityId?: string;
+  @IsOptional() @IsString() @MaxLength(120) entitySearch?: string;
+  @IsOptional() @IsString() @MaxLength(50) categoryCode?: string;
+  @IsOptional() @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass?: string;
+  @IsOptional() @IsIn(['PENDING', 'ACTIVE', 'ARCHIVED']) status?: string;
+}
+
+export class ListPropertyBranchHistoryQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
+  @IsOptional() @IsIn(['CURRENT', 'HISTORICAL', 'SCHEDULED']) period?:
+    'CURRENT' | 'HISTORICAL' | 'SCHEDULED';
+}
+
+export class ListPropertyActivityQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
+  @IsOptional() @IsString() @MaxLength(100) action?: string;
+}
+export class ListPropertyOwnershipsQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsUUID() ownerPartyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) ownerSearch?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
+  @IsOptional() @IsIn(['CURRENT', 'SCHEDULED', 'HISTORICAL']) period?:
+    'CURRENT' | 'SCHEDULED' | 'HISTORICAL';
+}
+export class ListBuildingsQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
+  @IsOptional() @IsEnum(BuildingStatus) status?: BuildingStatus;
+}
+
+export class ListPropertyAmenitiesQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 25;
+  @IsOptional() @IsString() @MaxLength(100) cursor?: string;
+  @IsOptional() @IsString() @MaxLength(120) search?: string;
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsUUID() amenityId?: string;
+  @IsOptional() @IsString() @MaxLength(120) amenitySearch?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
 }
 export class ListSpacesQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
   @IsOptional() @IsUUID() buildingId?: string;
+  @IsOptional() @IsString() @MaxLength(120) buildingSearch?: string;
   @IsOptional() @IsString() @Length(1, 50) typeCode?: string;
+  @IsOptional() @IsString() @MaxLength(120) typeSearch?: string;
   @IsOptional() @IsEnum(RentableSpaceStatus) status?: RentableSpaceStatus;
 }

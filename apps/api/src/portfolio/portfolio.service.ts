@@ -19,6 +19,11 @@ import type {
   CreatePropertyDto,
   CreateSpaceDto,
   ListDocumentsQueryDto,
+  ListBuildingsQueryDto,
+  ListPropertyOwnershipsQueryDto,
+  ListPropertyBranchHistoryQueryDto,
+  ListPropertyActivityQueryDto,
+  ListPropertyAmenitiesQueryDto,
   ListSpacesQueryDto,
   DiscardPropertyDraftDto,
   PartitionSpaceDto,
@@ -697,6 +702,455 @@ export class PortfolioService {
     });
   }
 
+  async listPropertyBranchHistory(
+    principal: AuthenticatedPrincipal,
+    query: ListPropertyBranchHistoryQueryDto,
+  ) {
+    if (query.propertyId)
+      await this.assertPropertyPermission(principal, query.propertyId, 'portfolio.property.read');
+
+    const at = await this.businessDate.today(principal.companyId);
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.property.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
+    const period =
+      query.period === 'CURRENT'
+        ? { effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] }
+        : query.period === 'SCHEDULED'
+          ? { effectiveFrom: { gt: at } }
+          : query.period === 'HISTORICAL'
+            ? { effectiveTo: { lte: at } }
+            : {};
+
+    const propertySearch = query.propertySearch ?? query.search;
+    const rows = await this.database.propertyBranchAssignment.findMany({
+      where: {
+        ...(query.propertyId ? { propertyId: query.propertyId } : {}),
+        ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+        ...period,
+        property: {
+          companyId: principal.companyId,
+          ...(propertySearch
+            ? {
+                OR: [
+                  {
+                    propertyCode: {
+                      contains: propertySearch,
+                      mode: 'insensitive',
+                    },
+                  },
+                  { name: { contains: propertySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        ...(query.branchSearch
+          ? {
+              branch: {
+                OR: [
+                  { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                  { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                ],
+              },
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: {
+        property: { select: { id: true, propertyCode: true, name: true, status: true } },
+        branch: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: [{ effectiveFrom: 'desc' }, { id: 'asc' }],
+    });
+    return cursorPage(rows, query.limit, (row) => row.id);
+  }
+
+  async listPropertyActivity(
+    principal: AuthenticatedPrincipal,
+    query: ListPropertyActivityQueryDto,
+  ) {
+    if (query.propertyId) {
+      await this.assertPropertyPermission(principal, query.propertyId, 'portfolio.property.read');
+    }
+
+    const at = await this.businessDate.today(principal.companyId);
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.property.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
+    const properties = await this.database.property.findMany({
+      where: {
+        companyId: principal.companyId,
+        ...(query.propertyId ? { id: query.propertyId } : {}),
+        ...(query.propertySearch
+          ? {
+              OR: [
+                { propertyCode: { contains: query.propertySearch, mode: 'insensitive' } },
+                { name: { contains: query.propertySearch, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+        ...(branchIds !== null || query.branchSearch
+          ? {
+              branchAssignments: {
+                some: {
+                  ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+                  effectiveFrom: { lte: at },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                  ...(query.branchSearch
+                    ? {
+                        branch: {
+                          OR: [
+                            { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                            { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                          ],
+                        },
+                      }
+                    : {}),
+                },
+              },
+            }
+          : {}),
+      },
+      select: { id: true, propertyCode: true, name: true },
+    });
+    if (!properties.length) return cursorPage([], query.limit, () => '');
+
+    const propertyById = new Map(properties.map((property) => [property.id, property]));
+    const rows = await this.database.auditLog.findMany({
+      where: {
+        entityType: 'Property',
+        entityId: { in: properties.map((property) => property.id) },
+        ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+        ...(query.branchSearch
+          ? {
+              branches: {
+                is: {
+                  OR: [
+                    { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                    { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                  ],
+                },
+              },
+            }
+          : {}),
+        ...(query.action ? { action: { contains: query.action, mode: 'insensitive' } } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { action: { contains: query.search, mode: 'insensitive' } },
+                { reason: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      select: {
+        id: true,
+        entityId: true,
+        action: true,
+        reason: true,
+        occurredAt: true,
+        branchId: true,
+        branches: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'asc' }],
+    });
+    return cursorPage(
+      rows.map((row) => ({
+        ...row,
+        property: row.entityId ? (propertyById.get(row.entityId) ?? null) : null,
+        branch: row.branches,
+        label: row.action.replace(/^portfolio\.property\./, 'Property ').replaceAll('.', ' '),
+      })),
+      query.limit,
+      (row) => row.id,
+    );
+  }
+
+  async listPropertyOwnerships(
+    principal: AuthenticatedPrincipal,
+    query: ListPropertyOwnershipsQueryDto,
+  ) {
+    if (query.propertyId)
+      await this.assertPropertyPermission(principal, query.propertyId, 'portfolio.ownership.read');
+
+    const at = await this.businessDate.today(principal.companyId);
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.ownership.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
+    const period =
+      query.period === 'CURRENT'
+        ? { effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] }
+        : query.period === 'SCHEDULED'
+          ? { effectiveFrom: { gt: at } }
+          : query.period === 'HISTORICAL'
+            ? { effectiveTo: { lte: at } }
+            : {};
+
+    const rows = await this.database.propertyOwnership.findMany({
+      where: {
+        ...(query.propertyId ? { propertyId: query.propertyId } : {}),
+        ...(query.ownerPartyId ? { ownerPartyId: query.ownerPartyId } : {}),
+        ...period,
+        property: {
+          companyId: principal.companyId,
+          ...(query.propertySearch
+            ? {
+                OR: [
+                  { propertyCode: { contains: query.propertySearch, mode: 'insensitive' } },
+                  { name: { contains: query.propertySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+          ...(branchIds !== null || query.branchSearch
+            ? {
+                branchAssignments: {
+                  some: {
+                    ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+                    effectiveFrom: { lte: at },
+                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                    ...(query.branchSearch
+                      ? {
+                          branch: {
+                            OR: [
+                              { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                              { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                            ],
+                          },
+                        }
+                      : {}),
+                  },
+                },
+              }
+            : {}),
+        },
+        owner: {
+          companyId: principal.companyId,
+          ...(query.ownerSearch
+            ? {
+                OR: [
+                  { displayName: { contains: query.ownerSearch, mode: 'insensitive' } },
+                  {
+                    owner: {
+                      is: { ownerNumber: { contains: query.ownerSearch, mode: 'insensitive' } },
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
+        ...(query.search
+          ? {
+              OR: [
+                {
+                  property: {
+                    OR: [
+                      { propertyCode: { contains: query.search, mode: 'insensitive' } },
+                      { name: { contains: query.search, mode: 'insensitive' } },
+                    ],
+                  },
+                },
+                {
+                  owner: {
+                    OR: [
+                      { displayName: { contains: query.search, mode: 'insensitive' } },
+                      {
+                        owner: {
+                          is: { ownerNumber: { contains: query.search, mode: 'insensitive' } },
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: {
+        property: {
+          select: {
+            id: true,
+            propertyCode: true,
+            name: true,
+            status: true,
+            branchAssignments: {
+              where: {
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+              },
+              include: { branch: { select: { id: true, code: true, name: true } } },
+            },
+          },
+        },
+        owner: {
+          select: { id: true, displayName: true, owner: { select: { ownerNumber: true } } },
+        },
+        entitlements: {
+          where: {
+            effectiveFrom: { lte: at },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+          },
+          orderBy: { effectiveFrom: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: [{ effectiveFrom: 'desc' }, { id: 'asc' }],
+    });
+    return cursorPage(rows, query.limit, (ownership) => ownership.id);
+  }
+  async listPropertyAmenities(
+    principal: AuthenticatedPrincipal,
+    query: ListPropertyAmenitiesQueryDto,
+  ) {
+    if (query.propertyId)
+      await this.assertPropertyPermission(principal, query.propertyId, 'portfolio.amenity.read');
+    const at = await this.businessDate.today(principal.companyId);
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.amenity.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
+    const [cursorPropertyId, cursorAmenityId] = query.cursor?.split(':') ?? [];
+    const amenityConditions: Prisma.PropertyAmenityWhereInput[] = [];
+    if (cursorPropertyId && cursorAmenityId) {
+      amenityConditions.push({
+        OR: [
+          { propertyId: { gt: cursorPropertyId } },
+          { propertyId: cursorPropertyId, amenityId: { gt: cursorAmenityId } },
+        ],
+      });
+    }
+    if (query.search) {
+      amenityConditions.push({
+        OR: [
+          {
+            property: {
+              OR: [
+                { propertyCode: { contains: query.search, mode: 'insensitive' } },
+                { name: { contains: query.search, mode: 'insensitive' } },
+              ],
+            },
+          },
+          {
+            amenity: {
+              OR: [
+                { code: { contains: query.search, mode: 'insensitive' } },
+                { name: { contains: query.search, mode: 'insensitive' } },
+              ],
+            },
+          },
+        ],
+      });
+    }
+    const rows = await this.database.propertyAmenity.findMany({
+      where: {
+        ...(query.propertyId ? { propertyId: query.propertyId } : {}),
+        ...(query.amenityId ? { amenityId: query.amenityId } : {}),
+        AND: amenityConditions,
+        property: {
+          companyId: principal.companyId,
+          ...(query.propertySearch
+            ? {
+                OR: [
+                  { propertyCode: { contains: query.propertySearch, mode: 'insensitive' } },
+                  { name: { contains: query.propertySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+          ...(branchIds !== null || query.branchSearch
+            ? {
+                branchAssignments: {
+                  some: {
+                    ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+                    effectiveFrom: { lte: at },
+                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                    ...(query.branchSearch
+                      ? {
+                          branch: {
+                            OR: [
+                              { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                              { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                            ],
+                          },
+                        }
+                      : {}),
+                  },
+                },
+              }
+            : {}),
+        },
+        amenity: {
+          ...(query.amenitySearch
+            ? {
+                OR: [
+                  { code: { contains: query.amenitySearch, mode: 'insensitive' } },
+                  { name: { contains: query.amenitySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+      },
+      take: query.limit + 1,
+      include: {
+        property: {
+          select: {
+            id: true,
+            propertyCode: true,
+            name: true,
+            status: true,
+            branchAssignments: {
+              where: {
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+              },
+              include: { branch: { select: { id: true, code: true, name: true } } },
+            },
+          },
+        },
+        amenity: { select: { id: true, code: true, name: true, active: true } },
+      },
+      orderBy: [{ propertyId: 'asc' }, { amenityId: 'asc' }],
+    });
+    return cursorPage(rows, query.limit, (row) => row.propertyId + ':' + row.amenityId);
+  }
   async listBuildings(principal: AuthenticatedPrincipal, propertyId: string) {
     await this.assertPropertyPermission(principal, propertyId, 'portfolio.building.read');
     return this.database.building.findMany({
@@ -709,6 +1163,78 @@ export class PortfolioService {
     });
   }
 
+  async listBuildingWorkspace(principal: AuthenticatedPrincipal, query: ListBuildingsQueryDto) {
+    if (query.propertyId)
+      await this.assertPropertyPermission(principal, query.propertyId, 'portfolio.building.read');
+
+    const at = await this.businessDate.today(principal.companyId);
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.building.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
+    const rows = await this.database.building.findMany({
+      where: {
+        ...(query.propertyId ? { propertyId: query.propertyId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { buildingCode: { contains: query.search, mode: 'insensitive' } },
+                { name: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+        property: {
+          companyId: principal.companyId,
+          ...(query.propertySearch
+            ? {
+                OR: [
+                  { propertyCode: { contains: query.propertySearch, mode: 'insensitive' } },
+                  { name: { contains: query.propertySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+          ...(branchIds !== null || query.branchSearch
+            ? {
+                branchAssignments: {
+                  some: {
+                    ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+                    effectiveFrom: { lte: at },
+                    OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                    ...(query.branchSearch
+                      ? {
+                          branch: {
+                            OR: [
+                              { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                              { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                            ],
+                          },
+                        }
+                      : {}),
+                  },
+                },
+              }
+            : {}),
+        },
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: {
+        property: { select: { id: true, propertyCode: true, name: true } },
+        _count: { select: { spaces: true } },
+      },
+      orderBy: { id: 'asc' },
+    });
+    return cursorPage(rows, query.limit, (building) => building.id);
+  }
   async getBuilding(principal: AuthenticatedPrincipal, buildingId: string) {
     const building = await this.database.building.findFirstOrThrow({
       where: { id: buildingId, property: { companyId: principal.companyId } },
@@ -828,16 +1354,27 @@ export class PortfolioService {
   }
 
   async listSpaces(principal: AuthenticatedPrincipal, query: ListSpacesQueryDto) {
-    const { propertyId, buildingId, typeCode, status } = query;
+    const { propertyId, buildingId, typeCode, status, propertySearch, buildingSearch, typeSearch } =
+      query;
     if (propertyId)
       await this.assertPropertyPermission(principal, propertyId, 'portfolio.space.read');
     const at = await this.businessDate.today(principal.companyId);
-    const branchIds = this.authorization.authorizedBranchIds(principal, 'portfolio.space.read');
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.space.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
     const rows = await this.database.rentableSpace.findMany({
       where: {
         ...(propertyId ? { propertyId } : {}),
         ...(buildingId ? { buildingId } : {}),
-        ...(typeCode ? { type: { code: typeCode } } : {}),
         ...(status ? { status } : {}),
         ...(query.search
           ? {
@@ -847,19 +1384,62 @@ export class PortfolioService {
               ],
             }
           : {}),
+        ...(buildingSearch
+          ? {
+              building: {
+                OR: [
+                  { buildingCode: { contains: buildingSearch, mode: 'insensitive' } },
+                  { name: { contains: buildingSearch, mode: 'insensitive' } },
+                ],
+              },
+            }
+          : {}),
+        ...(typeCode || typeSearch
+          ? {
+              type: {
+                ...(typeCode ? { code: typeCode } : {}),
+                ...(typeSearch
+                  ? {
+                      OR: [
+                        { code: { contains: typeSearch, mode: 'insensitive' } },
+                        { name: { contains: typeSearch, mode: 'insensitive' } },
+                      ],
+                    }
+                  : {}),
+              },
+            }
+          : {}),
         property: {
           companyId: principal.companyId,
-          ...(branchIds === null
-            ? {}
-            : {
+          ...(propertySearch
+            ? {
+                OR: [
+                  { propertyCode: { contains: propertySearch, mode: 'insensitive' } },
+                  { name: { contains: propertySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+          ...(branchIds !== null || query.branchSearch
+            ? {
                 branchAssignments: {
                   some: {
-                    branchId: { in: [...branchIds] },
+                    ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
                     effectiveFrom: { lte: at },
                     OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                    ...(query.branchSearch
+                      ? {
+                          branch: {
+                            OR: [
+                              { code: { contains: query.branchSearch, mode: 'insensitive' } },
+                              { name: { contains: query.branchSearch, mode: 'insensitive' } },
+                            ],
+                          },
+                        }
+                      : {}),
                   },
                 },
-              }),
+              }
+            : {}),
         },
       },
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -1643,10 +2223,135 @@ export class PortfolioService {
     };
   }
 
-  async listDocuments(principal: AuthenticatedPrincipal, query: ListDocumentsQueryDto) {
-    if ((query.entityType && !query.entityId) || (!query.entityType && query.entityId)) {
-      throw new BadRequestException('Document entity type and record must be supplied together.');
+  private async documentEntityIds(
+    principal: AuthenticatedPrincipal,
+    entityType: 'Property' | 'RentableSpace' | 'Owner',
+    entitySearch?: string,
+  ): Promise<string[] | null> {
+    const permission = 'portfolio.document.read';
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(principal, permission);
+    if (authorizedBranchIds === null && !entitySearch) return null;
+
+    const at = await this.businessDate.today(principal.companyId);
+    const branchIds = authorizedBranchIds === null ? null : [...authorizedBranchIds];
+    const currentBranchScope =
+      branchIds === null
+        ? {}
+        : {
+            branchAssignments: {
+              some: {
+                branchId: { in: branchIds },
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+              },
+            },
+          };
+
+    if (entityType === 'Property') {
+      const properties = await this.database.property.findMany({
+        where: {
+          companyId: principal.companyId,
+          ...currentBranchScope,
+          ...(entitySearch
+            ? {
+                OR: [
+                  { propertyCode: { contains: entitySearch, mode: 'insensitive' } },
+                  { name: { contains: entitySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: { id: true },
+      });
+      return properties.map((property) => property.id);
     }
+
+    if (entityType === 'RentableSpace') {
+      const spaces = await this.database.rentableSpace.findMany({
+        where: {
+          property: { companyId: principal.companyId, ...currentBranchScope },
+          ...(entitySearch
+            ? {
+                OR: [
+                  { spaceCode: { contains: entitySearch, mode: 'insensitive' } },
+                  { name: { contains: entitySearch, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: { id: true },
+      });
+      return spaces.map((space) => space.id);
+    }
+
+    const active = {
+      effectiveFrom: { lte: at },
+      OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+    };
+    const ownerSearchFilters: Prisma.OwnerProfileWhereInput[] = entitySearch
+      ? [
+          {
+            OR: [
+              { ownerNumber: { contains: entitySearch, mode: 'insensitive' } },
+              {
+                party: {
+                  OR: [
+                    { displayName: { contains: entitySearch, mode: 'insensitive' } },
+                    { partyNumber: { contains: entitySearch, mode: 'insensitive' } },
+                  ],
+                },
+              },
+            ],
+          },
+        ]
+      : [];
+    const owners = await this.database.ownerProfile.findMany({
+      where: {
+        AND: [
+          {
+            party: {
+              companyId: principal.companyId,
+              employee: { is: null },
+              ...(branchIds === null
+                ? {}
+                : {
+                    OR: [
+                      { branchAssignments: { some: { branchId: { in: branchIds }, ...active } } },
+                      {
+                        propertyOwnerships: {
+                          some: {
+                            ...active,
+                            property: {
+                              branchAssignments: {
+                                some: { branchId: { in: branchIds }, ...active },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  }),
+            },
+          },
+          ...ownerSearchFilters,
+        ],
+      },
+      select: { partyId: true },
+    });
+    return owners.map((owner) => owner.partyId);
+  }
+
+  async listDocuments(principal: AuthenticatedPrincipal, query: ListDocumentsQueryDto) {
+    if (!query.entityType && query.entityId) {
+      throw new BadRequestException('A document entity type is required when filtering by record.');
+    }
+    if (!query.entityType && query.entitySearch) {
+      throw new BadRequestException(
+        'A document entity type is required when searching related records.',
+      );
+    }
+
+    let entityScopeIds: string[] | null = null;
     if (query.entityType && query.entityId) {
       await this.assertDocumentEntityPermission(
         principal,
@@ -1654,9 +2359,26 @@ export class PortfolioService {
         query.entityId,
         'portfolio.document.read',
       );
+      entityScopeIds = [query.entityId];
+    } else if (query.entityType) {
+      entityScopeIds = await this.documentEntityIds(
+        principal,
+        query.entityType,
+        query.entitySearch,
+      );
+      if (entityScopeIds !== null && !entityScopeIds.length) {
+        return cursorPage([], query.limit, () => '');
+      }
     } else {
       this.authorization.assertCompanyPermission(principal, 'portfolio.document.read');
     }
+
+    const linkFilter = query.entityType
+      ? {
+          entityType: query.entityType,
+          ...(entityScopeIds === null ? {} : { entityId: { in: entityScopeIds } }),
+        }
+      : undefined;
     const documents = await this.database.document.findMany({
       where: {
         companyId: principal.companyId,
@@ -1668,17 +2390,77 @@ export class PortfolioService {
               ],
             }
           : {}),
-        ...(query.entityType && query.entityId
-          ? { links: { some: { entityType: query.entityType, entityId: query.entityId } } }
+        ...(linkFilter ? { links: { some: linkFilter } } : {}),
+        ...(query.categoryCode
+          ? { categoryCode: { equals: query.categoryCode, mode: 'insensitive' } }
           : {}),
+        ...(query.accessClass ? { accessClass: query.accessClass } : {}),
+        ...(query.status ? { status: query.status } : {}),
       },
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       take: query.limit + 1,
-      include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
+      include: {
+        versions: { orderBy: { sequence: 'desc' } },
+        links: linkFilter ? { where: linkFilter } : true,
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
+    const links = documents.flatMap((document) => document.links);
+    const propertyIds = links
+      .filter((link) => link.entityType === 'Property')
+      .map((link) => link.entityId);
+    const ownerIds = links
+      .filter((link) => link.entityType === 'Owner')
+      .map((link) => link.entityId);
+    const spaceIds = links
+      .filter((link) => link.entityType === 'RentableSpace')
+      .map((link) => link.entityId);
+    const [properties, owners, spaces] = await Promise.all([
+      propertyIds.length
+        ? this.database.property.findMany({
+            where: { id: { in: propertyIds }, companyId: principal.companyId },
+            select: { id: true, propertyCode: true, name: true, status: true },
+          })
+        : [],
+      ownerIds.length
+        ? this.database.ownerProfile.findMany({
+            where: { partyId: { in: ownerIds }, party: { companyId: principal.companyId } },
+            select: { partyId: true, ownerNumber: true, party: { select: { displayName: true } } },
+          })
+        : [],
+      spaceIds.length
+        ? this.database.rentableSpace.findMany({
+            where: { id: { in: spaceIds }, property: { companyId: principal.companyId } },
+            select: {
+              id: true,
+              spaceCode: true,
+              name: true,
+              status: true,
+              property: { select: { id: true, propertyCode: true, name: true } },
+            },
+          })
+        : [],
+    ]);
+    const propertyById = new Map(properties.map((property) => [property.id, property]));
+    const ownerById = new Map(
+      owners.map((owner) => [
+        owner.partyId,
+        { id: owner.partyId, ownerNumber: owner.ownerNumber, displayName: owner.party.displayName },
+      ]),
+    );
+    const spaceById = new Map(spaces.map((space) => [space.id, space]));
     return cursorPage(
-      documents.map((document) => this.serializeDocument(document)),
+      documents.map((document) => {
+        const link = document.links[0];
+        return {
+          ...this.serializeDocument(document),
+          property:
+            link?.entityType === 'Property' ? (propertyById.get(link.entityId) ?? null) : null,
+          owner: link?.entityType === 'Owner' ? (ownerById.get(link.entityId) ?? null) : null,
+          space:
+            link?.entityType === 'RentableSpace' ? (spaceById.get(link.entityId) ?? null) : null,
+        };
+      }),
       query.limit,
       (document) => document.id,
     );

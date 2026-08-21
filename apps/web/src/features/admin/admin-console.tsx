@@ -117,7 +117,7 @@ const sections: Section[] = [
   },
   {
     key: 'company',
-    label: 'Company',
+    label: 'Company Profile',
     description: 'Core company identity and operating preferences.',
     permission: 'organization.company.read',
     path: '/company',
@@ -145,7 +145,7 @@ const sections: Section[] = [
   },
   {
     key: 'roles',
-    label: 'Roles & permissions',
+    label: 'Roles & Permissions',
     description:
       'Create understandable business roles and control the capabilities assigned to each role.',
     permission: 'identity.role.read',
@@ -160,14 +160,14 @@ const sections: Section[] = [
   },
   {
     key: 'users',
-    label: 'Users & sessions',
+    label: 'User Accounts',
     description: 'Login accounts, access state, and revocable sessions.',
     permission: 'identity.user.read',
     path: '/users',
   },
   {
     key: 'audit',
-    label: 'Audit trail',
+    label: 'Audit Log',
     description: 'Sensitive and administrative activity in your authorized scope.',
     permission: 'governance.audit.read',
     path: '/audit',
@@ -1257,7 +1257,7 @@ export function AdminConsole() {
   const shellActive =
     active === 'profile'
       ? 'overview'
-      : ['company', 'branches', 'employees', 'settings'].includes(active)
+      : ['company', 'branches', 'settings'].includes(active)
         ? 'organization'
         : 'administration';
   const primaryRole = principal.roles[0];
@@ -1274,14 +1274,14 @@ export function AdminConsole() {
         onSelect: () => void choose(section),
       })),
     organization: visible
-      .filter((section) => ['company', 'branches', 'employees', 'settings'].includes(section.key))
+      .filter((section) => ['company', 'branches', 'settings'].includes(section.key))
       .map((section) => ({
         key: section.key,
         label: section.label,
         onSelect: () => void choose(section),
       })),
     administration: visible
-      .filter((section) => ['roles', 'permissions', 'users', 'audit'].includes(section.key))
+      .filter((section) => ['employees', 'roles', 'permissions', 'users', 'audit'].includes(section.key))
       .map((section) => ({
         key: section.key,
         label: section.label,

@@ -1,5 +1,5 @@
 import { sessionToken } from '../session-cookie';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -28,6 +28,9 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
 
   beforeAll(async () => {
     process.env.WEB_URL = 'http://localhost:3000';
+    process.env.AUTH_RATE_LIMIT_KEY = createHash('sha256')
+      .update(`e2e-rate-limit:`)
+      .digest('hex');
     process.env.REDIS_URL ??= 'redis://localhost:56379';
     process.env.SESSION_TTL_HOURS ??= '24';
     process.env.PASSWORD_RESET_TTL_MINUTES ??= '30';
@@ -174,7 +177,7 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
       .send({ outcome: 'APPROVED' })
       .expect(400);
     const audit = await request(app.getHttpServer())
-      .get('/api/v1/audit')
+      .get('/api/v1/audit?search=governance.approval.requested&limit=100')
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(

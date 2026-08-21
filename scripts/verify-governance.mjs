@@ -61,13 +61,21 @@ if (leaked.length) throw new Error(`Unapproved future Prisma models found: ${lea
 
 const schemaTables = new Set([...schema.matchAll(/@@map\("([^"]+)"\)/g)].map((match) => match[1]));
 const migrationRoot = join(root, 'prisma/migrations');
+// Migration history is append-only. A table created in an early migration can
+// legitimately be removed by a later migration, so compare the effective final
+// state rather than every historical CREATE TABLE statement.
 const migrationTables = new Set();
 for (const entry of readdirSync(migrationRoot, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
   const migration = join(migrationRoot, entry.name, 'migration.sql');
   if (!existsSync(migration)) continue;
   const sql = readFileSync(migration, 'utf8');
-  for (const match of sql.matchAll(/CREATE TABLE\s+"([^"]+)"/g)) migrationTables.add(match[1]);
+  for (const statement of sql.split(/;\s*(?:\r?\n|$)/)) {
+    const create = /CREATE TABLE\s+"([^"]+)"/i.exec(statement);
+    if (create) migrationTables.add(create[1]);
+    const drop = /DROP TABLE(?:\s+IF EXISTS)?\s+"([^"]+)"/i.exec(statement);
+    if (drop) migrationTables.delete(drop[1]);
+  }
 }
 const schemaOnly = [...schemaTables].filter((table) => !migrationTables.has(table));
 const migrationOnly = [...migrationTables].filter((table) => !schemaTables.has(table));

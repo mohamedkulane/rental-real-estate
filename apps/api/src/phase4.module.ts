@@ -7,6 +7,10 @@ import {
   PartyController,
   PortfolioDocumentController,
   PropertyController,
+  PropertyOwnershipController,
+  PropertyBranchHistoryController,
+  PropertyActivityController,
+  PropertyAmenityController,
   RentableSpaceController,
 } from './portfolio/portfolio.controllers';
 import { PartyCryptoService } from './portfolio/party-crypto.service';
@@ -20,6 +24,10 @@ import { PortfolioService } from './portfolio/portfolio.service';
     OwnerController,
     BuildingController,
     PropertyController,
+    PropertyOwnershipController,
+    PropertyBranchHistoryController,
+    PropertyActivityController,
+    PropertyAmenityController,
     RentableSpaceController,
     AmenityController,
     PortfolioDocumentController,

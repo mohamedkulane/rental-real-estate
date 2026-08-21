@@ -45,6 +45,9 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
 
     beforeAll(async () => {
       process.env.WEB_URL = 'http://localhost:3000';
+      process.env.AUTH_RATE_LIMIT_KEY = createHash('sha256')
+        .update(`e2e-rate-limit:`)
+        .digest('hex');
       process.env.REDIS_URL ??= 'redis://localhost:56379';
       process.env.PARTY_DATA_ENCRYPTION_KEY ??=
         '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
@@ -657,30 +660,38 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       expect(Array.isArray(approvals.body)).toBe(true);
-      const audit = await request(app.getHttpServer())
-        .get('/api/v1/audit?limit=100')
-        .set('authorization', `Bearer ${token}`)
-        .expect(200);
-      const actions = new Set(
-        (audit.body as { items: Array<{ action: string }> }).items.map((item) => item.action),
-      );
-      expect(actions).toContain('organization.branch.created');
-      expect(actions).toContain('identity.employee.created');
-      expect(actions).toContain('identity.employee.updated');
-      expect(actions).toContain('identity.employee.deactivated');
-      expect(actions).toContain('identity.employee.activated');
-      expect(actions).toContain('identity.role.updated');
-      expect(actions).toContain('identity.role.deactivated');
-      expect(actions).toContain('identity.role.activated');
-      expect(actions).toContain('party.updated');
-      expect(actions).toContain('portfolio.property.branch-transferred');
-      expect(actions).toContain('portfolio.amenity.created');
-      expect(actions).toContain('portfolio.amenity.updated');
-      expect(actions).toContain('portfolio.property.draft-discarded');
-      expect(actions).toContain('portfolio.space.measurement-corrected');
-      expect(actions).toContain('portfolio.document.metadata-created');
-      expect(JSON.stringify(audit.body)).not.toContain(initialPassword);
-      expect(JSON.stringify(audit.body)).not.toContain(changedPassword);
+      const expectedActions = [
+        'organization.branch.created',
+        'identity.employee.created',
+        'identity.employee.updated',
+        'identity.employee.deactivated',
+        'identity.employee.activated',
+        'identity.role.updated',
+        'identity.role.deactivated',
+        'identity.role.activated',
+        'party.updated',
+        'portfolio.property.branch-transferred',
+        'portfolio.amenity.created',
+        'portfolio.amenity.updated',
+        'portfolio.property.draft-discarded',
+        'portfolio.space.measurement-corrected',
+        'portfolio.document.metadata-created',
+      ];
+      const auditBodies: unknown[] = [];
+      for (const action of expectedActions) {
+        const audit = await request(app.getHttpServer())
+          .get(`/api/v1/audit?search=${encodeURIComponent(action)}&limit=100`)
+          .set('authorization', `Bearer ${token}`)
+          .expect(200);
+        auditBodies.push(audit.body);
+        expect(
+          (audit.body as { items: Array<{ action: string }> }).items.some(
+            (item) => item.action === action,
+          ),
+        ).toBe(true);
+      }
+      expect(JSON.stringify(auditBodies)).not.toContain(initialPassword);
+      expect(JSON.stringify(auditBodies)).not.toContain(changedPassword);
     });
   },
 );
