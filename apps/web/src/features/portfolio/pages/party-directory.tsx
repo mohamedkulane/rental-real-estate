@@ -4,9 +4,8 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 
 import { Edit3, Eye, MoreHorizontal, Plus, Search, UserRound, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { humanize } from '@/lib/presentation';
-import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 
 export type PartyRecord = {
@@ -107,6 +106,7 @@ export function PartyDirectory({
   onCreate,
   onUpdate,
   onLoadDetails,
+  onQueryChange,
   initialKind = 'all',
 }: {
   records: PartyRecord[];
@@ -117,6 +117,7 @@ export function PartyDirectory({
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
   onLoadDetails: (partyId: string) => Promise<PartyRecord>;
+  onQueryChange?: (filters: Record<string, string>) => void;
   initialKind?: 'all' | 'PERSON' | 'ORGANIZATION';
 }) {
   const [query, setQuery] = useState('');
@@ -130,31 +131,20 @@ export function PartyDirectory({
   useEffect(() => {
     setKind(initialKind);
   }, [initialKind]);
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () =>
+        onQueryChange?.({
+          search: query.trim(),
+          kind: kind === 'all' ? '' : kind,
+          active: status === 'all' ? '' : status,
+        }),
+      350,
+    );
+    return () => window.clearTimeout(timer);
+  }, [kind, onQueryChange, query, status]);
 
-  const filtered = useMemo(
-    () =>
-      records.filter((party) => {
-        const search = query.trim().toLowerCase();
-        const matchesSearch =
-          !search ||
-          [
-            party.displayName,
-            party.partyNumber,
-            party.contacts?.map((item) => item.value).join(' '),
-          ]
-            .join(' ')
-            .toLowerCase()
-            .includes(search);
-        return (
-          matchesSearch &&
-          (kind === 'all' || party.kind === kind) &&
-          (status === 'all' || String(party.active) === status)
-        );
-      }),
-    [records, query, kind, status],
-  );
-  const pagination = usePagination(filtered);
-  useEffect(() => pagination.setPage(1), [query, kind, status]);
+  const filtered = records;
   const open = (next: Exclude<Panel, null>, party?: PartyRecord) => {
     setSelected(party ?? null);
     setPanel(next);
@@ -227,8 +217,18 @@ export function PartyDirectory({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, number, phone or email…"
-              className={inputClass + ' pl-10'}
+              className={inputClass + ' pl-10 pr-10'}
             />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear Party search"
+                onClick={() => setQuery('')}
+                className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </label>
           <SearchableSelect
             value={kind}
@@ -272,7 +272,7 @@ export function PartyDirectory({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {pagination.pageItems.map((party) => {
+              {filtered.map((party) => {
                 const contact = primaryContact(party);
                 return (
                   <tr key={party.id} className="hover:bg-slate-50">
@@ -358,12 +358,6 @@ export function PartyDirectory({
             No matching people or organizations.
           </div>
         ) : null}
-        <PaginationControls
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          total={filtered.length}
-          onPageChange={pagination.setPage}
-        />
       </section>
       {panel === 'create' ? (
         <Drawer

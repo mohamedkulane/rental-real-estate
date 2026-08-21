@@ -14,6 +14,7 @@
     "test:e2e": "vitest run test/e2e --maxWorkers=1 --no-file-parallelism --testTimeout=120000"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1114.0",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
     "@nestjs/platform-express": "11.1.28",
@@ -28,6 +29,7 @@
     "class-validator": "0.14.3",
     "helmet": "8.1.0",
     "ioredis": "6.0.0",
+    "multer": "^2.2.0",
     "nestjs-pino": "4.6.0",
     "pino": "10.1.0",
     "reflect-metadata": "0.2.2",
@@ -36,6 +38,7 @@
   "devDependencies": {
     "@nestjs/testing": "11.1.28",
     "@types/express": "5.0.3",
+    "@types/multer": "^2.2.0",
     "@types/supertest": "6.0.3",
     "supertest": "7.1.4",
     "tsx": "4.20.6",

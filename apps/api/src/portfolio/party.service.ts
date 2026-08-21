@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { OwnerStatus, PartyKind, Prisma } from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
-import { cursorPage, type CursorPageQueryDto } from '../common/cursor-pagination';
+import { cursorPage } from '../common/cursor-pagination';
 import { nextRecordNumber } from '../common/record-number';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
@@ -16,6 +16,8 @@ import type { AuthenticatedPrincipal } from '../security/security.types';
 import type {
   CreateOwnerDto,
   CreatePartyDto,
+  ListOwnersQueryDto,
+  ListPartiesQueryDto,
   UpdateOwnerDto,
   UpdatePartyDto,
 } from './portfolio.dto';
@@ -161,7 +163,7 @@ export class PartyService {
     return visible ? '***' + visible : '***';
   }
 
-  async list(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
+  async list(principal: AuthenticatedPrincipal, query: ListPartiesQueryDto) {
     const at = await this.businessDate.today(principal.companyId);
     const active = this.activeInterval(at);
     return this.database.party
@@ -175,10 +177,17 @@ export class PartyService {
                     OR: [
                       { partyNumber: { contains: query.search, mode: 'insensitive' as const } },
                       { displayName: { contains: query.search, mode: 'insensitive' as const } },
+                      {
+                        contacts: {
+                          some: { normalizedHash: this.crypto.normalizedHash(query.search) },
+                        },
+                      },
                     ],
                   },
                 ]
               : []),
+            ...(query.kind ? [{ kind: query.kind }] : []),
+            ...(query.active ? [{ active: query.active === 'true' }] : []),
           ],
         },
         include: {
@@ -477,15 +486,17 @@ export class PartyService {
     });
   }
 
-  async listOwners(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
+  async listOwners(principal: AuthenticatedPrincipal, query: ListOwnersQueryDto) {
     const at = await this.businessDate.today(principal.companyId);
     const active = this.activeInterval(at);
     return this.database.ownerProfile
       .findMany({
         where: {
+          ...(query.status ? { status: query.status } : {}),
           party: {
             AND: [
               this.partyScopeWhere(principal, 'owner.read', at),
+              ...(query.partyKind ? [{ kind: query.partyKind }] : []),
               ...(query.search
                 ? [
                     {

@@ -279,6 +279,7 @@ describe.skipIf(!databaseUrl)('Phase 4 native data integrity', () => {
             id: versionId,
             sequence: 1,
             storageKey: `documents/${documentId}/1`,
+            originalFilename: 'integrity-document.pdf',
             checksum: '0123456789abcdef',
             mimeType: 'application/pdf',
             sizeBytes: 128,

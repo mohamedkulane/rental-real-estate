@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,10 +11,15 @@ import {
   Put,
   Query,
   Req,
+  Res,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { PropertyStatus } from '@prisma/client';
-import { CursorPageQueryDto } from '../common/cursor-pagination';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -27,6 +33,7 @@ import {
   CreateAmenityDto,
   CreateBuildingDto,
   CreateDocumentMetadataDto,
+  DocumentContentQueryDto,
   CreateOwnerDto,
   CreatePartyDto,
   CreatePropertyDto,
@@ -35,12 +42,17 @@ import {
   PartitionSpaceDto,
   PropertyLifecycleTransitionDto,
   ListDocumentsQueryDto,
+  ListOwnersQueryDto,
+  ListPartiesQueryDto,
+  ListPropertiesQueryDto,
   ListBuildingsQueryDto,
+  ListBuildingActivityQueryDto,
   ListPropertyOwnershipsQueryDto,
   ListPropertyBranchHistoryQueryDto,
   ListPropertyActivityQueryDto,
   ListPropertyAmenitiesQueryDto,
   ListSpacesQueryDto,
+  ListSpaceMeasurementsQueryDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
   RetireSpaceDto,
@@ -51,6 +63,7 @@ import {
   UpdateOwnerDto,
   UpdatePartyDto,
   UpdatePropertyDto,
+  UploadDocumentDto,
 } from './portfolio.dto';
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
@@ -59,7 +72,7 @@ export class PartyController {
   constructor(private readonly parties: PartyService) {}
   @Get() @RequirePermissions('party.read') list(
     @Req() request: AuthenticatedRequest,
-    @Query() query: CursorPageQueryDto,
+    @Query() query: ListPartiesQueryDto,
   ) {
     return this.parties.list(request.principal, query);
   }
@@ -90,7 +103,7 @@ export class OwnerController {
   constructor(private readonly parties: PartyService) {}
   @Get() @RequirePermissions('owner.read') list(
     @Req() request: AuthenticatedRequest,
-    @Query() query: CursorPageQueryDto,
+    @Query() query: ListOwnersQueryDto,
   ) {
     return this.parties.listOwners(request.principal, query);
   }
@@ -121,7 +134,7 @@ export class PropertyController {
   constructor(private readonly portfolio: PortfolioService) {}
   @Get() @RequirePermissions('portfolio.property.read') list(
     @Req() request: AuthenticatedRequest,
-    @Query() query: CursorPageQueryDto,
+    @Query() query: ListPropertiesQueryDto,
   ) {
     return this.portfolio.listProperties(request.principal, query);
   }
@@ -301,6 +314,15 @@ export class BuildingController {
   list(@Req() request: AuthenticatedRequest, @Query() query: ListBuildingsQueryDto) {
     return this.portfolio.listBuildingWorkspace(request.principal, query);
   }
+  @Get(':buildingId/activity')
+  @RequirePermissions('portfolio.building.read')
+  activity(
+    @Req() request: AuthenticatedRequest,
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+    @Query() query: ListBuildingActivityQueryDto,
+  ) {
+    return this.portfolio.listBuildingActivity(request.principal, buildingId, query);
+  }
   @Get(':buildingId')
   @RequirePermissions('portfolio.building.read')
   get(
@@ -347,6 +369,14 @@ export class RentableSpaceController {
   constructor(private readonly portfolio: PortfolioService) {}
   @Get('types') @RequirePermissions('portfolio.space.read') types() {
     return this.portfolio.listSpaceTypes();
+  }
+  @Get('measurements')
+  @RequirePermissions('portfolio.space.read')
+  measurements(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ListSpaceMeasurementsQueryDto,
+  ) {
+    return this.portfolio.listSpaceMeasurements(request.principal, query);
   }
   @Get() @RequirePermissions('portfolio.space.read') list(
     @Req() request: AuthenticatedRequest,
@@ -459,6 +489,62 @@ export class PortfolioDocumentController {
     return this.portfolio.listDocuments(request.principal, query);
   }
 
+  @Post('upload')
+  @RequirePermissions('portfolio.document.manage')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 104_857_600, files: 1 } }))
+  upload(
+    @Req() request: AuthenticatedRequest,
+    @Body() input: UploadDocumentDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Choose a document file to upload.');
+    return this.portfolio.uploadDocument(request.principal, input, file, request.correlationId);
+  }
+
+  @Post(':documentId/versions')
+  @RequirePermissions('portfolio.document.manage')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 104_857_600, files: 1 } }))
+  uploadVersion(
+    @Req() request: AuthenticatedRequest,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Choose a document file to upload.');
+    return this.portfolio.uploadDocumentVersion(
+      request.principal,
+      documentId,
+      file,
+      request.correlationId,
+    );
+  }
+
+  @Get(':documentId/versions/:versionId/content')
+  @RequirePermissions('portfolio.document.read')
+  async content(
+    @Req() request: AuthenticatedRequest,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+    @Query() query: DocumentContentQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const content = await this.portfolio.getDocumentContent(
+      request.principal,
+      documentId,
+      versionId,
+      query.disposition,
+      request.correlationId,
+    );
+    const fallback = content.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    response.setHeader('Content-Type', content.mimeType);
+    response.setHeader('Content-Length', String(content.sizeBytes));
+    response.setHeader(
+      'Content-Disposition',
+      `${query.disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(content.filename)}`,
+    );
+    response.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(content.body);
+  }
+
   @Get(':documentId')
   @RequirePermissions('portfolio.document.read')
   get(
@@ -519,10 +605,7 @@ export class PropertyBranchHistoryController {
 
   @Get()
   @RequirePermissions('portfolio.property.read')
-  list(
-    @Req() request: AuthenticatedRequest,
-    @Query() query: ListPropertyBranchHistoryQueryDto,
-  ) {
+  list(@Req() request: AuthenticatedRequest, @Query() query: ListPropertyBranchHistoryQueryDto) {
     return this.portfolio.listPropertyBranchHistory(request.principal, query);
   }
 }

@@ -23,6 +23,8 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
   let propertyId = '';
   let buildingId = '';
   let parkingAmenityId = '';
+  let uploadedDocumentId = '';
+  let uploadedDocumentVersionId = '';
   let parentSpaceId = '';
   let childSpaceId = '';
   let wadajirPropertyId = '';
@@ -35,9 +37,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
 
   beforeAll(async () => {
     process.env.WEB_URL = 'http://localhost:3000';
-    process.env.AUTH_RATE_LIMIT_KEY = createHash('sha256')
-      .update(`e2e-rate-limit:`)
-      .digest('hex');
+    process.env.AUTH_RATE_LIMIT_KEY = createHash('sha256').update(`e2e-rate-limit:`).digest('hex');
     process.env.REDIS_URL ??= 'redis://localhost:56379';
     process.env.PARTY_DATA_ENCRYPTION_KEY ??=
       '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
@@ -238,9 +238,16 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     const building = await request(app.getHttpServer())
       .post(`/api/v1/properties/${propertyId}/buildings`)
       .set('authorization', `Bearer ${token}`)
-      .send({ buildingCode: `B-${suffix}`, name: 'Main Building', numberOfFloors: 3 })
+      .send({ name: 'Main Building', numberOfFloors: 3 })
       .expect(201);
     buildingId = building.body.id as string;
+    expect(building.body.buildingCode).toMatch(/^BLD-\d{4,}$/);
+    const buildingActivity = await request(app.getHttpServer())
+      .get(`/api/v1/buildings/${buildingId}/activity`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(buildingActivity.body.items).toHaveLength(1);
+    expect(buildingActivity.body.items[0].action).toBe('portfolio.building.created');
     const ownerPortfolio = await request(app.getHttpServer())
       .get(`/api/v1/owners/${ownerPartyId}`)
       .set('authorization', `Bearer ${token}`)
@@ -299,13 +306,13 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(detail.body.id).toBe(buildingId);
+    expect(detail.body.spaces).toHaveLength(0);
+    expect(detail.body._count.spaces).toBe(0);
   });
 
   it('serves authorized global Buildings, Property Ownership, Branch Assignments, and Activity workspaces', async () => {
     const buildings = await request(app.getHttpServer())
-      .get(
-        `/api/v1/buildings?propertyId=${propertyId}&branchId=${hodanId}&search=${suffix}&limit=1`,
-      )
+      .get(`/api/v1/buildings?propertyId=${propertyId}&branchId=${hodanId}&search=Main&limit=1`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(buildings.body.items).toHaveLength(1);
@@ -319,6 +326,16 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(
       (ownerships.body.items as Array<{ propertyId: string }>).every(
         (row) => row.propertyId === propertyId,
+      ),
+    ).toBe(true);
+    const scheduledOwnerships = await request(app.getHttpServer())
+      .get(`/api/v1/property-ownerships?propertyId=${propertyId}&period=SCHEDULED`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(scheduledOwnerships.body.items).toHaveLength(2);
+    expect(
+      (scheduledOwnerships.body.items as Array<{ period: string }>).every(
+        (row) => row.period === 'SCHEDULED',
       ),
     ).toBe(true);
 
@@ -416,6 +433,24 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       })
       .expect(201);
     parentSpaceId = parent.body.id as string;
+    const buildingAfterSpace = await request(app.getHttpServer())
+      .get(`/api/v1/buildings/${buildingId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (buildingAfterSpace.body.spaces as Array<{ id: string }>).some(
+        (space) => space.id === parentSpaceId,
+      ),
+    ).toBe(true);
+    const propertyAfterSpace = await request(app.getHttpServer())
+      .get(`/api/v1/properties/${propertyId}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (propertyAfterSpace.body.spaces as Array<{ id: string }>).some(
+        (space) => space.id === parentSpaceId,
+      ),
+    ).toBe(true);
     const partition = await request(app.getHttpServer())
       .post(`/api/v1/rentable-spaces/${parentSpaceId}/partition`)
       .set('authorization', `Bearer ${token}`)
@@ -478,51 +513,96 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       }),
     ).toBe(0);
 
+    const firstFile = Buffer.from('%PDF-1.4\nPhase 4 ownership evidence\n%%EOF');
     const created = await request(app.getHttpServer())
-      .post('/api/v1/portfolio-documents')
+      .post('/api/v1/portfolio-documents/upload')
       .set('authorization', `Bearer ${token}`)
-      .send({
-        displayName: 'Ownership verification file',
-        categoryCode: 'OWNERSHIP',
-        accessClass: 'CONFIDENTIAL',
-        status: 'ACTIVE',
-        storageKey: `properties/${propertyId}/ownership-${suffix}.pdf`,
-        checksum: '0123456789abcdef0123456789abcdef',
-        mimeType: 'application/pdf',
-        sizeBytes: 4096,
-        entityType: 'Property',
-        entityId: propertyId,
-        purpose: 'OWNERSHIP_EVIDENCE',
+      .field('title', 'Ownership verification file')
+      .field('categoryCode', 'OWNERSHIP_CERTIFICATE')
+      .field('accessClass', 'CONFIDENTIAL')
+      .field('entityType', 'Property')
+      .field('entityId', propertyId)
+      .field('purpose', 'OWNERSHIP_EVIDENCE')
+      .field('notes', 'Verified source document')
+      .attach('file', firstFile, {
+        filename: 'ownership-evidence.pdf',
+        contentType: 'application/pdf',
       })
       .expect(201);
-    const documentId = created.body.id as string;
-    expect(created.body.displayName).toBe('Ownership verification file');
+    uploadedDocumentId = created.body.id as string;
+    uploadedDocumentVersionId = created.body.versions[0].id as string;
+    expect(created.body).toMatchObject({
+      displayName: 'Ownership verification file',
+      status: 'ACTIVE',
+    });
+    expect(JSON.stringify(created.body)).not.toContain('storageKey');
+
+    const inline = await request(app.getHttpServer())
+      .get(
+        `/api/v1/portfolio-documents/${uploadedDocumentId}/versions/${uploadedDocumentVersionId}/content?disposition=inline`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect('content-type', /application\/pdf/)
+      .expect(200);
+    expect(Buffer.compare(inline.body as Buffer, firstFile)).toBe(0);
+    expect(inline.headers['cache-control']).toContain('private');
+
+    await request(app.getHttpServer())
+      .get(
+        `/api/v1/portfolio-documents/${uploadedDocumentId}/versions/${uploadedDocumentVersionId}/content?disposition=attachment`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect('content-disposition', /attachment/)
+      .expect(200);
+
+    const secondFile = Buffer.from('%PDF-1.4\nPhase 4 corrected ownership evidence\n%%EOF');
+    const version = await request(app.getHttpServer())
+      .post(`/api/v1/portfolio-documents/${uploadedDocumentId}/versions`)
+      .set('authorization', `Bearer ${token}`)
+      .attach('file', secondFile, {
+        filename: 'ownership-evidence-v2.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(201);
+    expect(version.body.versions[0]).toMatchObject({
+      sequence: 2,
+      originalFilename: 'ownership-evidence-v2.pdf',
+    });
 
     const listed = await request(app.getHttpServer())
-      .get(`/api/v1/portfolio-documents?entityType=Property&entityId=${propertyId}`)
+      .get(
+        `/api/v1/portfolio-documents?entityType=Property&entityId=${propertyId}&categoryCode=OWNERSHIP_CERTIFICATE&accessClass=CONFIDENTIAL`,
+      )
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(
-      (listed.body.items as Array<{ id: string }>).some((item) => item.id === documentId),
+      (listed.body.items as Array<{ id: string }>).some((item) => item.id === uploadedDocumentId),
     ).toBe(true);
 
     const updated = await request(app.getHttpServer())
-      .patch(`/api/v1/portfolio-documents/${documentId}`)
+      .patch(`/api/v1/portfolio-documents/${uploadedDocumentId}`)
       .set('authorization', `Bearer ${token}`)
-      .send({ displayName: 'Verified ownership evidence', status: 'ARCHIVED' })
+      .send({
+        displayName: 'Verified ownership evidence',
+        notes: 'Reviewed and archived',
+        status: 'ARCHIVED',
+      })
       .expect(200);
     expect(updated.body).toMatchObject({
-      id: documentId,
+      id: uploadedDocumentId,
       displayName: 'Verified ownership evidence',
       status: 'ARCHIVED',
+      notes: 'Reviewed and archived',
     });
 
     const detail = await request(app.getHttpServer())
-      .get(`/api/v1/portfolio-documents/${documentId}`)
+      .get(`/api/v1/portfolio-documents/${uploadedDocumentId}`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    expect(detail.body.versions).toHaveLength(1);
-    expect(JSON.stringify(detail.body)).not.toContain('valueEncrypted');
+    const documentDetail = detail.body as { versions: Array<{ sequence: number }> };
+    expect(documentDetail.versions).toHaveLength(2);
+    expect(documentDetail.versions.map((item) => item.sequence)).toEqual([2, 1]);
+    expect(JSON.stringify(detail.body)).not.toContain('storageKey');
   });
   it('retrieves aggregate records beyond the first parent page without parent-page loading', async () => {
     const branch = await database.branch.findUniqueOrThrow({
@@ -540,6 +620,15 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     const base = randomUUID().split('-');
     const orderedId = (sequence: number) =>
       `${base[0]}-${base[1]}-${base[2]}-${base[3]}-${sequence.toString(16).padStart(12, '0')}`;
+    const lookupParties = Array.from({ length: 15 }, (_, index) => ({
+      id: orderedId(900 + index),
+      companyId: branch.companyId,
+      partyNumber: `BPTY-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      kind: 'PERSON' as const,
+      displayName: `BoundaryParty-${suffix}-${String(index + 1).padStart(2, '0')}`,
+      active: true,
+    }));
+    const targetLookupParty = lookupParties[14]!;
     const properties = Array.from({ length: 15 }, (_, index) => ({
       id: orderedId(index + 1),
       companyId: branch.companyId,
@@ -558,6 +647,33 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       name: `BoundarySpace-${suffix}-${String(index + 1).padStart(2, '0')}`,
       status: 'ACTIVE' as const,
     }));
+    const historicalMeasurementDate = new Date(`${businessDate}T00:00:00.000Z`);
+    historicalMeasurementDate.setUTCDate(historicalMeasurementDate.getUTCDate() - 30);
+    const spaceVersions = spaces.flatMap((space, index) => [
+      ...(index === 14
+        ? [
+            {
+              id: orderedId(850),
+              rentableSpaceId: space.id,
+              versionNo: 1,
+              effectiveFrom: historicalMeasurementDate,
+              effectiveTo: new Date(`${businessDate}T00:00:00.000Z`),
+              usableArea: '90',
+              totalArea: '100',
+              areaUnit: 'SQM' as const,
+            },
+          ]
+        : []),
+      {
+        id: orderedId(800 + index),
+        rentableSpaceId: space.id,
+        versionNo: index === 14 ? 2 : 1,
+        effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
+        usableArea: String(100 + index),
+        totalArea: String(110 + index),
+        areaUnit: 'SQM' as const,
+      },
+    ]);
     const documents = properties.map((property, index) => ({
       id: orderedId(215 - index),
       companyId: branch.companyId,
@@ -571,66 +687,124 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       propertyId: property.id,
       ownerPartyId,
       ownershipPercent: '100',
-      effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
+      effectiveFrom:
+        index === 0
+          ? new Date('2020-01-01T00:00:00.000Z')
+          : new Date(`${businessDate}T00:00:00.000Z`),
+      ...(index === 0 ? { effectiveTo: new Date('2021-01-01T00:00:00.000Z') } : {}),
     }));
     const occurredAt = new Date();
 
-    await database.$transaction(async (transaction) => {
-      await transaction.property.createMany({ data: properties });
-      await transaction.propertyBranchAssignment.createMany({
-        data: properties.map((property, index) => ({
-          id: orderedId(400 + index),
-          propertyId: property.id,
-          branchId: hodanId,
-          effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
-        })),
-      });
-      await transaction.propertyOwnership.createMany({ data: ownerships });
-      await transaction.propertyAmenity.createMany({
-        data: properties.map((property) => ({
-          propertyId: property.id,
-          amenityId: parkingAmenityId,
-        })),
-      });
-      await transaction.rentableSpace.createMany({ data: spaces });
-      await transaction.document.createMany({ data: documents });
-      await transaction.documentVersion.createMany({
-        data: documents.map((document, index) => ({
-          id: orderedId(500 + index),
-          documentId: document.id,
-          sequence: 1,
-          storageKey: `boundary/${suffix}/${index + 1}.pdf`,
-          checksum: `boundary-${suffix}-${index + 1}`,
-          mimeType: 'application/pdf',
-          sizeBytes: BigInt(1024 + index),
-          uploadedByUserId: adminUser.id,
-        })),
-      });
-      await transaction.documentLink.createMany({
-        data: documents.map((document, index) => ({
-          id: orderedId(600 + index),
-          documentId: document.id,
-          entityType: 'Property',
-          entityId: properties[index]!.id,
-          purpose: 'COMPLETENESS_TEST',
-        })),
-      });
-      await transaction.auditLog.createMany({
-        data: properties.map((property, index) => ({
-          id: orderedId(700 + index),
-          actorUserId: adminUser.id,
-          action: `portfolio.property.boundary-${suffix}`,
-          entityType: 'Property',
-          entityId: property.id,
-          branchId: hodanId,
-          reason: 'Aggregate completeness fixture',
-          occurredAt,
-        })),
-      });
-    }, { timeout: 20_000 });
+    await database.$transaction(
+      async (transaction) => {
+        await transaction.party.createMany({ data: lookupParties });
+        await transaction.partyBranchAssignment.createMany({
+          data: lookupParties.map((party, index) => ({
+            id: orderedId(950 + index),
+            partyId: party.id,
+            branchId: hodanId,
+            effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
+          })),
+        });
+        await transaction.ownerProfile.createMany({
+          data: lookupParties.map((party, index) => ({
+            partyId: party.id,
+            ownerNumber: `BOWN-${suffix}-${String(index + 1).padStart(2, '0')}`,
+            status: 'ACTIVE' as const,
+          })),
+        });
+        await transaction.property.createMany({ data: properties });
+        await transaction.propertyBranchAssignment.createMany({
+          data: properties.map((property, index) => ({
+            id: orderedId(400 + index),
+            propertyId: property.id,
+            branchId: hodanId,
+            effectiveFrom: new Date(`${businessDate}T00:00:00.000Z`),
+          })),
+        });
+        await transaction.propertyOwnership.createMany({ data: ownerships });
+        await transaction.propertyAmenity.createMany({
+          data: properties.map((property) => ({
+            propertyId: property.id,
+            amenityId: parkingAmenityId,
+          })),
+        });
+        await transaction.rentableSpace.createMany({ data: spaces });
+        await transaction.rentableSpaceVersion.createMany({ data: spaceVersions });
+        await transaction.document.createMany({ data: documents });
+        await transaction.documentVersion.createMany({
+          data: documents.map((document, index) => ({
+            id: orderedId(500 + index),
+            documentId: document.id,
+            sequence: 1,
+            storageKey: `boundary/${suffix}/${index + 1}.pdf`,
+            originalFilename: `boundary-${index + 1}.pdf`,
+            checksum: `boundary-${suffix}-${index + 1}`,
+            mimeType: 'application/pdf',
+            sizeBytes: BigInt(1024 + index),
+            uploadedByUserId: adminUser.id,
+          })),
+        });
+        await transaction.documentLink.createMany({
+          data: documents.map((document, index) => ({
+            id: orderedId(600 + index),
+            documentId: document.id,
+            entityType: 'Property',
+            entityId: properties[index]!.id,
+            purpose: 'COMPLETENESS_TEST',
+          })),
+        });
+        await transaction.auditLog.createMany({
+          data: properties.map((property, index) => ({
+            id: orderedId(700 + index),
+            actorUserId: adminUser.id,
+            action: `portfolio.property.boundary-${suffix}`,
+            entityType: 'Property',
+            entityId: property.id,
+            branchId: hodanId,
+            reason: 'Aggregate completeness fixture',
+            occurredAt,
+          })),
+        });
+      },
+      { timeout: 20_000 },
+    );
 
+    const partyPage = await request(app.getHttpServer())
+      .get(`/api/v1/parties?search=BoundaryParty-${suffix}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(partyPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (partyPage.body.items as Array<{ id: string }>).some(
+        (item) => item.id === targetLookupParty.id,
+      ),
+    ).toBe(false);
+    const targetPartySearch = await request(app.getHttpServer())
+      .get(`/api/v1/parties?search=${targetLookupParty.displayName}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(targetPartySearch.body.items).toHaveLength(1);
+    expect(targetPartySearch.body.items[0].id).toBe(targetLookupParty.id);
+
+    const ownerPage = await request(app.getHttpServer())
+      .get(`/api/v1/owners?search=BoundaryParty-${suffix}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(ownerPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (ownerPage.body.items as Array<{ partyId: string }>).some(
+        (item) => item.partyId === targetLookupParty.id,
+      ),
+    ).toBe(false);
+    const targetOwnerSearch = await request(app.getHttpServer())
+      .get(`/api/v1/owners?search=${targetLookupParty.displayName}&limit=10`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(targetOwnerSearch.body.items).toHaveLength(1);
+    expect(targetOwnerSearch.body.items[0].partyId).toBe(targetLookupParty.id);
     const propertyPage = await request(app.getHttpServer())
-      .get(`/api/v1/properties?search=Boundary-${suffix}&limit=10`)
+      .get(`/api/v1/properties?search=Boundary-${suffix}&sort=NAME&limit=10`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect(propertyPage.body.items).toHaveLength(10);
@@ -658,6 +832,12 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         (item) => item.propertyId === target.id,
       ),
     ).toBe(true);
+    const historicalOwnership = await request(app.getHttpServer())
+      .get(`/api/v1/property-ownerships?propertySearch=${properties[0]!.name}&period=HISTORICAL`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(historicalOwnership.body.items).toHaveLength(1);
+    expect(historicalOwnership.body.items[0].period).toBe('HISTORICAL');
 
     const amenityPage = await request(app.getHttpServer())
       .get(
@@ -729,6 +909,30 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .expect(200);
     expect(targetSpace.body.items).toHaveLength(1);
     expect(targetSpace.body.items[0].propertyId).toBe(target.id);
+    const measurementPage = await request(app.getHttpServer())
+      .get(
+        `/api/v1/rentable-spaces/measurements?search=BoundarySpace-${suffix}&period=CURRENT&limit=10`,
+      )
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(measurementPage.body.items).toHaveLength(10);
+    expect(measurementPage.body.pageInfo.hasNextPage).toBe(true);
+    expect(
+      (measurementPage.body.items as Array<{ rentableSpaceId: string }>).some(
+        (item) => item.rentableSpaceId === spaces[14]!.id,
+      ),
+    ).toBe(false);
+    const targetMeasurement = await request(app.getHttpServer())
+      .get(`/api/v1/rentable-spaces/measurements?propertySearch=${target.name}&period=ALL`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    const targetMeasurementItems = (targetMeasurement.body as { items: Array<{ period: string }> })
+      .items;
+    expect(targetMeasurementItems).toHaveLength(2);
+    expect(targetMeasurementItems.map((item) => item.period).sort()).toEqual([
+      'CURRENT',
+      'HISTORICAL',
+    ]);
   });
   it('combines property filtering with cursor pagination without cross-property leakage', async () => {
     const first = await request(app.getHttpServer())
@@ -883,6 +1087,12 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
         (party) => party.id === ownerPartyId,
       ),
     ).toBe(false);
+    await request(app.getHttpServer())
+      .get(
+        `/api/v1/portfolio-documents/${uploadedDocumentId}/versions/${uploadedDocumentVersionId}/content?disposition=inline`,
+      )
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(403);
     await request(app.getHttpServer())
       .get(`/api/v1/properties/${propertyId}`)
       .set('authorization', `Bearer ${managerToken}`)

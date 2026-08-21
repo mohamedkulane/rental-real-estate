@@ -1,6 +1,7 @@
 'use client';
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
+import { EntityDocuments } from './entity-documents';
 import { DetailTabs } from '@/components/shared/detail-tabs';
 
 import type { FormEvent } from 'react';
@@ -11,7 +12,6 @@ import {
   api,
   canPerformAcrossBranches,
   hasCompanyPermission,
-  type CursorPage,
   type Principal,
   userFacingError,
 } from '@/lib/phase3-api';
@@ -172,17 +172,11 @@ export function RentableSpaceOperations({
         branchIds.length
           ? canPerformAcrossBranches(principal, permission, branchIds)
           : hasCompanyPermission(principal, permission);
-      const [catalog, page] = await Promise.all([
+      const [catalog] = await Promise.all([
         can('portfolio.amenity.read') ? api<Amenity[]>('/amenities') : Promise.resolve([]),
-        can('portfolio.document.read')
-          ? api<CursorPage<DocumentRecord>>(
-              `/portfolio-documents?entityType=RentableSpace&entityId=${id}`,
-            )
-          : Promise.resolve({ items: [], pageInfo: { nextCursor: null, hasNextPage: false } }),
       ]);
       setDetail(record);
       setAmenities(catalog);
-      setDocuments(page.items);
     } catch (cause) {
       setError(userFacingError(cause, 'Rentable-space details could not be loaded.'));
     } finally {
@@ -792,74 +786,83 @@ export function RentableSpaceOperations({
 
           <div className={activeTab === 'documents' ? styles.form : 'hidden'}>
             <h3>Documents</h3>
-            {documents.length ? (
-              documents.map((document) => (
-                <article key={document.id} className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex justify-between gap-2">
-                    <div>
-                      <strong>{document.displayName}</strong>
-                      <p className="text-xs text-slate-500">
-                        {humanize(document.categoryCode)} · {humanize(document.accessClass)} ·{' '}
-                        {document.versions.length} version
-                        {document.versions.length === 1 ? '' : 's'}
-                      </p>
-                    </div>
-                    <StatusBadge value={document.status} />
-                  </div>
-                  <form
-                    className={
-                      actionAccess.manageDocuments ? 'mt-3 grid gap-2 md:grid-cols-4' : 'hidden'
-                    }
-                    onSubmit={(event) => {
-                      const form = new FormData(event.currentTarget);
-                      void mutate(event, `/portfolio-documents/${document.id}`, 'PATCH', {
-                        displayName: value(form, 'displayName'),
-                        categoryCode: value(form, 'categoryCode'),
-                        accessClass: value(form, 'accessClass'),
-                        status: value(form, 'status'),
-                      });
-                    }}
-                  >
-                    <label>
-                      <span>Document name</span>
-                      <input name="displayName" defaultValue={document.displayName} required />
-                    </label>
-                    <label>
-                      <span>Category</span>
-                      <input name="categoryCode" defaultValue={document.categoryCode} required />
-                    </label>
-                    <label>
-                      <span>Access</span>
-                      <SearchableSelect name="accessClass" defaultValue={document.accessClass}>
-                        <option value="INTERNAL">Internal</option>
-                        <option value="CONFIDENTIAL">Confidential</option>
-                        <option value="RESTRICTED">Restricted</option>
-                      </SearchableSelect>
-                    </label>
-                    <label>
-                      <span>Status</span>
-                      <SearchableSelect
-                        searchable={false}
-                        name="status"
-                        defaultValue={document.status}
-                      >
-                        <option value="PENDING">Pending</option>
-                        <option value="ACTIVE">Active</option>
-                        <option value="ARCHIVED">Archived</option>
-                      </SearchableSelect>
-                    </label>
-                    <button className="md:col-span-4" disabled={busy}>
-                      Save metadata
-                    </button>
-                  </form>
-                </article>
-              ))
-            ) : (
-              <EmptyState
-                title="No documents"
-                description="No documents are linked to this rentable space."
+            {detail && activeTab === 'documents' ? (
+              <EntityDocuments
+                entityType="RentableSpace"
+                entityId={detail.id}
+                canManage={actionAccess.manageDocuments}
               />
-            )}
+            ) : null}
+            <div className="hidden">
+              {documents.length ? (
+                documents.map((document) => (
+                  <article key={document.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex justify-between gap-2">
+                      <div>
+                        <strong>{document.displayName}</strong>
+                        <p className="text-xs text-slate-500">
+                          {humanize(document.categoryCode)} · {humanize(document.accessClass)} ·{' '}
+                          {document.versions.length} version
+                          {document.versions.length === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <StatusBadge value={document.status} />
+                    </div>
+                    <form
+                      className={
+                        actionAccess.manageDocuments ? 'mt-3 grid gap-2 md:grid-cols-4' : 'hidden'
+                      }
+                      onSubmit={(event) => {
+                        const form = new FormData(event.currentTarget);
+                        void mutate(event, `/portfolio-documents/${document.id}`, 'PATCH', {
+                          displayName: value(form, 'displayName'),
+                          categoryCode: value(form, 'categoryCode'),
+                          accessClass: value(form, 'accessClass'),
+                          status: value(form, 'status'),
+                        });
+                      }}
+                    >
+                      <label>
+                        <span>Document name</span>
+                        <input name="displayName" defaultValue={document.displayName} required />
+                      </label>
+                      <label>
+                        <span>Category</span>
+                        <input name="categoryCode" defaultValue={document.categoryCode} required />
+                      </label>
+                      <label>
+                        <span>Access</span>
+                        <SearchableSelect name="accessClass" defaultValue={document.accessClass}>
+                          <option value="INTERNAL">Internal</option>
+                          <option value="CONFIDENTIAL">Confidential</option>
+                          <option value="RESTRICTED">Restricted</option>
+                        </SearchableSelect>
+                      </label>
+                      <label>
+                        <span>Status</span>
+                        <SearchableSelect
+                          searchable={false}
+                          name="status"
+                          defaultValue={document.status}
+                        >
+                          <option value="PENDING">Pending</option>
+                          <option value="ACTIVE">Active</option>
+                          <option value="ARCHIVED">Archived</option>
+                        </SearchableSelect>
+                      </label>
+                      <button className="md:col-span-4" disabled={busy}>
+                        Save metadata
+                      </button>
+                    </form>
+                  </article>
+                ))
+              ) : (
+                <EmptyState
+                  title="No documents"
+                  description="No documents are linked to this rentable space."
+                />
+              )}
+            </div>
           </div>
 
           {activeTab === 'lifecycle' ? (

@@ -87,6 +87,10 @@ export function PortfolioConsole() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([]);
   const [spaceBuildings, setSpaceBuildings] = useState<Building[]>([]);
+  const [spaceParentOptions, setSpaceParentOptions] = useState<Space[]>([]);
+  const [propertyLookupLoading, setPropertyLookupLoading] = useState(false);
+  const [buildingLookupLoading, setBuildingLookupLoading] = useState(false);
+  const [parentLookupLoading, setParentLookupLoading] = useState(false);
   const [spaceTypeCode, setSpaceTypeCode] = useState('ENTIRE_PROPERTY');
   const [propertyFilter, setPropertyFilter] = useState('');
   const [spaceSearch, setSpaceSearch] = useState('');
@@ -111,6 +115,7 @@ export function PortfolioConsole() {
     nextCursor: null as string | null,
     hasNextPage: false,
   });
+  const [registerFilters, setRegisterFilters] = useState<Record<string, string>>({});
 
   const loadTab = useCallback(
     async (
@@ -118,6 +123,7 @@ export function PortfolioConsole() {
       filter = '',
       cursor: string | null = null,
       spaceFilters?: { search?: string; buildingId?: string; typeCode?: string; status?: string },
+      registerFilters?: Record<string, string>,
     ) => {
       const resource = tab === 'spaces' ? 'rentable-spaces' : tab;
       const parameters = new URLSearchParams();
@@ -129,6 +135,9 @@ export function PortfolioConsole() {
       if (tab === 'spaces' && spaceFilters?.typeCode)
         parameters.set('typeCode', spaceFilters.typeCode);
       if (tab === 'spaces' && spaceFilters?.status) parameters.set('status', spaceFilters.status);
+      for (const [key, value] of Object.entries(registerFilters ?? {})) {
+        if (value && value !== 'all') parameters.set(key, value);
+      }
       if (cursor) parameters.set('cursor', cursor);
       const path = `/${resource}${parameters.size ? `?${parameters.toString()}` : ''}`;
       const response = await apiCached<CursorPage<unknown> | unknown[]>(path);
@@ -180,9 +189,29 @@ export function PortfolioConsole() {
         ]);
         if (branchData) setBranches(branchData);
         if (partyData) setParties(partyData);
-        if (propertyData) setProperties(propertyData);
-        await loadTab(first);
+        const contextualPropertyId = first === 'spaces' ? (parameters.get('propertyId') ?? '') : '';
+        const contextualBuildingId = first === 'spaces' ? (parameters.get('buildingId') ?? '') : '';
+        let availableProperties = propertyData ?? [];
+        if (
+          contextualPropertyId &&
+          !availableProperties.some((property) => property.id === contextualPropertyId)
+        ) {
+          const contextualProperty = await api<Property>('/properties/' + contextualPropertyId);
+          availableProperties = [contextualProperty, ...availableProperties];
+        }
+        if (propertyData || contextualPropertyId) setProperties(availableProperties);
+        if (contextualPropertyId) setPropertyFilter(contextualPropertyId);
+        if (contextualBuildingId) setSpaceBuildingFilter(contextualBuildingId);
+        await loadTab(first, contextualPropertyId);
         if (ownerData) setOwners(ownerData);
+        if (
+          first === 'spaces' &&
+          parameters.get('create') === '1' &&
+          hasPermission(current, 'portfolio.space.create')
+        ) {
+          setSelectedSpaceId('');
+          setShowActions(true);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -197,15 +226,73 @@ export function PortfolioConsole() {
       .catch(() => setSpaceTypes([]));
   }, [principal]);
 
+  const searchSpaceProperties = useCallback(
+    async (query: string) => {
+      setPropertyLookupLoading(true);
+      try {
+        const parameters = new URLSearchParams({ limit: '20' });
+        if (query.trim()) parameters.set('search', query.trim());
+        const page = await api<CursorPage<Property>>(`/properties?${parameters.toString()}`);
+        setProperties((current) => {
+          const selected = current.find((property) => property.id === propertyFilter);
+          return selected && !page.items.some((property) => property.id === selected.id)
+            ? [selected, ...page.items]
+            : page.items;
+        });
+      } catch {
+        // Keep the last authorized options visible while the user retries.
+      } finally {
+        setPropertyLookupLoading(false);
+      }
+    },
+    [propertyFilter],
+  );
+
+  const searchSpaceBuildings = useCallback(
+    async (query: string) => {
+      if (!propertyFilter) return setSpaceBuildings([]);
+      setBuildingLookupLoading(true);
+      try {
+        const parameters = new URLSearchParams({ propertyId: propertyFilter, limit: '20' });
+        if (query.trim()) parameters.set('search', query.trim());
+        const page = await api<CursorPage<Building>>(`/buildings?${parameters.toString()}`);
+        setSpaceBuildings(page.items);
+      } catch {
+        setSpaceBuildings([]);
+      } finally {
+        setBuildingLookupLoading(false);
+      }
+    },
+    [propertyFilter],
+  );
+
+  const searchParentSpaces = useCallback(
+    async (query: string) => {
+      if (!propertyFilter) return setSpaceParentOptions([]);
+      setParentLookupLoading(true);
+      try {
+        const parameters = new URLSearchParams({ propertyId: propertyFilter, limit: '20' });
+        if (query.trim()) parameters.set('search', query.trim());
+        const page = await api<CursorPage<Space>>(`/rentable-spaces?${parameters.toString()}`);
+        setSpaceParentOptions(page.items.filter((space) => space.status !== 'RETIRED'));
+      } catch {
+        setSpaceParentOptions([]);
+      } finally {
+        setParentLookupLoading(false);
+      }
+    },
+    [propertyFilter],
+  );
+
   useEffect(() => {
     if (!propertyFilter) {
       setSpaceBuildings([]);
+      setSpaceParentOptions([]);
       return;
     }
-    apiCached<Building[]>(`/properties/${propertyFilter}/buildings`)
-      .then(setSpaceBuildings)
-      .catch(() => setSpaceBuildings([]));
-  }, [propertyFilter]);
+    void searchSpaceBuildings('');
+    void searchParentSpaces('');
+  }, [propertyFilter, searchParentSpaces, searchSpaceBuildings]);
   const visibleTabs = principal
     ? tabs.filter((tab) => hasPermission(principal, tab.permission))
     : [];
@@ -263,6 +350,23 @@ export function PortfolioConsole() {
     setCursorHistory([null]);
     setCursorIndex(0);
   };
+  const queryRegister = useCallback(
+    async (filters: Record<string, string>) => {
+      setRegisterFilters(filters);
+      setCursorHistory([null]);
+      setCursorIndex(0);
+      setLoading(true);
+      setError('');
+      try {
+        await loadTab(active, '', null, undefined, filters);
+      } catch (cause) {
+        setError(userFacingError(cause, 'Unable to filter the authorized register.'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [active, loadTab],
+  );
   async function nextServerPage() {
     if (!pageInfo.nextCursor || loading) return;
     const nextHistory = [...cursorHistory.slice(0, cursorIndex + 1), pageInfo.nextCursor];
@@ -275,6 +379,7 @@ export function PortfolioConsole() {
         active === 'spaces' ? propertyFilter : '',
         pageInfo.nextCursor,
         active === 'spaces' ? spaceFilterQuery : undefined,
+        active === 'spaces' ? undefined : registerFilters,
       );
     } finally {
       setLoading(false);
@@ -291,6 +396,7 @@ export function PortfolioConsole() {
         active === 'spaces' ? propertyFilter : '',
         cursorHistory[previousIndex] ?? null,
         active === 'spaces' ? spaceFilterQuery : undefined,
+        active === 'spaces' ? undefined : registerFilters,
       );
     } finally {
       setLoading(false);
@@ -383,6 +489,7 @@ export function PortfolioConsole() {
         active === 'spaces' ? propertyFilter : '',
         null,
         active === 'spaces' ? spaceFilterQuery : undefined,
+        active === 'spaces' ? undefined : registerFilters,
       );
       if (active === 'parties')
         setParties(await apiCached<CursorPage<Party>>('/parties').then(pageItems));
@@ -428,6 +535,7 @@ export function PortfolioConsole() {
         active === 'spaces' ? propertyFilter : '',
         null,
         active === 'spaces' ? spaceFilterQuery : undefined,
+        active === 'spaces' ? undefined : registerFilters,
       );
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
@@ -673,6 +781,11 @@ export function PortfolioConsole() {
             Property
             <SearchableSelect
               searchable
+              searchThreshold={0}
+              loading={propertyLookupLoading}
+              onSearchChange={(query) => {
+                void searchSpaceProperties(query);
+              }}
               name="propertyId"
               required
               value={propertyFilter}
@@ -680,10 +793,7 @@ export function PortfolioConsole() {
                 const propertyId = event.target.value;
                 setPropertyFilter(propertyId);
                 setSpaceBuildings([]);
-                if (propertyId)
-                  void apiCached<Building[]>(`/properties/${propertyId}/buildings`).then(
-                    setSpaceBuildings,
-                  );
+                setSpaceParentOptions([]);
               }}
             >
               <option value="">Choose a property</option>
@@ -722,7 +832,17 @@ export function PortfolioConsole() {
           <div className={styles.row}>
             <label>
               Building (optional)
-              <SearchableSelect searchable name="buildingId">
+              <SearchableSelect
+                searchable
+                searchThreshold={0}
+                loading={buildingLookupLoading}
+                onSearchChange={(query) => {
+                  void searchSpaceBuildings(query);
+                }}
+                name="buildingId"
+                value={spaceBuildingFilter}
+                onChange={(event) => setSpaceBuildingFilter(event.target.value)}
+              >
                 <option value="">No building</option>
                 {spaceBuildings
                   .filter((building) => building.status !== 'RETIRED')
@@ -735,17 +855,21 @@ export function PortfolioConsole() {
             </label>
             <label>
               Parent space (optional)
-              <SearchableSelect searchable name="parentSpaceId">
+              <SearchableSelect
+                searchable
+                searchThreshold={0}
+                loading={parentLookupLoading}
+                onSearchChange={(query) => {
+                  void searchParentSpaces(query);
+                }}
+                name="parentSpaceId"
+              >
                 <option value="">Standalone / top level</option>
-                {spaces
-                  .filter(
-                    (space) => space.propertyId === propertyFilter && space.status !== 'RETIRED',
-                  )
-                  .map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.spaceCode} — {space.name}
-                    </option>
-                  ))}
+                {spaceParentOptions.map((space) => (
+                  <option key={space.id} value={space.id}>
+                    {space.spaceCode} — {space.name}
+                  </option>
+                ))}
               </SearchableSelect>
             </label>
           </div>
@@ -1075,6 +1199,9 @@ export function PortfolioConsole() {
             <PartyDirectory
               initialKind={partyKind}
               records={records as PartyRecord[]}
+              onQueryChange={(filters) => {
+                void queryRegister(filters);
+              }}
               branches={partyCreateBranches}
               busy={busy}
               canCreate={partyCreateBranches.length > 0}
@@ -1125,6 +1252,9 @@ export function PortfolioConsole() {
               initialDetailTab={ownerDetailTab}
               businessDate={principal.businessDate}
               records={records as OwnerRecord[]}
+              onQueryChange={(filters) => {
+                void queryRegister(filters);
+              }}
               parties={parties}
               busy={busy}
               canCreate={(record) => canAcross('owner.create', record.scopeBranchIds)}
@@ -1228,6 +1358,9 @@ export function PortfolioConsole() {
               principal={principal}
               businessDate={principal.businessDate}
               records={records as PropertyRecord[]}
+              onQueryChange={(filters) => {
+                void queryRegister(filters);
+              }}
               branches={branches}
               owners={owners}
               creatableBranchIds={propertyCreateBranches.map((branch) => branch.id)}

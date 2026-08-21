@@ -1,7 +1,6 @@
 'use client';
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
-import { DetailTabs } from '@/components/shared/detail-tabs';
 
 import type { FormEvent, ReactNode } from 'react';
 import {
@@ -19,15 +18,12 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import type { Principal } from '@/lib/phase3-api';
-import { PropertyOperations } from '../property-operations';
-import { PROPERTY_DETAIL_TABS, type PropertyDetailSection } from '../portfolio-ia';
-import { PropertyActivity } from '../property-activity';
-import { PaginationControls, usePagination } from '@/components/shared/pagination';
+import type { PROPERTY_DETAIL_TABS } from '../portfolio-ia';
 import { StatusBadge } from '@/components/shared/ui';
-import { OwnershipEditor, OwnershipWorkspace } from '../ownership-workflow';
+import { OwnershipEditor } from '../ownership-workflow';
 import type {
   OwnerOption,
   PropertyOwnershipRecord,
@@ -118,11 +114,7 @@ function Metric({
   tone?: 'slate' | 'emerald' | 'amber';
 }) {
   const color =
-    tone === 'emerald'
-      ? 'text-[#0D47A1]'
-      : tone === 'amber'
-        ? 'text-amber-600'
-        : 'text-slate-900';
+    tone === 'emerald' ? 'text-[#0D47A1]' : tone === 'amber' ? 'text-amber-600' : 'text-slate-900';
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
@@ -203,11 +195,21 @@ function FormField({
 
 const inputClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
+const PROPERTY_TYPE_OPTIONS = [
+  'HOUSE',
+  'VILLA',
+  'APARTMENT_BUILDING',
+  'COMMERCIAL_BUILDING',
+  'COMPOUND',
+  'MIXED_USE',
+  'WAREHOUSE_PROPERTY',
+  'LAND',
+  'OTHER',
+] as const;
 
 export function PropertyRegistry({
   records,
   branches,
-  principal,
   businessDate,
   busy,
   canCreate,
@@ -218,10 +220,9 @@ export function PropertyRegistry({
   onTransition,
   onDiscard,
   onLoadDetails,
+  onQueryChange,
   initialDetailTab = 'overview',
   owners,
-  canReadOwnership,
-  canManageOwnership,
   onReplaceOwnership,
 }: {
   records: PropertyRecord[];
@@ -241,6 +242,7 @@ export function PropertyRegistry({
   ) => Promise<void>;
   onDiscard: (id: string, reason: string) => Promise<void>;
   onLoadDetails: (id: string) => Promise<PropertyRecord>;
+  onQueryChange?: (filters: Record<string, string>) => void;
   initialDetailTab?: PropertyDetailTab;
   owners: OwnerOption[];
   canReadOwnership: (record: PropertyRecord) => boolean;
@@ -251,35 +253,33 @@ export function PropertyRegistry({
   const [branchFilter, setBranchFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sort, setSort] = useState('NEWEST');
   const [panel, setPanel] = useState<
     'create' | 'details' | 'edit' | 'status' | 'discard' | 'ownership' | null
   >(null);
   const [selected, setSelected] = useState<PropertyRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailTab, setDetailTab] = useState<PropertyDetailTab>(initialDetailTab);
+  const [, setDetailTab] = useState<PropertyDetailTab>(initialDetailTab);
 
   useEffect(() => {
     setDetailTab(initialDetailTab);
   }, [initialDetailTab]);
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () =>
+        onQueryChange?.({
+          search: query.trim(),
+          branchId: branchFilter === 'all' ? '' : branchFilter,
+          propertyType: typeFilter === 'all' ? '' : typeFilter,
+          status: statusFilter === 'all' ? '' : statusFilter,
+          sort,
+        }),
+      350,
+    );
+    return () => window.clearTimeout(timer);
+  }, [branchFilter, onQueryChange, query, sort, statusFilter, typeFilter]);
 
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return records.filter((property) => {
-      const branch = currentBranch(property, businessDate);
-      const matchesSearch =
-        !normalized ||
-        [property.name, property.propertyCode, property.city, property.addressLine1, branch?.name]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(normalized));
-      return (
-        matchesSearch &&
-        (branchFilter === 'all' || branch?.id === branchFilter) &&
-        (typeFilter === 'all' || property.propertyType === typeFilter) &&
-        (statusFilter === 'all' || property.status === statusFilter)
-      );
-    });
-  }, [branchFilter, query, records, statusFilter, typeFilter]);
-  const pagination = usePagination(filtered);
+  const filtered = records;
 
   const openDetails = async (property: PropertyRecord) => {
     setSelected(property);
@@ -293,7 +293,7 @@ export function PropertyRegistry({
     }
   };
 
-  const propertyTypes = [...new Set(records.map((property) => property.propertyType))];
+  const propertyTypes = PROPERTY_TYPE_OPTIONS;
   const closePanel = () => {
     setPanel(null);
     setDetailTab(initialDetailTab);
@@ -328,18 +328,18 @@ export function PropertyRegistry({
       </header>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Property summary">
-        <Metric label="All properties" value={records.length} />
+        <Metric label="This page" value={records.length} />
         <Metric
-          label="Active"
+          label="Active on this page"
           value={records.filter((record) => record.status === 'ACTIVE').length}
           tone="emerald"
         />
         <Metric
-          label="Drafts"
+          label="Drafts on this page"
           value={records.filter((record) => record.status === 'DRAFT').length}
         />
         <Metric
-          label="Inactive or retired"
+          label="Inactive or retired on this page"
           value={records.filter((record) => ['INACTIVE', 'RETIRED'].includes(record.status)).length}
           tone="amber"
         />
@@ -354,11 +354,21 @@ export function PropertyRegistry({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               type="search"
-              placeholder="Search name, code, city, or branch..."
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-12 pr-3 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
+              placeholder="Search property name or code..."
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-12 pr-10 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
             />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear property search"
+                onClick={() => setQuery('')}
+                className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </label>
-          <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="relative">
               <span className="sr-only">Filter by branch</span>
               <SearchableSelect
@@ -404,6 +414,17 @@ export function PropertyRegistry({
               <option value="INACTIVE">Inactive</option>
               <option value="RETIRED">Retired</option>
             </SearchableSelect>
+            <SearchableSelect
+              searchable={false}
+              aria-label="Sort Properties"
+              value={sort}
+              onChange={(event) => setSort(event.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-[#0D47A1]"
+            >
+              <option value="NEWEST">Newest</option>
+              <option value="NAME">Name A-Z</option>
+              <option value="CODE">Property Code</option>
+            </SearchableSelect>
           </div>
         </div>
 
@@ -428,7 +449,7 @@ export function PropertyRegistry({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pagination.pageItems.map((property) => {
+                {filtered.map((property) => {
                   const branch = currentBranch(property, businessDate);
                   return (
                     <tr key={property.id} className="group transition-colors hover:bg-slate-50/80">
@@ -537,12 +558,6 @@ export function PropertyRegistry({
             </p>
           </div>
         )}
-        <PaginationControls
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          total={filtered.length}
-          onPageChange={pagination.setPage}
-        />
       </section>
 
       {panel === 'create' ? (
@@ -894,120 +909,58 @@ export function PropertyRegistry({
                   ) : null}
                 </div>
               </div>
-              <DetailTabs
-                tabs={PROPERTY_DETAIL_TABS}
-                active={detailTab}
-                onChange={setDetailTab}
-                label="Property detail sections"
-              />
-              {detailTab === 'overview' ? (
-                <dl className="grid gap-4 sm:grid-cols-2">
-                  {[
-                    ['Property type', humanize(selected.propertyType)],
-                    ['City', selected.city],
-                    ['District', selected.district || 'Not recorded'],
-                    [
-                      'Buildings',
-                      String(selected._count?.buildings ?? selected.buildings?.length ?? 0),
-                    ],
-                    [
-                      'Rentable spaces',
-                      String(selected._count?.spaces ?? selected.spaces?.length ?? 0),
-                    ],
-                    [
-                      'Current owners',
-                      String(
-                        (selected.ownerships ?? []).filter(
-                          (record) =>
-                            record.effectiveFrom.slice(0, 10) <= businessDate &&
-                            (!record.effectiveTo || record.effectiveTo.slice(0, 10) > businessDate),
-                        ).length,
-                      ),
-                    ],
-                    ['Description', selected.description || 'Not recorded'],
-                  ].map(([term, value]) => (
-                    <div key={term} className="rounded-lg border border-slate-200 p-3">
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        {term}
-                      </dt>
-                      <dd className="mt-1 text-sm font-semibold text-slate-800">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-              {detailTab === 'spaces' ? (
-                <div className="space-y-2">
-                  {selected.spaces?.length ? (
-                    selected.spaces.map((space) => (
-                      <div
-                        key={space.id}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 p-3"
-                      >
-                        <div>
-                          <p className="text-sm font-bold">{space.name}</p>
-                          <p className="text-xs text-slate-500">
-                            {space.spaceCode} · {space.type?.name ?? 'Rentable space'}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {[
-                              space.building?.name,
-                              space.childRelations?.find((relation) => !relation.effectiveTo)
-                                ?.parent
-                                ? `Parent: ${space.childRelations.find((relation) => !relation.effectiveTo)?.parent?.name}`
-                                : null,
-                              space.versions?.[0]?.floorNumber != null
-                                ? `Floor ${space.versions[0].floorNumber}`
-                                : null,
-                              space.versions?.[0]?.usableArea
-                                ? `${space.versions[0].usableArea} ${space.versions[0].areaUnit ?? ''}`.trim()
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ') || 'Standalone space'}
-                          </p>
-                        </div>
-                        <StatusBadge value={space.status} />
-                      </div>
-                    ))
-                  ) : (
-                    <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                      No rentable spaces have been added.
-                    </p>
-                  )}
-                </div>
-              ) : null}
-              {detailTab === 'ownership' ? (
-                canReadOwnership(selected) ? (
-                  <OwnershipWorkspace
-                    businessDate={businessDate}
-                    records={selected.ownerships ?? []}
-                    canManage={canManageOwnership(selected)}
-                    activationContext={{
-                      branchAssigned: Boolean(currentBranch(selected, businessDate)),
-                      detailsComplete: Boolean(
-                        selected.name && selected.propertyType && selected.city,
-                      ),
-                      isDraft: selected.status === 'DRAFT',
-                    }}
-                    onManage={() => setPanel('ownership')}
-                  />
-                ) : (
-                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                    You do not have permission to view property ownership in this branch.
-                  </p>
-                )
-              ) : null}
-              {(['buildings', 'amenities', 'documents', 'branch-history'] as const).includes(
-                detailTab as PropertyDetailSection,
-              ) ? (
-                <PropertyOperations
-                  property={selected}
-                  branches={branches}
-                  principal={principal}
-                  section={detailTab as PropertyDetailSection}
-                />
-              ) : null}
-              {detailTab === 'activity' ? <PropertyActivity property={selected} /> : null}
+              <dl className="grid gap-4 sm:grid-cols-2">
+                {[
+                  ['Property type', humanize(selected.propertyType)],
+                  ['Status', humanize(selected.status)],
+                  [
+                    'Operating branch',
+                    currentBranch(selected, businessDate)?.name ?? 'No current branch',
+                  ],
+                  [
+                    'Buildings',
+                    String(selected._count?.buildings ?? selected.buildings?.length ?? 0),
+                  ],
+                  [
+                    'Rentable Spaces',
+                    String(selected._count?.spaces ?? selected.spaces?.length ?? 0),
+                  ],
+                  [
+                    'Current Owners',
+                    String(
+                      (selected.ownerships ?? []).filter(
+                        (record) =>
+                          record.effectiveFrom.slice(0, 10) <= businessDate &&
+                          (!record.effectiveTo || record.effectiveTo.slice(0, 10) > businessDate),
+                      ).length,
+                    ),
+                  ],
+                ].map(([term, value]) => (
+                  <div key={term} className="rounded-lg border border-slate-200 p-3">
+                    <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {term}
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-800">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
+                <a
+                  href={'/portfolio/properties/' + selected.id}
+                  className="inline-flex min-h-10 items-center rounded-lg bg-[#0D47A1] px-4 text-sm font-bold text-white"
+                >
+                  Open Property
+                </a>
+                {canUpdate(selected) ? (
+                  <button
+                    type="button"
+                    onClick={() => setPanel('edit')}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-700"
+                  >
+                    <Edit3 className="h-4 w-4" /> Edit Property
+                  </button>
+                ) : null}
+              </div>
             </div>
           )}
         </Drawer>

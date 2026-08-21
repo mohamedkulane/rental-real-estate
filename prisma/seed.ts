@@ -39,6 +39,10 @@ async function synchronizeRecordNumberSequences(): Promise<void> {
         INTO maximum_value FROM properties WHERE "propertyCode" ~ '^PROP-[0-9]+$';
       PERFORM setval('property_record_number_seq', COALESCE(maximum_value + 1, 1), false);
 
+      SELECT MAX(substring("buildingCode" FROM '^BLD-([0-9]+)$')::bigint)
+        INTO maximum_value FROM buildings WHERE "buildingCode" ~ '^BLD-[0-9]+$';
+      PERFORM setval('building_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
       SELECT MAX(substring("spaceCode" FROM '^SPC-([0-9]+)$')::bigint)
         INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^SPC-[0-9]+$';
       PERFORM setval('space_record_number_seq', COALESCE(maximum_value + 1, 1), false);

@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 import { CursorPaginationControls } from '@/components/shared/pagination';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
-import { api, type CursorPage, userFacingError } from '@/lib/phase3-api';
+import { api, apiUrl, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
 
 export type FocusedWorkspace =
@@ -40,6 +42,30 @@ const periodOptions: FilterOption[] = [
   { label: 'Scheduled', value: 'SCHEDULED' },
   { label: 'Historical', value: 'HISTORICAL' },
 ];
+const measurementPeriodOptions: FilterOption[] = [
+  { label: 'Current', value: '' },
+  { label: 'Historical', value: 'HISTORICAL' },
+  { label: 'All Periods', value: 'ALL' },
+];
+const documentCategoryOptions: FilterOption[] = [
+  { label: 'All Categories', value: '' },
+  { label: 'Title Deed', value: 'TITLE_DEED' },
+  { label: 'Ownership Certificate', value: 'OWNERSHIP_CERTIFICATE' },
+  { label: 'Survey', value: 'SURVEY' },
+  { label: 'Plan', value: 'PLAN' },
+  { label: 'Registration Document', value: 'REGISTRATION_DOCUMENT' },
+  { label: 'Identification', value: 'IDENTIFICATION' },
+  { label: 'Other', value: 'OTHER' },
+];
+const activityOptions: FilterOption[] = [
+  { label: 'All Activities', value: '' },
+  { label: 'Property Created', value: 'portfolio.property.created' },
+  { label: 'Property Activated', value: 'portfolio.property.activated' },
+  { label: 'Property Deactivated', value: 'portfolio.property.deactivated' },
+  { label: 'Property Retired', value: 'portfolio.property.retired' },
+  { label: 'Ownership Updated', value: 'portfolio.property.ownership' },
+  { label: 'Operating Branch Transferred', value: 'portfolio.property.branch' },
+];
 const documentAccessOptions: FilterOption[] = [
   { label: 'All access levels', value: '' },
   { label: 'Internal', value: 'INTERNAL' },
@@ -51,6 +77,12 @@ const documentStatusOptions: FilterOption[] = [
   { label: 'Pending', value: 'PENDING' },
   { label: 'Active', value: 'ACTIVE' },
   { label: 'Archived', value: 'ARCHIVED' },
+];
+const buildingStatusOptions: FilterOption[] = [
+  { label: 'All Building statuses', value: '' },
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Inactive', value: 'INACTIVE' },
+  { label: 'Retired', value: 'RETIRED' },
 ];
 const spaceStatusOptions: FilterOption[] = [
   { label: 'All space statuses', value: '' },
@@ -65,7 +97,7 @@ const entityFilter = (label: string): Filter => ({
 });
 const documentFilters = (entityLabel: string): Filter[] => [
   entityFilter(entityLabel),
-  { key: 'categoryCode', label: 'Category', placeholder: 'Category code' },
+  { key: 'categoryCode', label: 'Category', options: documentCategoryOptions },
   { key: 'accessClass', label: 'Access', options: documentAccessOptions },
   { key: 'status', label: 'Status', options: documentStatusOptions },
 ];
@@ -77,12 +109,13 @@ const spaceContextFilters: Filter[] = [
 export const focusedWorkspaceConfigs: Record<FocusedWorkspace, Config> = {
   'property-buildings': {
     title: 'Buildings',
-    empty: 'No buildings match the current filters.',
+    empty: 'No Buildings match the current filters.',
     path: '/buildings',
-    searchLabel: 'Search building code or name',
+    searchLabel: 'Search Building name or code',
     filters: [
       { key: 'propertySearch', label: 'Property', placeholder: 'Property code or name' },
       { key: 'branchSearch', label: 'Branch', placeholder: 'Branch code or name' },
+      { key: 'status', label: 'Status', options: buildingStatusOptions },
     ],
   },
   'property-ownership': {
@@ -134,7 +167,7 @@ export const focusedWorkspaceConfigs: Record<FocusedWorkspace, Config> = {
     filters: [
       { key: 'propertySearch', label: 'Property', placeholder: 'Property code or name' },
       { key: 'branchSearch', label: 'Branch', placeholder: 'Branch code or name' },
-      { key: 'action', label: 'Action', placeholder: 'Action name' },
+      { key: 'action', label: 'Activity Type', options: activityOptions },
     ],
   },
   'owner-properties': {
@@ -158,20 +191,24 @@ export const focusedWorkspaceConfigs: Record<FocusedWorkspace, Config> = {
   },
   'space-hierarchy': {
     title: 'Space Hierarchy',
-    empty: 'No rentable spaces match the current filters.',
+    empty: 'No Rentable Spaces match the current filters.',
     path: '/rentable-spaces',
-    searchLabel: 'Search space code or name',
+    searchLabel: 'Search Space name or code',
     filters: [
       ...spaceContextFilters,
-      { key: 'branchSearch', label: 'Branch', placeholder: 'Branch code or name' },
+      { key: 'typeSearch', label: 'Space Type', placeholder: 'Space type' },
+      { key: 'status', label: 'Status', options: spaceStatusOptions },
     ],
   },
   'space-measurements': {
     title: 'Space Measurements',
     empty: 'No space measurements match the current filters.',
-    path: '/rentable-spaces',
+    path: '/rentable-spaces/measurements',
     searchLabel: 'Search space code or name',
-    filters: spaceContextFilters,
+    filters: [
+      ...spaceContextFilters,
+      { key: 'period', label: 'Period', options: measurementPeriodOptions },
+    ],
   },
   'space-profiles': {
     title: 'Space Profiles',
@@ -381,6 +418,244 @@ export function focusedRowPresentation(workspace: FocusedWorkspace, row: Row) {
   };
 }
 
+function workspaceHeaders(workspace: FocusedWorkspace): string[] {
+  if (workspace === 'property-buildings')
+    return ['Building', 'Code', 'Property', 'Floors', 'Rentable Spaces', 'Status', 'Actions'];
+  if (workspace === 'property-ownership' || workspace === 'owner-properties')
+    return ['Owner', 'Property', 'Ownership', 'Effective Period', 'Period', 'Actions'];
+  if (workspace.includes('document'))
+    return [
+      'Document',
+      'Related Record',
+      'Category',
+      'Version',
+      'Access',
+      'Status',
+      'Updated',
+      'Actions',
+    ];
+  if (workspace === 'property-amenities')
+    return ['Amenity', 'Property', 'Code', 'Status', 'Actions'];
+  if (workspace === 'property-branches')
+    return ['Property', 'Branch', 'Effective Period', 'Period', 'Actions'];
+  if (workspace === 'property-activity')
+    return ['Activity', 'Property', 'Branch', 'Occurred', 'Reason'];
+  if (workspace === 'space-hierarchy')
+    return ['Rentable Space', 'Property', 'Building', 'Parent', 'Status', 'Actions'];
+  if (workspace === 'space-measurements')
+    return ['Rentable Space', 'Property', 'Usable Area', 'Total Area', 'Unit', 'Status', 'Actions'];
+  if (workspace === 'space-profiles')
+    return ['Rentable Space', 'Property', 'Space Type', 'Profile', 'Status', 'Actions'];
+  if (workspace === 'space-amenities')
+    return ['Rentable Space', 'Property', 'Amenities', 'Status', 'Actions'];
+  return ['Rentable Space', 'Property', 'Space Type', 'Updated', 'Status', 'Actions'];
+}
+
+function recordLink(href: string, label: string) {
+  return (
+    <a href={href} className="font-bold text-[#0D47A1] hover:underline">
+      {label}
+    </a>
+  );
+}
+
+function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
+  const source = workspace === 'space-measurements' ? record(row.space) : row;
+  const property = record(source.property);
+  const owner = record(row.owner);
+  const amenity = record(row.amenity);
+  const branch = record(row.branch ?? row.branches);
+  const building = record(source.building);
+  const versions = list(source.versions);
+  const latest = workspace === 'space-measurements' ? row : (versions[0] ?? {});
+  const propertyName = text(property.name, 'Property not recorded');
+  const propertyId = text(property.id, '');
+  const spaceId = text(source.id, '');
+  const spaceName = text(source.name, 'Rentable Space');
+  const spaceCode = text(source.spaceCode, '');
+
+  if (workspace === 'property-buildings') {
+    const count = Number(record(row._count).spaces ?? 0);
+    const id = text(row.id, '');
+    return [
+      text(row.name, 'Building'),
+      text(row.buildingCode, ''),
+      propertyId ? recordLink('/portfolio/properties/' + propertyId, propertyName) : propertyName,
+      typeof row.numberOfFloors === 'number' ? String(row.numberOfFloors) : 'Not recorded',
+      count ? String(count) : <span className="text-slate-500">None created</span>,
+      <StatusBadge value={text(row.status, '')} />,
+      <span className="flex flex-wrap justify-end gap-3">
+        {recordLink('/portfolio/buildings/' + id, 'Open Building')}
+        {recordLink(
+          '/portfolio?section=spaces&view=overview&create=1&propertyId=' +
+            encodeURIComponent(propertyId) +
+            '&buildingId=' +
+            encodeURIComponent(id),
+          'Add Rentable Space',
+        )}
+      </span>,
+    ];
+  }
+  if (workspace === 'property-ownership' || workspace === 'owner-properties') {
+    const period = text(row.period, 'CURRENT');
+    return [
+      text(owner.displayName, text(record(owner.owner).ownerNumber, 'Owner')),
+      propertyId ? recordLink('/portfolio/properties/' + propertyId, propertyName) : propertyName,
+      text(row.ownershipPercent, '0') + '%',
+      date(row.effectiveFrom) + ' - ' + date(row.effectiveTo),
+      <StatusBadge value={period} />,
+      <span className="flex flex-wrap justify-end gap-3">
+        {propertyId ? recordLink('/portfolio/properties/' + propertyId, 'Open Property') : null}
+        {recordLink(
+          '/portfolio?section=properties&view=ownership&propertyId=' +
+            encodeURIComponent(propertyId),
+          'Manage Ownership',
+        )}
+      </span>,
+    ];
+  }
+  if (workspace.includes('document')) {
+    const entity = property.name ? property : owner.displayName ? owner : record(row.space);
+    const entityName = text(entity.name ?? entity.displayName, 'Related record');
+    const versionId = text(latest.id, '');
+    const documentId = text(row.id, '');
+    const entityHref = property.id
+      ? '/portfolio/properties/' + text(property.id)
+      : record(row.space).id
+        ? '/portfolio/rentable-spaces/' + text(record(row.space).id)
+        : '';
+    return [
+      <span>
+        <strong className="block text-slate-900">{text(row.displayName, 'Document')}</strong>
+        <span className="text-xs text-slate-500">
+          {text(latest.originalFilename, text(latest.mimeType, 'File'))} · {bytes(latest.sizeBytes)}
+        </span>
+      </span>,
+      entityHref ? recordLink(entityHref, entityName) : entityName,
+      humanize(text(row.categoryCode, 'Other')),
+      'Version ' + text(latest.sequence, '1'),
+      humanize(text(row.accessClass, 'Internal')),
+      <StatusBadge value={text(row.status, '')} />,
+      date(row.updatedAt ?? row.createdAt),
+      <span className="flex flex-wrap justify-end gap-3">
+        {versionId
+          ? recordLink(
+              apiUrl(
+                '/portfolio-documents/' +
+                  documentId +
+                  '/versions/' +
+                  versionId +
+                  '/content?disposition=inline',
+              ),
+              'View',
+            )
+          : null}
+        {versionId
+          ? recordLink(
+              apiUrl(
+                '/portfolio-documents/' +
+                  documentId +
+                  '/versions/' +
+                  versionId +
+                  '/content?disposition=attachment',
+              ),
+              'Download',
+            )
+          : null}
+      </span>,
+    ];
+  }
+  if (workspace === 'property-amenities')
+    return [
+      text(amenity.name, 'Amenity'),
+      propertyId
+        ? recordLink('/portfolio/properties/' + propertyId + '?tab=amenities', propertyName)
+        : propertyName,
+      text(amenity.code, ''),
+      <StatusBadge value={typeof amenity.active === 'boolean' ? amenity.active : true} />,
+      propertyId
+        ? recordLink('/portfolio/properties/' + propertyId + '?tab=amenities', 'Manage')
+        : null,
+    ];
+  if (workspace === 'property-branches')
+    return [
+      propertyId ? recordLink('/portfolio/properties/' + propertyId, propertyName) : propertyName,
+      text(branch.name, 'Branch not recorded'),
+      date(row.effectiveFrom) + ' - ' + date(row.effectiveTo),
+      <StatusBadge value={text(row.period, row.effectiveTo ? 'HISTORICAL' : 'CURRENT')} />,
+      propertyId
+        ? recordLink('/portfolio/properties/' + propertyId + '?tab=branch-history', 'Open History')
+        : null,
+    ];
+  if (workspace === 'property-activity')
+    return [
+      humanize(text(row.action, 'Property activity')),
+      propertyName,
+      text(branch.name, 'Company-wide'),
+      date(row.occurredAt),
+      text(row.reason, 'No reason recorded'),
+    ];
+
+  const spaceLabel = spaceCode ? spaceCode + ' - ' + spaceName : spaceName;
+  const action = spaceId ? recordLink('/portfolio/rentable-spaces/' + spaceId, 'Open Space') : null;
+  if (workspace === 'space-hierarchy') {
+    const relation = record(list(row.childRelations)[0]);
+    return [
+      spaceLabel,
+      propertyName,
+      text(building.name, 'Property-level'),
+      relation.parent
+        ? text(record(relation.parent).name)
+        : relation.parentSpaceId
+          ? 'Parent Space'
+          : 'Top-level Space',
+      <StatusBadge value={text(row.status, '')} />,
+      action,
+    ];
+  }
+  if (workspace === 'space-measurements')
+    return [
+      spaceLabel,
+      propertyName,
+      text(latest.usableArea, 'Not recorded'),
+      text(latest.totalArea, 'Not recorded'),
+      humanize(text(latest.areaUnit, 'Not recorded')),
+      <StatusBadge value={text(row.period, 'CURRENT')} />,
+      action,
+    ];
+  if (workspace === 'space-profiles') {
+    const profile = record(row.residentialProfile ?? row.commercialProfile ?? row.landProfile);
+    const count = Object.values(profile).filter((value) => value != null).length;
+    return [
+      spaceLabel,
+      propertyName,
+      text(record(row.type).name, 'Not recorded'),
+      count ? count + ' fields recorded' : 'Not recorded',
+      <StatusBadge value={text(row.status, '')} />,
+      action,
+    ];
+  }
+  if (workspace === 'space-amenities') {
+    const names = list(row.amenities)
+      .map((item) => text(record(item.amenity).name, ''))
+      .filter(Boolean);
+    return [
+      spaceLabel,
+      propertyName,
+      names.length ? names.join(', ') : 'None assigned',
+      <StatusBadge value={text(row.status, '')} />,
+      action,
+    ];
+  }
+  return [
+    spaceLabel,
+    propertyName,
+    text(record(row.type).name, 'Rentable Space'),
+    date(row.updatedAt),
+    <StatusBadge value={text(row.status, '')} />,
+    action,
+  ];
+}
 export type FocusedWorkspaceState = 'loading' | 'error' | 'empty' | 'filtered-empty' | 'populated';
 
 export function focusedWorkspaceState(input: {
@@ -394,6 +669,82 @@ export function focusedWorkspaceState(input: {
   if (input.itemCount > 0) return 'populated';
   return input.filtered ? 'filtered-empty' : 'empty';
 }
+type LookupOption = { value: string; label: string };
+
+function lookupKind(filter: Filter) {
+  if (
+    filter.key === 'propertySearch' ||
+    (filter.key === 'entitySearch' && filter.label === 'Property')
+  )
+    return 'property';
+  if (filter.key === 'ownerSearch' || (filter.key === 'entitySearch' && filter.label === 'Owner'))
+    return 'owner';
+  if (filter.key === 'branchSearch') return 'branch';
+  if (filter.key === 'buildingSearch') return 'building';
+  if (filter.key === 'amenitySearch') return 'amenity';
+  if (filter.key === 'typeSearch') return 'space-type';
+  if (filter.key === 'entitySearch' && filter.label === 'Space') return 'space';
+  return null;
+}
+
+function lookupPath(kind: NonNullable<ReturnType<typeof lookupKind>>, query: string) {
+  const params = new URLSearchParams();
+  if (query.trim()) params.set('search', query.trim());
+  if (kind !== 'branch' && kind !== 'amenity' && kind !== 'space-type') params.set('limit', '20');
+  const resource =
+    kind === 'property'
+      ? 'properties'
+      : kind === 'owner'
+        ? 'owners'
+        : kind === 'building'
+          ? 'buildings'
+          : kind === 'space'
+            ? 'rentable-spaces'
+            : kind === 'space-type'
+              ? 'rentable-spaces/types'
+              : kind === 'amenity'
+                ? 'amenities'
+                : 'branches';
+  return '/' + resource + (params.size ? '?' + params.toString() : '');
+}
+
+function lookupPresentation(
+  kind: NonNullable<ReturnType<typeof lookupKind>>,
+  row: Row,
+): LookupOption {
+  if (kind === 'property')
+    return {
+      value: text(row.propertyCode, text(row.name, '')),
+      label: text(row.propertyCode, '') + ' - ' + text(row.name, 'Property'),
+    };
+  if (kind === 'owner') {
+    const party = record(row.party);
+    return {
+      value: text(row.ownerNumber, text(party.displayName, '')),
+      label: text(row.ownerNumber, '') + ' - ' + text(party.displayName, 'Owner'),
+    };
+  }
+  if (kind === 'branch')
+    return {
+      value: text(row.code, text(row.name, '')),
+      label: text(row.code, '') + ' - ' + text(row.name, 'Branch'),
+    };
+  if (kind === 'building')
+    return {
+      value: text(row.buildingCode, text(row.name, '')),
+      label: text(row.buildingCode, '') + ' - ' + text(row.name, 'Building'),
+    };
+  if (kind === 'space')
+    return {
+      value: text(row.spaceCode, text(row.name, '')),
+      label: text(row.spaceCode, '') + ' - ' + text(row.name, 'Rentable Space'),
+    };
+  return {
+    value: text(row.code, text(row.name, '')),
+    label: text(row.name, text(row.code, 'Option')),
+  };
+}
+
 function FilterControl({
   filter,
   value,
@@ -404,7 +755,33 @@ function FilterControl({
   onChange: (value: string) => void;
 }) {
   const controlClass =
-    'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
+    'h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
+  const kind = lookupKind(filter);
+  const [options, setOptions] = useState<LookupOption[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+
+  const loadOptions = useCallback(
+    (query: string) => {
+      if (!kind) return;
+      setLoadingOptions(true);
+      void api<CursorPage<Row> | Row[]>(lookupPath(kind, query))
+        .then((response) => {
+          const rows = Array.isArray(response) ? response : response.items;
+          setOptions(
+            rows.map((row) => lookupPresentation(kind, row)).filter((option) => option.value),
+          );
+        })
+        .catch(() => setOptions([]))
+        .finally(() => setLoadingOptions(false));
+    },
+    [kind],
+  );
+
+  useEffect(() => {
+    if (kind) loadOptions('');
+    return undefined;
+  }, [kind, loadOptions]);
+
   return (
     <label className="min-w-0 space-y-1.5">
       <span className="block text-xs font-bold uppercase tracking-wide text-slate-600">
@@ -422,6 +799,28 @@ function FilterControl({
             </option>
           ))}
         </select>
+      ) : kind ? (
+        <SearchableSelect
+          searchable
+          searchThreshold={0}
+          className={controlClass}
+          value={value}
+          loading={loadingOptions}
+          onSearchChange={loadOptions}
+          onChange={(event) => onChange(event.target.value)}
+          searchPlaceholder={'Search or select ' + filter.label.toLowerCase()}
+          aria-label={filter.label}
+        >
+          <option value="">All {filter.label}s</option>
+          {value && !options.some((option) => option.value === value) ? (
+            <option value={value}>{value}</option>
+          ) : null}
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </SearchableSelect>
       ) : (
         <input
           className={controlClass}
@@ -433,7 +832,6 @@ function FilterControl({
     </label>
   );
 }
-
 export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWorkspace }) {
   const config = focusedWorkspaceConfigs[workspace];
   const [search, setSearch] = useState('');
@@ -446,6 +844,20 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search);
+    const restoredSearch = parameters.get('search') ?? '';
+    const restoredFilters = Object.fromEntries(
+      config.filters.map((filter) => [filter.key, parameters.get(filter.key) ?? '']),
+    );
+    setSearch(restoredSearch);
+    setDraftFilters(restoredFilters);
+    setSubmittedSearch(restoredSearch);
+    setSubmittedFilters(restoredFilters);
+    setHistory([null]);
+    setIndex(0);
+  }, [workspace]);
 
   useEffect(() => {
     let live = true;
@@ -477,12 +889,23 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
     filtered: hasFilters,
   });
   const submit = () => {
+    const normalizedSearch = search.trim();
+    const normalizedFilters = Object.fromEntries(
+      Object.entries(draftFilters).map(([key, value]) => [key, value.trim()]),
+    );
     setHistory([null]);
     setIndex(0);
-    setSubmittedSearch(search.trim());
-    setSubmittedFilters(
-      Object.fromEntries(Object.entries(draftFilters).map(([key, value]) => [key, value.trim()])),
-    );
+    setSubmittedSearch(normalizedSearch);
+    setSubmittedFilters(normalizedFilters);
+    const url = new URL(window.location.href);
+    if (normalizedSearch) url.searchParams.set('search', normalizedSearch);
+    else url.searchParams.delete('search');
+    for (const filter of config.filters) {
+      const value = normalizedFilters[filter.key];
+      if (value) url.searchParams.set(filter.key, value);
+      else url.searchParams.delete(filter.key);
+    }
+    window.history.replaceState({}, '', url);
   };
 
   return (
@@ -505,21 +928,99 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={config.searchLabel}
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-10 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]"
               />
+              {search ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch('')}
+                  className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
             </span>
           </label>
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 md:hidden"
+          >
+            <SlidersHorizontal className="h-4 w-4" /> Filters (
+            {Object.values(draftFilters).filter(Boolean).length})
+          </button>
           {config.filters.map((filter) => (
-            <FilterControl
-              key={filter.key}
-              filter={filter}
-              value={draftFilters[filter.key] ?? ''}
-              onChange={(value) =>
-                setDraftFilters((current) => ({ ...current, [filter.key]: value }))
-              }
-            />
+            <div className="hidden md:block" key={filter.key}>
+              <FilterControl
+                filter={filter}
+                value={draftFilters[filter.key] ?? ''}
+                onChange={(value) =>
+                  setDraftFilters((current) => ({ ...current, [filter.key]: value }))
+                }
+              />
+            </div>
           ))}
         </div>
+        {mobileFiltersOpen ? (
+          <div
+            className="fixed inset-0 z-[90] bg-slate-950/40 md:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Workspace filters"
+          >
+            <button
+              type="button"
+              className="absolute inset-0"
+              aria-label="Close filters"
+              onClick={() => setMobileFiltersOpen(false)}
+            />
+            <section className="absolute inset-x-0 bottom-0 max-h-[85vh] space-y-4 overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-950">Filters</h2>
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen(false)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200"
+                  aria-label="Close filters"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {config.filters.map((filter) => (
+                  <FilterControl
+                    key={filter.key}
+                    filter={filter}
+                    value={draftFilters[filter.key] ?? ''}
+                    onChange={(value) =>
+                      setDraftFilters((current) => ({ ...current, [filter.key]: value }))
+                    }
+                  />
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setDraftFilters({})}
+                  className="h-11 rounded-lg border border-slate-300 text-sm font-bold text-slate-700"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    submit();
+                    setMobileFiltersOpen(false);
+                  }}
+                  className="h-11 rounded-lg bg-[#0D47A1] text-sm font-bold text-white"
+                >
+                  Apply
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           {hasFilters ? (
             <button
@@ -532,6 +1033,10 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
                 setSubmittedFilters({});
                 setHistory([null]);
                 setIndex(0);
+                const url = new URL(window.location.href);
+                url.searchParams.delete('search');
+                for (const filter of config.filters) url.searchParams.delete(filter.key);
+                window.history.replaceState({}, '', url);
               }}
             >
               Clear filters
@@ -545,6 +1050,26 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
           </button>
         </div>
       </form>
+
+      {hasFilters ? (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Applied filters">
+          {submittedSearch ? (
+            <span className="rounded-full bg-[#E3F2FD] px-3 py-1 text-xs font-bold text-[#0D47A1]">
+              Search: {submittedSearch}
+            </span>
+          ) : null}
+          {config.filters.map((filter) =>
+            submittedFilters[filter.key] ? (
+              <span
+                key={filter.key}
+                className="rounded-full bg-[#E3F2FD] px-3 py-1 text-xs font-bold text-[#0D47A1]"
+              >
+                {filter.label}: {submittedFilters[filter.key]}
+              </span>
+            ) : null,
+          )}
+        </div>
+      ) : null}
 
       {state === 'loading' ? (
         <LoadingState label={`Loading ${config.title.toLowerCase()}`} />
@@ -577,28 +1102,35 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Record</th>
-                  <th className="px-4 py-3">Context</th>
-                  <th className="px-4 py-3">Details</th>
-                  <th className="px-4 py-3 text-right">Status</th>
+                  {workspaceHeaders(workspace).map((header, headerIndex, headers) => (
+                    <th
+                      key={header}
+                      className={
+                        'px-4 py-3 ' + (headerIndex === headers.length - 1 ? 'text-right' : '')
+                      }
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, rowIndex) => {
-                  const presentation = focusedRowPresentation(workspace, row);
-                  return (
-                    <tr key={rowKey(row, rowIndex)} className="border-t border-slate-100 align-top">
-                      <td className="px-4 py-3 font-semibold text-slate-900">
-                        {presentation.title}
+                {rows.map((row, rowIndex) => (
+                  <tr key={rowKey(row, rowIndex)} className="border-t border-slate-100 align-top">
+                    {workspaceCells(workspace, row).map((cell, cellIndex, cells) => (
+                      <td
+                        key={cellIndex}
+                        className={
+                          'px-4 py-3 text-slate-600 ' +
+                          (cellIndex === 0 ? 'font-semibold text-slate-900 ' : '') +
+                          (cellIndex === cells.length - 1 ? 'text-right' : '')
+                        }
+                      >
+                        {cell}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{presentation.context}</td>
-                      <td className="px-4 py-3 text-slate-600">{presentation.details}</td>
-                      <td className="px-4 py-3 text-right">
-                        {presentation.status ? <StatusBadge value={presentation.status} /> : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
+                    ))}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

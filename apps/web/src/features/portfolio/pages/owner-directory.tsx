@@ -6,14 +6,14 @@ import { OWNER_DETAIL_TABS } from '../portfolio-ia';
 
 import { Building2, Edit3, Eye, MoreHorizontal, Plus, Search, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { humanize } from '@/lib/presentation';
-import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import type { PartyRecord } from './party-directory';
 import { StatusBadge } from '@/components/shared/ui';
 import { OwnerPropertyPortfolio } from '../ownership-workflow';
 import { EntityDocuments } from '../entity-documents';
 import type { PropertyOwnershipRecord } from '../ownership-model';
+import { api, type CursorPage } from '@/lib/phase3-api';
 
 export type OwnerRecord = {
   partyId: string;
@@ -106,6 +106,7 @@ export function OwnerDirectory({
   onCreate,
   onUpdate,
   onLoadDetails,
+  onQueryChange,
   initialDetailTab = 'overview',
 }: {
   records: OwnerRecord[];
@@ -119,6 +120,7 @@ export function OwnerDirectory({
   onCreate: (input: Record<string, unknown>) => Promise<void>;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
   onLoadDetails: (partyId: string) => Promise<OwnerRecord>;
+  onQueryChange?: (filters: Record<string, string>) => void;
   initialDetailTab?: OwnerDetailTab;
 }) {
   const [query, setQuery] = useState('');
@@ -130,30 +132,32 @@ export function OwnerDirectory({
   useEffect(() => {
     setDetailTab(initialDetailTab);
   }, [initialDetailTab]);
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () =>
+        onQueryChange?.({
+          search: query.trim(),
+          status: status === 'all' ? '' : status,
+        }),
+      350,
+    );
+    return () => window.clearTimeout(timer);
+  }, [onQueryChange, query, status]);
 
-  const filtered = useMemo(
-    () =>
-      records.filter((owner) => {
-        const search = query.trim().toLowerCase();
-        return (
-          (!search ||
-            [
-              owner.party.displayName,
-              owner.ownerNumber,
-              owner.party.partyNumber,
-              owner.communicationPreference,
-            ]
-              .join(' ')
-              .toLowerCase()
-              .includes(search)) &&
-          (status === 'all' || owner.status === status)
-        );
-      }),
-    [records, query, status],
-  );
-  const pagination = usePagination(filtered);
-  useEffect(() => pagination.setPage(1), [query, status]);
-  const eligibleParties = parties.filter(
+  const filtered = records;
+  const [partyOptions, setPartyOptions] = useState(parties);
+  const [partyLookupLoading, setPartyLookupLoading] = useState(false);
+  useEffect(() => setPartyOptions(parties), [parties]);
+  const searchParties = (search: string) => {
+    setPartyLookupLoading(true);
+    const parameters = new URLSearchParams({ limit: '20', active: 'true' });
+    if (search.trim()) parameters.set('search', search.trim());
+    void api<CursorPage<PartyRecord>>('/parties?' + parameters.toString())
+      .then((page) => setPartyOptions(page.items))
+      .catch(() => setPartyOptions([]))
+      .finally(() => setPartyLookupLoading(false));
+  };
+  const eligibleParties = partyOptions.filter(
     (party) =>
       party.active && canCreate(party) && !records.some((owner) => owner.partyId === party.id),
   );
@@ -209,8 +213,18 @@ export function OwnerDirectory({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search owner name or number…"
-              className={inputClass + ' pl-10'}
+              className={inputClass + ' pl-10 pr-10'}
             />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear Owner search"
+                onClick={() => setQuery('')}
+                className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </label>
           <SearchableSelect
             searchable={false}
@@ -245,7 +259,7 @@ export function OwnerDirectory({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {pagination.pageItems.map((owner) => (
+              {filtered.map((owner) => (
                 <tr key={owner.partyId} className="hover:bg-slate-50">
                   <td className="px-5 py-4">
                     <button
@@ -306,12 +320,6 @@ export function OwnerDirectory({
         {!filtered.length ? (
           <div className="p-10 text-center text-sm text-slate-500">No matching owners.</div>
         ) : null}
-        <PaginationControls
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          total={filtered.length}
-          onPageChange={pagination.setPage}
-        />
       </section>
       {panel === 'create' ? (
         <Drawer
@@ -335,7 +343,16 @@ export function OwnerDirectory({
           >
             <label className="space-y-1.5 text-sm font-semibold">
               Person or organization
-              <SearchableSelect searchable name="partyId" required className={inputClass}>
+              <SearchableSelect
+                searchable
+                searchThreshold={0}
+                loading={partyLookupLoading}
+                onSearchChange={searchParties}
+                name="partyId"
+                required
+                className={inputClass}
+                searchPlaceholder="Search person or organization..."
+              >
                 <option value="">Choose by name</option>
                 {eligibleParties.map((party) => (
                   <option key={party.id} value={party.id}>

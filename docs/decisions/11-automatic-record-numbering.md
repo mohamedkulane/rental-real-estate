@@ -13,6 +13,7 @@ Staff-facing create forms do not ask users to invent internal record numbers. Po
 | Party         | `PTY-0001`  |
 | Owner         | `OWN-0001`  |
 | Property      | `PROP-0001` |
+| Building      | `BLD-0001`  |
 | RentableSpace | `SPC-0001`  |
 
 Existing API clients may temporarily provide their own number for backward compatibility. When the number is omitted, the backend always generates it. Database uniqueness constraints remain authoritative.

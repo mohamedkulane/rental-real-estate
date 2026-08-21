@@ -1,12 +1,14 @@
+import { createHash } from 'node:crypto';
 import { uuidv7 } from '@rerms/shared';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BuildingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
-import { cursorPage, type CursorPageQueryDto } from '../common/cursor-pagination';
+import { cursorPage } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
 import { nextRecordNumber } from '../common/record-number';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
+import { ObjectStorageService } from './object-storage.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import type {
@@ -19,12 +21,15 @@ import type {
   CreatePropertyDto,
   CreateSpaceDto,
   ListDocumentsQueryDto,
+  ListPropertiesQueryDto,
   ListBuildingsQueryDto,
+  ListBuildingActivityQueryDto,
   ListPropertyOwnershipsQueryDto,
   ListPropertyBranchHistoryQueryDto,
   ListPropertyActivityQueryDto,
   ListPropertyAmenitiesQueryDto,
   ListSpacesQueryDto,
+  ListSpaceMeasurementsQueryDto,
   DiscardPropertyDraftDto,
   PartitionSpaceDto,
   PropertyLifecycleTransitionDto,
@@ -36,6 +41,7 @@ import type {
   UpdateBuildingDto,
   UpdateDocumentMetadataDto,
   UpdatePropertyDto,
+  UploadDocumentDto,
 } from './portfolio.dto';
 
 const decimal = (value?: string) => (value === undefined ? null : new Prisma.Decimal(value));
@@ -48,6 +54,7 @@ export class PortfolioService {
     private readonly effectiveDating: EffectiveDatingService,
     private readonly authorization: AuthorizationService,
     private readonly audit: AuditService,
+    private readonly objectStorage: ObjectStorageService,
   ) {}
 
   private async currentPropertyBranch(companyId: string, propertyId: string): Promise<string> {
@@ -127,18 +134,40 @@ export class PortfolioService {
     return branchIds;
   }
 
-  async listProperties(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
+  async listProperties(principal: AuthenticatedPrincipal, query: ListPropertiesQueryDto) {
     const at = await this.businessDate.today(principal.companyId);
-    const branchIds = this.authorization.authorizedBranchIds(principal, 'portfolio.property.read');
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.property.read',
+    );
+    const branchIds =
+      authorizedBranchIds === null
+        ? query.branchId
+          ? [query.branchId]
+          : null
+        : [...authorizedBranchIds].filter(
+            (branchId) => !query.branchId || branchId === query.branchId,
+          );
+    const orderBy: Prisma.PropertyOrderByWithRelationInput[] =
+      query.sort === 'NAME'
+        ? [{ name: 'asc' }, { id: 'asc' }]
+        : query.sort === 'CODE'
+          ? [{ propertyCode: 'asc' }, { id: 'asc' }]
+          : [{ createdAt: 'desc' }, { id: 'desc' }];
     const rows = await this.database.property.findMany({
       where: {
         companyId: principal.companyId,
+        ...(query.propertyType ? { propertyType: query.propertyType } : {}),
+        ...(query.status ? { status: query.status } : {}),
         ...(query.search
           ? {
               OR: [
                 { propertyCode: { contains: query.search, mode: 'insensitive' } },
                 { name: { contains: query.search, mode: 'insensitive' } },
+                { addressLine1: { contains: query.search, mode: 'insensitive' } },
                 { city: { contains: query.search, mode: 'insensitive' } },
+                { district: { contains: query.search, mode: 'insensitive' } },
+                { neighborhood: { contains: query.search, mode: 'insensitive' } },
               ],
             }
           : {}),
@@ -147,7 +176,7 @@ export class PortfolioService {
           : {
               branchAssignments: {
                 some: {
-                  branchId: { in: [...branchIds] },
+                  branchId: { in: branchIds },
                   effectiveFrom: { lte: at },
                   OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
                 },
@@ -163,7 +192,7 @@ export class PortfolioService {
         },
         _count: { select: { spaces: true, buildings: true } },
       },
-      orderBy: { id: 'asc' },
+      orderBy,
     });
     return cursorPage(rows, query.limit, (property) => property.id);
   }
@@ -680,7 +709,9 @@ export class PortfolioService {
         data: {
           id: uuidv7(),
           propertyId,
-          buildingCode: input.buildingCode.trim().toUpperCase(),
+          buildingCode:
+            input.buildingCode?.trim().toUpperCase() ??
+            (await nextRecordNumber(transaction, 'BUILDING')),
           name: input.name,
           numberOfFloors: input.numberOfFloors ?? null,
           attributes: input.attributes
@@ -1027,7 +1058,19 @@ export class PortfolioService {
       },
       orderBy: [{ effectiveFrom: 'desc' }, { id: 'asc' }],
     });
-    return cursorPage(rows, query.limit, (ownership) => ownership.id);
+    return cursorPage(
+      rows.map((ownership) => ({
+        ...ownership,
+        period:
+          ownership.effectiveFrom > at
+            ? 'SCHEDULED'
+            : ownership.effectiveTo && ownership.effectiveTo <= at
+              ? 'HISTORICAL'
+              : 'CURRENT',
+      })),
+      query.limit,
+      (ownership) => ownership.id,
+    );
   }
   async listPropertyAmenities(
     principal: AuthenticatedPrincipal,
@@ -1244,7 +1287,17 @@ export class PortfolioService {
     return this.database.building.findUniqueOrThrow({
       where: { id: buildingId },
       include: {
-        property: { select: { id: true, propertyCode: true, name: true } },
+        property: {
+          select: {
+            id: true,
+            propertyCode: true,
+            name: true,
+            branchAssignments: {
+              select: { branchId: true, effectiveFrom: true, effectiveTo: true },
+              orderBy: [{ effectiveFrom: 'desc' }, { id: 'asc' }],
+            },
+          },
+        },
         spaces: {
           include: { type: true, versions: { orderBy: { effectiveFrom: 'desc' }, take: 1 } },
           orderBy: [{ spaceCode: 'asc' }, { id: 'asc' }],
@@ -1254,6 +1307,36 @@ export class PortfolioService {
     });
   }
 
+  async listBuildingActivity(
+    principal: AuthenticatedPrincipal,
+    buildingId: string,
+    query: ListBuildingActivityQueryDto,
+  ) {
+    const building = await this.database.building.findFirstOrThrow({
+      where: { id: buildingId, property: { companyId: principal.companyId } },
+      select: { propertyId: true },
+    });
+    await this.assertPropertyPermission(principal, building.propertyId, 'portfolio.building.read');
+    const rows = await this.database.auditLog.findMany({
+      where: {
+        entityType: 'Building',
+        entityId: buildingId,
+        ...(query.search
+          ? {
+              OR: [
+                { action: { contains: query.search, mode: 'insensitive' } },
+                { reason: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      select: { id: true, action: true, reason: true, occurredAt: true },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'asc' }],
+    });
+    return cursorPage(rows, query.limit, (row) => row.id);
+  }
   async updateBuilding(
     principal: AuthenticatedPrincipal,
     buildingId: string,
@@ -1353,6 +1436,92 @@ export class PortfolioService {
     });
   }
 
+  async listSpaceMeasurements(
+    principal: AuthenticatedPrincipal,
+    query: ListSpaceMeasurementsQueryDto,
+  ) {
+    if (query.propertyId)
+      await this.assertPropertyPermission(principal, query.propertyId, 'portfolio.space.read');
+    const at = await this.businessDate.today(principal.companyId);
+    const authorizedBranchIds = this.authorization.authorizedBranchIds(
+      principal,
+      'portfolio.space.read',
+    );
+    const period =
+      query.period === 'CURRENT'
+        ? { effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] }
+        : query.period === 'HISTORICAL'
+          ? { effectiveTo: { lte: at } }
+          : {};
+    const rows = await this.database.rentableSpaceVersion.findMany({
+      where: {
+        ...period,
+        space: {
+          ...(query.propertyId ? { propertyId: query.propertyId } : {}),
+          ...(query.search
+            ? {
+                OR: [
+                  { spaceCode: { contains: query.search, mode: 'insensitive' } },
+                  { name: { contains: query.search, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+          ...(query.buildingSearch
+            ? {
+                building: {
+                  OR: [
+                    { buildingCode: { contains: query.buildingSearch, mode: 'insensitive' } },
+                    { name: { contains: query.buildingSearch, mode: 'insensitive' } },
+                  ],
+                },
+              }
+            : {}),
+          property: {
+            companyId: principal.companyId,
+            ...(query.propertySearch
+              ? {
+                  OR: [
+                    { propertyCode: { contains: query.propertySearch, mode: 'insensitive' } },
+                    { name: { contains: query.propertySearch, mode: 'insensitive' } },
+                  ],
+                }
+              : {}),
+            ...(authorizedBranchIds === null
+              ? {}
+              : {
+                  branchAssignments: {
+                    some: {
+                      branchId: { in: [...authorizedBranchIds] },
+                      effectiveFrom: { lte: at },
+                      OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                    },
+                  },
+                }),
+          },
+        },
+      },
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: {
+        space: {
+          include: {
+            property: { select: { id: true, propertyCode: true, name: true } },
+            building: { select: { id: true, buildingCode: true, name: true } },
+            type: { select: { code: true, name: true } },
+          },
+        },
+      },
+      orderBy: [{ effectiveFrom: 'desc' }, { id: 'asc' }],
+    });
+    return cursorPage(
+      rows.map((version) => ({
+        ...version,
+        period: version.effectiveTo && version.effectiveTo <= at ? 'HISTORICAL' : 'CURRENT',
+      })),
+      query.limit,
+      (version) => version.id,
+    );
+  }
   async listSpaces(principal: AuthenticatedPrincipal, query: ListSpacesQueryDto) {
     const { propertyId, buildingId, typeCode, status, propertySearch, buildingSearch, typeSearch } =
       query;
@@ -2213,14 +2382,75 @@ export class PortfolioService {
     return ownerBranchIds.length === 1 ? ownerBranchIds[0] : undefined;
   }
 
-  private serializeDocument<T extends { versions: Array<{ sizeBytes: bigint }> }>(document: T) {
+  private serializeDocument<
+    T extends { versions: Array<{ sizeBytes: bigint; storageKey: string }> },
+  >(document: T) {
     return {
       ...document,
-      versions: document.versions.map((version) => ({
-        ...version,
-        sizeBytes: version.sizeBytes.toString(),
-      })),
+      versions: document.versions.map((storedVersion) => {
+        const { storageKey, ...version } = storedVersion;
+        void storageKey;
+        return { ...version, sizeBytes: version.sizeBytes.toString() };
+      }),
     };
+  }
+
+  private validateDocumentFile(file: Express.Multer.File): string {
+    if (!file?.buffer?.length) throw new BadRequestException('Choose a non-empty document file.');
+    if (file.size > this.objectStorage.maximumUploadBytes()) {
+      throw new BadRequestException('The document file exceeds the configured upload limit.');
+    }
+    const allowedMimeTypes = new Set([
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ]);
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException('This document file type is not supported.');
+    }
+    const matchesSignature =
+      (file.mimetype === 'application/pdf' && file.buffer.subarray(0, 5).toString() === '%PDF-') ||
+      (file.mimetype === 'image/jpeg' &&
+        file.buffer[0] === 0xff &&
+        file.buffer[1] === 0xd8 &&
+        file.buffer[2] === 0xff) ||
+      (file.mimetype === 'image/png' &&
+        file.buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
+      (file.mimetype === 'image/webp' &&
+        file.buffer.subarray(0, 4).toString() === 'RIFF' &&
+        file.buffer.subarray(8, 12).toString() === 'WEBP') ||
+      (file.mimetype === 'text/plain' && !file.buffer.subarray(0, 1024).includes(0)) ||
+      ([
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ].includes(file.mimetype) &&
+        (file.buffer.subarray(0, 2).toString() === 'PK' ||
+          file.buffer.subarray(0, 4).toString('hex') === 'd0cf11e0'));
+    if (!matchesSignature) {
+      throw new BadRequestException('The file content does not match its declared type.');
+    }
+    const originalFilename = file.originalname
+      .normalize('NFKC')
+      .replace(/[\\/]/g, '-')
+      .split('')
+      .filter((character) => {
+        const code = character.charCodeAt(0);
+        return code >= 32 && code !== 127;
+      })
+      .join('')
+      .trim();
+    if (!originalFilename || originalFilename.length > 255) {
+      throw new BadRequestException('The original filename is invalid.');
+    }
+    return originalFilename;
   }
 
   private async documentEntityIds(
@@ -2512,6 +2742,7 @@ export class PortfolioService {
           ...(input.categoryCode === undefined ? {} : { categoryCode: input.categoryCode.trim() }),
           ...(input.accessClass === undefined ? {} : { accessClass: input.accessClass }),
           ...(input.status === undefined ? {} : { status: input.status }),
+          ...(input.notes === undefined ? {} : { notes: input.notes.trim() || null }),
         },
         include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
       });
@@ -2538,6 +2769,215 @@ export class PortfolioService {
       return this.serializeDocument(after);
     });
   }
+  async getDocumentContent(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    versionId: string,
+    disposition: 'inline' | 'attachment',
+    correlationId?: string,
+  ) {
+    const document = await this.database.document.findFirstOrThrow({
+      where: { id: documentId, companyId: principal.companyId },
+      include: {
+        links: true,
+        versions: { where: { id: versionId } },
+      },
+    });
+    const link = document.links[0];
+    const version = document.versions[0];
+    if (!link || !version || !['Property', 'RentableSpace', 'Owner'].includes(link.entityType)) {
+      throw new NotFoundException('Document version was not found.');
+    }
+    const branchId = await this.assertDocumentEntityPermission(
+      principal,
+      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityId,
+      'portfolio.document.read',
+    );
+    const stored = await this.objectStorage.get(version.storageKey);
+    await this.database.$transaction((transaction) =>
+      this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action:
+          disposition === 'attachment'
+            ? 'portfolio.document.downloaded'
+            : 'portfolio.document.viewed',
+        entityType: link.entityType,
+        entityId: link.entityId,
+        branchId,
+        correlationId,
+        after: { documentId, versionId, sequence: version.sequence },
+      }),
+    );
+    return {
+      body: stored.body,
+      filename: version.originalFilename,
+      mimeType: version.mimeType,
+      sizeBytes: Number(version.sizeBytes),
+    };
+  }
+
+  async uploadDocumentVersion(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    file: Express.Multer.File,
+    correlationId?: string,
+  ) {
+    const document = await this.database.document.findFirstOrThrow({
+      where: { id: documentId, companyId: principal.companyId },
+      include: { links: true },
+    });
+    const link = document.links[0];
+    if (!link || !['Property', 'RentableSpace', 'Owner'].includes(link.entityType)) {
+      throw new NotFoundException('Document relation was not found.');
+    }
+    const branchId = await this.assertDocumentEntityPermission(
+      principal,
+      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityId,
+      'portfolio.document.manage',
+    );
+    const originalFilename = this.validateDocumentFile(file);
+    const versionId = uuidv7();
+    const storageKey = `${principal.companyId}/documents/${documentId}/${versionId}`;
+    const checksum = createHash('sha256').update(file.buffer).digest('hex');
+    await this.objectStorage.put({
+      storageKey,
+      body: file.buffer,
+      mimeType: file.mimetype,
+      checksum,
+    });
+    try {
+      return await this.database.$transaction(async (transaction) => {
+        await transaction.$queryRaw(
+          Prisma.sql`SELECT id FROM documents WHERE id = ${documentId}::uuid FOR UPDATE`,
+        );
+        const latest = await transaction.documentVersion.findFirst({
+          where: { documentId },
+          orderBy: { sequence: 'desc' },
+          select: { sequence: true },
+        });
+        const sequence = (latest?.sequence ?? 0) + 1;
+        await transaction.documentVersion.create({
+          data: {
+            id: versionId,
+            documentId,
+            sequence,
+            storageKey,
+            originalFilename,
+            checksum,
+            mimeType: file.mimetype,
+            sizeBytes: BigInt(file.size),
+            uploadedByUserId: principal.userId,
+          },
+        });
+        const updated = await transaction.document.findUniqueOrThrow({
+          where: { id: documentId },
+          include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
+        });
+        await this.audit.write(transaction, {
+          actorUserId: principal.userId,
+          action: 'portfolio.document.version-uploaded',
+          entityType: link.entityType,
+          entityId: link.entityId,
+          branchId,
+          correlationId,
+          after: {
+            documentId,
+            versionId,
+            sequence,
+            mimeType: file.mimetype,
+            sizeBytes: file.size,
+          },
+        });
+        return this.serializeDocument(updated);
+      });
+    } catch (cause) {
+      await this.objectStorage.remove(storageKey).catch(() => undefined);
+      throw cause;
+    }
+  }
+
+  async uploadDocument(
+    principal: AuthenticatedPrincipal,
+    input: UploadDocumentDto,
+    file: Express.Multer.File,
+    correlationId?: string,
+  ) {
+    const branchId = await this.assertDocumentEntityPermission(
+      principal,
+      input.entityType,
+      input.entityId,
+      'portfolio.document.manage',
+    );
+    const originalFilename = this.validateDocumentFile(file);
+    const documentId = uuidv7();
+    const versionId = uuidv7();
+    const storageKey = `${principal.companyId}/documents/${documentId}/${versionId}`;
+    const checksum = createHash('sha256').update(file.buffer).digest('hex');
+    await this.objectStorage.put({
+      storageKey,
+      body: file.buffer,
+      mimeType: file.mimetype,
+      checksum,
+    });
+    try {
+      return await this.database.$transaction(async (transaction) => {
+        const document = await transaction.document.create({
+          data: {
+            id: documentId,
+            companyId: principal.companyId,
+            displayName: input.title.trim(),
+            categoryCode: input.categoryCode.trim().toUpperCase(),
+            accessClass: input.accessClass,
+            status: 'ACTIVE',
+            notes: input.notes?.trim() || null,
+            versions: {
+              create: {
+                id: versionId,
+                sequence: 1,
+                storageKey,
+                originalFilename,
+                checksum,
+                mimeType: file.mimetype,
+                sizeBytes: BigInt(file.size),
+                uploadedByUserId: principal.userId,
+              },
+            },
+            links: {
+              create: {
+                id: uuidv7(),
+                entityType: input.entityType,
+                entityId: input.entityId,
+                purpose: input.purpose,
+              },
+            },
+          },
+          include: { versions: { orderBy: { sequence: 'desc' } }, links: true },
+        });
+        await this.audit.write(transaction, {
+          actorUserId: principal.userId,
+          action: 'portfolio.document.uploaded',
+          entityType: input.entityType,
+          entityId: input.entityId,
+          branchId,
+          correlationId,
+          after: {
+            documentId,
+            categoryCode: document.categoryCode,
+            mimeType: file.mimetype,
+            sizeBytes: file.size,
+            sequence: 1,
+          },
+        });
+        return this.serializeDocument(document);
+      });
+    } catch (cause) {
+      await this.objectStorage.remove(storageKey).catch(() => undefined);
+      throw cause;
+    }
+  }
+
   async createDocument(
     principal: AuthenticatedPrincipal,
     input: CreateDocumentMetadataDto,
@@ -2566,6 +3006,8 @@ export class PortfolioService {
               id: uuidv7(),
               sequence: 1,
               storageKey: input.storageKey,
+              originalFilename:
+                input.storageKey.split(/[\\/]/).pop() ?? input.displayName ?? 'legacy-file',
               checksum: input.checksum,
               mimeType: input.mimeType,
               sizeBytes: BigInt(input.sizeBytes),
