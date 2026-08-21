@@ -17,22 +17,23 @@ Phase 5: not started
 
 ## Automated verification
 
-| Gate                      | Result                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| Governance                | PASS — 46 operational Phase 1–4 models/tables; Phase 5 not started              |
-| Lint                      | PASS                                                                            |
-| Strict TypeScript         | PASS                                                                            |
-| Default/unit              | PASS — database 3, web 42, API 35                                               |
-| Integration               | PASS — database 1, API 9                                                        |
-| E2E                       | PASS — 4 files, 40 tests; focused Phase 4 18/18                                 |
-| Production build          | PASS — static Portfolio plus dynamic Property/Building/Rentable Space routes    |
-| Prisma validation/status  | PASS — schema valid, 13 migrations current                                      |
-| Upgrade seed idempotency  | PASS — two consecutive runs                                                     |
-| Fresh migration/seed      | PASS — isolated database, 13 migrations, seed twice, temporary database removed |
-| `limit=100` scan          | PASS — no production workaround                                                 |
-| Frontend N+1 scan         | PASS — no list→per-row detail request pattern found                             |
-| Storage-key exposure scan | PASS — no frontend reference; API serializer strips keys                        |
-| `git diff --check`        | PASS                                                                            |
+| Gate                      | Result                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Governance                | PASS — 46 operational Phase 1–4 models/tables; Phase 5 not started                                   |
+| Lint                      | PASS                                                                                                 |
+| Strict TypeScript         | PASS                                                                                                 |
+| Default/unit              | PASS — database 3, web 42, API 35                                                                    |
+| Integration               | PASS — database 1, API 9                                                                             |
+| E2E                       | PASS — 4 files, 40 tests; focused Phase 4 18/18                                                      |
+| Production build          | PASS — static Portfolio plus dynamic Property/Building/Rentable Space routes                         |
+| Prisma validation/status  | PASS — schema valid, 13 migrations current                                                           |
+| Upgrade seed idempotency  | PASS — two consecutive runs                                                                          |
+| Fresh migration/seed      | PASS — isolated database, 13 migrations, seed twice, temporary database removed                      |
+| Clean checkout            | PASS — detached `73e3e05`, frozen install, Prisma generate, governance, lint, typecheck, unit, build |
+| `limit=100` scan          | PASS — no production workaround                                                                      |
+| Frontend N+1 scan         | PASS — no list→per-row detail request pattern found                                                  |
+| Storage-key exposure scan | PASS — no frontend reference; API serializer strips keys                                             |
+| `git diff --check`        | PASS                                                                                                 |
 
 ## Manual responsive review
 
