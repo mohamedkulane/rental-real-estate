@@ -1,6 +1,7 @@
 // Keep browser requests on the web application's origin. Next.js forwards this
 // path to API_URL, avoiding client-side localhost and CORS mismatches.
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api/backend';
+export const apiUrl = (path: string) => API_BASE + path;
 
 export interface Principal {
   userId: string;
@@ -76,13 +77,14 @@ export function isServiceUnavailable(cause: unknown): boolean {
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
+    const headers = new Headers(init.headers);
+    if (!(init.body instanceof FormData) && !headers.has('content-type')) {
+      headers.set('content-type', 'application/json');
+    }
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
       credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        ...init.headers,
-      },
+      headers,
     });
   } catch (cause) {
     throw new TypeError(userFacingError(cause));

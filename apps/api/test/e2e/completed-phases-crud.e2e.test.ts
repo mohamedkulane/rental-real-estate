@@ -654,7 +654,8 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
           purpose: 'OWNERSHIP_EVIDENCE',
         })
         .expect(201);
-      expect(document.body.versions[0]?.storageKey).toContain(propertyId);
+      expect(document.body.versions).toHaveLength(1);
+      expect(document.body.versions[0]?.storageKey).toBeUndefined();
       const approvals = await request(app.getHttpServer())
         .get('/api/v1/approvals')
         .set('authorization', `Bearer ${token}`)

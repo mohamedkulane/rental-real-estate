@@ -12,7 +12,9 @@ import {
   Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { humanize } from '@/lib/presentation';
+import { api, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import {
   effectivePayoutPercent,
   ownershipReadiness,
@@ -128,7 +130,8 @@ export function OwnershipEditor({
       }))
     : [{ ownerPartyId: '', ownershipPercent: '100', payoutPercent: '100' }];
   const [shares, setShares] = useState(initialShares);
-  const [ownerQueries, setOwnerQueries] = useState(() => initialShares.map(() => ''));
+  const [ownerOptions, setOwnerOptions] = useState(owners);
+  const [ownerLookupLoading, setOwnerLookupLoading] = useState(false);
   const [effectiveFrom, setEffectiveFrom] = useState(businessDate);
   const [reason, setReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -139,18 +142,24 @@ export function OwnershipEditor({
     setShares((rows) =>
       rows.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)),
     );
-  const matchingOwners = (index: number) => {
-    const query = ownerQueries[index]?.trim().toLowerCase() ?? '';
-    return owners.filter(
-      (owner) =>
-        owner.status === 'ACTIVE' &&
-        (!query ||
-          [owner.party.displayName, owner.ownerNumber, owner.party.kind]
-            .join(' ')
-            .toLowerCase()
-            .includes(query)),
-    );
+  const searchOwners = async (query: string) => {
+    setOwnerLookupLoading(true);
+    try {
+      const parameters = new URLSearchParams({ status: 'ACTIVE', limit: '20' });
+      if (query.trim()) parameters.set('search', query.trim());
+      const page = await api<CursorPage<OwnerOption>>(`/owners?${parameters.toString()}`);
+      setOwnerOptions((current) => {
+        const selectedIds = new Set(shares.map((share) => share.ownerPartyId).filter(Boolean));
+        const selected = current.filter((owner) => selectedIds.has(owner.partyId));
+        return [...selected, ...page.items.filter((owner) => !selectedIds.has(owner.partyId))];
+      });
+    } catch (cause) {
+      toast.error(userFacingError(cause, 'Owners could not be loaded.'));
+    } finally {
+      setOwnerLookupLoading(false);
+    }
   };
+
   return (
     <form
       className="space-y-5"
@@ -174,9 +183,6 @@ export function OwnershipEditor({
                   type="button"
                   onClick={() => {
                     setShares((rows) => rows.filter((_, rowIndex) => rowIndex !== index));
-                    setOwnerQueries((queries) =>
-                      queries.filter((_, rowIndex) => rowIndex !== index),
-                    );
                   }}
                   className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
                   aria-label={'Remove owner ' + (index + 1)}
@@ -187,21 +193,14 @@ export function OwnershipEditor({
             </div>
             <label className="space-y-1.5 text-xs font-bold text-slate-600">
               Owner
-              <input
-                type="search"
-                value={ownerQueries[index] ?? ''}
-                onChange={(event) =>
-                  setOwnerQueries((queries) =>
-                    queries.map((query, rowIndex) =>
-                      rowIndex === index ? event.target.value : query,
-                    ),
-                  )
-                }
-                className={inputClass}
-                aria-label={'Search owner ' + (index + 1)}
-                placeholder="Search by name, owner number, or type"
-              />
               <SearchableSelect
+                searchable
+                searchThreshold={0}
+                loading={ownerLookupLoading}
+                onSearchChange={(query) => {
+                  void searchOwners(query);
+                }}
+                searchPlaceholder="Search by name or owner number"
                 value={share.ownerPartyId}
                 onChange={(event) => update(index, 'ownerPartyId', event.target.value)}
                 required
@@ -209,11 +208,13 @@ export function OwnershipEditor({
                 aria-label={'Choose owner ' + (index + 1)}
               >
                 <option value="">Choose by name or owner number</option>
-                {matchingOwners(index).map((owner) => (
-                  <option key={owner.partyId} value={owner.partyId}>
-                    {owner.party.displayName} — {owner.ownerNumber} ({humanize(owner.party.kind)})
-                  </option>
-                ))}
+                {ownerOptions
+                  .filter((owner) => owner.status === 'ACTIVE')
+                  .map((owner) => (
+                    <option key={owner.partyId} value={owner.partyId}>
+                      {owner.party.displayName} — {owner.ownerNumber} ({humanize(owner.party.kind)})
+                    </option>
+                  ))}
               </SearchableSelect>
             </label>
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -253,7 +254,6 @@ export function OwnershipEditor({
               ...rows,
               { ownerPartyId: '', ownershipPercent: '', payoutPercent: '' },
             ]);
-            setOwnerQueries((queries) => [...queries, '']);
           }}
           disabled={shares.length >= 20}
           className="inline-flex items-center gap-2 rounded-lg border border-dashed border-[#90CAF9] px-3 py-2 text-xs font-bold text-[#0D47A1] hover:bg-[#E3F2FD] disabled:opacity-50"
@@ -476,9 +476,7 @@ export function OwnerPropertyPortfolio({
                 </p>
               </div>
               <div className="text-right">
-                <strong className="text-sm text-[#0D47A1]">
-                  {record.ownershipPercent}% owned
-                </strong>
+                <strong className="text-sm text-[#0D47A1]">{record.ownershipPercent}% owned</strong>
                 <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   {humanize(record.property.status)}
                 </span>

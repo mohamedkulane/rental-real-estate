@@ -4,6 +4,7 @@ import {
   OwnerStatus,
   PartyKind,
   PropertyType,
+  PropertyStatus,
   RentableSpaceStatus,
 } from '@prisma/client';
 import { Type } from 'class-transformer';
@@ -117,6 +118,23 @@ export class UpdateOwnerDto {
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
+export class ListPartiesQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsEnum(PartyKind) kind?: PartyKind;
+  @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
+}
+
+export class ListOwnersQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsEnum(OwnerStatus) status?: OwnerStatus;
+  @IsOptional() @IsEnum(PartyKind) partyKind?: PartyKind;
+}
+
+export class ListPropertiesQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsEnum(PropertyType) propertyType?: PropertyType;
+  @IsOptional() @IsEnum(PropertyStatus) status?: PropertyStatus;
+  @IsOptional() @IsIn(['NEWEST', 'NAME', 'CODE']) sort?: 'NEWEST' | 'NAME' | 'CODE';
+}
+
 export class CreatePropertyDto {
   @IsOptional() @IsString() @Length(2, 40) propertyCode?: string;
   @IsString() @Length(2, 200) name!: string;
@@ -177,7 +195,7 @@ export class ReplaceOwnershipDto {
 }
 
 export class CreateBuildingDto {
-  @IsString() @Length(1, 40) buildingCode!: string;
+  @IsOptional() @IsString() @Length(1, 40) buildingCode?: string;
   @IsString() @Length(2, 160) name!: string;
   @IsOptional() @IsInt() @Min(0) @Max(500) numberOfFloors?: number;
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
@@ -299,6 +317,29 @@ export class UpdateAmenityDto {
   @IsOptional() @IsBoolean() active?: boolean;
 }
 
+export class UploadDocumentDto {
+  @IsString() @Length(2, 240) title!: string;
+  @IsIn([
+    'TITLE_DEED',
+    'OWNERSHIP_CERTIFICATE',
+    'SURVEY',
+    'PLAN',
+    'REGISTRATION_DOCUMENT',
+    'IDENTIFICATION',
+    'OTHER',
+  ])
+  categoryCode!: string;
+  @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass!: string;
+  @IsIn(['Property', 'RentableSpace', 'Owner']) entityType!: 'Property' | 'RentableSpace' | 'Owner';
+  @IsUUID() entityId!: string;
+  @IsString() @Length(2, 50) purpose!: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+}
+
+export class DocumentContentQueryDto {
+  @IsOptional() @IsIn(['inline', 'attachment']) disposition: 'inline' | 'attachment' = 'inline';
+}
+
 export class CreateDocumentMetadataDto {
   @IsOptional() @IsString() @Length(2, 240) displayName?: string;
   @IsString() @Length(2, 50) categoryCode!: string;
@@ -318,6 +359,7 @@ export class UpdateDocumentMetadataDto {
   @IsOptional() @IsString() @Length(2, 50) categoryCode?: string;
   @IsOptional() @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass?: string;
   @IsOptional() @IsIn(['PENDING', 'ACTIVE', 'ARCHIVED']) status?: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
 export class ListDocumentsQueryDto extends CursorPageQueryDto {
@@ -329,6 +371,7 @@ export class ListDocumentsQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsString() @MaxLength(50) categoryCode?: string;
   @IsOptional() @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass?: string;
   @IsOptional() @IsIn(['PENDING', 'ACTIVE', 'ARCHIVED']) status?: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
 export class ListPropertyBranchHistoryQueryDto extends CursorPageQueryDto {
@@ -357,6 +400,8 @@ export class ListPropertyOwnershipsQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsIn(['CURRENT', 'SCHEDULED', 'HISTORICAL']) period?:
     'CURRENT' | 'SCHEDULED' | 'HISTORICAL';
 }
+export class ListBuildingActivityQueryDto extends CursorPageQueryDto {}
+
 export class ListBuildingsQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() propertyId?: string;
   @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
@@ -375,6 +420,13 @@ export class ListPropertyAmenitiesQueryDto {
   @IsOptional() @IsString() @MaxLength(120) amenitySearch?: string;
   @IsOptional() @IsUUID() branchId?: string;
   @IsOptional() @IsString() @MaxLength(120) branchSearch?: string;
+}
+export class ListSpaceMeasurementsQueryDto extends CursorPageQueryDto {
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsOptional() @IsString() @MaxLength(120) propertySearch?: string;
+  @IsOptional() @IsString() @MaxLength(120) buildingSearch?: string;
+  @IsOptional() @IsIn(['CURRENT', 'HISTORICAL', 'ALL']) period: 'CURRENT' | 'HISTORICAL' | 'ALL' =
+    'CURRENT';
 }
 export class ListSpacesQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() propertyId?: string;

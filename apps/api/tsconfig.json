@@ -6,7 +6,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "outDir": "dist",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals", "multer"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

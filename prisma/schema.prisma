@@ -695,12 +695,15 @@ model Document {
   categoryCode String            @db.VarChar(50)
   accessClass  String            @db.VarChar(30)
   status       String            @db.VarChar(30)
+  notes        String?
   createdAt    DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
   links        DocumentLink[]
   versions     DocumentVersion[]
   company      Company           @relation(fields: [companyId], references: [id], onUpdate: NoAction)
 
   @@index([companyId, createdAt(sort: Desc), id(sort: Desc)], map: "documents_company_created_id_idx")
+  @@index([companyId, status, categoryCode, updatedAt(sort: Desc)], map: "documents_company_status_category_updated_idx")
   @@map("documents")
 }
 
@@ -709,10 +712,12 @@ model DocumentVersion {
   documentId       String    @db.Uuid
   sequence         Int
   storageKey       String    @unique @db.VarChar(512)
+  originalFilename String    @db.VarChar(255)
   checksum         String    @db.VarChar(128)
   mimeType         String    @db.VarChar(160)
   sizeBytes        BigInt
   uploadedByUserId String    @db.Uuid
+  uploadedAt       DateTime  @default(now()) @db.Timestamptz(6)
   effectiveFrom    DateTime? @db.Date
   expiresOn        DateTime? @db.Date
   signedAt         DateTime? @db.Timestamptz(6)

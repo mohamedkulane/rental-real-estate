@@ -140,6 +140,7 @@ describe('Phase 4 portfolio services', () => {
       {} as never,
       { authorizedBranchIds: vi.fn().mockReturnValue(null) } as unknown as AuthorizationService,
       {} as AuditService,
+      {} as never,
     );
 
     const result = await service.listDocuments(principal, {
@@ -190,6 +191,7 @@ describe('Phase 4 portfolio services', () => {
         authorizedBranchIds: vi.fn().mockReturnValue(branchIds),
       } as unknown as AuthorizationService,
       {} as AuditService,
+      {} as never,
     );
 
     await service.listDocuments(principal, { limit: 25, entityType: 'Property' });
@@ -225,6 +227,7 @@ describe('Phase 4 portfolio services', () => {
       } as never,
       {} as AuthorizationService,
       {} as AuditService,
+      {} as never,
     );
     await expect(
       service.createSpace(principal, {
@@ -249,6 +252,7 @@ describe('Phase 4 portfolio services', () => {
       } as never,
       {} as AuthorizationService,
       {} as AuditService,
+      {} as never,
     );
     await expect(
       service.createSpace(principal, {
@@ -306,6 +310,7 @@ describe('Phase 4 portfolio services', () => {
       } as never,
       authorization,
       {} as AuditService,
+      {} as never,
     );
     await expect(
       service.partition(principal, '00000000-0000-4000-8000-000000000020', {

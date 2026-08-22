@@ -16,6 +16,7 @@ import {
 import { PartyCryptoService } from './portfolio/party-crypto.service';
 import { PartyService } from './portfolio/party.service';
 import { PortfolioService } from './portfolio/portfolio.service';
+import { ObjectStorageService } from './portfolio/object-storage.service';
 
 @Module({
   imports: [Phase3Module],
@@ -32,6 +33,6 @@ import { PortfolioService } from './portfolio/portfolio.service';
     AmenityController,
     PortfolioDocumentController,
   ],
-  providers: [PartyCryptoService, PartyService, PortfolioService],
+  providers: [PartyCryptoService, PartyService, PortfolioService, ObjectStorageService],
 })
 export class Phase4Module {}

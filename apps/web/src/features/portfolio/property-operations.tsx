@@ -9,7 +9,6 @@ import {
   apiCached,
   canPerformAcrossBranches,
   hasCompanyPermission,
-  type CursorPage,
   type Principal,
   userFacingError,
 } from '@/lib/phase3-api';
@@ -17,6 +16,7 @@ import { documentTypeLabel, formatFileSize, humanize } from '@/lib/presentation'
 import { EmptyState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import type { BranchOption, PropertyRecord } from './pages/property-registry';
 import type { PropertyDetailSection } from './portfolio-ia';
+import { EntityDocuments } from './entity-documents';
 
 interface BuildingRecord {
   id: string;
@@ -70,7 +70,7 @@ export function PropertyOperations({
   const [property, setProperty] = useState(initialProperty);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [amenities, setAmenities] = useState<AmenityRecord[]>([]);
-  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [documents] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -106,7 +106,7 @@ export function PropertyOperations({
     setLoading(true);
     setError('');
     try {
-      const [nextProperty, nextBuildings, amenityCatalog, documentPage] = await Promise.all([
+      const [nextProperty, nextBuildings, amenityCatalog] = await Promise.all([
         api<PropertyRecord>(`/properties/${initialProperty.id}`),
         section === 'buildings' && can('portfolio.building.read')
           ? api<BuildingRecord[]>(`/properties/${initialProperty.id}/buildings`)
@@ -114,16 +114,10 @@ export function PropertyOperations({
         section === 'amenities' && can('portfolio.amenity.read')
           ? apiCached<AmenityRecord[]>('/amenities')
           : Promise.resolve([]),
-        section === 'documents' && can('portfolio.document.read')
-          ? api<CursorPage<DocumentRecord>>(
-              `/portfolio-documents?entityType=Property&entityId=${initialProperty.id}`,
-            )
-          : Promise.resolve({ items: [], pageInfo: { nextCursor: null, hasNextPage: false } }),
       ]);
       setProperty(nextProperty);
       setBuildings(nextBuildings);
       setAmenities(amenityCatalog);
-      setDocuments(documentPage.items);
     } catch (cause) {
       setError(userFacingError(cause, 'This property section could not be loaded.'));
     } finally {
@@ -152,6 +146,17 @@ export function PropertyOperations({
   };
 
   if (loading) return <LoadingState label={`Loading ${section.replace('-', ' ')}`} />;
+  if (section === 'documents') {
+    return can('portfolio.document.read') ? (
+      <EntityDocuments
+        entityType="Property"
+        entityId={property.id}
+        canManage={can('portfolio.document.manage')}
+      />
+    ) : (
+      <p className="text-sm text-slate-500">Document access is not authorized.</p>
+    );
+  }
   const currentAssignment = property.branchAssignments.find(
     (assignment) =>
       assignment.effectiveFrom.slice(0, 10) <= principal.businessDate &&
@@ -507,12 +512,7 @@ export function PropertyOperations({
         ) : null}
       </section>
 
-      <section
-        className={
-          (section === 'documents' ? '' : 'hidden ') +
-          'space-y-3 rounded-xl border border-slate-200 p-4'
-        }
-      >
+      <section className={'hidden ' + 'space-y-3 rounded-xl border border-slate-200 p-4'}>
         <div>
           <h3 className="font-bold text-slate-900">Documents</h3>
           <p className="text-xs text-slate-500">

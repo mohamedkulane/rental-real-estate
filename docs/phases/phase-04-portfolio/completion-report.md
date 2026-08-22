@@ -45,7 +45,7 @@ The remediation report and five-step screenshot audit are recorded in [ownership
 
 ## 18. Known issues
 
-No critical Phase 4 issue remains. File binaries and finalized storage upload/download orchestration are intentionally outside this phase; only metadata boundaries are implemented.
+No critical backend Phase 4 issue remains. The earlier metadata-only Document limitation was closed by the Phase 4 operational UX remediation: private S3-compatible storage, server-validated uploads, immutable versions, authorized read/download, metadata updates, and archive status are implemented.
 
 ## 19. Deferred work
 
@@ -68,3 +68,13 @@ A new additive migration adds required Document display metadata and its list in
 Final automated evidence: formatting, lint, strict typecheck, unit (52), integration (10), E2E (36), governance, Prisma validation/status, repeat seed, production build, and a detached clean-checkout CI-order validation all passed. The complete Phase 4 focused portfolio E2E set passed 14/14.
 
 The required current visual/interactive UI review could not be executed because the Codex browser runtime failed during sandbox setup with `helper_unknown_error: apply deny-read ACLs`. This is an audit-environment evidence blocker, not an asserted product defect, but the hard gate forbids claiming UI/UX PASS without that evidence. Accordingly, the final Phase 1–4 closure gate remains incomplete and Phase 5 remains blocked. The historical ownership-remediation UI review above remains valid only for that earlier, narrower change set.
+
+## Portfolio operational UX closure remediation — 2026-08-21
+
+The closure remediation added dedicated Property, Building, and Rentable Space detail routes; contextual Property → Building → Rentable Space creation; actionable zero-space Building states; Building activity; current/scheduled/historical ownership presentation; canonical server-backed searchable selectors; focused cursor-paginated aggregate workspaces; and complete private Document file operations.
+
+Document files use the architecture-approved private S3-compatible store. The API validates the configured size limit (25 MiB by default), allowed MIME types, content signatures, and filenames. It generates private storage keys, never serializes them to normal clients, preserves immutable versions, and mediates view/download through company/branch authorization with audit evidence. MinIO supplies the local development implementation.
+
+Automated evidence passed: governance; repository lint; strict TypeScript; 80 default/unit tests; 10 integration tests; 40 E2E tests; production build; Prisma validation and 13-migration status; repeat seed on the upgrade database; isolated fresh deployment plus seed twice; static `limit=100`, N+1, and storage-key exposure scans; and `git diff --check`.
+
+The required 1440/768/390 interactive review remains blocked because the in-app browser runtime exits during Windows sandbox setup with `helper_unknown_error: apply deny-read ACLs`. This is an evidence-environment blocker, not a claimed application defect. The hard gate therefore remains **FAIL** until current manual responsive evidence is captured. Phase 5 has not been started.
