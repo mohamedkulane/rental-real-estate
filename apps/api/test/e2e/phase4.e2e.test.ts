@@ -967,8 +967,31 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       buildingId,
       status: 'ACTIVE',
       name: 'Main Hall',
+      property: {
+        propertyCode: `PR-${suffix}`.toUpperCase(),
+        name: 'Daryeel Business Centre',
+      },
     });
     expect(filtered.body.items[0].type.code).toBe('HALL');
+
+    const child = await request(app.getHttpServer())
+      .get(`/api/v1/rentable-spaces?propertyId=${propertyId}&search=Room%20One`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(child.body.items).toHaveLength(1);
+    expect(child.body.items[0]).toMatchObject({
+      id: childSpaceId,
+      property: {
+        propertyCode: `PR-${suffix}`.toUpperCase(),
+        name: 'Daryeel Business Centre',
+      },
+      childRelations: [
+        {
+          parentSpaceId,
+          parent: { id: parentSpaceId, name: 'Main Hall' },
+        },
+      ],
+    });
   });
   it('rejects excess partition area and hierarchy cycles', async () => {
     await request(app.getHttpServer())

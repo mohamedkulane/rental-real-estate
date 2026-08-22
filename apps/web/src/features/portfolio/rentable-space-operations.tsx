@@ -22,6 +22,15 @@ import { RENTABLE_SPACE_DETAIL_TABS, rentableSpaceActionAccess } from './portfol
 
 export type RentableSpaceDetailTab = (typeof RENTABLE_SPACE_DETAIL_TABS)[number]['key'];
 
+export const RENTABLE_SPACE_RETIREMENT_CONFIRMATION =
+  'Retire this rentable space? This lifecycle action is permanent for normal operations.';
+
+export function confirmRentableSpaceRetirement(
+  confirmAction: (message: string) => boolean,
+): boolean {
+  return confirmAction(RENTABLE_SPACE_RETIREMENT_CONFIRMATION);
+}
+
 export interface SpaceOperationRecord {
   id: string;
   propertyId: string;
@@ -881,6 +890,8 @@ export function RentableSpaceOperations({
             <form
               className="space-y-4 rounded-xl border border-red-200 bg-red-50 p-4"
               onSubmit={(event) => {
+                event.preventDefault();
+                if (!confirmRentableSpaceRetirement((message) => window.confirm(message))) return;
                 const form = new FormData(event.currentTarget);
                 void mutate(event, `/rentable-spaces/${detail.id}/retire`, 'POST', {
                   effectiveDate: value(form, 'effectiveDate'),

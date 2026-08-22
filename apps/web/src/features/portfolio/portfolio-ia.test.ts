@@ -8,9 +8,14 @@ import {
   portfolioNavigationView,
   propertyTimeline,
   rentableSpaceActionAccess,
+  rentableSpaceDetailHref,
 } from './portfolio-ia';
 
 describe('Phase 4 Portfolio information architecture', () => {
+  it('routes Rentable Space register actions to the dedicated detail workspace', () => {
+    expect(rentableSpaceDetailHref('space/id')).toBe('/portfolio/rentable-spaces/space%2Fid');
+  });
+
   it('exposes the complete Property hierarchy with no generic Operations item', () => {
     expect(PORTFOLIO_NAVIGATION.properties.map((item) => item.label)).toEqual([
       'Property Register',

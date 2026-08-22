@@ -1,6 +1,6 @@
 # Phase 4 Portfolio operational UX closure report
 
-Date: 2026-08-21
+Date: 2026-08-22
 Branch: `codex/phase4-portfolio-operational-ux-closure`
 Phase 5: not started
 
@@ -22,7 +22,7 @@ Phase 5: not started
 | Governance                | PASS — 46 operational Phase 1–4 models/tables; Phase 5 not started                                   |
 | Lint                      | PASS                                                                                                 |
 | Strict TypeScript         | PASS                                                                                                 |
-| Default/unit              | PASS — database 3, web 42, API 35                                                                    |
+| Default/unit              | PASS — database 3, web 45, API 35                                                                    |
 | Integration               | PASS — database 1, API 9                                                                             |
 | E2E                       | PASS — 4 files, 40 tests; focused Phase 4 18/18                                                      |
 | Production build          | PASS — static Portfolio plus dynamic Property/Building/Rentable Space routes                         |
@@ -39,14 +39,31 @@ Phase 5: not started
 
 Required viewports: 1440, 768, and 390.
 
-Result: **BLOCKED**. Two clean attempts to initialize the required in-app browser failed before navigation with Windows sandbox error `helper_unknown_error: apply deny-read ACLs`. No responsive or interactive PASS is claimed without current visual evidence.
+Result: **PASS**.
+
+- Repaired the Codex browser sandbox state by preserving the corrupt deny-read ACL state as `deny_read_acl_state.corrupt-20260822.bak`; Codex regenerated valid state and the browser review completed normally.
+- Reviewed all 19 required workspaces at 1440 px, 768 px, and 390 px. Navigation, nested/mobile sidebar behavior, task-based active routes, page/action alignment, filter wrapping, horizontal table handling, detail tabs, dialogs, touch access, and blue design-system consistency passed without unintended page overflow or clipped labels.
+- Verified Property quick preview remains concise and routes complex work to the dedicated Property page.
+- Verified Property → Add Building and Building → Add Rentable Space context, including the actionable zero-space Building state and preselected Property/Building values.
+- Verified Property Ownership displays Current/Scheduled/Historical period classification and readable effective periods without a meaningless status column.
+- Verified Property Documents exposes Upload, View, Download, Versions, metadata, versioning, and archive actions; category/access/status values are human-readable and storage keys are not exposed.
+- Verified case-insensitive searchable selectors, keyboard operation, selected-value preservation, and no first-result auto-selection.
+- Verified mobile focused-workspace filter sheets fit within the viewport and expose Reset/Apply controls.
+
+Defects found, fixed, regression-tested, and re-reviewed:
+
+- Rentable Space Register `Manage` now opens the dedicated detail route instead of a large multi-tab management drawer.
+- Rentable Space list rows now receive Property and parent-space names from the focused server read model instead of relying on the currently loaded Property page.
+- Searchable selector icon padding no longer overlaps selected text at mobile widths.
+- Focused Rentable Space workspaces no longer show irrelevant Space Register filters and now display their own task-based page title.
+- Permanent Rentable Space retirement now requires an explicit confirmation; cancellation was manually verified to preserve Active state.
 
 ## Gate status
 
-- Backend/data/document functional closure: PASS.
-- Automated regression gate: PASS.
-- Manual responsive/UI evidence: BLOCKED.
-- Portfolio operational UX closure: FAIL pending manual evidence.
-- Ready for Phase 5: NO.
+- RESPONSIVE REVIEW: PASS
+- BACKEND/DATA/DOCUMENT FUNCTIONAL CLOSURE: PASS
+- AUTOMATED REGRESSION GATE: PASS
+- PORTFOLIO OPERATIONAL UX CLOSURE: PASS
+- READY FOR PHASE 5: YES
 
-Phase 5 has not been started.
+Phase 5 has NOT been started.

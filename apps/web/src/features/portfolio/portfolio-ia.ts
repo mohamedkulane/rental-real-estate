@@ -41,6 +41,10 @@ export function portfolioNavigationView(
   const options = PORTFOLIO_NAVIGATION[section];
   return options.some((option) => option.key === requested) ? String(requested) : options[0].key;
 }
+
+export function rentableSpaceDetailHref(spaceId: string): string {
+  return '/portfolio/rentable-spaces/' + encodeURIComponent(spaceId);
+}
 export const PROPERTY_DETAIL_TABS = [
   { key: 'overview', label: 'Property Details' },
   { key: 'buildings', label: 'Buildings' },

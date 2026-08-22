@@ -1617,6 +1617,7 @@ export class PortfolioService {
         property: {
           select: {
             id: true,
+            propertyCode: true,
             name: true,
             branchAssignments: {
               where: {
@@ -1630,7 +1631,9 @@ export class PortfolioService {
         type: true,
         building: true,
         versions: { orderBy: { effectiveFrom: 'desc' } },
-        childRelations: true,
+        childRelations: {
+          include: { parent: { select: { id: true, name: true, spaceCode: true } } },
+        },
         parentRelations: true,
         landProfile: true,
         residentialProfile: true,

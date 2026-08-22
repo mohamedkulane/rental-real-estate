@@ -910,6 +910,17 @@ export function FocusedPortfolioWorkspace({ workspace }: { workspace: FocusedWor
 
   return (
     <section className="space-y-4">
+      <header>
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+          Dedicated workspace
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+          {config.title}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Search, filter, and review authorized {config.title.toLowerCase()}.
+        </p>
+      </header>
       <form
         className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
         onSubmit={(event) => {

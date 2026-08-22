@@ -34,7 +34,11 @@ import { CursorPaginationControls } from '@/components/shared/pagination';
 import { PartyDirectory, type PartyRecord } from './pages/party-directory';
 import { OwnerDirectory, type OwnerDetailTab, type OwnerRecord } from './pages/owner-directory';
 import { AmenityDirectory, type AmenityRecord } from './pages/amenity-directory';
-import { PORTFOLIO_NAVIGATION, portfolioNavigationView } from './portfolio-ia';
+import {
+  PORTFOLIO_NAVIGATION,
+  portfolioNavigationView,
+  rentableSpaceDetailHref,
+} from './portfolio-ia';
 import { FocusedPortfolioWorkspace } from './focused-portfolio-workspace';
 import {
   isAggregatePortfolioView,
@@ -49,12 +53,17 @@ type Property = PropertyRecord;
 type Space = {
   id: string;
   propertyId: string;
+  property: { id: string; propertyCode: string; name: string };
   spaceCode: string;
   name: string;
   status: string;
   type: { code: string; name: string };
   versions: { usableArea: string | null; areaUnit: string | null }[];
-  childRelations: { parentSpaceId: string; effectiveTo: string | null }[];
+  childRelations: {
+    parentSpaceId: string;
+    effectiveTo: string | null;
+    parent?: { id: string; name: string; spaceCode: string };
+  }[];
   building?: { id: string; name: string; buildingCode: string } | null;
 };
 type Amenity = AmenityRecord;
@@ -1033,16 +1042,9 @@ export function PortfolioConsole() {
           <small>{item.code}</small>
         </article>
       ));
-    const list = records as Space[];
-    const propertyName = (propertyId: string) =>
-      properties.find((property) => property.id === propertyId)?.name ?? 'Property not loaded';
     const parentName = (space: Space) => {
-      const parentId = space.childRelations.find(
-        (relation) => !relation.effectiveTo,
-      )?.parentSpaceId;
-      return parentId
-        ? (list.find((candidate) => candidate.id === parentId)?.name ?? 'Parent space')
-        : 'None';
+      const relation = space.childRelations.find((candidate) => !candidate.effectiveTo);
+      return relation?.parent?.name ?? (relation ? 'Parent space' : 'None');
     };
     return (
       <div className="overflow-x-auto">
@@ -1078,9 +1080,7 @@ export function PortfolioConsole() {
                   <strong className="block text-sm text-slate-900">{item.name}</strong>
                   <span className="text-xs text-slate-500">{item.spaceCode}</span>
                 </td>
-                <td className="px-4 py-4 text-sm text-slate-700">
-                  {propertyName(item.propertyId)}
-                </td>
+                <td className="px-4 py-4 text-sm text-slate-700">{item.property.name}</td>
                 <td className="px-4 py-4 text-sm text-slate-700">
                   {item.building?.name ?? 'Standalone'}
                 </td>
@@ -1095,10 +1095,7 @@ export function PortfolioConsole() {
                 <td className="px-4 py-4 text-right">
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedSpaceId(item.id);
-                      setShowActions(true);
-                    }}
+                    onClick={() => router.push(rentableSpaceDetailHref(item.id))}
                     className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                   >
                     {canManageSpaces ? 'Manage' : 'View'}
@@ -1411,32 +1408,34 @@ export function PortfolioConsole() {
         </>
       ) : (
         <section className="space-y-6">
-          <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-            <div>
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                Portfolio
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                Rentable spaces
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                Canonical rentable spaces, measurements, hierarchy, and retirement history.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedSpaceId('');
-                setShowActions(true);
-              }}
-              className={
-                (hasPermission(principal, 'portfolio.space.create') ? 'inline-flex' : 'hidden') +
-                ' items-center justify-center rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]'
-              }
-            >
-              Add rentable space
-            </button>
-          </header>
+          {!isAggregatePortfolioView('spaces', activeView) ? (
+            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                  Portfolio
+                </p>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                  Rentable spaces
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                  Canonical rentable spaces, measurements, hierarchy, and retirement history.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSpaceId('');
+                  setShowActions(true);
+                }}
+                className={
+                  (hasPermission(principal, 'portfolio.space.create') ? 'inline-flex' : 'hidden') +
+                  ' items-center justify-center rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]'
+                }
+              >
+                Add rentable space
+              </button>
+            </header>
+          ) : null}
           {error ? (
             <div
               className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
@@ -1453,7 +1452,7 @@ export function PortfolioConsole() {
               {success}
             </div>
           ) : null}
-          {active === 'spaces' ? (
+          {active === 'spaces' && !isAggregatePortfolioView('spaces', activeView) ? (
             <div className="grid items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-5">
               <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
                 <span>Search</span>

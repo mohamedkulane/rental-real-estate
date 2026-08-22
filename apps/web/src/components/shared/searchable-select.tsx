@@ -212,7 +212,7 @@ export function SearchableSelect({
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className={(className ?? '') + ' w-full pl-10 pr-16'}
+          className={(className ?? '') + ' w-full !pl-10 !pr-16'}
         />
         {selectedValue && !disabled ? (
           <button
