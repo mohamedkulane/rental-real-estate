@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 export type RecordNumberKind =
-  'BRANCH' | 'EMPLOYEE' | 'PARTY' | 'OWNER' | 'PROPERTY' | 'BUILDING' | 'SPACE';
+  'BRANCH' | 'EMPLOYEE' | 'PARTY' | 'OWNER' | 'PROPERTY' | 'BUILDING' | 'SPACE' | 'ENGAGEMENT';
 
 const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; width: number }> = {
   BRANCH: { prefix: 'BR', sequence: 'public.branch_record_number_seq', width: 3 },
@@ -11,6 +11,11 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   PROPERTY: { prefix: 'PROP', sequence: 'public.property_record_number_seq', width: 4 },
   BUILDING: { prefix: 'BLD', sequence: 'public.building_record_number_seq', width: 4 },
   SPACE: { prefix: 'SPC', sequence: 'public.space_record_number_seq', width: 4 },
+  ENGAGEMENT: {
+    prefix: 'ENG',
+    sequence: 'public.service_engagement_record_number_seq',
+    width: 6,
+  },
 };
 
 export async function nextRecordNumber(

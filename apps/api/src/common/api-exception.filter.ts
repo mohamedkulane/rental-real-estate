@@ -35,7 +35,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
           ? 'Active Property requires exactly one operating branch for the effective period.'
           : databaseMessage.includes('usable area')
             ? 'The RentableSpace area conflicts with its effective parent configuration.'
-            : undefined;
+            : databaseMessage.includes('incompatible active Service Engagement')
+              ? 'An incompatible active Service Engagement already covers this scope and effective period.'
+              : databaseMessage.includes('Company Owned engagement requires')
+                ? 'Company Owned requires effective Property ownership by the Company Party for the full Engagement period.'
+                : databaseMessage.includes('Service Engagement Rentable Space')
+                  ? 'The Rentable Space must belong to the selected Property.'
+                  : databaseMessage.includes('Service Engagement Property')
+                    ? 'The Property must belong to the current Company.'
+                    : databaseMessage.includes('Service Engagement history is append-only')
+                      ? 'Service Engagement lifecycle history is append-only.'
+                      : undefined;
     const statusCode = isHttp
       ? exception.getStatus()
       : prismaCode === 'P2025'

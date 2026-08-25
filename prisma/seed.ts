@@ -4,7 +4,17 @@ import { loadEnvFile } from 'node:process';
 import { uuidv7 } from '@rerms/shared';
 import { hash } from 'argon2';
 import { parseSeedEnvironment } from '@rerms/config';
-import { PrismaClient, BranchAccessMode, PartyKind, UserStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  BranchAccessMode,
+  OwnerStatus,
+  PartyKind,
+  PropertyStatus,
+  RentableSpaceStatus,
+  ServiceEngagementStatus,
+  ServiceModel,
+  UserStatus,
+} from '@prisma/client';
 
 const environmentFile = resolve(__dirname, '../.env');
 if (existsSync(environmentFile)) loadEnvFile(environmentFile);
@@ -46,6 +56,10 @@ async function synchronizeRecordNumberSequences(): Promise<void> {
       SELECT MAX(substring("spaceCode" FROM '^SPC-([0-9]+)$')::bigint)
         INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^SPC-[0-9]+$';
       PERFORM setval('space_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("engagementNumber" FROM '^ENG-([0-9]+)$')::bigint)
+        INTO maximum_value FROM service_engagements WHERE "engagementNumber" ~ '^ENG-[0-9]+$';
+      PERFORM setval('service_engagement_record_number_seq', COALESCE(maximum_value + 1, 1), false);
     END $$;
   `;
 }
@@ -93,6 +107,13 @@ const permissions = [
   ['portfolio.amenity.manage', 'Manage property and space amenities'],
   ['portfolio.document.read', 'Read portfolio document metadata'],
   ['portfolio.document.manage', 'Manage portfolio document metadata'],
+  ['service-engagement.read', 'Read Service Engagements'],
+  ['service-engagement.create', 'Create Service Engagement drafts'],
+  ['service-engagement.update', 'Update permitted Service Engagement fields'],
+  ['service-engagement.activate', 'Activate Service Engagements'],
+  ['service-engagement.deactivate', 'Deactivate Service Engagements'],
+  ['service-engagement.cancel', 'Cancel Service Engagements'],
+  ['service-engagement.capability.read', 'Resolve effective commercial capabilities'],
 ] as const;
 
 const rolePermissions: Record<string, readonly string[]> = {
@@ -141,6 +162,13 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.amenity.manage',
     'portfolio.document.read',
     'portfolio.document.manage',
+    'service-engagement.read',
+    'service-engagement.create',
+    'service-engagement.update',
+    'service-engagement.activate',
+    'service-engagement.deactivate',
+    'service-engagement.cancel',
+    'service-engagement.capability.read',
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -167,6 +195,13 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.amenity.manage',
     'portfolio.document.read',
     'portfolio.document.manage',
+    'service-engagement.read',
+    'service-engagement.create',
+    'service-engagement.update',
+    'service-engagement.activate',
+    'service-engagement.deactivate',
+    'service-engagement.cancel',
+    'service-engagement.capability.read',
   ],
   LEASING_AGENT: [
     'organization.branch.read',
@@ -182,6 +217,8 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.ownership.read',
     'portfolio.amenity.read',
     'portfolio.document.read',
+    'service-engagement.read',
+    'service-engagement.capability.read',
   ],
   ACCOUNTANT: [
     'organization.branch.read',
@@ -195,6 +232,8 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.building.read',
     'portfolio.ownership.read',
     'portfolio.document.read',
+    'service-engagement.read',
+    'service-engagement.capability.read',
   ],
   MAINTENANCE_COORDINATOR: [
     'organization.branch.read',
@@ -262,6 +301,57 @@ async function seed(): Promise<void> {
       active: true,
     },
   });
+
+  const companyPartyNumber = `PTY-COMP-${company.id.replaceAll('-', '').slice(0, 12)}`;
+  const existingCompanyParty = company.legalPartyId
+    ? await database.party.findUnique({ where: { id: company.legalPartyId } })
+    : null;
+  const companyParty =
+    existingCompanyParty ??
+    (await database.party.upsert({
+      where: {
+        companyId_partyNumber: { companyId: company.id, partyNumber: companyPartyNumber },
+      },
+      update: {
+        displayName: company.legalName ?? company.name,
+        active: true,
+      },
+      create: {
+        id: uuidv7(),
+        companyId: company.id,
+        partyNumber: companyPartyNumber,
+        kind: PartyKind.ORGANIZATION,
+        displayName: company.legalName ?? company.name,
+        active: true,
+      },
+    }));
+  if (existingCompanyParty) {
+    await database.party.update({
+      where: { id: existingCompanyParty.id },
+      data: { displayName: company.legalName ?? company.name, active: true },
+    });
+  }
+  await database.organizationProfile.upsert({
+    where: { partyId: companyParty.id },
+    update: { legalName: company.legalName ?? company.name },
+    create: { partyId: companyParty.id, legalName: company.legalName ?? company.name },
+  });
+  await database.ownerProfile.upsert({
+    where: { partyId: companyParty.id },
+    update: { status: OwnerStatus.ACTIVE, verifiedAt: new Date() },
+    create: {
+      partyId: companyParty.id,
+      ownerNumber: `OWN-COMP-${company.id.replaceAll('-', '').slice(0, 12)}`,
+      status: OwnerStatus.ACTIVE,
+      verifiedAt: new Date(),
+    },
+  });
+  if (company.legalPartyId !== companyParty.id) {
+    await database.company.update({
+      where: { id: company.id },
+      data: { legalPartyId: companyParty.id },
+    });
+  }
 
   const branchInputs = [
     [environment.SEED_BRANCH_CODE, 'Head Office'],
@@ -461,11 +551,116 @@ async function seed(): Promise<void> {
       },
     });
 
+  let sampleProperty = await database.property.findUnique({
+    where: {
+      companyId_propertyCode: { companyId: company.id, propertyCode: 'PROP-P5-DEMO' },
+    },
+  });
+  if (!sampleProperty) {
+    sampleProperty = await database.$transaction(async (transaction) => {
+      const ownershipId = uuidv7();
+      return transaction.property.create({
+        data: {
+          id: uuidv7(),
+          companyId: company.id,
+          propertyCode: 'PROP-P5-DEMO',
+          name: 'Company Commercial Demonstration Property',
+          propertyType: 'COMMERCIAL_BUILDING',
+          status: PropertyStatus.ACTIVE,
+          city: 'Mogadishu',
+          description: 'Idempotent Phase 5.1 capability-resolution sample.',
+          propertyLifecycleHistories: {
+            create: {
+              id: uuidv7(),
+              status: PropertyStatus.ACTIVE,
+              effectiveFrom: today,
+              reason: 'Phase 5.1 seed activation',
+              actorUserId: user.id,
+            },
+          },
+          branchAssignments: {
+            create: { id: uuidv7(), branchId: branches[0]!.id, effectiveFrom: today },
+          },
+          ownerships: {
+            create: {
+              id: ownershipId,
+              ownerPartyId: companyParty.id,
+              ownershipPercent: '100',
+              effectiveFrom: today,
+              entitlements: {
+                create: {
+                  id: uuidv7(),
+                  payoutPercent: '100',
+                  effectiveFrom: today,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+  }
+  const wholePropertyType = await database.rentableSpaceType.findUniqueOrThrow({
+    where: { code: 'ENTIRE_PROPERTY' },
+  });
+  let sampleSpace = await database.rentableSpace.findFirst({
+    where: { propertyId: sampleProperty.id, spaceCode: 'SPC-P5-DEMO' },
+  });
+  if (!sampleSpace) {
+    sampleSpace = await database.rentableSpace.create({
+      data: {
+        id: uuidv7(),
+        propertyId: sampleProperty.id,
+        typeId: wholePropertyType.id,
+        spaceCode: 'SPC-P5-DEMO',
+        name: 'Entire Demonstration Property',
+        status: RentableSpaceStatus.ACTIVE,
+        versions: {
+          create: {
+            id: uuidv7(),
+            versionNo: 1,
+            effectiveFrom: today,
+            label: 'Initial whole-property rental scope',
+          },
+        },
+      },
+    });
+  }
+  await database.serviceEngagement.upsert({
+    where: {
+      companyId_engagementNumber: {
+        companyId: company.id,
+        engagementNumber: 'ENG-000001',
+      },
+    },
+    update: { notes: 'Company-owned capability baseline for Phase 5.1.' },
+    create: {
+      id: uuidv7(),
+      companyId: company.id,
+      engagementNumber: 'ENG-000001',
+      serviceModel: ServiceModel.COMPANY_OWNED,
+      status: ServiceEngagementStatus.ACTIVE,
+      propertyId: sampleProperty.id,
+      effectiveFrom: today,
+      notes: 'Company-owned capability baseline for Phase 5.1.',
+      createdByUserId: user.id,
+      history: {
+        create: {
+          id: uuidv7(),
+          toStatus: ServiceEngagementStatus.ACTIVE,
+          action: 'SEEDED',
+          reason: 'Phase 5.1 idempotent sample data',
+          actorUserId: user.id,
+        },
+      },
+    },
+  });
+
   // Seeded business identifiers must reserve their values before normal API writes begin.
   await synchronizeRecordNumberSequences();
 
   console.info(
-    `Seeded Phase 4 foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
+    `Seeded Phase 5.1 foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
   );
 }
 

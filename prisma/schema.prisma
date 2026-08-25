@@ -8,29 +8,32 @@ datasource db {
 }
 
 model Company {
-  id                String           @id @db.Uuid
-  singletonKey      Boolean          @unique @default(true)
-  code              String           @unique @db.VarChar(32)
-  name              String           @db.VarChar(200)
-  legalName         String?          @db.VarChar(240)
-  displayName       String?          @db.VarChar(200)
-  phone             String?          @db.VarChar(40)
-  email             String?          @db.VarChar(320)
-  address           Json?
-  logoMetadata      Json?
-  defaultCurrency   String           @db.Char(3)
-  timezone          String           @db.VarChar(64)
-  active            Boolean          @default(true)
-  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
-  approval_policies ApprovalPolicy[]
-  branches          Branch[]
-  departments       Department[]
-  documents         Document[]
-  employees         Employee[]
-  parties           Party[]
-  properties        Property[]
-  roles             Role[]
+  id                 String              @id @db.Uuid
+  singletonKey       Boolean             @unique @default(true)
+  code               String              @unique @db.VarChar(32)
+  name               String              @db.VarChar(200)
+  legalName          String?             @db.VarChar(240)
+  displayName        String?             @db.VarChar(200)
+  phone              String?             @db.VarChar(40)
+  email              String?             @db.VarChar(320)
+  address            Json?
+  logoMetadata       Json?
+  legalPartyId       String?             @unique @db.Uuid
+  defaultCurrency    String              @db.Char(3)
+  timezone           String              @db.VarChar(64)
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(6)
+  approval_policies  ApprovalPolicy[]
+  branches           Branch[]
+  departments        Department[]
+  documents          Document[]
+  employees          Employee[]
+  parties            Party[]             @relation("CompanyParties")
+  legalParty         Party?              @relation("CompanyLegalParty", fields: [legalPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  properties         Property[]
+  roles              Role[]
+  serviceEngagements ServiceEngagement[]
 
   @@map("companies")
 }
@@ -71,19 +74,21 @@ model Department {
 }
 
 model User {
-  id                                                String               @id @db.Uuid
-  emailNormalized                                   String               @unique @db.VarChar(320)
-  passwordHash                                      String?              @db.VarChar(255)
-  status                                            UserStatus           @default(PENDING)
-  passwordChangedAt                                 DateTime?            @db.Timestamptz(6)
-  createdAt                                         DateTime             @default(now()) @db.Timestamptz(6)
-  updatedAt                                         DateTime             @updatedAt @db.Timestamptz(6)
-  audit_logs_audit_logs_actorUserIdTousers          AuditLog[]           @relation("audit_logs_actorUserIdTousers")
-  audit_logs_audit_logs_effectiveActorUserIdTousers AuditLog[]           @relation("audit_logs_effectiveActorUserIdTousers")
+  id                                                String                     @id @db.Uuid
+  emailNormalized                                   String                     @unique @db.VarChar(320)
+  passwordHash                                      String?                    @db.VarChar(255)
+  status                                            UserStatus                 @default(PENDING)
+  passwordChangedAt                                 DateTime?                  @db.Timestamptz(6)
+  createdAt                                         DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt                                         DateTime                   @updatedAt @db.Timestamptz(6)
+  audit_logs_audit_logs_actorUserIdTousers          AuditLog[]                 @relation("audit_logs_actorUserIdTousers")
+  audit_logs_audit_logs_effectiveActorUserIdTousers AuditLog[]                 @relation("audit_logs_effectiveActorUserIdTousers")
   document_versions                                 DocumentVersion[]
   employee                                          Employee?
   passwordResets                                    PasswordResetToken[]
   sessions                                          Session[]
+  serviceEngagementsCreated                         ServiceEngagement[]        @relation("ServiceEngagementCreatedBy")
+  serviceEngagementHistory                          ServiceEngagementHistory[] @relation("ServiceEngagementHistoryActor")
 
   @@map("users")
 }
@@ -220,7 +225,8 @@ model Party {
   employee                                                       Employee?
   organization                                                   OrganizationProfile?
   owner                                                          OwnerProfile?
-  company                                                        Company                 @relation(fields: [companyId], references: [id], onUpdate: NoAction)
+  company                                                        Company                 @relation("CompanyParties", fields: [companyId], references: [id], onUpdate: NoAction)
+  representedCompany                                             Company?                @relation("CompanyLegalParty")
   branchAssignments                                              PartyBranchAssignment[]
   party_relationships_party_relationships_sourcePartyIdToparties PartyRelationship[]     @relation("party_relationships_sourcePartyIdToparties")
   party_relationships_party_relationships_targetPartyIdToparties PartyRelationship[]     @relation("party_relationships_targetPartyIdToparties")
@@ -349,6 +355,7 @@ model Property {
   ownerships                 PropertyOwnership[]
   spaces                     RentableSpace[]
   propertyLifecycleHistories PropertyLifecycleHistory[]
+  serviceEngagements         ServiceEngagement[]
 
   @@unique([companyId, propertyCode], map: "uq_properties_company_code")
   @@index([companyId, status, propertyType], map: "properties_company_status_type_idx")
@@ -464,10 +471,55 @@ model RentableSpace {
   amenities                                                             SpaceAmenity[]
   space_successors_space_successors_predecessorSpaceIdTorentable_spaces SpaceSuccessor[]             @relation("space_successors_predecessorSpaceIdTorentable_spaces")
   space_successors_space_successors_successorSpaceIdTorentable_spaces   SpaceSuccessor[]             @relation("space_successors_successorSpaceIdTorentable_spaces")
+  serviceEngagements                                                    ServiceEngagement[]
 
   @@unique([propertyId, spaceCode], map: "uq_rentable_space_property_code")
   @@index([propertyId, status, typeId], map: "rentable_space_property_status_type_idx")
   @@map("rentable_spaces")
+}
+
+model ServiceEngagement {
+  id               String                     @id @db.Uuid
+  companyId        String                     @db.Uuid
+  engagementNumber String                     @db.VarChar(40)
+  serviceModel     ServiceModel
+  status           ServiceEngagementStatus    @default(DRAFT)
+  propertyId       String                     @db.Uuid
+  rentableSpaceId  String?                    @db.Uuid
+  effectiveFrom    DateTime                   @db.Date
+  effectiveTo      DateTime?                  @db.Date
+  notes            String?
+  createdByUserId  String                     @db.Uuid
+  version          Int                        @default(1)
+  createdAt        DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime                   @default(now()) @updatedAt @db.Timestamptz(6)
+  company          Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property         Property                   @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace    RentableSpace?             @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy        User                       @relation("ServiceEngagementCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  history          ServiceEngagementHistory[]
+
+  @@unique([companyId, engagementNumber], map: "uq_service_engagement_company_number")
+  @@index([companyId, status, serviceModel, createdAt(sort: Desc), id(sort: Desc)], map: "service_engagement_company_status_model_created_idx")
+  @@index([propertyId, effectiveFrom, effectiveTo], map: "service_engagement_property_period_idx")
+  @@index([rentableSpaceId, effectiveFrom, effectiveTo], map: "service_engagement_space_period_idx")
+  @@map("service_engagements")
+}
+
+model ServiceEngagementHistory {
+  id                  String                   @id @db.Uuid
+  serviceEngagementId String                   @db.Uuid
+  fromStatus          ServiceEngagementStatus?
+  toStatus            ServiceEngagementStatus
+  action              String                   @db.VarChar(40)
+  reason              String?                  @db.VarChar(500)
+  actorUserId         String                   @db.Uuid
+  occurredAt          DateTime                 @default(now()) @db.Timestamptz(6)
+  engagement          ServiceEngagement        @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor               User                     @relation("ServiceEngagementHistoryActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([serviceEngagementId, occurredAt(sort: Desc), id(sort: Desc)], map: "service_engagement_history_timeline_idx")
+  @@map("service_engagement_history")
 }
 
 model RentableSpaceVersion {
@@ -781,6 +833,24 @@ enum RentableSpaceStatus {
   DRAFT
   ACTIVE
   RETIRED
+}
+
+enum ServiceModel {
+  RENTAL_BROKERAGE
+  SALE_BROKERAGE
+  TENANT_PLACEMENT
+  FULL_MANAGEMENT
+  RENT_COLLECTION_ONLY
+  MASTER_LEASE_SUBLEASE
+  COMPANY_OWNED
+}
+
+enum ServiceEngagementStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  CANCELLED
 }
 
 enum AreaUnit {

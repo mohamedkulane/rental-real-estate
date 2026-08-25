@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Building2,
+  BriefcaseBusiness,
   ChevronRight,
   ClipboardList,
   Home,
@@ -24,7 +25,8 @@ import {
   type NavigationItem,
 } from './navigation-model';
 
-export type ShellSection = 'overview' | 'organization' | 'portfolio' | 'administration';
+export type ShellSection =
+  'overview' | 'organization' | 'portfolio' | 'commercial' | 'administration';
 export type ShellSubItem = NavigationItem;
 
 type NavItem = ShellSubItem & { icon?: typeof Home | undefined };
@@ -83,8 +85,7 @@ function NavGroup({
               {Icon ? (
                 <Icon
                   className={
-                    'h-[18px] w-[18px] shrink-0 ' +
-                    (selected ? 'text-[#90CAF9]' : 'text-slate-400')
+                    'h-[18px] w-[18px] shrink-0 ' + (selected ? 'text-[#90CAF9]' : 'text-slate-400')
                   }
                   aria-hidden="true"
                 />
@@ -183,6 +184,7 @@ export function AppShell({
   const organization = subNavigation.organization ?? [];
   const administration = subNavigation.administration ?? [];
   const portfolio = subNavigation.portfolio ?? [];
+  const commercial = subNavigation.commercial ?? [];
   const pick = (items: ShellSubItem[], keys: string[], icons: Record<string, typeof Home> = {}) =>
     keys
       .map((key) => items.find((item) => item.key === key))
@@ -236,10 +238,7 @@ export function AppShell({
   const portfolioItems = portfolio.length
     ? portfolio
     : [
-        ...allowed(
-          'party.read',
-          go('parties', 'Parties', '/portfolio?section=parties', Users),
-        ),
+        ...allowed('party.read', go('parties', 'Parties', '/portfolio?section=parties', Users)),
         ...allowed('owner.read', go('owners', 'Owners', '/portfolio?section=owners', Users)),
         ...allowed(
           'portfolio.property.read',
@@ -263,6 +262,24 @@ export function AppShell({
           ? Building2
           : undefined,
   }));
+  const commercialItems: NavItem[] = commercial.length
+    ? commercial.map((item) => ({ ...item, icon: BriefcaseBusiness }))
+    : can('service-engagement.read')
+      ? [
+          {
+            key: 'service-engagements',
+            label: 'Service Engagements',
+            icon: BriefcaseBusiness,
+            children: [
+              {
+                key: 'engagement-register',
+                label: 'Engagement Register',
+                onSelect: () => window.location.assign('/commercial/service-engagements'),
+              },
+            ],
+          },
+        ]
+      : [];
 
   const oversight = administration.length
     ? pick(administration, ['audit'], { audit: ClipboardList })
@@ -354,6 +371,12 @@ export function AppShell({
           <NavGroup
             title="Portfolio"
             items={decoratedPortfolioItems}
+            activeItem={activeItem}
+            onNavigate={() => setOpen(false)}
+          />
+          <NavGroup
+            title="Commercial"
+            items={commercialItems}
             activeItem={activeItem}
             onNavigate={() => setOpen(false)}
           />

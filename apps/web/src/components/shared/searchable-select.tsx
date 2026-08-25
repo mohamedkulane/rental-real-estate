@@ -56,6 +56,7 @@ export function SearchableSelect({
   disabled,
   value,
   defaultValue,
+  autoFocus,
   ...props
 }: SearchableSelectProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -83,6 +84,13 @@ export function SearchableSelect({
   const selectedOption = childOptions.find(
     (option) => String(option.props.value ?? '') === selectedValue,
   );
+  const selectedOptionCache = useRef<OptionElement | undefined>(undefined);
+  if (selectedOption) selectedOptionCache.current = selectedOption;
+  const preservedSelectedOption =
+    selectedOption ??
+    (String(selectedOptionCache.current?.props.value ?? '') === selectedValue
+      ? selectedOptionCache.current
+      : undefined);
   const placeholder =
     childOptions.find((option) => String(option.props.value ?? '') === '')?.props.children ??
     searchPlaceholder;
@@ -131,6 +139,7 @@ export function SearchableSelect({
           disabled={disabled}
           value={value}
           defaultValue={defaultValue}
+          autoFocus={autoFocus}
           onChange={onChange}
           aria-label={ariaLabel}
           className={className}
@@ -176,6 +185,9 @@ export function SearchableSelect({
         className="sr-only"
       >
         {children}
+        {selectedValue && !selectedOption && preservedSelectedOption
+          ? preservedSelectedOption
+          : null}
       </select>
       <div className="relative">
         <Search
@@ -191,12 +203,14 @@ export function SearchableSelect({
           aria-activedescendant={open ? activeId : undefined}
           aria-autocomplete="list"
           autoComplete="off"
+          autoFocus={autoFocus}
           disabled={disabled}
           value={
             open
               ? query
               : searchableOptionText(
-                  selectedOption ?? ({ props: { children: placeholder } } as OptionElement),
+                  preservedSelectedOption ??
+                    ({ props: { children: placeholder } } as OptionElement),
                 )
           }
           placeholder={searchPlaceholder}
@@ -212,7 +226,7 @@ export function SearchableSelect({
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className={(className ?? '') + ' w-full !pl-10 !pr-16'}
+          className={(className ?? '') + ` w-full !pl-10 ${selectedValue ? '!pr-16' : '!pr-10'}`}
         />
         {selectedValue && !disabled ? (
           <button

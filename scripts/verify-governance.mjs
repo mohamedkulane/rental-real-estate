@@ -38,12 +38,25 @@ for (const phase of ['01-database', '02-foundation', '03-identity-access', '04-p
 }
 
 const metadata = JSON.parse(readFileSync(join(root, 'docs/governance/current-phase.json'), 'utf8'));
-if (metadata.completedPhase !== 4 || metadata.phase5Started !== false)
-  throw new Error('Current phase metadata must show Phase 4 complete and Phase 5 not started.');
+if (
+  metadata.completedPhase !== 4 ||
+  metadata.phase5Started !== true ||
+  metadata.phase5SubPhase !== '5.1' ||
+  metadata.currentGate !== 'PHASE_5_1_SERVICE_ENGAGEMENTS_PASS' ||
+  metadata.productionSchemaScope !== 'PHASES_1_TO_5_1_ONLY'
+)
+  throw new Error(
+    'Current phase metadata must show Phase 4 closed, Phase 5.1 passed, and Phase 5.2 not started.',
+  );
+
+const phase51Report = readFileSync(join(root, 'docs/phases/phase-05/completion-report.md'), 'utf8');
+if (!/PHASE 5\.1 SERVICE ENGAGEMENTS:\s*PASS/i.test(phase51Report))
+  throw new Error('Phase 5.1 completion report does not contain a PASS gate.');
+if (!/PHASE 5\.2 STARTED:\s*NO/i.test(phase51Report))
+  throw new Error('Phase 5.1 completion report must confirm Phase 5.2 has not started.');
 
 const schema = readFileSync(join(root, 'prisma/schema.prisma'), 'utf8');
 const forbiddenModels = [
-  'ServiceEngagement',
   'Lead',
   'Viewing',
   'RentalApplication',
@@ -93,5 +106,5 @@ try {
 }
 
 console.log(
-  `Governance verified: ${schemaTables.size} operational models/tables, Phase 4 complete, Phase 5 not started.`,
+  `Governance verified: ${schemaTables.size} operational models/tables, Phase 4 closed, Phase 5.1 passed, Phase 5.2 not started.`,
 );

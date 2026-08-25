@@ -1,7 +1,8 @@
 {
-    "completedPhase":  4,
-    "currentGate":  "FINAL_PHASE_1_4_CLOSURE_REMEDIATION_IN_PROGRESS",
-    "phase5Started":  false,
-    "productionSchemaScope":  "PHASES_1_TO_4_ONLY",
-    "canonicalClosureReport":  "docs/audits/pre-phase-05/final-closure-remediation-current.md"
+  "completedPhase": 4,
+  "currentGate": "PHASE_5_1_SERVICE_ENGAGEMENTS_PASS",
+  "phase5Started": true,
+  "phase5SubPhase": "5.1",
+  "productionSchemaScope": "PHASES_1_TO_5_1_ONLY",
+  "canonicalClosureReport": "docs/phases/phase-05/completion-report.md"
 }
