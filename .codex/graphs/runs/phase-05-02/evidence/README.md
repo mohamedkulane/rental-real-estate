@@ -6,3 +6,4 @@ Store or link durable evidence without committing secrets, generated databases, 
 | ----------- | -------------- | ------------- | ------------- | ----------- | ------------------ | ----------------- |
 | PRE-001 | Git baseline/status/log/worktree/stash inspection | 2026-08-25 | `fbe04db` | Windows workspace | PASS; protected root file and stash recorded | `status.md` |
 | DOMAIN-001 | Domain handoff and Root semantic contract review | 2026-08-25 | `7ffa212` | Isolated domain + integration worktrees | PASS; contract v1.0.0, no blockers, no future-phase leakage | `domain-decisions.md`, `integration-report.md` |
+| SEC-001 | Authorization contract handoff and Root review | 2026-08-25 | `2cbf00d` | Isolated security + integration worktrees | REVIEW; API unit 49/49, focused auth 12/12, seed handoff delivered | `authorization-contract.md`, `integration-report.md` |

@@ -9,6 +9,7 @@
 | Order | Source branch/SHA | Owner/scope | Resulting SHA | Conflicts/semantic decision | Focused checks |
 | ----- | ----------------- | ----------- | ------------- | --------------------------- | -------------- |
 | 1 | `codex/p5-02-domain` / `b6d27d4` | Agent 1 / CRM domain contract v1.0.0 | `7ffa212` | No conflict; V3 lifecycle wins over older architecture stages | Prettier, `git show --check`, Root semantic contract review PASS |
+| 2 | `codex/p5-02-security` / `4ab9c6c` | Agent 3 / authorization contract v1.0.0 and focused tests | `2cbf00d` | No conflict; existing authorization primitives retained, seed semantics handed to DB owner | API unit 49/49, focused auth 12/12, ESLint, typecheck, Prettier, `git show --check` |
 
 ## Final candidate
 
