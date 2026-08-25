@@ -7,6 +7,8 @@ import { parseSeedEnvironment } from '@rerms/config';
 import {
   PrismaClient,
   BranchAccessMode,
+  LeadIntent,
+  LeadStage,
   OwnerStatus,
   PartyKind,
   PropertyStatus,
@@ -60,6 +62,10 @@ async function synchronizeRecordNumberSequences(): Promise<void> {
       SELECT MAX(substring("engagementNumber" FROM '^ENG-([0-9]+)$')::bigint)
         INTO maximum_value FROM service_engagements WHERE "engagementNumber" ~ '^ENG-[0-9]+$';
       PERFORM setval('service_engagement_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("leadNumber" FROM '^LEAD-([0-9]+)$')::bigint)
+        INTO maximum_value FROM leads WHERE "leadNumber" ~ '^LEAD-[0-9]+$';
+      PERFORM setval('lead_record_number_seq', COALESCE(maximum_value + 1, 1), false);
     END $$;
   `;
 }
@@ -114,6 +120,25 @@ const permissions = [
   ['service-engagement.deactivate', 'Deactivate Service Engagements'],
   ['service-engagement.cancel', 'Cancel Service Engagements'],
   ['service-engagement.capability.read', 'Resolve effective commercial capabilities'],
+  ['crm.lead.read', 'Read CRM Leads'],
+  ['crm.lead.create', 'Create CRM Leads'],
+  ['crm.lead.update', 'Update permitted CRM Lead fields'],
+  ['crm.lead.stage', 'Perform controlled CRM Lead stage transitions'],
+  ['crm.activity.read', 'Read CRM Lead Activities'],
+  ['crm.activity.create', 'Append CRM Lead Activities'],
+  ['crm.activity.correct', 'Append CRM Activity corrections or voids'],
+  ['crm.followup.read', 'Read CRM Follow-ups'],
+  ['crm.followup.create', 'Create CRM Follow-ups'],
+  ['crm.followup.update', 'Reschedule open CRM Follow-ups'],
+  ['crm.followup.complete', 'Complete CRM Follow-ups'],
+  ['crm.followup.cancel', 'Cancel CRM Follow-ups'],
+  ['crm.assignment.read', 'Read CRM Lead assignment history'],
+  ['crm.assignment.manage', 'Assign and reassign CRM Leads'],
+  ['crm.lead.branch.transfer', 'Transfer CRM Lead responsibility between authorized Branches'],
+  ['crm.source.read', 'Read CRM Lead Sources'],
+  ['crm.source.manage', 'Manage Company-wide CRM Lead Sources'],
+  ['crm.lead.contact.read', 'Read sensitive CRM Lead contact fields'],
+  ['crm.lead.contact.export', 'Export sensitive CRM Lead contact fields'],
 ] as const;
 
 const rolePermissions: Record<string, readonly string[]> = {
@@ -169,6 +194,23 @@ const rolePermissions: Record<string, readonly string[]> = {
     'service-engagement.deactivate',
     'service-engagement.cancel',
     'service-engagement.capability.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.lead.stage',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.activity.correct',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.followup.update',
+    'crm.followup.complete',
+    'crm.followup.cancel',
+    'crm.assignment.read',
+    'crm.assignment.manage',
+    'crm.lead.branch.transfer',
+    'crm.source.read',
+    'crm.lead.contact.read',
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -202,6 +244,23 @@ const rolePermissions: Record<string, readonly string[]> = {
     'service-engagement.deactivate',
     'service-engagement.cancel',
     'service-engagement.capability.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.lead.stage',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.activity.correct',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.followup.update',
+    'crm.followup.complete',
+    'crm.followup.cancel',
+    'crm.assignment.read',
+    'crm.assignment.manage',
+    'crm.lead.branch.transfer',
+    'crm.source.read',
+    'crm.lead.contact.read',
   ],
   LEASING_AGENT: [
     'organization.branch.read',
@@ -219,6 +278,20 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.document.read',
     'service-engagement.read',
     'service-engagement.capability.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.lead.stage',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.followup.update',
+    'crm.followup.complete',
+    'crm.followup.cancel',
+    'crm.assignment.read',
+    'crm.source.read',
+    'crm.lead.contact.read',
   ],
   ACCOUNTANT: [
     'organization.branch.read',
@@ -266,6 +339,16 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.building.read',
     'portfolio.space.read',
     'portfolio.amenity.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.assignment.read',
+    'crm.source.read',
+    'crm.lead.contact.read',
   ],
 };
 
@@ -518,6 +601,27 @@ async function seed(): Promise<void> {
       },
     });
 
+  const leadSources = new Map<string, string>();
+  for (const [code, label, sortOrder] of [
+    ['WALK_IN', 'Walk-in', 10],
+    ['REFERRAL', 'Referral', 20],
+    ['WEBSITE', 'Website', 30],
+  ] as const) {
+    const source = await database.leadSource.upsert({
+      where: { companyId_code: { companyId: company.id, code } },
+      update: { label, sortOrder, status: 'ACTIVE' },
+      create: {
+        id: uuidv7(),
+        companyId: company.id,
+        code,
+        label,
+        sortOrder,
+        createdByUserId: user.id,
+      },
+    });
+    leadSources.set(code, source.id);
+  }
+
   const approvalPolicy = await database.approvalPolicy.upsert({
     where: {
       companyId_code_effectiveFrom: {
@@ -656,11 +760,86 @@ async function seed(): Promise<void> {
     },
   });
 
+  const referralSourceId = leadSources.get('REFERRAL');
+  if (!referralSourceId) throw new Error('REFERRAL Lead Source was not created');
+  const existingLead = await database.lead.findUnique({
+    where: { companyId_leadNumber: { companyId: company.id, leadNumber: 'LEAD-000001' } },
+  });
+  if (!existingLead) {
+    const recordedAt = new Date();
+    await database.lead.create({
+      data: {
+        id: uuidv7(),
+        companyId: company.id,
+        leadNumber: 'LEAD-000001',
+        intent: LeadIntent.RENT,
+        stage: LeadStage.NEW,
+        sourceId: referralSourceId,
+        responsibleBranchId: branches[0]!.id,
+        currentAssigneeEmployeeId: employee.id,
+        partyId: party.id,
+        displayName: party.displayName,
+        createdByUserId: user.id,
+        preferenceVersions: {
+          create: {
+            id: uuidv7(),
+            intent: LeadIntent.RENT,
+            versionNo: 1,
+            preferredAreaText: ['Mogadishu'],
+            effectiveFrom: recordedAt,
+            actorUserId: user.id,
+            reason: 'Phase 5.2 idempotent sample intake',
+            rent: {
+              create: {
+                propertyTypeCodes: ['COMMERCIAL_BUILDING'],
+                rentableSpaceTypeCodes: ['ENTIRE_PROPERTY'],
+                maxRent: '2500',
+                currency: 'USD',
+                rentPeriod: 'MONTHLY',
+                moveInDate: today,
+                rentableSpaceId: sampleSpace.id,
+              },
+            },
+          },
+        },
+        stageHistory: {
+          create: {
+            id: uuidv7(),
+            toStage: LeadStage.NEW,
+            reason: 'Phase 5.2 idempotent sample intake',
+            actorUserId: user.id,
+            leadVersion: 1,
+            occurredAt: recordedAt,
+          },
+        },
+        branchHistory: {
+          create: {
+            id: uuidv7(),
+            branchId: branches[0]!.id,
+            assignedFrom: recordedAt,
+            actorUserId: user.id,
+            reason: 'Phase 5.2 idempotent sample intake',
+          },
+        },
+        assignments: {
+          create: {
+            id: uuidv7(),
+            employeeId: employee.id,
+            branchId: branches[0]!.id,
+            assignedFrom: recordedAt,
+            actorUserId: user.id,
+            reason: 'Phase 5.2 idempotent sample assignment',
+          },
+        },
+      },
+    });
+  }
+
   // Seeded business identifiers must reserve their values before normal API writes begin.
   await synchronizeRecordNumberSequences();
 
   console.info(
-    `Seeded Phase 5.1 foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
+    `Seeded Phase 5.2 CRM foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
   );
 }
 
