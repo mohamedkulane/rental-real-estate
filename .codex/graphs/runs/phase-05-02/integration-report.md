@@ -8,6 +8,7 @@
 
 | Order | Source branch/SHA | Owner/scope | Resulting SHA | Conflicts/semantic decision | Focused checks |
 | ----- | ----------------- | ----------- | ------------- | --------------------------- | -------------- |
+| 1 | `codex/p5-02-domain` / `b6d27d4` | Agent 1 / CRM domain contract v1.0.0 | `7ffa212` | No conflict; V3 lifecycle wins over older architecture stages | Prettier, `git show --check`, Root semantic contract review PASS |
 
 ## Final candidate
 

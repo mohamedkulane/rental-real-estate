@@ -4,9 +4,9 @@
 
 - Contract ID/version: `CRM-DOMAIN-5.2` / `1.0.0`
 - Sub-phase: Phase 5.2 — CRM Foundation
-- Status: `REVIEW` — complete and approval-ready; Root owns approval
+- Status: `APPROVED`
 - Owner: Agent 1 Domain Architect
-- Approval SHA/date: Pending Root contract gate
+- Approval source SHA/date: Domain handoff `b6d27d422c4e8c066a548b9ca1cb8e56f85da822`, independently reviewed and approved by Root on 2026-08-25
 - Consumers: Database, Security, API, Web, QA, UX, Adversarial, Governance, Root
 - Authority: approved 5.2 instruction → `AGENTS.md` → canonical V3 → accepted
   ADRs/Phase 5.1 PASS → graph contracts → older architecture recommendations
@@ -308,7 +308,7 @@ CONVERTED/LOST`: lower authority; assignment is orthogonal and V3 replaces activ
   gates, responsible-Branch meaning, or exclusions reopens DOMAIN before dependents.
 - Checklist: canonical Lead/intents/preferences/sources/activities/follow-ups/
   assignment/stages/Branch/security/audit/concurrency/read models/exclusions all
-  defined and traced. Root approval/date/SHA remains pending.
+  defined, traced, and approved by the Root contract gate.
 
 | Version | Date       | Change                                                 |
 | ------- | ---------- | ------------------------------------------------------ |
