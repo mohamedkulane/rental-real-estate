@@ -3,10 +3,10 @@
 ## Metadata
 
 - Contract ID/version/sub-phase: `CRM-AUTHZ-5.2` / `1.0.0` / Phase 5.2 CRM Foundation
-- Contract status: `REVIEW`
+- Contract status: `APPROVED`
 - Owner: Agent 3 Authorization & Security Engineer
 - Domain/database contract versions: `CRM-DOMAIN-5.2` `1.0.0`; database contract pending
-- Approval: Root review and approval SHA/date pending
+- Approval: Root reviewed authorization v1.0.0, the exact 19-code seed implementation, scope matrix, focused tests, and DB integrity handoff; approved from Security handoff `4ab9c6c9d9e02ee5735eb165e1f188d04b79c37a` on 2026-08-25
 - Consumers: Database seed, CRM API, Web capability projection, QA, Security Review,
   Adversarial, Governance, Root
 - Canonical references: approved Phase 5.2 instruction; canonical V3 BR-002/007/018
@@ -238,8 +238,8 @@ against this contract and may add routed tests or remediation.
 
 - Current open threats/questions/blockers: none for contract review; API and database
   implementations are not yet available for enforcement evidence.
-- Node transition: Agent 3 requests `SECURITY` `IN_PROGRESS -> REVIEW`; only Root or an
-  independent reviewer may declare PASS.
+- Node transition: Agent 3 handed off at `REVIEW`; Root DB/Security contract gate
+  approved v1.0.0. Post-integration Security Review remains mandatory.
 
 ## Change log
 

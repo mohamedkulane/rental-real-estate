@@ -3,7 +3,7 @@
 ## Metadata
 
 - Contract ID/version/sub-phase: `CRM-DB-5.2` / `1.0.0` / Phase 5.2 CRM Foundation
-- Contract status: `REVIEW` (implementation complete; independent review pending)
+- Contract status: `APPROVED`
 - Owner: Agent 2 Database / Prisma Engineer
 - Domain contract: `CRM-DOMAIN-5.2` v1.0.0, approved handoff `b6d27d4`, integrated `7ffa212`
 - Implementation base/domain gate: `51750d3`
@@ -66,6 +66,8 @@
 - Migration history is append-only. Any post-integration defect is corrected by a new forward migration; this migration is never edited after integration.
 - The migration contains no destructive existing-table change and requires no rollback/backfill script. Operational rollback is application disablement followed by a reviewed forward fix; CRM data/history is retained.
 - Node state after Agent 2 handoff: `REVIEW`, never self-declared PASS. Root and independent reviewers own approval.
+
+Root independently reviewed the owned diff, migration/native controls, tests, Security seed handoff, fresh/upgrade/seed evidence, and future-model exclusions. Database contract gate approved from handoff `b5509c5d4e2d0dd94791f63ddf80eb6f830d42b2` on 2026-08-25; post-integration QA and adversarial verification remain mandatory.
 
 ## Change log
 

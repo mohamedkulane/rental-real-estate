@@ -4,7 +4,7 @@
 - User approval reference/date: Explicit approval in the active Codex task, 2026-08-25
 - Integration branch/worktree: `codex/p5-02-integration` / `.worktrees/p5-02-integration`
 - Baseline SHA: `fbe04dbd56da8635f70b5ebf76e8e6bc4be0dc7e`
-- Current candidate SHA: domain integration `7ffa212`; Root approval metadata commit pending
+- Current candidate SHA: database integration `f6ef316`; DB/Security Root gate commit pending
 - Integration method: ordered cherry-pick of role-owned commits
 - Canonical references: V3 `3371ba0`; Phase 5.1 implementation `ed1e96d`; graph bootstrap `fbe04db`; canonical V3 sections 6 BR-007, 8 CRM, 10 Lead lifecycle, 11 CRM permissions, 12 CRM IA, 13 Lead model, 14 CRM API, 20.1 Phase 5.2
 - Protected dirty/untracked files: root-only `final-remediation.diff` remains untouched and excluded
@@ -16,9 +16,9 @@
 | Node | Owner | Dependencies | Branch/worktree | Owned paths | Status | Started/updated | Commits | Reviewer(s) | Evidence |
 | ---- | ----- | ------------ | --------------- | ----------- | ------ | --------------- | ------- | ----------- | -------- |
 | DOMAIN | Agent 1 Domain Architect | Human approval | `codex/p5-02-domain` / `.worktrees/p5-02-domain` | Phase 5.2 domain decision and domain contract run files; scoped CRM domain docs/ADR if required | PASS | 2026-08-25 | `b6d27d4` → integrated `7ffa212` | Root contract gate PASS | `domain-decisions.md` v1.0.0 |
-| DATABASE | Agent 2 Database Engineer | DOMAIN PASS | `codex/p5-02-database` / `.worktrees/p5-02-database` | `prisma/**`, `packages/database/**`, database contract; sole Phase 5.2 migration and seed writer | IN_PROGRESS | 2026-08-25 | | Root + QA/adversarial | `database-contract.md` |
-| SECURITY | Agent 3 Security Engineer | DOMAIN PASS | `codex/p5-02-security` / `.worktrees/p5-02-security` | CRM permission semantics, authorization tests, authorization contract; seed semantics handed to DB | REVIEW | 2026-08-25 | `4ab9c6c` → integrated `2cbf00d` | Root DB/Security contract gate pending | `authorization-contract.md` v1.0.0; 49/49 API unit |
-| API | Agent 4 Backend Engineer | DATABASE + SECURITY PASS | `codex/p5-02-api` / `.worktrees/p5-02-api` | CRM API feature files and API contract; shared module registration serialized by Root | BLOCKED | 2026-08-25 | | QA/security/adversarial | `api-contract.md` |
+| DATABASE | Agent 2 Database Engineer | DOMAIN PASS | `codex/p5-02-database` / `.worktrees/p5-02-database` | `prisma/**`, `packages/database/**`, database contract; sole Phase 5.2 migration and seed writer | PASS | 2026-08-25 | `b5509c5` → integrated `f6ef316` | Root DB/Security gate PASS; later QA/adversarial recheck | `database-contract.md` v1.0.0; 3 files/11 DB tests; fresh/upgrade/seed twice |
+| SECURITY | Agent 3 Security Engineer | DOMAIN PASS | `codex/p5-02-security` / `.worktrees/p5-02-security` | CRM permission semantics, authorization tests, authorization contract; seed semantics handed to DB | PASS | 2026-08-25 | `4ab9c6c` → integrated `2cbf00d` | Root DB/Security gate PASS; post-integration review pending | `authorization-contract.md` v1.0.0; 49/49 API unit; 19-code seed verified |
+| API | Agent 4 Backend Engineer | DATABASE + SECURITY PASS | `codex/p5-02-api` / `.worktrees/p5-02-api` | CRM API feature files and API contract; shared module registration serialized by Root | READY | 2026-08-25 | | QA/security/adversarial | `api-contract.md` |
 | UI | Agent 5 Frontend Engineer | API contract + upstream PASS | `codex/p5-02-web` / `.worktrees/p5-02-web` | CRM web feature/routes/tests and UI contract; global navigation serialized by Root | BLOCKED | 2026-08-25 | | UX/QA/adversarial | `ui-contract.md` |
 | SECURITY-REVIEW | Agent 3 Security Engineer | Integrated API candidate | integration candidate, read-first | `security-findings.md`; targeted security tests only if routed | BLOCKED | 2026-08-25 | | Root | |
 | QA | Agent 6 QA Engineer | Integrated candidate | `codex/p5-02-tests` / `.worktrees/p5-02-tests` | Root-assigned CRM tests/fixtures, testing contract, QA findings | BLOCKED | 2026-08-25 | | Root | `testing-contract.md`, `qa-findings.md` |
