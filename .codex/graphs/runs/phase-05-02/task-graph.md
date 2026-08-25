@@ -1,0 +1,17 @@
+# Task graph
+
+| Node ID         | Wave | Task                                           | Owner   | Dependencies                                                  | Owned paths | Acceptance evidence | Status  |
+| --------------- | ---- | ---------------------------------------------- | ------- | ------------------------------------------------------------- | ----------- | ------------------- | ------- |
+| DOMAIN          | 1    | Approve Phase 5.2 CRM domain contract          | Agent 1 | Human approval                                                | run domain contract/decisions; scoped CRM domain/ADR docs | Versioned contract with canonical Lead, intents, preferences, sources, activities, follow-ups, assignments, controlled transitions, exclusions | READY   |
+| DATABASE        | 2    | Database contract/implementation               | Agent 2 | DOMAIN PASS                                                   | `prisma/**`, `packages/database/**`, run database contract | One append-only migration; fresh/upgrade/seed-twice/concurrency/index evidence; no future models | BLOCKED |
+| SECURITY        | 2    | Authorization contract/implementation          | Agent 3 | DOMAIN PASS                                                   | assigned authorization modules/tests and run contract; seed semantics only | BRANCH/MULTI_BRANCH/COMPANY_WIDE matrix, company isolation, audit-sensitive action evidence | BLOCKED |
+| API             | 3    | Focused CRM backend/API                        | Agent 4 | DATABASE + SECURITY PASS                                      | CRM `apps/api/**` feature files, API contract, serialized module registration | DTO validation, commands, stable cursor lists, totals, search/filters, N+1 budget, audit, tests | BLOCKED |
+| UI              | 3    | Dedicated CRM frontend/UI                      | Agent 5 | API contract + upstream PASS                                  | CRM `apps/web/**` routes/features/tests, UI contract, serialized navigation | Lead Register, Pipeline, Follow-ups, Lead Sources, detail/activity/assignment tasks and all UI states | BLOCKED |
+| SECURITY-REVIEW | 4    | Post-integration authorization/security review | Agent 3 | Integrated API candidate                                      |             |                     | BLOCKED |
+| QA              | 4    | Independent automated QA                       | Agent 6 | Integrated candidate                                          |             |                     | BLOCKED |
+| UX              | 4    | Responsive UX review                           | Agent 7 | Integrated frontend                                           |             |                     | BLOCKED |
+| ADVERSARIAL     | 4    | Adversarial review                             | Agent 8 | Integrated candidate                                          |             |                     | BLOCKED |
+| GOVERNANCE      | 5    | Release audit                                  | Agent 9 | SECURITY-REVIEW + QA + UX where applicable + ADVERSARIAL PASS |             |                     | BLOCKED |
+| ROOT-GATE       | 5    | Final gate and STOP                            | Agent 0 | GOVERNANCE PASS                                               |             |                     | BLOCKED |
+
+Legal transitions: BLOCKED→READY when dependencies PASS; READY→IN_PROGRESS on assignment; IN_PROGRESS→REVIEW with artifacts/evidence; REVIEW→PASS or FAILED; FAILED→READY after a routed repair plan. Root may reopen PASS only with a recorded reason and affected dependency reset.
