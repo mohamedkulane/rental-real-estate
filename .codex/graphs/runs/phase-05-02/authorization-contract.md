@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Contract ID/version/sub-phase: `CRM-AUTHZ-5.2` / `1.0.0` / Phase 5.2 CRM Foundation
+- Contract ID/version/sub-phase: `CRM-AUTHZ-5.2` / `1.0.1` / Phase 5.2 CRM Foundation
 - Contract status: `REVIEW`
 - Owner: Agent 3 Authorization & Security Engineer
-- Domain/database contract versions: `CRM-DOMAIN-5.2` `1.0.0`; database contract pending
-- Approval: Root review and approval SHA/date pending
+- Domain/database contract versions: `CRM-DOMAIN-5.2` `1.0.0`; `CRM-DB-5.2` `1.0.0`, with `P502-DB-001` repair review pending
+- Approval: v1.0.0 approved by Root at `eee921c` on 2026-08-25; v1.0.1 semantic clarification approved by Root in the active task on 2026-08-30, artifact integration pending
 - Consumers: Database seed, CRM API, Web capability projection, QA, Security Review,
   Adversarial, Governance, Root
 - Canonical references: approved Phase 5.2 instruction; canonical V3 BR-002/007/018
@@ -78,6 +78,109 @@ Branch scopes of the exact permission. For `COMPANY_WIDE`, a Branch-scoped role 
 still authorizes only its explicit Branches; only a `null` role-grant scope authorizes
 all Company Branches. Neither a powerful role nor a `null` role grant converts a
 `BRANCH`/`MULTI_BRANCH` employee to Company-wide access.
+
+## Explicit read conjunctions and safe selectors (v1.0.1 clarification)
+
+This section expands the table's shorthand and the phrase "otherwise readable Lead";
+it does not add a permission, change role grants, or make a command require general
+read permission. `P(permission, branch)` means the existing exact-permission and
+employee-scope check, with trusted Company/resource resolution performed first.
+
+- Activity reads require `P(crm.lead.read, currentLeadBranch)` AND
+  `P(crm.activity.read, currentLeadBranch)`.
+- Assignment-history reads require `P(crm.lead.read, currentLeadBranch)` AND
+  `P(crm.assignment.read, currentLeadBranch)`.
+- Lead and workspace Follow-up reads require `P(crm.lead.read, currentLeadBranch)` AND
+  `P(crm.followup.read, currentLeadBranch)`. The intersection of both permission
+  Branch sets governs items, Lead summaries, totals, search, and cursor scope. A grant
+  for one permission in Branch A cannot be combined with the other in Branch B.
+- Raw contact reveal additionally requires `P(crm.lead.contact.read,
+currentLeadBranch)` and its reveal audit; child read permission never substitutes
+  for either contact-read or Lead-read authority.
+
+`/crm/selectors/branches` and `/crm/selectors/employees` accept a closed, server-mapped
+purpose enum, not an arbitrary client permission string. They are scoped read models
+for an already authorized workflow, not general Organization/Employee directory APIs.
+Search, pages, and counts use the final authorized predicate; a missing or unknown
+purpose is rejected. Requested filters can only narrow that predicate.
+
+| Branch-selector purpose          | Required effective permission formula                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Lead register or pipeline filter | `P(crm.lead.read, offeredBranch)`                                                                             |
+| Follow-up workspace filter       | `P(crm.lead.read, offeredBranch)` AND `P(crm.followup.read, offeredBranch)`                                   |
+| Lead creation                    | `P(crm.lead.create, offeredBranch)`                                                                           |
+| Transfer destination             | `P(crm.lead.branch.transfer, storedSourceBranch)` AND `P(crm.lead.branch.transfer, offeredDestinationBranch)` |
+
+Branch results contain only same-Company ID/code/name and lifecycle label. Creation
+and transfer offer active Branches only. Read filters may label inactive authorized
+Branches to retain complete-data access. Transfer must resolve and authorize the
+stored source Lead before returning any destination options.
+
+Every employee option must be active, in the trusted Company, and currently eligible
+in the target Branch using the existing employee eligibility rule: explicit
+`COMPANY_WIDE` employee access or an active effective-dated Branch assignment. This
+target eligibility is not a permission grant to either the actor or employee.
+
+| Employee-selector purpose          | Required actor permission formula                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Safe assignment read               | `P(crm.lead.read, targetBranch)` AND `P(crm.assignment.read, targetBranch)`                                  |
+| Assign or reassign existing Lead   | `P(crm.assignment.manage, storedCurrentLeadBranch)`                                                          |
+| Create Follow-up                   | `P(crm.followup.create, storedCurrentLeadBranch)`                                                            |
+| Optional initial Lead assignment   | `P(crm.lead.create, targetBranch)` AND `P(crm.assignment.manage, targetBranch)`                              |
+| Replacement during Branch transfer | `P(crm.lead.branch.transfer, storedSourceBranch)` AND `P(crm.lead.branch.transfer, targetDestinationBranch)` |
+
+These are purpose-specific alternatives, not a global OR across all listed
+permissions. Existing Lead context always resolves its Branch from persistence.
+Creation target Branch is independently looked up and authorized. Employee options
+contain only ID, employee number, and safe display name: no contact, account/session,
+role-grant, unrelated Branch, or general employee-detail fields. No employee selector
+is offered for Follow-up UPDATE because its responsible employee is immutable. An
+initial assignment inside Lead creation still performs the separate assignment action
+and therefore requires `crm.assignment.manage`; it is not obtained from create alone.
+
+Party/asset selectors also require the exact CRM create/update purpose on the Lead or
+creation Branch, plus the existing independent `party.read`, `portfolio.property.read`,
+`portfolio.space.read`, and applicable `service-engagement.capability.read` checks
+described below. They never use CRM permission as a substitute, expose full contacts,
+or manufacture commercial capability for construction site context.
+
+## Mutation response confidentiality (v1.0.1 clarification)
+
+Command authorization does not confer response-read authority. The default successful
+response is a minimal acknowledgement such as `{id, version}` for a mutable aggregate
+or `{id}` for an append-only record. Do not echo stored detail, contact, current
+assignment, or free text merely because create/update/transition succeeded.
+
+An enriched response may be returned only after independently satisfying the same
+read permissions, Company/Branch predicates, safe projections, and reveal audit as its
+GET equivalent. Nested Activity/Follow-up/assignment content requires the read
+conjunction above. Transfer responses re-evaluate destination Branch read scope; the
+old source grant is not sufficient. Lack of read permission must not turn a valid
+committed write into a misleading failure: return the acknowledgement instead.
+Unauthorized or failed commands reveal no stored version, stage, target identity, or
+eligibility detail before action/resource authorization.
+
+## Follow-up historical attribution (v1.0.1 clarification)
+
+INSERT (including a linked successor) validates the current Lead Branch snapshot and
+an active same-Company employee eligible there. Lead, historical Branch, responsible
+employee, creator, creation time, and predecessor remain immutable thereafter.
+
+UPDATE/reschedule/complete/cancel authorizes the active actor's exact action in the
+Lead's CURRENT responsible Branch and validates expected version and OPEN state.
+The actor need not equal the historical responsible employee. A later Lead transfer,
+employee deactivation, or employee Branch reassignment must not block these actions
+or terminal-stage system cancellation merely because historical eligibility changed.
+Do not rebase the snapshot or rewrite responsibility to get an update through.
+Responsibility changes use cancellation plus a linked successor with current creation
+checks. This preserves the domain's creation-time eligibility rule, append-only
+attribution, current-Branch security boundary, and transactional outcome/audit rules.
+
+Regression evidence must separately prove allowed current-Branch actors can complete,
+cancel, and reschedule historical-Branch items and close the parent Lead; old-Branch-
+only actors remain denied; inactive/reassigned historical employees do not strand
+cleanup; new invalid employees/Branches remain rejected; immutable snapshots, stale
+versions, and terminal reopening remain protected.
 
 ## Company, resource, and linked-record checks
 
@@ -236,13 +339,15 @@ generic security production change is justified before API integration. Post-
 integration Security Review must inspect every controller/service/repository selector
 against this contract and may add routed tests or remediation.
 
-- Current open threats/questions/blockers: none for contract review; API and database
-  implementations are not yet available for enforcement evidence.
+- Current open threats/questions/blockers: HIGH `P502-DB-001` requires independent
+  recheck of the forward-only Follow-up repair; HIGH `P502-AUTH-001` remains open until
+  API alignment and negative tests pass. No final integrated security PASS is claimed.
 - Node transition: Agent 3 requests `SECURITY` `IN_PROGRESS -> REVIEW`; only Root or an
   independent reviewer may declare PASS.
 
 ## Change log
 
-| Version | Date       | Change                                                                  |
-| ------- | ---------- | ----------------------------------------------------------------------- |
-| `1.0.0` | 2026-08-25 | Initial complete Phase 5.2 CRM authorization contract and seed handoff. |
+| Version | Date       | Change                                                                                                                                                                                          |
+| ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1.0.0` | 2026-08-25 | Initial complete Phase 5.2 CRM authorization contract and seed handoff.                                                                                                                         |
+| `1.0.1` | 2026-08-30 | Make existing child-read conjunctions, purpose-scoped safe selector formulas, write-response confidentiality, and historical Follow-up attribution explicit; no new permissions or role grants. |
