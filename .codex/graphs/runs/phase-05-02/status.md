@@ -4,7 +4,7 @@
 - User approval reference/date: Explicit approval in the active Codex task, 2026-08-25
 - Integration branch/worktree: `codex/p5-02-integration` / `.worktrees/p5-02-integration`
 - Baseline SHA: `fbe04dbd56da8635f70b5ebf76e8e6bc4be0dc7e`
-- Current candidate SHA: database integration `f6ef316`; DB/Security Root gate commit pending
+- Current committed candidate SHA: `b9bf9f6` (upstream contracts/database and API-contract gate); API/UI implementation remains uncommitted in role worktrees and is NOT a final candidate
 - Integration method: ordered cherry-pick of role-owned commits
 - Canonical references: V3 `3371ba0`; Phase 5.1 implementation `ed1e96d`; graph bootstrap `fbe04db`; canonical V3 sections 6 BR-007, 8 CRM, 10 Lead lifecycle, 11 CRM permissions, 12 CRM IA, 13 Lead model, 14 CRM API, 20.1 Phase 5.2
 - Protected dirty/untracked files: root-only `final-remediation.diff` remains untouched and excluded
@@ -31,8 +31,20 @@
 
 | CRITICAL | HIGH | MEDIUM | LOW |
 | -------- | ---- | ------ | --- |
-| 0        | 0    | 0      | 0   |
+| 0        | 2    | 0      | 0   |
 
 ## Temporary ownership grants and blockers
 
-- None recorded.
+### 2026-08-30 override: reopened upstream gate
+
+- DATABASE reopened PASS to FAILED for P502-DB-001, then READY and IN_PROGRESS with original Database owner. API/UI are BLOCKED pending repair approval (superseding prior table). DOMAIN and security policy unchanged; independent reviews still pending.
+- P502-DB-001 HIGH: Follow-up trigger revalidates immutable historical Branch/employee on every UPDATE, stranding outcomes/reschedule/terminal cancellation after transfer/deactivation. Database owner exclusively owns NEW forward migration, CRM database tests and database contract. Applied migration remains untouched. Require fresh/upgrade/seed twice and regression/negative tests; Database owner has sole Prisma generation/build-dependencies grant.
+- P502-AUTH-001 HIGH: API child-read prose contradicts approved Lead-read conjunction. Security owner documents v1.0.1 clarification; API then aligns/tests. Rows/counts/cursors intersect both permissions on the same current Lead Branch. Mutations do not imply read/contact disclosure. Exact server-allowlisted selector purposes only; no Party/asset bypass.
+- Protected hash, master, stashes and worktree HEADs reverified unchanged. Prior usage-limit failures left incomplete drafts, not accepted implementation.
+
+- Resume verified on 2026-08-27: integration `b9bf9f6`; API `088b9a4`; UI `ddc95a0`. Existing role-owned implementation drafts preserved; API/UI remain IN_PROGRESS, independent reviews remain BLOCKED.
+- Root `master` remains `5911ca6`; original checkout remains `fbe04db`. Original checkout generated `apps/web/next-env.d.ts` modification is unrelated and left untouched. Protected `final-remediation.diff` SHA256: `153898DF5EE0210BAA20CF456D5E83F45EFF017F2B503A551D109BF929B66529`; existing stash unchanged.
+- API owner retains serialized `apps/api/src/phase5.module.ts` registration grant and exclusive CRM source/test/API-contract ownership. UI owner retains serialized CRM-only navigation-model/navigation-test/app-shell grant plus CRM routes/features/tests/UI contract; no shared primitive redesign authorized.
+- API owner granted exclusive shared Prisma Client regeneration against gated schema and dependent package build on 2026-08-27; other workers must not regenerate concurrently. Stale generated types are not permission to alter schema.
+- Original Security owner resumed read-only contract clarification for safe selectors, child-read conjunctions, mutation-response disclosure, and historical Follow-up Branch behavior. This is not post-integration security acceptance.
+- Pipeline wire shape and safe paginated selectors require explicit API-contract clarification with UI; immutable Follow-up responsible employee is preserved, not silently made PATCH-editable.

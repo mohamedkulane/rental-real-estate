@@ -2,7 +2,7 @@
 
 - Baseline/integration branch and SHA: `codex/p5-02-integration` from `fbe04dbd56da8635f70b5ebf76e8e6bc4be0dc7e`
 - Protected files confirmed preserved: root `final-remediation.diff` and `stash@{0}` excluded and untouched
-- Migration count before/after: 14 / pending Phase 5.2 implementation
+- Migration count before/after: 14 / 15 at database handoff (full final-candidate checks pending)
 
 ## Ordered integrations
 
@@ -15,7 +15,7 @@
 
 ## Final candidate
 
-- Candidate SHA:
-- Git/worktree status:
-- Future-phase leak review:
-- Remaining integration blockers:
+- Candidate SHA: no frozen implementation candidate yet; current committed integration base `b9bf9f6`
+- Git/worktree status: on 2026-08-27 API/UI resumed their preserved role-owned uncommitted drafts; no drafts cherry-picked or treated as verified
+- Future-phase leak review: final independent review pending; Phase 5.3 remains prohibited
+- Remaining integration blockers: API/UI completion, contract alignment, builder tests, independent security/QA/UX/adversarial/governance, cumulative regression and durable checkpoint/push
