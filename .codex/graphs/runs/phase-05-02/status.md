@@ -37,6 +37,8 @@
 
 ### 2026-08-30 override: reopened upstream gate
 
+- Runtime BLOCKED: Docker Desktop failed to initialize its Linux engine; backend reports inaccessible `sailor-ingest.sock` and shows an unexpected-error dialog. No factory reset, socket deletion, reinstall, or WSL reset authorized/performed. No new disposable database created. User asked to restore Docker or supply a dedicated test PostgreSQL connection. Fresh/upgrade migration, repeat-seed and native repair tests are NOT PASS.
+
 - DATABASE reopened PASS to FAILED for P502-DB-001, then READY and IN_PROGRESS with original Database owner. API/UI are BLOCKED pending repair approval (superseding prior table). DOMAIN and security policy unchanged; independent reviews still pending.
 - P502-DB-001 HIGH: Follow-up trigger revalidates immutable historical Branch/employee on every UPDATE, stranding outcomes/reschedule/terminal cancellation after transfer/deactivation. Database owner exclusively owns NEW forward migration, CRM database tests and database contract. Applied migration remains untouched. Require fresh/upgrade/seed twice and regression/negative tests; Database owner has sole Prisma generation/build-dependencies grant.
 - P502-AUTH-001 HIGH: API child-read prose contradicts approved Lead-read conjunction. Security owner documents v1.0.1 clarification; API then aligns/tests. Rows/counts/cursors intersect both permissions on the same current Lead Branch. Mutations do not imply read/contact disclosure. Exact server-allowlisted selector purposes only; no Party/asset bypass.
