@@ -15,6 +15,12 @@
 
 ## Final candidate
 
+## 2026-08-30 resumed integration
+
+- `6c00a57`: recorded reopened upstream gate and two HIGH findings; no implementation acceptance.
+- Security clarification source `7539d28151b683c7a542a1be9dc90b6e96398f6b` integrated as `1dbe3d9`. Root reviewed the complete semantic diff and `git show --check`. Only approval/status metadata conflicted with earlier Root gate annotations; resolved to v1.0.1 APPROVED FOR IMPLEMENTATION, preserving both unresolved findings and mandatory final Security review. No blind whole-file conflict choice.
+- DATABASE forward repair remains pending tests and independent recheck. API/UI remain blocked at their preserved drafts until repaired gate approval.
+
 - Candidate SHA: no frozen implementation candidate yet; current committed integration base `b9bf9f6`
 - Git/worktree status: on 2026-08-27 API/UI resumed their preserved role-owned uncommitted drafts; no drafts cherry-picked or treated as verified
 - Future-phase leak review: final independent review pending; Phase 5.3 remains prohibited
