@@ -4,7 +4,7 @@
 - User approval reference/date: Explicit approval in the active Codex task, 2026-08-25
 - Integration branch/worktree: `codex/p5-02-integration` / `.worktrees/p5-02-integration`
 - Baseline SHA: `fbe04dbd56da8635f70b5ebf76e8e6bc4be0dc7e`
-- Current committed integration base: `0cfed0b` (approved repaired database and clarified contracts); API/UI drafts are not a frozen final candidate
+- Current committed integration base: `ec6df97` (approved repaired database, clarified contracts and in-progress governance guards); API/UI drafts are not a frozen final candidate
 - Integration method: ordered cherry-pick of role-owned commits
 - Canonical references: V3 `3371ba0`; Phase 5.1 implementation `ed1e96d`; graph bootstrap `fbe04db`; canonical V3 sections 6 BR-007, 8 CRM, 10 Lead lifecycle, 11 CRM permissions, 12 CRM IA, 13 Lead model, 14 CRM API, 20.1 Phase 5.2
 - Protected dirty/untracked files: root-only `final-remediation.diff` remains untouched and excluded
@@ -31,11 +31,13 @@
 
 | CRITICAL | HIGH | MEDIUM | LOW |
 | -------- | ---- | ------ | --- |
-| 0        | 1    | 0      | 0   |
+| 0        | 2    | 0      | 0   |
 
 ## Temporary ownership grants and blockers
 
 ### Current gate: repaired upstream PASS, implementation resumed
+
+- 2026-08-31 resume: P502-SEC-002 OPEN HIGH. Current AppModule pino request serialization includes request URLs; CRM search/contact query values can enter logs despite existing header/password redaction. Security owner receives exclusive temporary ownership of `apps/api/src/app.module.ts` (logging configuration only), new `apps/api/src/common/crm-log-privacy.ts`, and `apps/api/test/unit/crm-log-privacy.test.ts`. Approved privacy semantics are unchanged. Require actual emitted-log regression evidence for request/response/error paths. API owner separately owns CRM exception filtering under `src/crm/**`; no overlapping logger edits. Independent QA/adversarial must recheck Security-authored repair. Final reviews remain BLOCKED; API/UI may continue contract-compliant implementation.
 
 - Root also owns `.codex/graphs/phase-05.md` for the serialized factual update from bootstrap-unstarted to approved 5.2 IN_PROGRESS. Governance guard regression tests run automatically with `verify:governance`; final PASS requires every independent review artifact to state its scoped PASS, zero unresolved CRITICAL/HIGH, and explicit MEDIUM dispositions. This is guard implementation, not a final Governance audit result.
 

@@ -19,6 +19,9 @@
 
 ### 2026-08-31 contract alignment and runtime recovery
 
+- Resumed at `ec6df97`, clean integration worktree. Root checkout remains `fbe04db` with its pre-existing generated web type change and protected evidence; stash unchanged. API and UI remain active on isolated branches, not accepted final artifacts. New P502-SEC-002 log-privacy finding routed to Security with serialized AppModule logging ownership; approved domain/authorization semantics unchanged.
+- Governance guard implementation `ec6df97`: eight negative/positive scope tests, in-progress governance verification, focused script lint, formatting and diff checks PASS. Metadata remains 5.2 IN_PROGRESS and completion report FAIL. Independent final governance review and clean-checkout validation are still required.
+
 - Forward database repair source `9f82b62a3bc750f4c4709a6ce60f14c486faa306` integrated as `0cfed0b`. Only database-contract approval metadata conflicted; Root resolved to v1.0.1 APPROVED after exact-source Security review and independent 26/26 integration rerun. Migration/tests/package script unchanged from reviewed source. Original schema, seed and applied foundation migration have zero diff.
 - Migration evidence: fresh16 and upgrade15-to16/current; seed twice both; full DB29/29; integration26/26; Root repeated integration26/26. Security recommended P502-DB-001 closure on database scope. Upstream gate restored; API/UI implementation may resume. P502-AUTH-001 and all final independent reviews remain open.
 
