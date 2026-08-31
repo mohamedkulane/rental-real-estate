@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 const database = new PrismaClient();
 
@@ -14,6 +15,136 @@ type Fixture = {
 };
 
 let fixture: Fixture;
+
+type HistoricalChange = 'TRANSFERRED' | 'DEACTIVATED' | 'REASSIGNED';
+
+async function historicalFollowUp(change: HistoricalChange, includeSecondTask = false) {
+  const leadId = await createRentLead(`LEAD-${Date.now()}${Math.floor(Math.random() * 100000)}`);
+  const destination = await database.branch.findFirstOrThrow({
+    where: { companyId: fixture.companyId, id: { not: fixture.branchId } },
+  });
+  const employeeParty = await database.party.create({
+    data: {
+      id: randomUUID(),
+      companyId: fixture.companyId,
+      partyNumber: `TEST-${randomUUID().slice(0, 30)}`,
+      kind: 'PERSON',
+      displayName: 'Historical task employee',
+    },
+  });
+  const yesterday = new Date(new Date().toISOString().slice(0, 10));
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const today = new Date(new Date().toISOString().slice(0, 10));
+  const employee = await database.employee.create({
+    data: {
+      id: randomUUID(),
+      companyId: fixture.companyId,
+      partyId: employeeParty.id,
+      employeeNumber: `TEST-${randomUUID().slice(0, 30)}`,
+      accessMode: 'BRANCH',
+      branchAssignments: {
+        create: { id: randomUUID(), branchId: fixture.branchId, effectiveFrom: yesterday },
+      },
+    },
+  });
+  const followUp = await database.leadFollowUp.create({
+    data: {
+      id: randomUUID(),
+      leadId,
+      branchId: fixture.branchId,
+      responsibleEmployeeId: employee.id,
+      subject: 'Historical scope task',
+      dueAt: new Date(Date.now() + 86400000),
+      createdByUserId: fixture.userId,
+    },
+  });
+  const secondFollowUp = includeSecondTask
+    ? await database.leadFollowUp.create({
+        data: {
+          id: randomUUID(),
+          leadId,
+          branchId: fixture.branchId,
+          responsibleEmployeeId: employee.id,
+          subject: 'Second historical scope task',
+          dueAt: followUp.dueAt,
+          createdByUserId: fixture.userId,
+        },
+      })
+    : null;
+  if (change === 'TRANSFERRED') {
+    const transferredAt = new Date(Date.now() + 1);
+    await database.$transaction(async (tx) => {
+      await tx.leadBranchHistory.updateMany({
+        where: { leadId, assignedTo: null },
+        data: { assignedTo: transferredAt },
+      });
+      await tx.leadBranchHistory.create({
+        data: {
+          id: randomUUID(),
+          leadId,
+          branchId: destination.id,
+          assignedFrom: transferredAt,
+          actorUserId: fixture.userId,
+          reason: 'Prospective transfer regression',
+        },
+      });
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { responsibleBranchId: destination.id, version: { increment: 1 } },
+      });
+    });
+  } else if (change === 'DEACTIVATED') {
+    await database.employee.update({ where: { id: employee.id }, data: { active: false } });
+  } else {
+    await database.$transaction(async (tx) => {
+      await tx.employeeBranchAssignment.updateMany({
+        where: { employeeId: employee.id, effectiveTo: null },
+        data: { effectiveTo: today },
+      });
+      await tx.employeeBranchAssignment.create({
+        data: {
+          id: randomUUID(),
+          employeeId: employee.id,
+          branchId: destination.id,
+          effectiveFrom: today,
+        },
+      });
+    });
+  }
+  return { leadId, followUp, secondFollowUp, employee, destination };
+}
+
+async function resolveFollowUp(
+  tx: Prisma.TransactionClient,
+  followUpId: string,
+  state: 'COMPLETED' | 'CANCELLED',
+  reason = 'Resolved historical task',
+) {
+  const current = await tx.leadFollowUp.findUniqueOrThrow({ where: { id: followUpId } });
+  const occurredAt = new Date();
+  await tx.leadFollowUp.update({
+    where: { id: followUpId, version: current.version },
+    data: {
+      state,
+      outcomeActorUserId: fixture.userId,
+      outcomeAt: occurredAt,
+      outcomeReason: reason,
+      version: { increment: 1 },
+    },
+  });
+  await tx.leadFollowUpOutcome.create({
+    data: {
+      id: randomUUID(),
+      followUpId,
+      fromState: 'OPEN',
+      toState: state,
+      actorUserId: fixture.userId,
+      reason,
+      followUpVersion: current.version + 1,
+      occurredAt,
+    },
+  });
+}
 
 async function createRentLead(leadNumber: string): Promise<string> {
   const leadId = randomUUID();
@@ -57,9 +188,16 @@ describe('Phase 5.2 CRM PostgreSQL invariants', () => {
   beforeAll(async () => {
     const company = await database.company.findFirstOrThrow();
     const branch = await database.branch.findFirstOrThrow({ where: { companyId: company.id } });
-    const source = await database.leadSource.findFirstOrThrow({ where: { companyId: company.id } });
+    const source = await database.leadSource.findFirstOrThrow({
+      where: { companyId: company.id, code: 'REFERRAL' },
+    });
     const employee = await database.employee.findFirstOrThrow({
-      where: { companyId: company.id, active: true, userId: { not: null } },
+      where: {
+        companyId: company.id,
+        employeeNumber: 'EMP-0001',
+        active: true,
+        userId: { not: null },
+      },
     });
     const userId = employee.userId;
     if (!userId) throw new Error('Seeded CRM fixture employee must have a User');
@@ -271,5 +409,245 @@ describe('Phase 5.2 CRM PostgreSQL invariants', () => {
     const outcomes = await database.$queryRaw<Array<{ count: bigint }>>`
       SELECT count(*) AS count FROM "lead_follow_up_outcomes" WHERE "followUpId" = ${followUpId}::uuid`;
     expect(outcomes[0]?.count).toBe(1n);
+  });
+
+  describe.each<HistoricalChange>(['TRANSFERRED', 'DEACTIVATED', 'REASSIGNED'])(
+    'P502-DB-001: %s',
+    (change) => {
+      it.each(['COMPLETED', 'CANCELLED'] as const)(
+        'allows %s without rewriting historical snapshots',
+        async (state) => {
+          const { followUp } = await historicalFollowUp(change);
+          await database.$transaction((tx) => resolveFollowUp(tx, followUp.id, state));
+          const resolved = await database.leadFollowUp.findUniqueOrThrow({
+            where: { id: followUp.id },
+            include: { outcomeHistory: true },
+          });
+          expect(resolved).toMatchObject({
+            state,
+            version: 2,
+            branchId: followUp.branchId,
+            responsibleEmployeeId: followUp.responsibleEmployeeId,
+          });
+          expect(resolved.outcomeHistory).toHaveLength(1);
+        },
+      );
+
+      it('allows a versioned open reschedule', async () => {
+        const { followUp } = await historicalFollowUp(change);
+        const dueAt = new Date(followUp.dueAt.getTime() + 86400000);
+        await database.leadFollowUp.update({
+          where: { id: followUp.id, version: 1 },
+          data: { dueAt, version: { increment: 1 } },
+        });
+        const stale = await database.leadFollowUp.updateMany({
+          where: { id: followUp.id, version: 1 },
+          data: { dueAt: followUp.dueAt, version: { increment: 1 } },
+        });
+        expect(stale.count).toBe(0);
+        await expect(
+          database.leadFollowUp.update({
+            where: { id: followUp.id },
+            data: { dueAt: followUp.dueAt, version: 2 },
+          }),
+        ).rejects.toThrow(/version by exactly one/u);
+        await expect(
+          database.leadFollowUp.findUniqueOrThrow({ where: { id: followUp.id } }),
+        ).resolves.toMatchObject({
+          state: 'OPEN',
+          version: 2,
+          dueAt,
+          branchId: followUp.branchId,
+          responsibleEmployeeId: followUp.responsibleEmployeeId,
+        });
+      });
+
+      it('atomically cancels existing tasks when the Lead becomes LOST', async () => {
+        const { leadId, followUp } = await historicalFollowUp(change);
+        await database.$transaction(async (tx) => {
+          const lead = await tx.lead.update({
+            where: { id: leadId },
+            data: { stage: 'LOST', lostReason: 'NO_LONGER_INTERESTED', version: { increment: 1 } },
+          });
+          await tx.leadStageHistory.create({
+            data: {
+              id: randomUUID(),
+              leadId,
+              fromStage: 'NEW',
+              toStage: 'LOST',
+              actorUserId: fixture.userId,
+              leadVersion: lead.version,
+            },
+          });
+          await resolveFollowUp(tx, followUp.id, 'CANCELLED', 'SYSTEM_LEAD_TERMINAL');
+        });
+        await expect(
+          database.lead.findUniqueOrThrow({ where: { id: leadId } }),
+        ).resolves.toMatchObject({ stage: 'LOST' });
+        await expect(
+          database.leadFollowUp.findUniqueOrThrow({ where: { id: followUp.id } }),
+        ).resolves.toMatchObject({
+          state: 'CANCELLED',
+          outcomeReason: 'SYSTEM_LEAD_TERMINAL',
+          branchId: followUp.branchId,
+        });
+      });
+
+      it('still rejects a new task with stale Branch or ineligible employee', async () => {
+        const { leadId, followUp } = await historicalFollowUp(change);
+        await expect(
+          database.leadFollowUp.create({
+            data: {
+              id: randomUUID(),
+              leadId,
+              branchId: followUp.branchId,
+              responsibleEmployeeId: followUp.responsibleEmployeeId,
+              subject: 'Invalid new task',
+              dueAt: followUp.dueAt,
+              createdByUserId: fixture.userId,
+            },
+          }),
+        ).rejects.toThrow(/Branch snapshot|must be active/u);
+      });
+    },
+  );
+
+  it('preserves stale-version, immutable snapshot, terminal and history protections after transfer', async () => {
+    const { followUp, destination } = await historicalFollowUp('TRANSFERRED');
+    await expect(
+      database.leadFollowUp.update({
+        where: { id: followUp.id },
+        data: { subject: 'Unversioned mutation' },
+      }),
+    ).rejects.toThrow(/version by exactly one/u);
+    await expect(
+      database.leadFollowUp.update({
+        where: { id: followUp.id },
+        data: { branchId: destination.id, version: 2 },
+      }),
+    ).rejects.toThrow(/immutable/u);
+    await expect(
+      database.leadFollowUp.update({
+        where: { id: followUp.id },
+        data: { responsibleEmployeeId: fixture.employeeId, version: 2 },
+      }),
+    ).rejects.toThrow(/immutable/u);
+    await expect(
+      database.leadFollowUp.update({
+        where: { id: followUp.id },
+        data: {
+          state: 'COMPLETED',
+          outcomeActorUserId: fixture.userId,
+          outcomeAt: new Date(),
+          outcomeReason: 'Missing history',
+          version: 2,
+        },
+      }),
+    ).rejects.toThrow(/append-only outcome history/u);
+    await database.$transaction((tx) => resolveFollowUp(tx, followUp.id, 'COMPLETED'));
+    await expect(
+      database.leadFollowUp.update({
+        where: { id: followUp.id },
+        data: {
+          state: 'OPEN',
+          outcomeActorUserId: null,
+          outcomeAt: null,
+          outcomeReason: null,
+          version: 3,
+        },
+      }),
+    ).rejects.toThrow(/cannot be changed or reopened/u);
+    await expect(
+      database.leadFollowUp.update({
+        where: { id: followUp.id },
+        data: { outcomeReason: 'Rewrite outcome', version: 3 },
+      }),
+    ).rejects.toThrow(/cannot be changed or reopened/u);
+    await expect(
+      database.leadFollowUpOutcome.updateMany({
+        where: { followUpId: followUp.id },
+        data: { reason: 'Rewrite history' },
+      }),
+    ).rejects.toThrow(/append-only/u);
+  });
+
+  it('rolls back terminal closure and all tasks when one outcome history is missing', async () => {
+    const { leadId, followUp, secondFollowUp } = await historicalFollowUp('TRANSFERRED', true);
+    if (!secondFollowUp) throw new Error('Second task fixture missing');
+    await expect(
+      database.$transaction(async (tx) => {
+        const lead = await tx.lead.update({
+          where: { id: leadId },
+          data: { stage: 'LOST', lostReason: 'NO_LONGER_INTERESTED', version: { increment: 1 } },
+        });
+        await tx.leadStageHistory.create({
+          data: {
+            id: randomUUID(),
+            leadId,
+            fromStage: 'NEW',
+            toStage: 'LOST',
+            actorUserId: fixture.userId,
+            leadVersion: lead.version,
+          },
+        });
+        await resolveFollowUp(tx, followUp.id, 'CANCELLED', 'SYSTEM_LEAD_TERMINAL');
+        await tx.leadFollowUp.update({
+          where: { id: secondFollowUp.id, version: 1 },
+          data: {
+            state: 'CANCELLED',
+            outcomeActorUserId: fixture.userId,
+            outcomeAt: new Date(),
+            outcomeReason: 'SYSTEM_LEAD_TERMINAL',
+            version: 2,
+          },
+        });
+      }),
+    ).rejects.toThrow(/append-only outcome history/u);
+    await expect(database.lead.findUniqueOrThrow({ where: { id: leadId } })).resolves.toMatchObject(
+      { stage: 'NEW', version: 2, lostReason: null },
+    );
+    expect(await database.leadStageHistory.count({ where: { leadId } })).toBe(1);
+    const tasks = await database.leadFollowUp.findMany({
+      where: { leadId },
+      include: { outcomeHistory: true },
+    });
+    expect(tasks).toHaveLength(2);
+    for (const task of tasks)
+      expect(task).toMatchObject({
+        state: 'OPEN',
+        version: 1,
+        outcomeReason: null,
+        outcomeHistory: [],
+        branchId: followUp.branchId,
+      });
+  });
+
+  it('allows a linked successor at the current destination without rewriting its predecessor', async () => {
+    const { leadId, followUp, destination } = await historicalFollowUp('TRANSFERRED');
+    await database.$transaction((tx) => resolveFollowUp(tx, followUp.id, 'COMPLETED'));
+    const successor = await database.leadFollowUp.create({
+      data: {
+        id: randomUUID(),
+        leadId,
+        branchId: destination.id,
+        responsibleEmployeeId: fixture.employeeId,
+        subject: 'Destination successor',
+        dueAt: new Date(Date.now() + 86400000),
+        createdByUserId: fixture.userId,
+        predecessorFollowUpId: followUp.id,
+      },
+    });
+    expect(successor).toMatchObject({
+      state: 'OPEN',
+      branchId: destination.id,
+      predecessorFollowUpId: followUp.id,
+    });
+    await expect(
+      database.leadFollowUp.findUniqueOrThrow({ where: { id: followUp.id } }),
+    ).resolves.toMatchObject({
+      state: 'COMPLETED',
+      branchId: followUp.branchId,
+      responsibleEmployeeId: followUp.responsibleEmployeeId,
+    });
   });
 });
