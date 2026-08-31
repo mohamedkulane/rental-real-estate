@@ -4,7 +4,7 @@
 - User approval reference/date: Explicit approval in the active Codex task, 2026-08-25
 - Integration branch/worktree: `codex/p5-02-integration` / `.worktrees/p5-02-integration`
 - Baseline SHA: `fbe04dbd56da8635f70b5ebf76e8e6bc4be0dc7e`
-- Current committed candidate SHA: `b9bf9f6` (upstream contracts/database and API-contract gate); API/UI implementation remains uncommitted in role worktrees and is NOT a final candidate
+- Current committed integration base: `0cfed0b` (approved repaired database and clarified contracts); API/UI drafts are not a frozen final candidate
 - Integration method: ordered cherry-pick of role-owned commits
 - Canonical references: V3 `3371ba0`; Phase 5.1 implementation `ed1e96d`; graph bootstrap `fbe04db`; canonical V3 sections 6 BR-007, 8 CRM, 10 Lead lifecycle, 11 CRM permissions, 12 CRM IA, 13 Lead model, 14 CRM API, 20.1 Phase 5.2
 - Protected dirty/untracked files: root-only `final-remediation.diff` remains untouched and excluded
@@ -31,9 +31,16 @@
 
 | CRITICAL | HIGH | MEDIUM | LOW |
 | -------- | ---- | ------ | --- |
-| 0        | 2    | 0      | 0   |
+| 0        | 1    | 0      | 0   |
 
 ## Temporary ownership grants and blockers
+
+### Current gate: repaired upstream PASS, implementation resumed
+
+- P502-DB-001 CLOSED on database scope: source `9f82b62`, integrated `0cfed0b`; independent Security exact-commit review found no remaining scoped defect. Root independently reran both integration files: 26/26 PASS. Fresh16, upgrade15-to16, seed twice on both disposable databases, full DB29/29 and actual integration script26/26 verified. DATABASE gate restored PASS; final full-regression review still required.
+- API/UI dependency gates are now PASS and both nodes return READY then IN_PROGRESS on dispatch. Root authorizes dependency refresh with integrated DB repair and authorization clarification; UI also receives API contract source `14f16f0` plus `00252e2`. Existing drafts are preserved. P502-AUTH-001 remains OPEN HIGH until production alignment/negative tests and independent review.
+- Runtime: use retained isolated test databases, never existing application database. Transient pnpm warning mode avoids implicit installs in junction worktrees; final clean-checkout frozen install remains required. Database generation grant ends with handoff; API owner may coordinate necessary generation exclusively with Root, never concurrently.
+- No master changes, protected diff/stash operations, Phase 5.3 work, or final phase approval authorized. Earlier blocked statuses below are historical and superseded by this gate.
 
 ### 2026-08-30 override: reopened upstream gate
 

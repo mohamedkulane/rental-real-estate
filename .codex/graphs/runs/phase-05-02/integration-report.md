@@ -19,6 +19,9 @@
 
 ### 2026-08-31 contract alignment and runtime recovery
 
+- Forward database repair source `9f82b62a3bc750f4c4709a6ce60f14c486faa306` integrated as `0cfed0b`. Only database-contract approval metadata conflicted; Root resolved to v1.0.1 APPROVED after exact-source Security review and independent 26/26 integration rerun. Migration/tests/package script unchanged from reviewed source. Original schema, seed and applied foundation migration have zero diff.
+- Migration evidence: fresh16 and upgrade15-to16/current; seed twice both; full DB29/29; integration26/26; Root repeated integration26/26. Security recommended P502-DB-001 closure on database scope. Upstream gate restored; API/UI implementation may resume. P502-AUTH-001 and all final independent reviews remain open.
+
 - API contract source `14f16f0aa02fbc46d8a240b4d02a1a55bd2610a2` integrated without conflicts as `e93e59d`; sequencing follow-up `00252e2555733aaece6e480be245beae19b4b1de` as `692a030`. Complete Root artifact review and independent Security contract review found no blocking contract defect. v1.0.1 approved only as an implementation contract; P502-AUTH-001 remains open for production alignment/tests.
 - API drafts remain uncommitted and preserved. Exactly two API-worker-generated untracked JavaScript files in that worktree were verified and removed under explicit Root grant (`packages/config/src/index.js`, `packages/shared/src/index.js`); reproducible from TypeScript sources. No user evidence or unrelated file removed.
 - PostgreSQL is reachable through existing approved connection despite absent Docker engine. Read-only probe succeeded; Database owner exclusively authorized isolated fresh/upgrade test databases, generation and runtime checks. Existing application database remains out of mutation scope. DATABASE gate is not yet restored.
