@@ -3,7 +3,7 @@
 ## Metadata
 
 - Contract ID/version/sub-phase: `CRM-API-5.2` / `1.0.1` / Phase 5.2 CRM Foundation.
-- Contract status: `REVIEW` (contract-only alignment; Root approval pending). Feature implementation is `BLOCKED` while the reopened database gate and forward repair `P502-DB-001` await Root reapproval. No implementation or phase PASS is claimed.
+- Contract status: `APPROVED FOR IMPLEMENTATION` by Root on 2026-08-31 after complete artifact review and independent Security contract review of `14f16f0`, plus sequencing clarification `00252e2`. Feature implementation remains `BLOCKED` until the reopened DATABASE gate passes. This approval is contract-only, not implementation or Phase 5.2 PASS.
 - Owner: Agent 4 Backend / API Engineer.
 - Upstream contracts: `CRM-DOMAIN-5.2` v1.0.0; `CRM-DB-5.2` v1.0.0 with forward repair review pending; `CRM-AUTHZ-5.2` v1.0.1, source `7539d28151b683c7a542a1be9dc90b6e96398f6b`, approved by Root and integrated at `1dbe3d9` on 2026-08-30. API v1.0.0 was approved by Root and committed separately as `088b9a41c71d7d7bdd5f1992f78bd04e251f0387`.
 - Consumers: Web, Security Review, QA, UX, Adversarial, Governance, and Root.

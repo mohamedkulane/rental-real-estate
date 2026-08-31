@@ -37,6 +37,9 @@
 
 ### 2026-08-30 override: reopened upstream gate
 
+- 2026-08-31 update: Docker engine remains unavailable, but a read-only probe using existing authorized configuration successfully reached PostgreSQL 17.6 and confirmed permission to create isolated test databases. Database owner may now run fresh/upgrade/native/seed checks ONLY on uniquely named disposable databases; existing `rerms` must remain untouched. Previous Docker failure is retained as history, not proof that PostgreSQL is unavailable.
+- API contract-only checkpoint `14f16f0` and successor-sequencing clarification `00252e2` reviewed by Root; independent Security found no blocking contract defects. v1.0.1 approved as a contract only. API/UI implementation remains BLOCKED until DB runtime proof and independent recheck. Two HIGH findings remain open.
+
 - Runtime BLOCKED: Docker Desktop failed to initialize its Linux engine; backend reports inaccessible `sailor-ingest.sock` and shows an unexpected-error dialog. No factory reset, socket deletion, reinstall, or WSL reset authorized/performed. No new disposable database created. User asked to restore Docker or supply a dedicated test PostgreSQL connection. Fresh/upgrade migration, repeat-seed and native repair tests are NOT PASS.
 
 - DATABASE reopened PASS to FAILED for P502-DB-001, then READY and IN_PROGRESS with original Database owner. API/UI are BLOCKED pending repair approval (superseding prior table). DOMAIN and security policy unchanged; independent reviews still pending.
