@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run test/schema.test.ts",
-    "test:integration": "vitest run test/connection.integration.test.ts",
+    "test:integration": "vitest run test/connection.integration.test.ts test/crm-native.integration.test.ts",
     "prisma:format": "prisma format --config ../../prisma.config.ts",
     "prisma:validate": "prisma validate --config ../../prisma.config.ts",
     "prisma:generate": "prisma generate --config ../../prisma.config.ts",
