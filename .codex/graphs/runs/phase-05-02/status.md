@@ -37,6 +37,10 @@
 
 ### Current gate: repaired upstream PASS, implementation resumed
 
+- Root also owns `.codex/graphs/phase-05.md` for the serialized factual update from bootstrap-unstarted to approved 5.2 IN_PROGRESS. Governance guard regression tests run automatically with `verify:governance`; final PASS requires every independent review artifact to state its scoped PASS, zero unresolved CRITICAL/HIGH, and explicit MEDIUM dispositions. This is guard implementation, not a final Governance audit result.
+
+- Root temporary exclusive governance ownership: `scripts/verify-governance.mjs`, `scripts/lib/phase-governance.mjs`, `scripts/test/phase-governance.test.mjs`, `docs/governance/current-phase.json`, and `docs/phases/phase-05/crm-foundation/completion-report.md`. Purpose: recognize explicitly approved 5.2 IN_PROGRESS without changing historical 5.1 PASS or admitting 5.3/later models; add negative guard tests. No builder may edit these concurrently. Final review of these changes remains with the independent Governance auditor.
+
 - P502-DB-001 CLOSED on database scope: source `9f82b62`, integrated `0cfed0b`; independent Security exact-commit review found no remaining scoped defect. Root independently reran both integration files: 26/26 PASS. Fresh16, upgrade15-to16, seed twice on both disposable databases, full DB29/29 and actual integration script26/26 verified. DATABASE gate restored PASS; final full-regression review still required.
 - API/UI dependency gates are now PASS and both nodes return READY then IN_PROGRESS on dispatch. Root authorizes dependency refresh with integrated DB repair and authorization clarification; UI also receives API contract source `14f16f0` plus `00252e2`. Existing drafts are preserved. P502-AUTH-001 remains OPEN HIGH until production alignment/negative tests and independent review.
 - Runtime: use retained isolated test databases, never existing application database. Transient pnpm warning mode avoids implicit installs in junction worktrees; final clean-checkout frozen install remains required. Database generation grant ends with handoff; API owner may coordinate necessary generation exclusively with Root, never concurrently.

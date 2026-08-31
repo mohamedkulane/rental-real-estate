@@ -1,8 +1,10 @@
 {
   "completedPhase": 4,
-  "currentGate": "PHASE_5_1_SERVICE_ENGAGEMENTS_PASS",
+  "currentGate": "PHASE_5_2_CRM_FOUNDATION_IN_PROGRESS",
   "phase5Started": true,
-  "phase5SubPhase": "5.1",
-  "productionSchemaScope": "PHASES_1_TO_5_1_ONLY",
-  "canonicalClosureReport": "docs/phases/phase-05/completion-report.md"
+  "phase5SubPhase": "5.2",
+  "productionSchemaScope": "PHASES_1_TO_5_2_ONLY",
+  "canonicalClosureReport": "docs/phases/phase-05/crm-foundation/completion-report.md",
+  "graphRun": ".codex/graphs/runs/phase-05-02",
+  "phase53Started": false
 }

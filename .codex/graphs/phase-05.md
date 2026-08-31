@@ -5,7 +5,7 @@ Canonical V3 splits Phase 5 into separately gated sub-phases. Each sub-phase get
 | Sub-phase | Scope                                           | Current state                                         | Dependency                |
 | --------- | ----------------------------------------------- | ----------------------------------------------------- | ------------------------- |
 | 5.1       | Service Engagements and Capability Resolver     | PASS before graph bootstrap; durable commit `ed1e96d` | Phase 1–4 closure         |
-| 5.2       | CRM Foundation                                  | BLOCKED — approval required                           | 5.1 PASS + human approval |
+| 5.2       | CRM Foundation                                  | IN_PROGRESS — approved run; NOT final PASS             | 5.1 PASS + human approval |
 | 5.3       | Rental/Sale Listings and deterministic matching | BLOCKED                                               | 5.2 PASS + approval       |
 | 5.4       | Viewings                                        | BLOCKED                                               | 5.3 PASS + approval       |
 | 5.5       | Applications and Screening                      | BLOCKED                                               | 5.4 PASS + approval       |
@@ -25,4 +25,4 @@ Canonical V3 splits Phase 5 into separately gated sub-phases. Each sub-phase get
 - Matching is deterministic and explainable.
 - No Phase 6 finance ledger, Phase 7 specialized completion, or Phase 10 development model leaks into Phase 5.
 
-The Phase 5.1 implementation, migration, tests, and closure reports are represented by durable commit `ed1e96d` on branch `codex/phase5-1-service-engagements`, with canonical V3 parent commit `3371ba0`. Phase 5.2 remains unstarted. Its graph may be instantiated only from the verified graph checkpoint and after explicit human approval.
+The Phase 5.1 implementation, migration, tests, and closure reports are represented by durable commit `ed1e96d` on branch `codex/phase5-1-service-engagements`, with canonical V3 parent commit `3371ba0`. Phase 5.2 was unstarted at bootstrap `fbe04db`; subsequent explicit human approval opened `runs/phase-05-02/` from that checkpoint. That run is now in progress and has not received final acceptance. Phase 5.3 remains blocked until Phase 5.2 PASS and separate human approval.
