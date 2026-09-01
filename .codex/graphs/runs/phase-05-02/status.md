@@ -37,6 +37,10 @@
 
 ### Current gate: repaired upstream PASS, implementation resumed
 
+- 2026-09-01: Security log-privacy source `59bf377` integrated without conflicts as `6891cde`; Root semantic diff review and independent emitted-log rerun 7/7 PASS. P502-SEC-002 remains OPEN pending adversarial recheck. Temporary LOG-REVIEW node is READY then IN_PROGRESS on dispatch: independent reviewer, `codex/p5-02-log-review` / `.worktrees/p5-02-log-review`, base `6891cde`; read-only production access, write only `adversarial-findings.md` for this scoped repair. This is not the full Phase 5.2 adversarial node, which still requires the final API/UI candidate.
+- Root withdrew an over-strict draft review suggestion on NURTURING outcomes: API contract v1.0.1 explicitly allows another OPEN Follow-up to be preserved; exact predecessor-linked replacement is not mandatory for every completion/cancellation. API owner instructed to preserve the approved invariant and test both valid alternatives. No domain change or new finding is asserted.
+- Fresh integration dependencies passed full monorepo typecheck and repeated native database integration 26/26 on the retained isolated database. Docker was normally restarted this resume and all three configured containers are healthy; no data reset/deletion.
+
 - Runtime recovery on this resume: initial configured PostgreSQL/Redis probes returned ECONNREFUSED. Starting Docker Desktop normally at its verified user-local executable restored engine 29.7.2 and existing PostgreSQL/Redis/MinIO containers, all healthy. No reset, socket deletion or volume deletion. Retained isolated test databases remain the only validation targets; existing application data stays out of scope.
 - Root completed `pnpm install --frozen-lockfile` in integration using pnpm 11.17.0: 452 packages, exit 0, unchanged tracked files/lockfile. Integration now has its own dependencies, not worker junctions. Root exclusively owns integration-local Prisma generation and validation; worker clients are not regenerated. This preparation does not replace final frozen-candidate clean-checkout evidence.
 

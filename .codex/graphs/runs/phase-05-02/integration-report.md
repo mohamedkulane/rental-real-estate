@@ -15,6 +15,11 @@
 
 ## Final candidate
 
+### 2026-09-01 scoped Security integration
+
+- Source `59bf37768c07bb4c6b0a3df53213d41ae1e3d616` integrated without conflicts as `6891cde`. Exact three owned files reviewed: AppModule logging configuration, CRM privacy utility, emitted-log regression tests. Root independently reran 7/7 tests on integration's installed dependencies. Scoped independent adversarial review remains required before closing P502-SEC-002; no final Security or phase PASS declared.
+- Integration-local full monorepo typecheck PASS; native database integration rerun 26/26 PASS on `rerms_p502_repair_fresh_0831a`. Root/master/protected evidence/stashes unchanged.
+
 ## 2026-08-30 resumed integration
 
 ### 2026-08-31 contract alignment and runtime recovery
