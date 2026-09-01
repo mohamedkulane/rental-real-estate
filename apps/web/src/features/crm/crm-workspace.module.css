@@ -1,0 +1,28 @@
+.workspace {
+  min-width: 0;
+}
+.workspace button,
+.workspace a[class~='button'] {
+  min-height: 44px;
+}
+.workspace input[type='checkbox'],
+.workspace input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+.workspace dialog {
+  width: min(672px, calc(100vw - 32px));
+}
+.workspace :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .workspace dialog {
+    padding: 16px;
+  }
+}

@@ -20,13 +20,14 @@ import { useEffect, useState } from 'react';
 import { AccessScopeBadge } from './ui';
 import {
   expandedParentForActive,
+  crmNavigation,
   navigationItemIsActive,
   nextExpandedParent,
   type NavigationItem,
 } from './navigation-model';
 
 export type ShellSection =
-  'overview' | 'organization' | 'portfolio' | 'commercial' | 'administration';
+  'overview' | 'organization' | 'portfolio' | 'commercial' | 'crm' | 'administration';
 export type ShellSubItem = NavigationItem;
 
 type NavItem = ShellSubItem & { icon?: typeof Home | undefined };
@@ -377,6 +378,12 @@ export function AppShell({
           <NavGroup
             title="Commercial"
             items={commercialItems}
+            activeItem={activeItem}
+            onNavigate={() => setOpen(false)}
+          />
+          <NavGroup
+            title="CRM"
+            items={crmNavigation(permissions, (href) => window.location.assign(href))}
             activeItem={activeItem}
             onNavigate={() => setOpen(false)}
           />
