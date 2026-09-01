@@ -8,6 +8,9 @@ Domain, authorization and API contracts are approved. The forward Follow-up
 database repair passed fresh/upgrade migrations, repeat seeding and independent
 integration verification. API and frontend implementation remain in progress.
 P502-AUTH-001 remains open until implementation and negative tests are verified.
+P502-SEC-002 (CRM request-log privacy) is routed to Security and also remains open
+pending repair and independent verification. Runtime containers have recovered
+through normal Docker startup; no data reset or volume deletion was performed.
 
 Independent QA, final Security, responsive UX at 1440/768/390, Adversarial and
 Governance review, cumulative regression and clean-checkout validation remain
