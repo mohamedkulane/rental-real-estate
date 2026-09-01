@@ -3,6 +3,8 @@ import {
   expandedParentForActive,
   navigationItemIsActive,
   nextExpandedParent,
+  crmNavigation,
+  crmDestinations,
   type NavigationItem,
 } from './navigation-model';
 
@@ -51,5 +53,36 @@ describe('hierarchical navigation model', () => {
     expect(items.flatMap((item) => item.children ?? []).map((item) => item.label)).not.toContain(
       'PERSON',
     );
+  });
+});
+
+describe('CRM task navigation', () => {
+  it('exposes only explicitly permitted workspaces', () => {
+    expect(crmNavigation([], () => undefined)).toEqual([]);
+    expect(crmNavigation(['crm.followup.read'], () => undefined)).toEqual([]);
+    expect(
+      crmNavigation(['crm.followup.read', 'crm.lead.read'], () => undefined).map(
+        (item) => item.label,
+      ),
+    ).toContain('Follow-ups');
+    expect(crmNavigation(['crm.lead.read'], () => undefined).map((item) => item.label)).toEqual([
+      'Lead Register',
+      'Pipeline',
+    ]);
+  });
+  it('does not expose later-phase Viewings', () => {
+    expect(crmDestinations.map((item) => item.href)).toEqual([
+      '/crm/leads',
+      '/crm/pipeline',
+      '/crm/follow-ups',
+      '/crm/lead-sources',
+    ]);
+  });
+  it('routes to the dedicated workspace', () => {
+    let destination = '';
+    crmNavigation(['crm.source.manage'], (href) => {
+      destination = href;
+    })[0]!.onSelect!();
+    expect(destination).toBe('/crm/lead-sources');
   });
 });
