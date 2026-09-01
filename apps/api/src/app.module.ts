@@ -2,6 +2,7 @@ import { type MiddlewareConsumer, Module, type NestModule, RequestMethod } from 
 import { LoggerModule } from 'nestjs-pino';
 import { CORRELATION_ID_HEADER } from '@rerms/shared';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
+import { crmHttpLogPrivacy, crmSafeRequestId } from './common/crm-log-privacy';
 import { FoundationConfigModule } from './config/foundation-config.module';
 import { DatabaseModule } from './database/database.module';
 import { FoundationController } from './foundation/foundation.controller';
@@ -19,8 +20,10 @@ import { Phase5Module } from './phase5.module';
       forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',
-        genReqId: (request) => request.headers[CORRELATION_ID_HEADER] ?? request.id,
+        genReqId: (request) =>
+          crmSafeRequestId(request, request.headers[CORRELATION_ID_HEADER] ?? request.id),
         customProps: () => ({ environment: process.env.NODE_ENV ?? 'development' }),
+        ...crmHttpLogPrivacy,
         redact: [
           'req.headers.authorization',
           'req.headers.cookie',
