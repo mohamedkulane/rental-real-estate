@@ -4,7 +4,7 @@
 - User approval reference/date: Explicit approval in the active Codex task, 2026-08-25
 - Integration branch/worktree: `codex/p5-02-integration` / `.worktrees/p5-02-integration`
 - Baseline SHA: `fbe04dbd56da8635f70b5ebf76e8e6bc4be0dc7e`
-- Current committed integration base: `ec6df97` (approved repaired database, clarified contracts and in-progress governance guards); API/UI drafts are not a frozen final candidate
+- Current committed integration candidate: `9184fc5` (API, UI, and CRM log-privacy repair integrated); release gate remains FAIL pending native DB and responsive evidence
 - Integration method: ordered cherry-pick of role-owned commits
 - Canonical references: V3 `3371ba0`; Phase 5.1 implementation `ed1e96d`; graph bootstrap `fbe04db`; canonical V3 sections 6 BR-007, 8 CRM, 10 Lead lifecycle, 11 CRM permissions, 12 CRM IA, 13 Lead model, 14 CRM API, 20.1 Phase 5.2
 - Protected dirty/untracked files: root-only `final-remediation.diff` remains untouched and excluded
@@ -18,13 +18,13 @@
 | DOMAIN | Agent 1 Domain Architect | Human approval | `codex/p5-02-domain` / `.worktrees/p5-02-domain` | Phase 5.2 domain decision and domain contract run files; scoped CRM domain docs/ADR if required | PASS | 2026-08-25 | `b6d27d4` → integrated `7ffa212` | Root contract gate PASS | `domain-decisions.md` v1.0.0 |
 | DATABASE | Agent 2 Database Engineer | DOMAIN PASS | `codex/p5-02-database` / `.worktrees/p5-02-database` | `prisma/**`, `packages/database/**`, database contract; sole Phase 5.2 migration and seed writer | PASS | 2026-08-25 | `b5509c5` → integrated `f6ef316` | Root DB/Security gate PASS; later QA/adversarial recheck | `database-contract.md` v1.0.0; 3 files/11 DB tests; fresh/upgrade/seed twice |
 | SECURITY | Agent 3 Security Engineer | DOMAIN PASS | `codex/p5-02-security` / `.worktrees/p5-02-security` | CRM permission semantics, authorization tests, authorization contract; seed semantics handed to DB | PASS | 2026-08-25 | `4ab9c6c` → integrated `2cbf00d` | Root DB/Security gate PASS; post-integration review pending | `authorization-contract.md` v1.0.0; 49/49 API unit; 19-code seed verified |
-| API | Agent 4 Backend Engineer | DATABASE + SECURITY PASS | `codex/p5-02-api` / `.worktrees/p5-02-api` | `apps/api/src/crm/**`, unique CRM API tests, API contract; `phase5.module.ts` serialized Root grant | IN_PROGRESS | 2026-08-25 | | QA/security/adversarial | `api-contract.md` |
-| UI | Agent 5 Frontend Engineer | API contract + upstream PASS | `codex/p5-02-web` / `.worktrees/p5-02-web` | `apps/web/src/app/crm/**`, `features/crm/**`, unique CRM tests, UI contract; serialized CRM navigation edits | IN_PROGRESS | 2026-08-25 | | UX/QA/adversarial | `ui-contract.md`; API contract `088b9a4` → `069b200` |
+| API | Agent 4 Backend Engineer | DATABASE + SECURITY PASS | `codex/p5-02-api` / `.worktrees/p5-02-api` | `apps/api/src/crm/**`, unique CRM API tests, API contract; `phase5.module.ts` serialized Root grant | PASS (source) | 2026-09-04 | `859f725` → integrated `92acaad` | QA/security/adversarial | `api-contract.md` |
+| UI | Agent 5 Frontend Engineer | API contract + upstream PASS | `codex/p5-02-web` / `.worktrees/p5-02-web` | `apps/web/src/app/crm/**`, `features/crm/**`, unique CRM tests, UI contract; serialized CRM navigation edits | PASS (source) | 2026-09-04 | `baa397f` → integrated `d221c57`; `edfe35f` → `809ec0e` | UX/QA/adversarial | `ui-contract.md` |
 | SECURITY-REVIEW | Agent 3 Security Engineer | Integrated API candidate | integration candidate, read-first | `security-findings.md`; targeted security tests only if routed | BLOCKED | 2026-08-25 | | Root | |
-| QA | Agent 6 QA Engineer | Integrated candidate | `codex/p5-02-tests` / `.worktrees/p5-02-tests` | Root-assigned CRM tests/fixtures, testing contract, QA findings | BLOCKED | 2026-08-25 | | Root | `testing-contract.md`, `qa-findings.md` |
-| UX | Agent 7 UX Reviewer | Integrated frontend | integration candidate, read-only first | `ux-findings.md` only | BLOCKED | 2026-08-25 | | Root | |
-| ADVERSARIAL | Agent 8 Adversarial Reviewer | Integrated candidate | integration candidate, read-only first | `adversarial-findings.md` only | BLOCKED | 2026-08-25 | | Root | |
-| GOVERNANCE | Agent 9 Governance Auditor | All independent reviews PASS | frozen integration candidate, read-only first | `governance-findings.md` only | BLOCKED | 2026-08-25 | | Root | |
+| QA | Agent 6 QA Engineer | Integrated candidate | `codex/p5-02-tests` / `.worktrees/p5-02-tests` | Root-assigned CRM tests/fixtures, testing contract, QA findings | FAIL (DB env) | 2026-09-04 | | Root | `testing-contract.md`, `qa-findings.md` |
+| UX | Agent 7 UX Reviewer | Integrated frontend | integration candidate, read-only first | `ux-findings.md` only | PASS static / responsive pending | 2026-09-04 | | Root | `ux-findings.md` |
+| ADVERSARIAL | Agent 8 Adversarial Reviewer | Integrated candidate | integration candidate, read-only first | `adversarial-findings.md` only | PASS | 2026-09-04 | | Root | `adversarial-findings.md` |
+| GOVERNANCE | Agent 9 Governance Auditor | All independent reviews PASS | frozen integration candidate, read-only first | `governance-findings.md` only | FAIL | 2026-09-04 | | Root | `governance-findings.md` |
 | ROOT-GATE | Agent 0 Root Supervisor | GOVERNANCE PASS | `codex/p5-02-integration` | integration/gate reports only | BLOCKED | 2026-08-25 | | Independent chain complete | |
 
 ## Finding summary
@@ -36,6 +36,8 @@
 ## Temporary ownership grants and blockers
 
 ### Current gate: repaired upstream PASS, implementation resumed
+
+- 2026-09-01 scoped adversarial recheck CONFIRMED P502-SEC-002 still HIGH: real Nest request with unsupported JSON charset or oversized JSON fails before request logger context, and global ApiExceptionFilter logs protected CRM query text. Reviewer receives additional exclusive test ownership `apps/api/test/unit/crm-log-privacy.adversarial.test.ts`; production remains read-only. Review worktree dependency junctions target integration dependencies, without tracked config changes. Security receives exclusive remediation ownership of `apps/api/src/common/api-exception.filter.ts`, existing `crm-log-privacy.ts`, and its existing `crm-log-privacy.test.ts`; preserve non-CRM error behavior, suppress sensitive CRM data even before request context. No bootstrap/API-feature edits granted. Independent reviewer retains its adversarial test and recheck.
 
 - 2026-09-01: Security log-privacy source `59bf377` integrated without conflicts as `6891cde`; Root semantic diff review and independent emitted-log rerun 7/7 PASS. P502-SEC-002 remains OPEN pending adversarial recheck. Temporary LOG-REVIEW node is READY then IN_PROGRESS on dispatch: independent reviewer, `codex/p5-02-log-review` / `.worktrees/p5-02-log-review`, base `6891cde`; read-only production access, write only `adversarial-findings.md` for this scoped repair. This is not the full Phase 5.2 adversarial node, which still requires the final API/UI candidate.
 - Root withdrew an over-strict draft review suggestion on NURTURING outcomes: API contract v1.0.1 explicitly allows another OPEN Follow-up to be preserved; exact predecessor-linked replacement is not mandatory for every completion/cancellation. API owner instructed to preserve the approved invariant and test both valid alternatives. No domain change or new finding is asserted.

@@ -1,22 +1,23 @@
-# Phase 5.2 CRM Foundation — in progress
+# Phase 5.2 CRM Foundation — gate result
 
-This is a progress record, not final acceptance. Human approval authorized only
-Phase 5.2 from durable baseline `fbe04db`. Phase 5.1 remains historically PASS at
-`ed1e96d`; its completion report is preserved unchanged.
+The integrated implementation candidate is `9184fc5` on `codex/p5-02-integration`.
+Phase 5.1 remains historically PASS at `ed1e96d`; Phase 5.3 has not started.
 
-Domain, authorization and API contracts are approved. The forward Follow-up
-database repair passed fresh/upgrade migrations, repeat seeding and independent
-integration verification. API and frontend implementation remain in progress.
-P502-AUTH-001 remains open until implementation and negative tests are verified.
-P502-SEC-002 (CRM request-log privacy) is routed to Security and also remains open
-pending repair and independent verification. Runtime containers have recovered
-through normal Docker startup; no data reset or volume deletion was performed.
+Domain, database, authorization, API, frontend source, security-privacy, and
+adversarial reviews are complete for the covered source. The release gate is not
+closed because native CRM database integration tests could not execute
+(`CRM_TEST_DATABASE_URL` is unset and the Docker engine is unavailable), and the
+required live responsive review at 1440/768/390 was not run. Governance therefore
+records two unresolved HIGH evidence findings (GOV-001, GOV-002); no production
+CRITICAL finding is present.
 
-Independent QA, final Security, responsive UX at 1440/768/390, Adversarial and
-Governance review, cumulative regression and clean-checkout validation remain
-required. See `.codex/graphs/runs/phase-05-02/` for exact commits and evidence.
+The candidate must not be reported as PASS or pushed as a durable checkpoint until
+an isolated database run, full regression/clean-checkout evidence, report
+reconciliation, and live responsive UX review are attached. See
+`.codex/graphs/runs/phase-05-02/` for exact evidence.
 No Listings, matching implementation, later commercial workflows, or construction
 project/payment domain is authorized. CONSTRUCTION_SERVICE is CRM intake only.
 
 PHASE 5.2 CRM FOUNDATION: FAIL
+READY FOR PHASE 5.3: NO
 PHASE 5.3 STARTED: NO

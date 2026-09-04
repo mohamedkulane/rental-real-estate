@@ -1,86 +1,31 @@
-# Adversarial findings
+# Phase 5.2 independent adversarial review
 
-| ID  | Severity | Attacked invariant | Reproduction/evidence | Owner | Status/disposition | Repair SHA | Recheck |
-| --- | -------- | ------------------ | --------------------- | ----- | ------------------ | ---------- | ------- |
-| P502-SEC-002 | HIGH | CRM protected search/contact data must not enter application logs, including pre-controller failures | Unsupported charset and oversized JSON fail before request logging middleware; global exception filter logs original CRM URL outside request context | Agent 3 Security; Root must grant global exception-filter/composition boundary | OPEN: scoped repair is insufficient | `59bf377` -> `6891cde` | Independent real Nest/pino probes reproduced protected-query leakage on 2026-09-01 |
+Review target: integrated Phase 5.2 candidate at `9184fc5` (including the early-parser logging repair). Review date: 2026-09-04.
 
-## Scoped log-privacy recheck — 2026-09-01
+## Result
 
-Candidate: `6891cde` (`59bf377` Security source). Production was read-only.
-This is a bounded recheck of P502-SEC-002, not the full Phase 5.2 adversarial
-review. API/UI are not yet a frozen integrated acceptance candidate.
+**PASS — no unresolved Critical or High findings.**
 
-SCOPED LOG PRIVACY RECHECK: FAIL
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Company isolation | PASS | `CrmSupportService` resolves records by authenticated `principal.companyId`; read SQL bases, counts, cursor scopes, and mutation predicates repeat the company predicate. |
+| BRANCH / MULTI_BRANCH / COMPANY_WIDE | PASS | `CrmSupportService.branches()` intersects every required permission scope; object reads and commands resolve stored current Lead Branch before authorization; destination Branch and assignee eligibility are checked independently. |
+| Cursor tampering/replay | PASS | `CrmCursorService` uses AES-GCM with AAD, canonical base64url validation, kind/scope binding, key-shape validation, and rejects malformed, cross-lane, filter-changed, or scope-changed tokens. |
+| Contact/privacy leakage | PASS | `crm-log-privacy.adversarial.test.ts` passes 5/5, including unsupported charset and oversized JSON before request context, malformed JSON, global CRM errors, and the non-CRM diagnostic control. CRM exception logs are allowlisted and omit URL/query, body, stack, cause, and free text. |
+| N+1/query leakage | PASS | CRM list/read models use joined SQL projections and batched selector capability enrichment. No CRM frontend list-to-detail fetch or large-limit workaround was found by static scan. |
+| Concurrency/TOCTOU | PASS | Mutating Lead commands lock the Lead in the transaction and use expected-version predicates; assignment, transfer, follow-up outcome, and history writes are atomic and audited. |
+| Future-scope leakage | PASS | `CONSTRUCTION_SERVICE` remains CRM intake context; no later-phase construction/project or transaction workflow was introduced. |
 
-### Confirmed bypass: failure before request logging middleware
+## Targeted automated evidence
 
-Affected source:
+- `apps/api/test/unit/crm-log-privacy.adversarial.test.ts`: 5/5 passed.
+- Existing cursor/authorization/API core tests cover authenticated encrypted cursor binding, tamper rejection, permission conjunctions, branch intersection, and query boundaries.
+- Static scan of `apps/api/src/crm` and `apps/web/src` found no `limit=100` or high-limit completeness workaround and no CRM list-to-detail N+1 pattern.
 
-- `apps/api/src/common/crm-log-privacy.ts:175`: if neither current log arguments
-  nor logger bindings contain a CRM request, the hook forwards arguments unchanged.
-- `apps/api/src/common/api-exception.filter.ts:49`: body-parser HTTP errors that
-  are not Nest HttpException instances fall through to status 500.
-- `apps/api/src/common/api-exception.filter.ts:79`: the 500 branch logs the raw
-  `originalUrl`, correlation text, and exception stack as an unstructured message.
-- Actual installed Nest 11.1.28 registers the Express body parser before module
-  middleware (`@nestjs/core/nest-application.js`). Thus these early failures do not
-  establish nestjs-pino request AsyncLocalStorage. Nest's external-error mapping
-  converts SyntaxError/URIError, but does not convert these body-parser HTTP errors.
+## Disposition
 
-Independent reproduction used actual installed Nest Test/LoggerModule, actual
-`ApiExceptionFilter` and `crmHttpLogPrivacy`, a captured pino destination, and
-Supertest. No mock logger/serializer and no database were involved. TypeScript
-sources were transpiled in memory with installed TypeScript; no production,
-dependency, configuration, or test files were changed for these probes.
+The prior `P502-SEC-002` early-parser logging finding is **closed** by the current `ApiExceptionFilter` CRM boundary and the five-case adversarial test. No new Critical or High finding was confirmed. No production source was edited by this review.
 
-1. Configure LoggerModule with `pinoHttp: [{...crmHttpLogPrivacy}, capturedStream]`.
-2. Create the Nest application, install the real Pino Nest logger and global
-   `new ApiExceptionFilter()`, and initialize. No controller is needed because
-   the parser fails before routing.
-3. Clear startup logs, send POST
-   `/api/v1/crm/leads?search=ADVERSARIAL_PRIVATE_NEEDLE` with
-   `Content-Type: application/json; charset=bogus` and body `{}`.
-4. Observe HTTP 500 and one emitted `ApiExceptionFilter` log containing the
-   protected query needle.
-5. Repeat with `Content-Type: application/json` and JSON
-   `{notes: "x".repeat(110000)}`. The default parser limit rejects it, again
-   emitting the protected original URL in a 500 log.
+### Non-finding considered
 
-Observed outputs:
-
-```json
-{"status":500,"logs":1,"containsProtectedQuery":true,"logContexts":["ApiExceptionFilter"]}
-{"probe":"oversized","status":500,"logs":1,"containsProtectedQuery":true}
-{"probe":"malformed","status":400,"logs":0,"containsProtectedQuery":false}
-```
-
-The malformed-JSON negative control confirms that SyntaxError mapping is different;
-it is not being incorrectly reported as another leaking path. The attack requires
-no authenticated session because it occurs before guards/controllers. An accidental
-oversized CRM request with a protected search term also triggers the same leak.
-
-Recommended repair: give every early CRM failure an explicit safe logging boundary
-that does not depend solely on request AsyncLocalStorage. Preserve safe status,
-correlation/resource identifiers and non-CRM diagnostics without forwarding raw
-URL/query, parser payload, exception message/stack/cause, or free text. A controller
-CRM exception filter alone cannot cover parser failures that occur before routing.
-Do not broaden or weaken domain/authorization behavior to address logging.
-
-Required acceptance tests: actual global-filter Nest requests for unsupported
-charset/encoding, oversized JSON, malformed JSON, ordinary controller failures,
-and an unaffected non-CRM error; inspect complete emitted log output for raw and
-encoded contact/query needles, body/free text, cipher/HMAC and unsafe exception
-metadata. Repeat against the integrated repair commit.
-
-### Passing evidence and boundaries
-
-- Independently reran existing `test/unit/crm-log-privacy.test.ts` on integration:
-  7/7 PASS using installed Vitest 4.1.10. This covers normal request-scoped CRM
-  errors, safe IDs/codes, selected route variants, and non-CRM referrer handling.
-- Those tests manually emit errors from inside a controller and do not use the
-  global exception filter or exercise the pre-middleware parser boundary.
-- Nested arbitrary child logger bindings remain an additional test theme, not a
-  confirmed production finding: no application use of `.assign()`/`.child()` was
-  found in the reviewed committed API source.
-- No final Phase 5.2 adversarial PASS, whole-phase finding-count assertion, or
-  permission to start Phase 5.3 is implied. One HIGH remains open in this scope.
+`CrmSupportService.asset()` derives the Property from a supplied Space when a Space is present. This is safe at the HTTP boundary because the intent-specific preference validator rejects a Property+Space combination for RENT/BUY/SELL; the persisted schema and resolver enforce same-Company/same-Property Space membership. It is therefore not raised as a finding.
