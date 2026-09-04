@@ -9,10 +9,15 @@ DESIGN SOURCE: `531cbac`
 
 - Domain/design contract: PASS (approved design pack)
 - Navigation/permission contract: PASS
-- Frontend implementation: PASS
-- Automated focused validation: PASS
+- Frontend implementation: IMPLEMENTED (review pending)
+- Automated focused validation: BLOCKED — runner did not complete in this worktree
+- Responsive UX 1440/768/390: BLOCKED — exact viewport runtime surface unavailable
+- Keyboard/mobile interaction review: BLOCKED — runtime evidence unavailable
 - Future-phase scope leakage: PASS (none)
 - Wave 2 started: NO
 - Phase 5.3 started: NO
 
-Wave 1 is ready for independent UX, QA, adversarial, and governance review.
+WAVE 1 GATE: FAIL
+
+Wave 1 must not advance until the exact viewport review and completed automated
+validation are available. Wave 2 and Phase 5.3 remain NOT STARTED.
