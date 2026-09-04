@@ -29,3 +29,8 @@ The prior `P502-SEC-002` early-parser logging finding is **closed** by the curre
 ### Non-finding considered
 
 `CrmSupportService.asset()` derives the Property from a supplied Space when a Space is present. This is safe at the HTTP boundary because the intent-specific preference validator rejects a Property+Space combination for RENT/BUY/SELL; the persisted schema and resolver enforce same-Company/same-Property Space membership. It is therefore not raised as a finding.
+
+ADVERSARIAL REVIEW: PASS
+UNRESOLVED CRITICAL: 0
+UNRESOLVED HIGH: 0
+ALL MEDIUM FINDINGS DISPOSITIONED: YES
