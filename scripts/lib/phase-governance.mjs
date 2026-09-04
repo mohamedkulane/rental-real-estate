@@ -13,7 +13,7 @@ AuditLog Document DocumentVersion DocumentLink`.split(/\s+/u);
 export const crmModels = `LeadSource Lead LeadPreferenceVersion RentLeadPreference
 BuyLeadPreference SellLeadPreference ConstructionServiceLeadPreference LeadStageHistory
 LeadIntentHistory LeadAssignment LeadBranchHistory LeadActivity LeadFollowUp
-LeadFollowUpOutcome`.split(/\s+/u);
+LeadFollowUpOutcome WorkflowDraft WorkflowCanonicalReference WorkflowCompletion`.split(/\s+/u);
 
 export const crmReportPath = 'docs/phases/phase-05/crm-foundation/completion-report.md';
 
