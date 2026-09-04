@@ -12,6 +12,7 @@ import {
   readPreference,
 } from './crm-preferences';
 import { sourceBody } from './lead-sources-workspace';
+import { dateTimeInputValue } from './follow-ups-workspace';
 import { LeadCards, WorkspaceBody } from './crm-shared';
 import {
   leadIntents,
@@ -100,6 +101,11 @@ describe('CRM authorization usability', () => {
 });
 
 describe('CRM list and cursor state', () => {
+  it('preserves server-filtered follow-up dates in the local datetime input', () => {
+    expect(dateTimeInputValue('2026-08-31T08:05:00.000Z')).toMatch(/^2026-08-31T/);
+    expect(dateTimeInputValue(null)).toBe('');
+    expect(dateTimeInputValue('not-a-date')).toBe('');
+  });
   it('encodes repeated unbracketed filters and omits empty values', () => {
     const path = requestPath('/crm/leads', {
       stage: ['NEW', 'CONTACTED'],
