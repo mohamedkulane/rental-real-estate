@@ -1,6 +1,6 @@
 # Phase 5.2 CRM Foundation — gate result
 
-The integrated implementation candidate is `9184fc5` on `codex/p5-02-integration`.
+The integrated implementation candidate is `2525d26` on `codex/p5-02-integration`.
 Phase 5.1 remains historically PASS at `ed1e96d`; Phase 5.3 has not started.
 
 Domain, database, authorization, API, frontend source, security-privacy, and

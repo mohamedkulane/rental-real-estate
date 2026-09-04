@@ -1,7 +1,7 @@
 # Gate report
 
 - Sub-phase: Phase 5.2 — CRM Foundation
-- Candidate SHA: `9184fc5`
+- Candidate SHA: `2525d26`
 - Root Supervisor: blocked pending runtime and responsive evidence
 - Gate timestamp: 2026-09-04
 
@@ -14,7 +14,7 @@
 | API unit/typecheck/build/lint | integration worktree | PASS | API unit 67/67; CRM focused 15/15 | `testing-contract.md` |
 | Web unit/typecheck/build/lint | integration worktree | PASS | Web 97/97 | `testing-contract.md` |
 | CRM API HTTP E2E | integration worktree | PASS | 4/4 | `testing-contract.md` |
-| Native CRM DB integration | integration worktree | BLOCKED | 5 skipped; test DB/Docker unavailable | `qa-findings.md` |
+| Native CRM DB integration | integration worktree | BLOCKED | 5 skipped; no dedicated DB and Docker permission denied | `qa-findings.md` |
 | Responsive UX 1440/768/390 | browser/runtime | NOT RUN | static review PASS only | `ux-findings.md` |
 | Adversarial review | integration candidate | PASS | 0 product Critical/High | `adversarial-findings.md` |
 | Clean checkout/full monorepo gate | integration worktree | PENDING | not recorded for frozen candidate | `governance-findings.md` |
