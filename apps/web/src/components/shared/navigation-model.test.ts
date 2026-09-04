@@ -5,6 +5,7 @@ import {
   nextExpandedParent,
   crmNavigation,
   crmDestinations,
+  startNewNavigation,
   type NavigationItem,
 } from './navigation-model';
 
@@ -84,5 +85,19 @@ describe('CRM task navigation', () => {
       destination = href;
     })[0]!.onSelect!();
     expect(destination).toBe('/crm/lead-sources');
+  });
+});
+
+describe('Wave 1 Start New launcher', () => {
+  it('only exposes implemented tasks for authorized users', () => {
+    expect(startNewNavigation([], () => undefined)).toEqual([]);
+    expect(startNewNavigation(['crm.lead.read'], () => undefined)).toEqual([]);
+    expect(startNewNavigation(['crm.lead.create'], () => undefined).map((item) => item.label)).toEqual(['Add Lead']);
+  });
+
+  it('routes Add Lead without exposing future-phase destinations', () => {
+    let destination = '';
+    startNewNavigation(['crm.lead.create'], (href) => { destination = href; })[0]!.onSelect!();
+    expect(destination).toBe('/crm/leads/new');
   });
 });

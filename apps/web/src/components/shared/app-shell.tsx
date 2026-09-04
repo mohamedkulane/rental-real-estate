@@ -11,18 +11,21 @@ import {
   Landmark,
   LogOut,
   Menu,
+  Plus,
   ShieldCheck,
   UserCog,
   Users,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessScopeBadge } from './ui';
 import {
   expandedParentForActive,
   crmNavigation,
   navigationItemIsActive,
   nextExpandedParent,
+  startNewDestinations,
+  startNewNavigation,
   type NavigationItem,
 } from './navigation-model';
 
@@ -182,6 +185,8 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [startNewOpen, setStartNewOpen] = useState(false);
+  const startNewTriggerRef = useRef<HTMLButtonElement>(null);
   const organization = subNavigation.organization ?? [];
   const administration = subNavigation.administration ?? [];
   const portfolio = subNavigation.portfolio ?? [];
@@ -199,6 +204,21 @@ export function AppShell({
     onSelect: () => window.location.assign(url),
   });
   const can = (permission: string) => permissions.includes(permission);
+  const startNewItems = startNewNavigation(permissions, (href) => {
+    setStartNewOpen(false);
+    window.location.assign(href);
+  });
+  useEffect(() => {
+    if (!startNewOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setStartNewOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [startNewOpen]);
+  useEffect(() => {
+    if (!startNewOpen) startNewTriggerRef.current?.focus();
+  }, [startNewOpen]);
   const allowed = (permission: string, item: NavItem): NavItem[] => (can(permission) ? [item] : []);
   const companySetup = organization.length
     ? pick(organization, ['company', 'branches'], { company: Landmark, branches: Building2 })
@@ -405,6 +425,12 @@ export function AppShell({
             <p className="text-sm font-semibold text-slate-700">Secure staff workspace</p>
           </div>
           <div className="flex items-center gap-2">
+            {startNewItems.length ? (
+              <button ref={startNewTriggerRef} type="button" className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#0D47A1] px-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#1565C0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9]" aria-haspopup="dialog" aria-expanded={startNewOpen} onClick={() => setStartNewOpen(true)}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                <span>Start New</span>
+              </button>
+            ) : null}
             <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
             <button type="button" className="header-action" onClick={onLogout}>
               <LogOut className="h-4 w-4" aria-hidden="true" />
@@ -412,6 +438,14 @@ export function AppShell({
             </button>
           </div>
         </header>
+        {startNewOpen ? (
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/40 p-4 pt-20 backdrop-blur-[1px] sm:pt-24" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStartNewOpen(false); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="start-new-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+              <div className="mb-4 flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace launcher</p><h2 id="start-new-title" className="mt-1 text-lg font-bold text-slate-900">Start New</h2><p className="mt-1 text-sm text-slate-500">Choose a task available to your current access.</p></div><button type="button" aria-label="Close Start New" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9]" onClick={() => setStartNewOpen(false)}><X className="h-5 w-5" aria-hidden="true" /></button></div>
+              <div className="space-y-2">{startNewItems.map((item) => { const destination = startNewDestinations.find((entry) => entry.key === item.key); return <button key={item.key} type="button" className="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-[#90CAF9] hover:bg-[#E3F2FD]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9]" onClick={item.onSelect}><span className="mt-0.5 rounded-lg bg-[#E3F2FD] p-2 text-[#0D47A1]"><Plus className="h-4 w-4" aria-hidden="true" /></span><span><span className="block text-sm font-bold text-slate-900">{item.label}</span><span className="block text-xs text-slate-500">{destination?.description}</span></span></button>; })}</div>
+            </section>
+          </div>
+        ) : null}
         <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
