@@ -17,6 +17,14 @@ import {
 import { FollowUpCommand, type FollowUpAction } from './lead-commands';
 import type { FollowUpRecord } from './crm-types';
 
+export function dateTimeInputValue(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 export function FollowUpCards({
   items,
   principal,
@@ -207,6 +215,7 @@ export function FollowUpsWorkspace() {
                   Due from (inclusive)
                   <input
                     type="datetime-local"
+                    value={dateTimeInputValue(params.get('dueFrom'))}
                     onChange={(event) =>
                       set({
                         dueFrom: event.target.value
@@ -220,6 +229,7 @@ export function FollowUpsWorkspace() {
                   Due before (exclusive)
                   <input
                     type="datetime-local"
+                    value={dateTimeInputValue(params.get('dueTo'))}
                     onChange={(event) =>
                       set({
                         dueTo: event.target.value ? new Date(event.target.value).toISOString() : '',
