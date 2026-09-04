@@ -6,11 +6,30 @@ import {
   ServiceEngagementController,
 } from './commercial/service-engagement.controller';
 import { ServiceEngagementService } from './commercial/service-engagement.service';
+import { CrmContactService } from './crm/crm-contact.service';
+import { CrmController } from './crm/crm.controller';
+import { CrmCursorService } from './crm/crm-cursor.service';
+import { CrmLeadService } from './crm/crm-lead.service';
+import { CrmOperationsService } from './crm/crm-operations.service';
+import { CrmSupportService } from './crm/crm-support.service';
+import { CrmReadService } from './crm/crm-read.service';
+import { CrmSelectorsService } from './crm/crm-selectors.service';
+import { CrmSearchGuard } from './crm/crm-http';
 
 @Module({
   imports: [Phase3Module, Phase4Module],
-  controllers: [ServiceEngagementController, ServiceCapabilityController],
-  providers: [ServiceEngagementService],
+  controllers: [ServiceEngagementController, ServiceCapabilityController, CrmController],
+  providers: [
+    ServiceEngagementService,
+    CrmContactService,
+    CrmCursorService,
+    CrmLeadService,
+    CrmOperationsService,
+    CrmSupportService,
+    CrmReadService,
+    CrmSelectorsService,
+    CrmSearchGuard,
+  ],
   exports: [ServiceEngagementService],
 })
 export class Phase5Module {}
