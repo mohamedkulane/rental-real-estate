@@ -15,10 +15,13 @@ import { CrmSupportService } from './crm/crm-support.service';
 import { CrmReadService } from './crm/crm-read.service';
 import { CrmSelectorsService } from './crm/crm-selectors.service';
 import { CrmSearchGuard } from './crm/crm-http';
+import { WorkflowController } from './workflow/workflow.controller';
+import { WorkflowPayloadCipher } from './workflow/workflow-payload-cipher';
+import { WorkflowService } from './workflow/workflow.service';
 
 @Module({
   imports: [Phase3Module, Phase4Module],
-  controllers: [ServiceEngagementController, ServiceCapabilityController, CrmController],
+  controllers: [ServiceEngagementController, ServiceCapabilityController, CrmController, WorkflowController],
   providers: [
     ServiceEngagementService,
     CrmContactService,
@@ -29,6 +32,8 @@ import { CrmSearchGuard } from './crm/crm-http';
     CrmReadService,
     CrmSelectorsService,
     CrmSearchGuard,
+    WorkflowPayloadCipher,
+    WorkflowService,
   ],
   exports: [ServiceEngagementService],
 })

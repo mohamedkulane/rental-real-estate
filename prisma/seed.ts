@@ -139,6 +139,10 @@ const permissions = [
   ['crm.source.manage', 'Manage Company-wide CRM Lead Sources'],
   ['crm.lead.contact.read', 'Read sensitive CRM Lead contact fields'],
   ['crm.lead.contact.export', 'Export sensitive CRM Lead contact fields'],
+  ['workflow.draft.read', 'Read authorized workflow drafts'],
+  ['workflow.draft.update', 'Create and update authorized workflow drafts'],
+  ['workflow.draft.cancel', 'Cancel authorized workflow drafts'],
+  ['workflow.draft.complete', 'Complete authorized workflow drafts'],
 ] as const;
 
 const rolePermissions: Record<string, readonly string[]> = {
@@ -211,6 +215,10 @@ const rolePermissions: Record<string, readonly string[]> = {
     'crm.lead.branch.transfer',
     'crm.source.read',
     'crm.lead.contact.read',
+    'workflow.draft.read',
+    'workflow.draft.update',
+    'workflow.draft.cancel',
+    'workflow.draft.complete',
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -261,6 +269,10 @@ const rolePermissions: Record<string, readonly string[]> = {
     'crm.lead.branch.transfer',
     'crm.source.read',
     'crm.lead.contact.read',
+    'workflow.draft.read',
+    'workflow.draft.update',
+    'workflow.draft.cancel',
+    'workflow.draft.complete',
   ],
   LEASING_AGENT: [
     'organization.branch.read',

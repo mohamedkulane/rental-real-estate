@@ -36,6 +36,7 @@ model Company {
   serviceEngagements ServiceEngagement[]
   leadSources        LeadSource[]
   leads              Lead[]
+  workflowDrafts     WorkflowDraft[]
 
   @@map("companies")
 }
@@ -63,6 +64,7 @@ model Branch {
   leadAssignments     LeadAssignment[]
   leadBranchHistory   LeadBranchHistory[]
   leadFollowUps       LeadFollowUp[]
+  workflowDrafts      WorkflowDraft[]
 
   @@unique([companyId, code], map: "uq_branches__company_code")
   @@map("branches")
@@ -98,6 +100,8 @@ model User {
   serviceEngagementHistory                          ServiceEngagementHistory[] @relation("ServiceEngagementHistoryActor")
   leadSourcesCreated                                LeadSource[]               @relation("LeadSourceCreatedBy")
   leadsCreated                                      Lead[]                     @relation("LeadCreatedBy")
+  workflowDraftsCreated                             WorkflowDraft[]            @relation("WorkflowDraftCreatedBy")
+  workflowCompletions                               WorkflowCompletion[]       @relation("WorkflowCompletionCaller")
   leadStageChanges                                  LeadStageHistory[]         @relation("LeadStageActor")
   leadIntentChanges                                 LeadIntentHistory[]        @relation("LeadIntentActor")
   leadPreferenceVersions                            LeadPreferenceVersion[]    @relation("LeadPreferenceActor")
@@ -1080,6 +1084,64 @@ model ApprovalDecision {
   @@map("approval_decisions")
 }
 
+model WorkflowDraft {
+  id                   String                       @id @db.Uuid
+  companyId            String                       @db.Uuid
+  branchId             String                       @db.Uuid
+  creatorUserId        String                       @db.Uuid
+  type                 WorkflowType
+  status               WorkflowStatus               @default(DRAFT)
+  currentStep          Int                          @default(1)
+  version              Int                          @default(1)
+  payloadSchemaVersion Int                          @default(1)
+  payloadCiphertext    String
+  completedAt          DateTime?                    @db.Timestamptz(6)
+  cancelledAt          DateTime?                    @db.Timestamptz(6)
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                     @default(now()) @updatedAt @db.Timestamptz(6)
+  company              Company                      @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch               Branch                       @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  creator              User                         @relation("WorkflowDraftCreatedBy", fields: [creatorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  references           WorkflowCanonicalReference[]
+  completions          WorkflowCompletion[]
+
+  @@index([companyId, branchId, status, updatedAt(sort: Desc), id(sort: Desc)], map: "workflow_draft_scope_status_idx")
+  @@index([creatorUserId, status, updatedAt(sort: Desc)], map: "workflow_draft_creator_status_idx")
+  @@map("workflow_drafts")
+}
+
+model WorkflowCanonicalReference {
+  id              String        @id @db.Uuid
+  workflowId      String        @db.Uuid
+  entityType      String        @db.VarChar(50)
+  entityId        String        @db.Uuid
+  step            Int
+  expectedVersion Int?
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  workflow        WorkflowDraft @relation(fields: [workflowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([workflowId, entityType, entityId], map: "uq_workflow_canonical_reference")
+  @@index([entityType, entityId], map: "workflow_reference_entity_idx")
+  @@map("workflow_canonical_references")
+}
+
+model WorkflowCompletion {
+  id             String        @id @db.Uuid
+  workflowId     String        @db.Uuid
+  callerUserId   String        @db.Uuid
+  idempotencyKey String        @db.VarChar(120)
+  requestHash    String        @db.Char(64)
+  result         Json
+  expiresAt      DateTime      @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  workflow       WorkflowDraft @relation(fields: [workflowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  caller         User          @relation("WorkflowCompletionCaller", fields: [callerUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([workflowId, callerUserId, idempotencyKey], map: "uq_workflow_completion_idempotency")
+  @@index([expiresAt], map: "workflow_completion_expiry_idx")
+  @@map("workflow_completions")
+}
+
 model AuditLog {
   id                                           String   @id @db.Uuid
   actorUserId                                  String?  @db.Uuid
@@ -1158,6 +1220,23 @@ model DocumentLink {
 enum PartyKind {
   PERSON
   ORGANIZATION
+}
+
+enum WorkflowType {
+  PROPERTY_ONBOARDING
+  RENTAL_BROKERAGE
+  FULL_MANAGEMENT
+  PROPERTY_SALE
+}
+
+enum WorkflowStatus {
+  DRAFT
+  IN_PROGRESS
+  READY_TO_COMPLETE
+  COMPLETING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum OwnerStatus {
