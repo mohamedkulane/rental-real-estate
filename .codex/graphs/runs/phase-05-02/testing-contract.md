@@ -15,19 +15,19 @@
 | API HTTP E2E | `test/e2e/phase5-2-crm-http.e2e.test.ts` | PASS, 1 file / 4 tests |
 | Web unit/component | CRM workflows and service-engagement suites | PASS, 2 files / 44 tests |
 | Web full unit/component | `apps/web/node_modules/.bin/vitest.cmd run` | PASS, 13 files / 97 tests |
-| API native integration | `test/integration/phase5-2-crm-api.integration.test.ts` | BLOCKED: 1 file / 5 tests skipped because `CRM_TEST_DATABASE_URL` is unset; Docker engine pipe unavailable |
+| API native integration | `test/integration/phase5-2-crm-api.integration.test.ts` | PASS: 1 file / 5 tests on disposable `rerms_p502_resume_0904` |
 
 ## Requirement traceability
 
 | Requirement | Evidence | Status |
 | --- | --- | --- |
-| Cursor/pagination and stable ordering | API core cursor tests PASS; HTTP bounded-filter test PASS | PARTIAL — native multi-page DB boundary remains unexecuted |
-| BRANCH / MULTI_BRANCH / COMPANY_WIDE authorization | Authorization unit suite 6/6 PASS; HTTP conjunctive child permission test PASS | PARTIAL — native DB scope test pending |
-| Company isolation | Unit scope composition PASS; native DB isolation test skipped | PARTIAL |
-| N+1 regression / bounded reads | API contract inspection and web full suite PASS; native DB query-count test skipped | PARTIAL |
+| Cursor/pagination and stable ordering | API core cursor tests PASS; HTTP bounded-filter test PASS; native suite 5/5 PASS | PASS |
+| BRANCH / MULTI_BRANCH / COMPANY_WIDE authorization | Authorization unit suite 6/6 PASS; HTTP conjunctive child permission test PASS; native scope test PASS | PASS |
+| Company isolation | Unit scope composition PASS; native DB isolation test PASS | PASS |
+| N+1 regression / bounded reads | API contract inspection, web full suite, and native bounded query-count test PASS | PASS |
 | Protected contact/search/log privacy | Core + normal and early-parser adversarial privacy suites PASS | PASS for covered probes |
 | CRM frontend loading/empty/error/populated states | CRM workflow state tests PASS; all web suites PASS | PASS |
-| Concurrency/version conflict | API core contract test PASS; native transactional race test skipped | PARTIAL |
+| Concurrency/version conflict | API core contract test and native transactional race test PASS | PASS |
 | Migration/seed/full repository gate | Not executed by this independent review | PENDING root final gate |
 
 ## Independent observations
