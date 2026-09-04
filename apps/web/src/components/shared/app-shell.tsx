@@ -187,6 +187,11 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [startNewOpen, setStartNewOpen] = useState(false);
   const startNewTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeNavRef = useRef<HTMLButtonElement>(null);
+  const navAsideRef = useRef<HTMLElement>(null);
+  const startNewDialogRef = useRef<HTMLElement>(null);
+  const startNewCloseRef = useRef<HTMLButtonElement>(null);
   const organization = subNavigation.organization ?? [];
   const administration = subNavigation.administration ?? [];
   const portfolio = subNavigation.portfolio ?? [];
@@ -211,14 +216,41 @@ export function AppShell({
   useEffect(() => {
     if (!startNewOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setStartNewOpen(false);
+      if (event.key === 'Escape') { setStartNewOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const focusable = startNewDialogRef.current?.querySelectorAll<HTMLElement>('button, a, [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     window.addEventListener('keydown', onKeyDown);
+    startNewCloseRef.current?.focus();
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [startNewOpen]);
   useEffect(() => {
     if (!startNewOpen) startNewTriggerRef.current?.focus();
   }, [startNewOpen]);
+  useEffect(() => {
+    if (!open) {
+      menuTriggerRef.current?.focus();
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const focusable = navAsideRef.current?.querySelectorAll<HTMLElement>('button, a, [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    closeNavRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
   const allowed = (permission: string, item: NavItem): NavItem[] => (can(permission) ? [item] : []);
   const companySetup = organization.length
     ? pick(organization, ['company', 'branches'], { company: Landmark, branches: Building2 })
@@ -313,8 +345,11 @@ export function AppShell({
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <button
         type="button"
+        ref={menuTriggerRef}
         className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm lg:hidden"
         aria-label="Open navigation"
+        aria-expanded={open}
+        aria-controls="main-navigation"
         onClick={() => setOpen(true)}
       >
         <Menu className="h-5 w-5" />
@@ -328,6 +363,8 @@ export function AppShell({
         />
       ) : null}
       <aside
+        ref={navAsideRef}
+        id="main-navigation"
         className={
           'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-950 text-white shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none lg:translate-x-0 ' +
           (open ? 'translate-x-0' : '-translate-x-full')
@@ -345,6 +382,7 @@ export function AppShell({
           </div>
           <button
             type="button"
+            ref={closeNavRef}
             className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
             aria-label="Close navigation"
             onClick={() => setOpen(false)}
@@ -440,8 +478,8 @@ export function AppShell({
         </header>
         {startNewOpen ? (
           <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/40 p-4 pt-20 backdrop-blur-[1px] sm:pt-24" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStartNewOpen(false); }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="start-new-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-              <div className="mb-4 flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace launcher</p><h2 id="start-new-title" className="mt-1 text-lg font-bold text-slate-900">Start New</h2><p className="mt-1 text-sm text-slate-500">Choose a task available to your current access.</p></div><button type="button" aria-label="Close Start New" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9]" onClick={() => setStartNewOpen(false)}><X className="h-5 w-5" aria-hidden="true" /></button></div>
+            <section ref={startNewDialogRef} role="dialog" aria-modal="true" aria-labelledby="start-new-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+              <div className="mb-4 flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace launcher</p><h2 id="start-new-title" className="mt-1 text-lg font-bold text-slate-900">Start New</h2><p className="mt-1 text-sm text-slate-500">Choose a task available to your current access.</p></div><button ref={startNewCloseRef} type="button" aria-label="Close Start New" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9]" onClick={() => setStartNewOpen(false)}><X className="h-5 w-5" aria-hidden="true" /></button></div>
               <div className="space-y-2">{startNewItems.map((item) => { const destination = startNewDestinations.find((entry) => entry.key === item.key); return <button key={item.key} type="button" className="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-[#90CAF9] hover:bg-[#E3F2FD]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9]" onClick={item.onSelect}><span className="mt-0.5 rounded-lg bg-[#E3F2FD] p-2 text-[#0D47A1]"><Plus className="h-4 w-4" aria-hidden="true" /></span><span><span className="block text-sm font-bold text-slate-900">{item.label}</span><span className="block text-xs text-slate-500">{destination?.description}</span></span></button>; })}</div>
             </section>
           </div>

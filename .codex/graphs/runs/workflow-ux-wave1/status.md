@@ -16,11 +16,14 @@
 
 ## Validation
 
-- Navigation model tests: NOT VERIFIED (runner did not complete in this worktree)
-- Web typecheck: NOT VERIFIED (runner did not complete in this worktree)
+- Navigation model tests: PASS (9/9)
+- Web typecheck: PASS
+- Web lint: PASS
+- Web production build: PASS
+- `git diff --check`: PASS
 - No future-phase destinations or models added.
 
 ## Current gate
 
-BLOCKED pending exact runtime review at 1440/768/390 and completed focused
-automated validation. No Wave 2 or Phase 5.3 work may start.
+BLOCKED pending exact runtime review at 1440/768/390. Automated validation and
+keyboard accessibility repairs are complete. No Wave 2 or Phase 5.3 work may start.
