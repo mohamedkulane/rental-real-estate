@@ -20,10 +20,11 @@ responsive primitives. No production files were changed by this review.
 
 ## Required viewport coverage
 
-The requested browser capture at 1440px, 768px, and 390px could not be completed in this
-independent pass because the local runtime/browser session was unavailable. Consequently this is
-**static UX review PASS; manual responsive evidence NOT RUN**. No screenshot is claimed as audit
-evidence. A final gate must not treat this artifact as a substitute for live responsive review.
+The local runtime was restored and an authenticated smoke review loaded Lead Register, Lead Detail,
+Pipeline, Follow-Ups, and Lead Sources successfully, including loading, populated, filter, and
+navigation states. The available browser automation session does not expose an exact viewport
+override, so captures at the required 1440px, 768px, and 390px sizes could not be produced. No
+exact-size screenshot is claimed as audit evidence; this remains a release blocker.
 
 Routes reviewed from source:
 
@@ -52,8 +53,8 @@ No CRITICAL, HIGH, or MEDIUM UX findings were identified by static review.
 - Exercise loading, empty, filtered-empty, populated, 403, 404, and stale-version states live.
 - Confirm no page-level horizontal overflow and no clipped action rows at all three widths.
 
-**UX REVIEW:** PASS (static source review)
-**RESPONSIVE REVIEW:** NOT RUN (runtime evidence unavailable)
+**UX REVIEW:** PASS (static plus runtime smoke)
+**RESPONSIVE REVIEW:** BLOCKED (exact 1440/768/390 viewport control unavailable)
 **Unresolved CRITICAL:** 0
 **Unresolved HIGH:** 0
 **Unresolved MEDIUM:** 0

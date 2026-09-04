@@ -15,7 +15,7 @@
 | Web unit/typecheck/build/lint | integration worktree | PASS | Web 97/97 | `testing-contract.md` |
 | CRM API HTTP E2E | integration worktree | PASS | 4/4 | `testing-contract.md` |
 | Native CRM DB integration | integration worktree | PASS | 5/5 on disposable DB; migrations 16/16; seed twice | `qa-findings.md` |
-| Responsive UX 1440/768/390 | browser/runtime | NOT RUN | static review PASS only | `ux-findings.md` |
+| Responsive UX 1440/768/390 | browser/runtime | BLOCKED | runtime smoke PASS; exact viewport override unavailable | `ux-findings.md` |
 | Adversarial review | integration candidate | PASS | 0 product Critical/High | `adversarial-findings.md` |
 | Clean checkout/full monorepo gate | integration worktree | PENDING | not recorded for frozen candidate | `governance-findings.md` |
 
