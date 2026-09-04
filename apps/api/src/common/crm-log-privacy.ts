@@ -107,6 +107,13 @@ function crmRequest(value: unknown): boolean {
   return [request.originalUrl, request.url, request.path, raw.originalUrl, raw.url].some(crmUrl);
 }
 
+/** True when a request belongs to the CRM surface, including a CRM path on a
+ * malformed/early request object. Consumers that log exceptions use this same
+ * scope test so parser and controller failures cannot bypass CRM privacy. */
+export function isCrmRequest(value: unknown): boolean {
+  return crmRequest(value);
+}
+
 function safePath(value: unknown): string {
   return (crmPathname(value) ?? '/crm/[redacted]')
     .split('/')
@@ -164,6 +171,11 @@ export function crmSafeRequestId(request: unknown, candidate: unknown): string |
   if (crmRequest(request))
     return typeof candidate === 'string' && uuid.test(candidate) ? candidate : randomUUID();
   return typeof candidate === 'string' || typeof candidate === 'number' ? candidate : randomUUID();
+}
+
+/** Correlation IDs are caller-controlled until validated by the middleware. */
+export function crmSafeCorrelationId(value: unknown): string {
+  return typeof value === 'string' && uuid.test(value) ? value : 'unknown';
 }
 
 export const crmHttpLogPrivacy = {

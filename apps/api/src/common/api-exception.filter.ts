@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import type { ApiErrorResponse } from '@rerms/shared';
 import type { Response } from 'express';
 import type { CorrelatedRequest } from './correlation-id.middleware';
+import { crmSafeCorrelationId, isCrmRequest } from './crm-log-privacy';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -80,12 +81,23 @@ export class ApiExceptionFilter implements ExceptionFilter {
                   : 'Request failed.';
     const correlationId = request.correlationId ?? 'unknown';
     if (statusCode >= 500) {
-      const method = request.method ?? 'UNKNOWN';
-      const path = request.originalUrl ?? request.url ?? 'unknown';
-      this.logger.error(
-        'Unhandled API error ' + method + ' ' + path + ' [' + correlationId + ']',
-        exception instanceof Error ? exception.stack : undefined,
-      );
+      if (isCrmRequest(request)) {
+        // CRM URLs, query values, parser payloads, exception messages, and
+        // stacks may contain protected contact/free-text data. The pino
+        // request serializer protects the request-completed record; this
+        // branch protects the independent global-filter error record too.
+        this.logger.error(
+          'CRM request failed [' + crmSafeCorrelationId(correlationId) + ']',
+          'CRM',
+        );
+      } else {
+        const method = request.method ?? 'UNKNOWN';
+        const path = request.originalUrl ?? request.url ?? 'unknown';
+        this.logger.error(
+          'Unhandled API error ' + method + ' ' + path + ' [' + correlationId + ']',
+          exception instanceof Error ? exception.stack : undefined,
+        );
+      }
     }
     const body: ApiErrorResponse = {
       statusCode,
