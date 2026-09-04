@@ -25,5 +25,6 @@
 
 ## Current gate
 
-BLOCKED pending exact runtime review at 1440/768/390. Automated validation and
-keyboard accessibility repairs are complete. No Wave 2 or Phase 5.3 work may start.
+PASS under approved deferral: exact responsive evidence is recorded as
+DEFERRED FOR FINAL RESPONSIVE VALIDATION in Wave 9. Wave 2 may proceed; Phase
+5.3 remains NOT STARTED.
