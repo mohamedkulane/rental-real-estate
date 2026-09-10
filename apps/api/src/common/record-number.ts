@@ -1,7 +1,9 @@
 import { Prisma } from '@prisma/client';
 
 export type RecordNumberKind =
-  'BRANCH' | 'EMPLOYEE' | 'PARTY' | 'OWNER' | 'PROPERTY' | 'BUILDING' | 'SPACE' | 'ENGAGEMENT';
+  | 'BRANCH' | 'EMPLOYEE' | 'PARTY' | 'OWNER' | 'PROPERTY' | 'BUILDING' | 'SPACE'
+  | 'ENGAGEMENT' | 'RENTAL_LISTING' | 'SALE_LISTING' | 'APPLICATION'
+  | 'RESERVATION' | 'TENANT' | 'LEASE';
 
 const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; width: number }> = {
   BRANCH: { prefix: 'BR', sequence: 'public.branch_record_number_seq', width: 3 },
@@ -16,6 +18,12 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
     sequence: 'public.service_engagement_record_number_seq',
     width: 6,
   },
+  RENTAL_LISTING: { prefix: 'RL', sequence: 'public.rental_listing_record_number_seq', width: 6 },
+  SALE_LISTING: { prefix: 'SL', sequence: 'public.sale_listing_record_number_seq', width: 6 },
+  APPLICATION: { prefix: 'APP', sequence: 'public.application_record_number_seq', width: 6 },
+  RESERVATION: { prefix: 'RSV', sequence: 'public.reservation_record_number_seq', width: 6 },
+  TENANT: { prefix: 'TEN', sequence: 'public.tenant_record_number_seq', width: 6 },
+  LEASE: { prefix: 'LSE', sequence: 'public.lease_record_number_seq', width: 6 },
 };
 
 export async function nextRecordNumber(

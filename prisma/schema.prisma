@@ -37,6 +37,13 @@ model Company {
   leadSources        LeadSource[]
   leads              Lead[]
   workflowDrafts     WorkflowDraft[]
+  rentalListings     RentalListing[]
+  saleListings       SaleListing[]
+  viewings           Viewing[]
+  rentalApplications RentalApplication[]
+  reservations       Reservation[]
+  tenantProfiles     TenantProfile[]
+  leases             Lease[]
 
   @@map("companies")
 }
@@ -65,6 +72,12 @@ model Branch {
   leadBranchHistory   LeadBranchHistory[]
   leadFollowUps       LeadFollowUp[]
   workflowDrafts      WorkflowDraft[]
+  rentalListings      RentalListing[]
+  saleListings        SaleListing[]
+  viewings            Viewing[]
+  rentalApplications  RentalApplication[]
+  reservations        Reservation[]
+  leases              Lease[]
 
   @@unique([companyId, code], map: "uq_branches__company_code")
   @@map("branches")
@@ -102,6 +115,7 @@ model User {
   leadsCreated                                      Lead[]                     @relation("LeadCreatedBy")
   workflowDraftsCreated                             WorkflowDraft[]            @relation("WorkflowDraftCreatedBy")
   workflowCompletions                               WorkflowCompletion[]       @relation("WorkflowCompletionCaller")
+  workflowCommands                                  WorkflowCommand[]
   leadStageChanges                                  LeadStageHistory[]         @relation("LeadStageActor")
   leadIntentChanges                                 LeadIntentHistory[]        @relation("LeadIntentActor")
   leadPreferenceVersions                            LeadPreferenceVersion[]    @relation("LeadPreferenceActor")
@@ -111,6 +125,15 @@ model User {
   leadFollowUpsCreated                              LeadFollowUp[]             @relation("LeadFollowUpCreator")
   leadFollowUpOutcomes                              LeadFollowUp[]             @relation("LeadFollowUpOutcomeActor")
   leadFollowUpOutcomeHistory                        LeadFollowUpOutcome[]
+  rentalListingsCreated                             RentalListing[]            @relation("RentalListingCreatedBy")
+  saleListingsCreated                               SaleListing[]              @relation("SaleListingCreatedBy")
+  viewingsCreated                                   Viewing[]                  @relation("ViewingCreatedBy")
+  rentalApplicationsCreated                         RentalApplication[]        @relation("RentalApplicationCreatedBy")
+  reservationsCreated                               Reservation[]              @relation("ReservationCreatedBy")
+  leasesCreated                                     Lease[]                    @relation("LeaseCreatedBy")
+  leaseVersionsCreated                              LeaseVersion[]             @relation("LeaseVersionCreatedBy")
+  renewalsCreated                                   LeaseRenewal[]             @relation("LeaseRenewalCreatedBy")
+  moveInsRecorded                                   MoveIn[]                   @relation("MoveInRecordedBy")
 
   @@map("users")
 }
@@ -168,6 +191,7 @@ model Employee {
   assignedLeads                                                            Lead[]                     @relation("LeadCurrentAssignee")
   leadAssignments                                                          LeadAssignment[]
   responsibleLeadFollowUps                                                 LeadFollowUp[]
+  assignedViewings                                                         Viewing[]                  @relation("ViewingAssignedEmployee")
 
   @@unique([companyId, employeeNumber])
   @@map("employees")
@@ -258,6 +282,9 @@ model Party {
   person                                                         PersonProfile?
   propertyOwnerships                                             PropertyOwnership[]
   leads                                                          Lead[]
+  tenant                                                         TenantProfile?
+  rentalApplications                                             RentalApplication[]
+  leaseParties                                                   LeaseParty[]
 
   @@unique([companyId, partyNumber])
   @@map("parties")
@@ -385,6 +412,7 @@ model Property {
   buyLeadPreferences          BuyLeadPreference[]
   sellLeadPreferences         SellLeadPreference[]
   constructionLeadPreferences ConstructionServiceLeadPreference[]
+  saleListings                SaleListing[]
 
   @@unique([companyId, propertyCode], map: "uq_properties_company_code")
   @@index([companyId, status, propertyType], map: "properties_company_status_type_idx")
@@ -502,6 +530,11 @@ model RentableSpace {
   space_successors_space_successors_successorSpaceIdTorentable_spaces   SpaceSuccessor[]             @relation("space_successors_successorSpaceIdTorentable_spaces")
   serviceEngagements                                                    ServiceEngagement[]
   rentLeadPreferences                                                   RentLeadPreference[]
+  rentalListings                                                        RentalListing[]
+  reservations                                                          Reservation[]
+  leases                                                                Lease[]
+  leasePossessions                                                      LeasePossession[]
+  rentalApplications                                                    RentalApplication[]
 
   @@unique([propertyId, spaceCode], map: "uq_rentable_space_property_code")
   @@index([propertyId, status, typeId], map: "rentable_space_property_status_type_idx")
@@ -565,6 +598,8 @@ model Lead {
   branchHistory             LeadBranchHistory[]
   activities                LeadActivity[]
   followUps                 LeadFollowUp[]
+  viewings                  Viewing[]
+  rentalApplications        RentalApplication[]
 
   @@unique([companyId, leadNumber], map: "uq_lead_company_number")
   @@index([companyId, createdAt(sort: Desc), id(sort: Desc)], map: "lead_register_order_idx")
@@ -865,6 +900,9 @@ model ServiceEngagement {
   rentableSpace    RentableSpace?             @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdBy        User                       @relation("ServiceEngagementCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   history          ServiceEngagementHistory[]
+  rentalListings   RentalListing[]
+  saleListings     SaleListing[]
+  leases           Lease[]
 
   @@unique([companyId, engagementNumber], map: "uq_service_engagement_company_number")
   @@index([companyId, status, serviceModel, createdAt(sort: Desc), id(sort: Desc)], map: "service_engagement_company_status_model_created_idx")
@@ -887,6 +925,306 @@ model ServiceEngagementHistory {
 
   @@index([serviceEngagementId, occurredAt(sort: Desc), id(sort: Desc)], map: "service_engagement_history_timeline_idx")
   @@map("service_engagement_history")
+}
+
+model RentalListing {
+  id                  String              @id @db.Uuid
+  companyId           String              @db.Uuid
+  branchId            String              @db.Uuid
+  listingNumber       String              @db.VarChar(40)
+  rentableSpaceId     String              @db.Uuid
+  serviceEngagementId String              @db.Uuid
+  title               String              @db.VarChar(200)
+  description         String?             @db.VarChar(2000)
+  askingRent          Decimal?            @db.Decimal(20, 4)
+  currency            String              @db.Char(3)
+  availableFrom       DateTime?           @db.Date
+  status              ListingStatus       @default(DRAFT)
+  version             Int                 @default(1)
+  publishedAt         DateTime?           @db.Timestamptz(6)
+  expiresAt           DateTime?           @db.Timestamptz(6)
+  createdByUserId     String              @db.Uuid
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace       @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  serviceEngagement   ServiceEngagement   @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy           User                @relation("RentalListingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  viewings            Viewing[]
+  applications        RentalApplication[]
+  reservations        Reservation[]
+
+  @@unique([companyId, listingNumber], map: "uq_rental_listing_company_number")
+  @@index([companyId, branchId, status, createdAt(sort: Desc), id(sort: Desc)], map: "rental_listing_register_idx")
+  @@index([rentableSpaceId, status], map: "rental_listing_space_status_idx")
+  @@map("rental_listings")
+}
+
+model SaleListing {
+  id                  String            @id @db.Uuid
+  companyId           String            @db.Uuid
+  branchId            String            @db.Uuid
+  listingNumber       String            @db.VarChar(40)
+  propertyId          String            @db.Uuid
+  serviceEngagementId String            @db.Uuid
+  title               String            @db.VarChar(200)
+  description         String?           @db.VarChar(2000)
+  askingPrice         Decimal?          @db.Decimal(20, 4)
+  currency            String            @db.Char(3)
+  status              ListingStatus     @default(DRAFT)
+  version             Int               @default(1)
+  publishedAt         DateTime?         @db.Timestamptz(6)
+  expiresAt           DateTime?         @db.Timestamptz(6)
+  createdByUserId     String            @db.Uuid
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  company             Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  serviceEngagement   ServiceEngagement @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy           User              @relation("SaleListingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  viewings            Viewing[]
+
+  @@unique([companyId, listingNumber], map: "uq_sale_listing_company_number")
+  @@index([companyId, branchId, status, createdAt(sort: Desc), id(sort: Desc)], map: "sale_listing_register_idx")
+  @@index([propertyId, status], map: "sale_listing_property_status_idx")
+  @@map("sale_listings")
+}
+
+model Viewing {
+  id                 String         @id @db.Uuid
+  companyId          String         @db.Uuid
+  branchId           String         @db.Uuid
+  leadId             String         @db.Uuid
+  rentalListingId    String?        @db.Uuid
+  saleListingId      String?        @db.Uuid
+  assignedEmployeeId String         @db.Uuid
+  scheduledAt        DateTime       @db.Timestamptz(6)
+  status             ViewingStatus  @default(SCHEDULED)
+  notes              String?        @db.VarChar(2000)
+  outcome            String?        @db.VarChar(1000)
+  version            Int            @default(1)
+  createdByUserId    String         @db.Uuid
+  createdAt          DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch             Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lead               Lead           @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentalListing      RentalListing? @relation(fields: [rentalListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  saleListing        SaleListing?   @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedEmployee   Employee       @relation("ViewingAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy          User           @relation("ViewingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([companyId, branchId, status, scheduledAt, id], map: "viewing_register_idx")
+  @@index([leadId, scheduledAt(sort: Desc), id(sort: Desc)], map: "viewing_lead_timeline_idx")
+  @@map("viewings")
+}
+
+model RentalApplication {
+  id                        String            @id @db.Uuid
+  companyId                 String            @db.Uuid
+  branchId                  String            @db.Uuid
+  applicationNumber         String            @db.VarChar(40)
+  leadId                    String            @db.Uuid
+  rentalListingId           String            @db.Uuid
+  rentableSpaceId           String            @db.Uuid
+  applicantPartyId          String?           @db.Uuid
+  status                    ApplicationStatus @default(DRAFT)
+  screeningStatus           ScreeningStatus   @default(NOT_STARTED)
+  screeningSummaryEncrypted String?
+  version                   Int               @default(1)
+  submittedAt               DateTime?         @db.Timestamptz(6)
+  decidedAt                 DateTime?         @db.Timestamptz(6)
+  decisionReason            String?           @db.VarChar(1000)
+  createdByUserId           String            @db.Uuid
+  createdAt                 DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  company                   Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                    Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lead                      Lead              @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentalListing             RentalListing     @relation(fields: [rentalListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace             RentableSpace     @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  applicantParty            Party?            @relation(fields: [applicantPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy                 User              @relation("RentalApplicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reservations              Reservation[]
+  lease                     Lease?
+
+  @@unique([companyId, applicationNumber], map: "uq_application_company_number")
+  @@unique([leadId, rentalListingId], map: "uq_application_lead_listing")
+  @@index([companyId, branchId, status, createdAt(sort: Desc), id(sort: Desc)], map: "application_register_idx")
+  @@map("rental_applications")
+}
+
+model Reservation {
+  id                String            @id @db.Uuid
+  companyId         String            @db.Uuid
+  branchId          String            @db.Uuid
+  reservationNumber String            @db.VarChar(40)
+  applicationId     String            @db.Uuid
+  rentalListingId   String            @db.Uuid
+  rentableSpaceId   String            @db.Uuid
+  startsAt          DateTime          @db.Timestamptz(6)
+  expiresAt         DateTime          @db.Timestamptz(6)
+  status            ReservationStatus @default(ACTIVE)
+  version           Int               @default(1)
+  reason            String?           @db.VarChar(500)
+  createdByUserId   String            @db.Uuid
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  company           Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch            Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  application       RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentalListing     RentalListing     @relation(fields: [rentalListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace     RentableSpace     @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy         User              @relation("ReservationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([companyId, reservationNumber], map: "uq_reservation_company_number")
+  @@index([companyId, branchId, status, expiresAt, id], map: "reservation_register_idx")
+  @@index([rentableSpaceId, status, startsAt, expiresAt], map: "reservation_space_period_idx")
+  @@map("reservations")
+}
+
+model TenantProfile {
+  partyId      String       @id @db.Uuid
+  companyId    String       @db.Uuid
+  tenantNumber String       @db.VarChar(40)
+  status       TenantStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  party        Party        @relation(fields: [partyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([companyId, tenantNumber], map: "uq_tenant_company_number")
+  @@index([companyId, status, createdAt(sort: Desc), partyId(sort: Desc)], map: "tenant_register_idx")
+  @@map("tenant_profiles")
+}
+
+model Lease {
+  id                  String            @id @db.Uuid
+  companyId           String            @db.Uuid
+  branchId            String            @db.Uuid
+  leaseNumber         String            @db.VarChar(40)
+  rentableSpaceId     String            @db.Uuid
+  serviceEngagementId String            @db.Uuid
+  status              LeaseStatus       @default(DRAFT)
+  agreementDate       DateTime?         @db.Date
+  leaseStartDate      DateTime          @db.Date
+  leaseEndDate        DateTime          @db.Date
+  rentAmount          Decimal           @db.Decimal(20, 4)
+  currency            String            @db.Char(3)
+  predecessorLeaseId  String?           @db.Uuid
+  applicationId       String?           @unique @db.Uuid
+  version             Int               @default(1)
+  createdByUserId     String            @db.Uuid
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  company             Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace     @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  serviceEngagement   ServiceEngagement @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy           User              @relation("LeaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  predecessor         Lease?            @relation("LeaseSuccessor", fields: [predecessorLeaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  application         RentalApplication? @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  successors          Lease[]           @relation("LeaseSuccessor")
+  parties             LeaseParty[]
+  versions            LeaseVersion[]
+  possessions         LeasePossession[]
+  renewalRequests     LeaseRenewal[]    @relation("OriginalLeaseRenewals")
+  resultingRenewals   LeaseRenewal[]    @relation("SuccessorLeaseRenewals")
+  moveIn              MoveIn?
+
+  @@unique([companyId, leaseNumber], map: "uq_lease_company_number")
+  @@index([companyId, branchId, status, leaseStartDate, id], map: "lease_register_idx")
+  @@index([rentableSpaceId, status, leaseStartDate, leaseEndDate], map: "lease_space_period_idx")
+  @@map("leases")
+}
+
+model LeaseParty {
+  id        String         @id @db.Uuid
+  leaseId   String         @db.Uuid
+  partyId   String         @db.Uuid
+  role      LeasePartyRole
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+  lease     Lease          @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  party     Party          @relation(fields: [partyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([leaseId, partyId, role], map: "uq_lease_party_role")
+  @@index([partyId, role], map: "lease_party_lookup_idx")
+  @@map("lease_parties")
+}
+
+model LeaseVersion {
+  id              String    @id @db.Uuid
+  leaseId         String    @db.Uuid
+  sequence        Int
+  termsSnapshot   Json
+  documentId      String?   @db.Uuid
+  signatureHash   String?   @db.VarChar(128)
+  signedAt        DateTime? @db.Timestamptz(6)
+  createdByUserId String    @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  lease           Lease     @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy       User      @relation("LeaseVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  document        Document? @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([leaseId, sequence], map: "uq_lease_version_sequence")
+  @@map("lease_versions")
+}
+
+model LeasePossession {
+  id              String                @id @db.Uuid
+  leaseId         String                @db.Uuid
+  rentableSpaceId String                @db.Uuid
+  possessionFrom  DateTime              @db.Timestamptz(6)
+  possessionTo    DateTime?             @db.Timestamptz(6)
+  status          LeasePossessionStatus @default(SCHEDULED)
+  createdAt       DateTime              @default(now()) @db.Timestamptz(6)
+  lease           Lease                 @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace   RentableSpace         @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([leaseId, possessionFrom], map: "uq_lease_possession_start")
+  @@index([rentableSpaceId, status, possessionFrom], map: "lease_possession_space_idx")
+  @@map("lease_possessions")
+}
+
+model LeaseRenewal {
+  id                String        @id @db.Uuid
+  originalLeaseId   String        @db.Uuid
+  successorLeaseId  String?       @db.Uuid
+  proposedStartDate DateTime      @db.Date
+  proposedEndDate   DateTime      @db.Date
+  proposedRent      Decimal       @db.Decimal(20, 4)
+  currency          String        @db.Char(3)
+  status            RenewalStatus @default(DRAFT)
+  version           Int           @default(1)
+  createdByUserId   String        @db.Uuid
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
+  originalLease     Lease         @relation("OriginalLeaseRenewals", fields: [originalLeaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  successorLease    Lease?        @relation("SuccessorLeaseRenewals", fields: [successorLeaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy         User          @relation("LeaseRenewalCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([originalLeaseId, status, createdAt(sort: Desc), id(sort: Desc)], map: "lease_renewal_register_idx")
+  @@map("lease_renewals")
+}
+
+model MoveIn {
+  id               String       @id @db.Uuid
+  leaseId          String       @unique @db.Uuid
+  scheduledDate    DateTime     @db.Date
+  completedDate    DateTime?    @db.Date
+  status           MoveInStatus @default(SCHEDULED)
+  notes            String?      @db.VarChar(2000)
+  version          Int          @default(1)
+  recordedByUserId String       @db.Uuid
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  lease            Lease        @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  recordedBy       User         @relation("MoveInRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([status, scheduledDate, id], map: "move_in_schedule_idx")
+  @@map("move_ins")
 }
 
 model RentableSpaceVersion {
@@ -1104,6 +1442,7 @@ model WorkflowDraft {
   creator              User                         @relation("WorkflowDraftCreatedBy", fields: [creatorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   references           WorkflowCanonicalReference[]
   completions          WorkflowCompletion[]
+  commands             WorkflowCommand[]
 
   @@index([companyId, branchId, status, updatedAt(sort: Desc), id(sort: Desc)], map: "workflow_draft_scope_status_idx")
   @@index([creatorUserId, status, updatedAt(sort: Desc)], map: "workflow_draft_creator_status_idx")
@@ -1111,18 +1450,36 @@ model WorkflowDraft {
 }
 
 model WorkflowCanonicalReference {
-  id              String        @id @db.Uuid
-  workflowId      String        @db.Uuid
-  entityType      String        @db.VarChar(50)
-  entityId        String        @db.Uuid
-  step            Int
-  expectedVersion Int?
-  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
-  workflow        WorkflowDraft @relation(fields: [workflowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                String        @id @db.Uuid
+  workflowId        String        @db.Uuid
+  entityType        String        @db.VarChar(50)
+  entityId          String        @db.Uuid
+  step              Int
+  expectedVersion   Int?
+  expectedFingerprint String?     @db.VarChar(64)
+  expectedUpdatedAt DateTime?     @db.Timestamptz(6)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  workflow          WorkflowDraft @relation(fields: [workflowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([workflowId, entityType, entityId], map: "uq_workflow_canonical_reference")
   @@index([entityType, entityId], map: "workflow_reference_entity_idx")
   @@map("workflow_canonical_references")
+}
+
+model WorkflowCommand {
+  id             String        @id @db.Uuid
+  workflowId     String        @db.Uuid
+  callerUserId   String        @db.Uuid
+  command        String        @db.VarChar(30)
+  idempotencyKey String        @db.VarChar(120)
+  requestHash    String        @db.Char(64)
+  entityId       String        @db.Uuid
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  caller         User          @relation(fields: [callerUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  workflow       WorkflowDraft @relation(fields: [workflowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([workflowId, callerUserId, idempotencyKey], map: "uq_workflow_command_idempotency")
+  @@map("workflow_commands")
 }
 
 model WorkflowCompletion {
@@ -1166,18 +1523,19 @@ model AuditLog {
 }
 
 model Document {
-  id           String            @id @db.Uuid
-  companyId    String            @db.Uuid
-  displayName  String            @db.VarChar(240)
-  categoryCode String            @db.VarChar(50)
-  accessClass  String            @db.VarChar(30)
-  status       String            @db.VarChar(30)
-  notes        String?
-  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
-  links        DocumentLink[]
-  versions     DocumentVersion[]
-  company      Company           @relation(fields: [companyId], references: [id], onUpdate: NoAction)
+  id            String            @id @db.Uuid
+  companyId     String            @db.Uuid
+  displayName   String            @db.VarChar(240)
+  categoryCode  String            @db.VarChar(50)
+  accessClass   String            @db.VarChar(30)
+  status        String            @db.VarChar(30)
+  notes         String?
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  links         DocumentLink[]
+  versions      DocumentVersion[]
+  company       Company           @relation(fields: [companyId], references: [id], onUpdate: NoAction)
+  leaseVersions LeaseVersion[]
 
   @@index([companyId, createdAt(sort: Desc), id(sort: Desc)], map: "documents_company_created_id_idx")
   @@index([companyId, status, categoryCode, updatedAt(sort: Desc)], map: "documents_company_status_category_updated_idx")
@@ -1236,6 +1594,95 @@ enum WorkflowStatus {
   COMPLETING
   COMPLETED
   FAILED
+  CANCELLED
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  PAUSED
+  UNPUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum ViewingStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ScreeningStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASSED
+  FAILED
+  WAIVED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LeaseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PENDING_SIGNATURE
+  SIGNED
+  ACTIVE
+  ENDED
+  TERMINATED
+  ARCHIVED
+}
+
+enum LeasePartyRole {
+  TENANT
+  CO_TENANT
+  GUARANTOR
+  LANDLORD
+}
+
+enum LeasePossessionStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum RenewalStatus {
+  DRAFT
+  PROPOSED
+  APPROVED
+  SIGNED
+  ACTIVATED
+  REJECTED
+  CANCELLED
+}
+
+enum MoveInStatus {
+  SCHEDULED
+  COMPLETED
   CANCELLED
 }
 

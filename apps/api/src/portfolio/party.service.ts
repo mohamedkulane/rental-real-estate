@@ -1,4 +1,5 @@
 import { uuidv7 } from '@rerms/shared';
+import type { CommandCheckpoint } from '../common/command-checkpoint';
 import {
   BadRequestException,
   ForbiddenException,
@@ -266,7 +267,7 @@ export class PartyService {
     };
   }
 
-  async create(principal: AuthenticatedPrincipal, input: CreatePartyDto, correlationId?: string) {
+  async create(principal: AuthenticatedPrincipal, input: CreatePartyDto, correlationId?: string, checkpoint?: CommandCheckpoint) {
     this.authorization.assertBranchPermission(principal, 'party.create', input.branchId);
     if (input.kind === PartyKind.PERSON && (!input.person || input.organization))
       throw new BadRequestException('PERSON requires only a person profile.');
@@ -353,6 +354,7 @@ export class PartyService {
         correlationId,
         after: { partyNumber: party.partyNumber, kind: party.kind, displayName: party.displayName },
       });
+      await checkpoint?.(transaction, party.id);
       return {
         ...party,
         contacts: party.contacts.map((contact) => ({
@@ -493,20 +495,27 @@ export class PartyService {
       .findMany({
         where: {
           ...(query.status ? { status: query.status } : {}),
+          ...(query.search
+            ? {
+                OR: [
+                  { ownerNumber: { contains: query.search, mode: 'insensitive' as const } },
+                  {
+                    party: {
+                      partyNumber: { contains: query.search, mode: 'insensitive' as const },
+                    },
+                  },
+                  {
+                    party: {
+                      displayName: { contains: query.search, mode: 'insensitive' as const },
+                    },
+                  },
+                ],
+              }
+            : {}),
           party: {
             AND: [
               this.partyScopeWhere(principal, 'owner.read', at),
               ...(query.partyKind ? [{ kind: query.partyKind }] : []),
-              ...(query.search
-                ? [
-                    {
-                      OR: [
-                        { partyNumber: { contains: query.search, mode: 'insensitive' as const } },
-                        { displayName: { contains: query.search, mode: 'insensitive' as const } },
-                      ],
-                    },
-                  ]
-                : []),
             ],
           },
         },
@@ -590,6 +599,7 @@ export class PartyService {
     principal: AuthenticatedPrincipal,
     input: CreateOwnerDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     const branchIds = await this.assertPartyPermission(principal, input.partyId, 'owner.create');
     return this.database.$transaction(async (transaction) => {
@@ -616,6 +626,7 @@ export class PartyService {
         correlationId,
         after: { ownerNumber: owner.ownerNumber, status: owner.status },
       });
+      await checkpoint?.(transaction, owner.partyId);
       return owner;
     });
   }

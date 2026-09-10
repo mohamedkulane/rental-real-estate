@@ -27,7 +27,8 @@ CREATE TABLE "workflow_canonical_references" (
   "entityType" VARCHAR(50) NOT NULL,
   "entityId" UUID NOT NULL,
   "step" INTEGER NOT NULL,
-  "expectedVersion" INTEGER,
+    "expectedVersion" INTEGER,
+    "expectedUpdatedAt" TIMESTAMPTZ(6),
   "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "workflow_canonical_references_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "workflow_reference_step_check" CHECK ("step" BETWEEN 1 AND 8)

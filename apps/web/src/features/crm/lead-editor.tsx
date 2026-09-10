@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { api, type Principal } from '@/lib/phase3-api';
@@ -14,8 +14,13 @@ import { leadIntents, type LeadDetail, type LeadIntent, type MutationAck } from 
 
 function LeadEditor({ principal, lead }: { principal: Principal; lead?: LeadDetail }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedIntent = searchParams.get('intent');
+  const initialIntent = leadIntents.some((item) => item.value === requestedIntent)
+    ? (requestedIntent as LeadIntent)
+    : 'RENT';
   const client = useQueryClient();
-  const [intent, setIntent] = useState<LeadIntent>(lead?.intent ?? 'RENT');
+  const [intent, setIntent] = useState<LeadIntent>(lead?.intent ?? initialIntent);
   const [branchId, setBranchId] = useState(lead?.responsibleBranch.id ?? '');
   const [sourceId, setSourceId] = useState(lead?.source.id ?? '');
   const [partyId, setPartyId] = useState('');

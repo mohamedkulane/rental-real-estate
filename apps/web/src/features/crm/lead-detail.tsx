@@ -24,6 +24,7 @@ import {
   StageCommand,
 } from './lead-commands';
 import { FollowUpCards } from './follow-ups-workspace';
+import { LeadMatches } from './lead-matches';
 import type {
   ActivityRecord,
   AssignmentRecord,
@@ -239,6 +240,10 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
           ...(canReadChild(principal, 'crm.activity.read', branch!) ? ['activity'] : []),
           ...(canReadChild(principal, 'crm.followup.read', branch!) ? ['follow-ups'] : []),
           ...(canReadChild(principal, 'crm.assignment.read', branch!) ? ['assignment'] : []),
+          ...(can(principal, 'listing.match', branch!) &&
+          (lead.intent === 'RENT' || lead.intent === 'BUY')
+            ? ['matches']
+            : []),
           'history',
         ]
       : [];
@@ -353,13 +358,10 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
               <section className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
                 <h2 className="mb-4 text-lg">Requirements and preferences</h2>
                 <PreferenceSummary intent={lead.intent} preference={lead.preference} />
-                {lead.intent === 'CONSTRUCTION_SERVICE' || lead.stage === 'MATCHING' ? (
-                  <p className="mt-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-                    {lead.intent === 'CONSTRUCTION_SERVICE'
-                      ? 'Construction Service is intake only. No project, agreement, or payment plan is created.'
-                      : 'Matching readiness only. No matching process has run or generated candidates.'}
-                  </p>
-                ) : null}
+                <div className="mt-5">
+                  <h3 className="mb-3 font-bold">Listing matches</h3>
+                  <LeadMatches lead={lead} principal={principal} />
+                </div>
                 {lead.property || lead.rentableSpace ? (
                   <p className="mt-4 text-sm">
                     Intake asset: <strong>{(lead.rentableSpace ?? lead.property)!.name}</strong>
@@ -428,6 +430,12 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
             <LeadFollowUps lead={lead} principal={principal} />
           ) : null}
           {tab === 'assignment' && tabs.includes(tab) ? <Assignments leadId={lead.id} /> : null}
+          {tab === 'matches' && tabs.includes(tab) ? (
+            <section>
+              <h2 className="mb-4 text-lg">Deterministic listing matches</h2>
+              <LeadMatches lead={lead} principal={principal} />
+            </section>
+          ) : null}
           {tab === 'history' ? <History leadId={lead.id} /> : null}
           {action && legalStageActions(lead.stage, lead.intent).includes(action) ? (
             <StageCommand

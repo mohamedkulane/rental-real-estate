@@ -167,15 +167,29 @@ export function LeadRegister() {
     requestPath('/crm/leads', leadFilterValues(params)),
     allowed,
   );
+  const intentFilter = params.get('intent');
+  const context = {
+    RENT: { title: 'Rental Leads', active: 'crm:rental-leads' },
+    BUY: { title: 'Buyer Leads', active: 'crm:buyer-leads' },
+    SELL: { title: 'Seller Leads', active: 'crm:seller-leads' },
+    CONSTRUCTION_SERVICE: { title: 'Construction Enquiries', active: 'crm:construction-enquiries' },
+  }[intentFilter ?? ''];
   return (
-    <CrmShell principal={principal} principalError={error} activeItem="crm:leads">
+    <CrmShell
+      principal={principal}
+      principalError={error}
+      activeItem={context?.active ?? 'crm:leads'}
+    >
       <PageHeader
         eyebrow="CRM workspace"
-        title="Lead Register"
+        title={context?.title ?? 'Lead Register'}
         description="Customer enquiries, requirements and next steps across your authorized Branches."
         action={
           principal && can(principal, 'crm.lead.create') ? (
-            <Link className="button primary" href="/crm/leads/new">
+            <Link
+              className="button primary"
+              href={`/crm/leads/new${intentFilter ? `?intent=${encodeURIComponent(intentFilter)}` : ''}`}
+            >
               Create Lead
             </Link>
           ) : undefined

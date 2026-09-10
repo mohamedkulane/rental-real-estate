@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildSidebarGroups,
+  commercialNavigation,
+  companyNavigation,
+  customersNavigation,
   expandedParentForActive,
+  financeNavigation,
   navigationItemIsActive,
   nextExpandedParent,
+  normalizeActiveItem,
+  projectsNavigation,
+  reportingNavigation,
+  workflowsNavigation,
   crmNavigation,
   crmDestinations,
+  authorizedTaskNavigation,
+  leasingDestinations,
+  marketingDestinations,
   startNewNavigation,
   type NavigationItem,
 } from './navigation-model';
@@ -55,6 +67,104 @@ describe('hierarchical navigation model', () => {
       'PERSON',
     );
   });
+
+  it('normalizes legacy active item aliases', () => {
+    expect(normalizeActiveItem('engagement-register')).toBe('service-engagements');
+    expect(normalizeActiveItem('crm:construction-enquiries')).toBe('projects:construction');
+  });
+});
+
+describe('mockup sidebar groups', () => {
+  const fullPermissions = [
+    'organization.company.read',
+    'organization.branch.read',
+    'identity.employee.read',
+    'identity.user.read',
+    'identity.role.read',
+    'crm.lead.read',
+    'crm.followup.read',
+    'crm.source.manage',
+    'party.read',
+    'owner.read',
+    'portfolio.property.read',
+    'portfolio.space.read',
+    'portfolio.amenity.read',
+    'service-engagement.read',
+    'listing.read',
+    'workflow.draft.update',
+    'application.read',
+    'reservation.read',
+    'tenant.read',
+    'lease.read',
+    'renewal.read',
+    'move-in.read',
+    'workflow.draft.read',
+    'governance.audit.read',
+  ];
+
+  it('builds business-aligned groups without finance when no routes exist', () => {
+    const groups = buildSidebarGroups({ permissions: fullPermissions, navigate: () => undefined });
+    expect(groups.map((group) => group.title)).toEqual([
+      'COMPANY',
+      'CUSTOMERS',
+      'PROPERTIES',
+      'COMMERCIAL',
+      'PROJECTS',
+      'REPORTING',
+      'WORKFLOWS',
+    ]);
+    expect(groups.find((group) => group.title === 'FINANCE')).toBeUndefined();
+  });
+
+  it('keeps CRM children scoped to implemented customer routes', () => {
+    const customers = customersNavigation(['crm.lead.read', 'crm.followup.read'], () => undefined);
+    expect(customers[0]?.label).toBe('CRM');
+    expect(customers[0]?.children?.map((item) => item.label)).toEqual([
+      'Leads',
+      'Opportunities',
+      'Follow-Ups',
+    ]);
+  });
+
+  it('nests rental and sales operations under commercial', () => {
+    const commercial = commercialNavigation(
+      ['service-engagement.read', 'listing.read', 'workflow.draft.update', 'lease.read'],
+      () => undefined,
+    );
+    expect(commercial.map((item) => item.label)).toEqual([
+      'Service Engagements',
+      'Rental Operations',
+      'Sales Operations',
+    ]);
+    expect(commercial[1]?.children?.map((item) => item.label)).toEqual([
+      'Rental Listings',
+      'Rental Brokerage',
+      'Full Management',
+      'Lease Contracts',
+    ]);
+  });
+
+  it('routes construction enquiries through projects', () => {
+    expect(projectsNavigation(['crm.lead.read'], () => undefined)[0]?.label).toBe(
+      'Construction Enquiries',
+    );
+  });
+
+  it('omits empty groups for unauthorized users', () => {
+    expect(buildSidebarGroups({ permissions: [], navigate: () => undefined })).toEqual([]);
+    expect(companyNavigation([], () => undefined)).toEqual([]);
+    expect(financeNavigation([], () => undefined)).toEqual([]);
+    expect(workflowsNavigation([], () => undefined)).toEqual([]);
+    expect(reportingNavigation([], () => undefined)).toEqual([]);
+  });
+
+  it('exposes Parties before Owners in the properties group', () => {
+    const properties = buildSidebarGroups({
+      permissions: ['party.read', 'owner.read'],
+      navigate: () => undefined,
+    }).find((group) => group.title === 'PROPERTIES');
+    expect(properties?.items.map((item) => item.label)).toEqual(['Parties', 'Owners']);
+  });
 });
 
 describe('CRM task navigation', () => {
@@ -68,15 +178,24 @@ describe('CRM task navigation', () => {
     ).toContain('Follow-ups');
     expect(crmNavigation(['crm.lead.read'], () => undefined).map((item) => item.label)).toEqual([
       'Lead Register',
+      'Rental Leads',
+      'Buyer Leads',
+      'Seller Leads',
+      'Construction Enquiries',
       'Pipeline',
     ]);
   });
-  it('does not expose later-phase Viewings', () => {
+  it('exposes implemented Viewings without future fake actions', () => {
     expect(crmDestinations.map((item) => item.href)).toEqual([
       '/crm/leads',
+      '/crm/leads?intent=RENT',
+      '/crm/leads?intent=BUY',
+      '/crm/leads?intent=SELL',
+      '/crm/leads?intent=CONSTRUCTION_SERVICE',
       '/crm/pipeline',
       '/crm/follow-ups',
       '/crm/lead-sources',
+      '/crm/viewings',
     ]);
   });
   it('routes to the dedicated workspace', () => {
@@ -92,12 +211,32 @@ describe('Wave 1 Start New launcher', () => {
   it('only exposes implemented tasks for authorized users', () => {
     expect(startNewNavigation([], () => undefined)).toEqual([]);
     expect(startNewNavigation(['crm.lead.read'], () => undefined)).toEqual([]);
-    expect(startNewNavigation(['crm.lead.create'], () => undefined).map((item) => item.label)).toEqual(['Add Lead']);
+    expect(
+      startNewNavigation(['crm.lead.create'], () => undefined).map((item) => item.label),
+    ).toEqual(['Add Lead']);
   });
 
   it('routes Add Lead without exposing future-phase destinations', () => {
     let destination = '';
-    startNewNavigation(['crm.lead.create'], (href) => { destination = href; })[0]!.onSelect!();
+    startNewNavigation(['crm.lead.create'], (href) => {
+      destination = href;
+    })[0]!.onSelect!();
     expect(destination).toBe('/crm/leads/new');
+  });
+});
+
+describe('Phase 5 task navigation', () => {
+  it('keeps marketing and leasing workspaces permission-aware', () => {
+    expect(authorizedTaskNavigation(marketingDestinations, [], () => undefined)).toEqual([]);
+    expect(
+      authorizedTaskNavigation(marketingDestinations, ['listing.read'], () => undefined).map(
+        (item) => item.label,
+      ),
+    ).toEqual(['Rental Listings', 'Sale Listings']);
+    expect(
+      authorizedTaskNavigation(leasingDestinations, ['lease.read'], () => undefined).map(
+        (item) => item.label,
+      ),
+    ).toEqual(['Lease Contracts']);
   });
 });

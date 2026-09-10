@@ -1,31 +1,100 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
 import type { AuthenticatedRequest } from '../security/security.types';
-import { CancelWorkflowDraftDto, CompleteWorkflowDraftDto, CreateWorkflowDraftDto, ListWorkflowDraftsDto, UpdateWorkflowDraftDto } from './workflow.dto';
+import {
+  CancelWorkflowDraftDto,
+  CompleteWorkflowDraftDto,
+  CreateWorkflowDraftDto,
+  ListWorkflowDraftsDto,
+  UpdateWorkflowDraftDto,
+} from './workflow.dto';
 import { WorkflowService } from './workflow.service';
+import { WorkflowCommandDto } from './workflow.dto';
+import { WorkflowCommandService } from './workflow-command.service';
+import { ListWorkflowBranchesDto } from './workflow.dto';
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
 @Controller({ path: 'workflows', version: '1' })
 export class WorkflowController {
-  constructor(private readonly workflows: WorkflowService) {}
+  constructor(
+    private readonly workflows: WorkflowService,
+    private readonly commands: WorkflowCommandService,
+  ) {}
 
-  @Get() @RequirePermissions('workflow.draft.read')
-  list(@Req() request: AuthenticatedRequest, @Query() query: ListWorkflowDraftsDto) { return this.workflows.list(request.principal, query); }
+  @Post(':workflowId/commands')
+  @RequirePermissions('workflow.draft.update')
+  command(
+    @Req() request: AuthenticatedRequest,
+    @Param('workflowId', ParseUUIDPipe) id: string,
+    @Body() input: WorkflowCommandDto,
+  ) {
+    return this.commands.execute(request.principal, id, input, request.correlationId);
+  }
 
-  @Get(':workflowId') @RequirePermissions('workflow.draft.read')
-  get(@Req() request: AuthenticatedRequest, @Param('workflowId', ParseUUIDPipe) id: string) { return this.workflows.get(request.principal, id); }
+  @Get()
+  @RequirePermissions('workflow.draft.read')
+  list(@Req() request: AuthenticatedRequest, @Query() query: ListWorkflowDraftsDto) {
+    return this.workflows.list(request.principal, query);
+  }
 
-  @Post() @RequirePermissions('workflow.draft.update')
-  create(@Req() request: AuthenticatedRequest, @Body() input: CreateWorkflowDraftDto) { return this.workflows.create(request.principal, input, request.correlationId); }
+  @Get('branches')
+  @RequirePermissions('workflow.draft.update')
+  branches(@Req() request: AuthenticatedRequest, @Query() query: ListWorkflowBranchesDto) {
+    return this.workflows.listBranches(request.principal, query);
+  }
 
-  @Patch(':workflowId') @RequirePermissions('workflow.draft.update')
-  update(@Req() request: AuthenticatedRequest, @Param('workflowId', ParseUUIDPipe) id: string, @Body() input: UpdateWorkflowDraftDto) { return this.workflows.update(request.principal, id, input, request.correlationId); }
+  @Get(':workflowId')
+  @RequirePermissions('workflow.draft.read')
+  get(@Req() request: AuthenticatedRequest, @Param('workflowId', ParseUUIDPipe) id: string) {
+    return this.workflows.get(request.principal, id);
+  }
 
-  @Post(':workflowId/cancel') @RequirePermissions('workflow.draft.cancel')
-  cancel(@Req() request: AuthenticatedRequest, @Param('workflowId', ParseUUIDPipe) id: string, @Body() input: CancelWorkflowDraftDto) { return this.workflows.cancel(request.principal, id, input, request.correlationId); }
+  @Post()
+  @RequirePermissions('workflow.draft.update')
+  create(@Req() request: AuthenticatedRequest, @Body() input: CreateWorkflowDraftDto) {
+    return this.workflows.create(request.principal, input, request.correlationId);
+  }
 
-  @Post(':workflowId/complete') @RequirePermissions('workflow.draft.complete')
-  complete(@Req() request: AuthenticatedRequest, @Param('workflowId', ParseUUIDPipe) id: string, @Body() input: CompleteWorkflowDraftDto) { return this.workflows.complete(request.principal, id, input, request.correlationId); }
+  @Patch(':workflowId')
+  @RequirePermissions('workflow.draft.update')
+  update(
+    @Req() request: AuthenticatedRequest,
+    @Param('workflowId', ParseUUIDPipe) id: string,
+    @Body() input: UpdateWorkflowDraftDto,
+  ) {
+    return this.workflows.update(request.principal, id, input, request.correlationId);
+  }
+
+  @Post(':workflowId/cancel')
+  @RequirePermissions('workflow.draft.cancel')
+  cancel(
+    @Req() request: AuthenticatedRequest,
+    @Param('workflowId', ParseUUIDPipe) id: string,
+    @Body() input: CancelWorkflowDraftDto,
+  ) {
+    return this.workflows.cancel(request.principal, id, input, request.correlationId);
+  }
+
+  @Post(':workflowId/complete')
+  @RequirePermissions('workflow.draft.complete')
+  complete(
+    @Req() request: AuthenticatedRequest,
+    @Param('workflowId', ParseUUIDPipe) id: string,
+    @Body() input: CompleteWorkflowDraftDto,
+  ) {
+    return this.workflows.complete(request.principal, id, input, request.correlationId);
+  }
 }

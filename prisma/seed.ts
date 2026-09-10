@@ -143,7 +143,42 @@ const permissions = [
   ['workflow.draft.update', 'Create and update authorized workflow drafts'],
   ['workflow.draft.cancel', 'Cancel authorized workflow drafts'],
   ['workflow.draft.complete', 'Complete authorized workflow drafts'],
+  ['listing.read', 'Read authorized rental and sale listings'],
+  ['listing.create', 'Create eligible rental and sale listing drafts'],
+  ['listing.update', 'Update listing drafts and permitted marketing fields'],
+  ['listing.review', 'Submit and review listing publication requests'],
+  ['listing.publish', 'Publish, pause, close, and archive listings'],
+  ['listing.match', 'Run deterministic Lead-to-Listing matching'],
+  ['viewing.read', 'Read authorized Viewings'],
+  ['viewing.create', 'Schedule Viewings'],
+  ['viewing.update', 'Reschedule and update Viewings'],
+  ['viewing.complete', 'Complete, cancel, or record no-show Viewings'],
+  ['application.read', 'Read authorized rental Applications'],
+  ['application.create', 'Create and submit rental Applications'],
+  ['application.review', 'Review and decide rental Applications'],
+  ['screening.manage', 'Record restricted screening outcomes'],
+  ['reservation.read', 'Read authorized Reservations'],
+  ['reservation.create', 'Create concurrency-safe Reservations'],
+  ['reservation.manage', 'Expire, cancel, release, or convert Reservations'],
+  ['tenant.read', 'Read Tenant profiles'],
+  ['tenant.create', 'Convert an approved applicant to a Tenant role'],
+  ['lease.read', 'Read authorized Lease Contracts'],
+  ['lease.create', 'Create Lease Contract drafts'],
+  ['lease.approve', 'Approve Lease Contracts'],
+  ['lease.sign', 'Record immutable Lease signature evidence'],
+  ['lease.activate', 'Activate Lease possession safely'],
+  ['lease.manage', 'End, terminate, and archive Lease Contracts'],
+  ['renewal.read', 'Read Lease Renewal workflows'],
+  ['renewal.manage', 'Create and progress Lease Renewals'],
+  ['move-in.read', 'Read Move-In workflows'],
+  ['move-in.manage', 'Schedule and complete Move-In workflows'],
 ] as const;
+
+const phase5OperationsPermissions = permissions
+  .map(([code]) => code)
+  .filter((code) =>
+    ['listing.', 'viewing.', 'application.', 'screening.', 'reservation.', 'tenant.', 'lease.', 'renewal.', 'move-in.'].some((prefix) => code.startsWith(prefix)),
+  );
 
 const rolePermissions: Record<string, readonly string[]> = {
   SUPER_ADMIN: permissions.map(([code]) => code),
@@ -219,6 +254,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'workflow.draft.update',
     'workflow.draft.cancel',
     'workflow.draft.complete',
+    ...phase5OperationsPermissions,
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -273,6 +309,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'workflow.draft.update',
     'workflow.draft.cancel',
     'workflow.draft.complete',
+    ...phase5OperationsPermissions,
   ],
   LEASING_AGENT: [
     'organization.branch.read',
@@ -304,6 +341,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'crm.assignment.read',
     'crm.source.read',
     'crm.lead.contact.read',
+    ...phase5OperationsPermissions,
   ],
   ACCOUNTANT: [
     'organization.branch.read',

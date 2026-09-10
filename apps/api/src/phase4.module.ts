@@ -34,5 +34,6 @@ import { ObjectStorageService } from './portfolio/object-storage.service';
     PortfolioDocumentController,
   ],
   providers: [PartyCryptoService, PartyService, PortfolioService, ObjectStorageService],
+  exports: [PartyService, PortfolioService],
 })
 export class Phase4Module {}

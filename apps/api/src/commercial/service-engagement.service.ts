@@ -16,6 +16,7 @@ import { BusinessDateService } from '../common/business-date.service';
 import { cursorPage } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
 import { nextRecordNumber } from '../common/record-number';
+import type { CommandCheckpoint } from '../common/command-checkpoint';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
@@ -246,6 +247,7 @@ export class ServiceEngagementService {
     principal: AuthenticatedPrincipal,
     input: CreateServiceEngagementDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     assertServiceModelScope(input.serviceModel, input.rentableSpaceId);
     const effectiveFrom = await this.effectiveDating.scheduledDate(
@@ -315,6 +317,7 @@ export class ServiceEngagementService {
           effectiveTo: engagement.effectiveTo?.toISOString().slice(0, 10) ?? null,
         },
       });
+      await checkpoint?.(transaction, engagement.id);
       return this.present(engagement, today);
     });
   }
@@ -459,6 +462,7 @@ export class ServiceEngagementService {
     target: ServiceEngagementStatus,
     input: ServiceEngagementTransitionDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     const today = await this.businessDate.today(principal.companyId);
     const permission =
@@ -520,6 +524,7 @@ export class ServiceEngagementService {
           effectiveTo: after.effectiveTo?.toISOString().slice(0, 10) ?? null,
         },
       });
+      await checkpoint?.(transaction, after.id);
       return this.present(after, today);
     });
   }

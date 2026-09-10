@@ -18,10 +18,40 @@ import { CrmSearchGuard } from './crm/crm-http';
 import { WorkflowController } from './workflow/workflow.controller';
 import { WorkflowPayloadCipher } from './workflow/workflow-payload-cipher';
 import { WorkflowService } from './workflow/workflow.service';
+import { WorkflowCommandService } from './workflow/workflow-command.service';
+import { LeasingService } from './leasing/leasing.service';
+import { ListingService } from './leasing/listing.service';
+import {
+  ApplicationController,
+  LeaseController,
+  ListingMatchController,
+  MoveInController,
+  RentalListingController,
+  RenewalController,
+  ReservationController,
+  SaleListingController,
+  TenantController,
+  ViewingController,
+} from './leasing/phase5-operations.controller';
 
 @Module({
   imports: [Phase3Module, Phase4Module],
-  controllers: [ServiceEngagementController, ServiceCapabilityController, CrmController, WorkflowController],
+  controllers: [
+    ServiceEngagementController,
+    ServiceCapabilityController,
+    CrmController,
+    WorkflowController,
+    RentalListingController,
+    SaleListingController,
+    ListingMatchController,
+    ViewingController,
+    ApplicationController,
+    ReservationController,
+    TenantController,
+    LeaseController,
+    RenewalController,
+    MoveInController,
+  ],
   providers: [
     ServiceEngagementService,
     CrmContactService,
@@ -34,6 +64,9 @@ import { WorkflowService } from './workflow/workflow.service';
     CrmSearchGuard,
     WorkflowPayloadCipher,
     WorkflowService,
+    WorkflowCommandService,
+    ListingService,
+    LeasingService,
   ],
   exports: [ServiceEngagementService],
 })

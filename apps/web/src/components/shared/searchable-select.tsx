@@ -79,7 +79,7 @@ export function SearchableSelect({
   ).length;
   const showCombobox =
     searchable === true &&
-    selectableOptionCount >= searchThreshold &&
+    (onSearchChange !== undefined || loading || selectableOptionCount >= searchThreshold) &&
     !isStatusSelection(props.name, ariaLabel, className);
   const selectedOption = childOptions.find(
     (option) => String(option.props.value ?? '') === selectedValue,
@@ -124,8 +124,8 @@ export function SearchableSelect({
     if (selectRef.current) {
       selectRef.current.value = nextValue;
       onChange?.({
-        target: selectRef.current,
-        currentTarget: selectRef.current,
+        target: { value: nextValue },
+        currentTarget: { value: nextValue },
       } as ChangeEvent<HTMLSelectElement>);
     }
   };
