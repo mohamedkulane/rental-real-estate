@@ -5,11 +5,13 @@ import {
   assertJournalDraft,
   assertJournalPosted,
   assertManualPaymentOnly,
+  assertNonNegativeMoney,
   assertRecurringBillingModel,
   billingIdempotencyKey,
   computeManagementFee,
   computeOwnerShareAmounts,
   computeSaleSettlementAmounts,
+  replayIdempotentRecord,
 } from './finance.policy';
 
 describe('finance.policy recurring billing', () => {
@@ -107,6 +109,13 @@ describe('finance.policy owner payouts', () => {
       ]),
     ).toThrow('Configured ownership must total 100% for the payout period.');
   });
+
+  it('rejects negative other deductions', () => {
+    expect(() => assertNonNegativeMoney(new Prisma.Decimal('-1'), 'Other deductions')).toThrow(
+      'Other deductions cannot be negative.',
+    );
+    expect(() => assertNonNegativeMoney(new Prisma.Decimal('0'), 'Other deductions')).not.toThrow();
+  });
 });
 
 describe('finance.policy sale settlement', () => {
@@ -132,5 +141,19 @@ describe('finance.policy sale settlement', () => {
     expect(result.grossCommission.toString()).toBe('15000');
     expect(result.companyProceeds.toString()).toBe('15000');
     expect(result.sellerProceeds.toString()).toBe('480000');
+  });
+});
+
+describe('finance.policy idempotency replay', () => {
+  it('replays records for the same company', () => {
+    const existing = { id: 'pay-1', companyId: 'company-a' };
+    expect(replayIdempotentRecord(existing, 'company-a')).toEqual(existing);
+    expect(replayIdempotentRecord(null, 'company-a')).toBeNull();
+  });
+
+  it('rejects replay of another company record', () => {
+    expect(() =>
+      replayIdempotentRecord({ id: 'pay-1', companyId: 'company-b' }, 'company-a'),
+    ).toThrow('Idempotency key is already in use.');
   });
 });

@@ -11,6 +11,7 @@ import {
   assertLifecycleTransition,
   brokerageDealTransitions,
   FinancePolicyService,
+  replayIdempotentRecord,
 } from './finance.policy';
 import type {
   BrokerageDealQueryDto,
@@ -75,9 +76,12 @@ export class BrokerageDealService {
     try {
       return await this.db.$transaction(async (tx) => {
         if (input.idempotencyKey) {
-          const existing = await tx.brokerageDeal.findUnique({
-            where: { idempotencyKey: input.idempotencyKey },
-          });
+          const existing = replayIdempotentRecord(
+            await tx.brokerageDeal.findUnique({
+              where: { idempotencyKey: input.idempotencyKey },
+            }),
+            principal.companyId,
+          );
           if (existing) return existing;
         }
         const deal = await tx.brokerageDeal.create({
@@ -113,9 +117,12 @@ export class BrokerageDealService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && input.idempotencyKey) {
-        const existing = await this.db.brokerageDeal.findUnique({
-          where: { idempotencyKey: input.idempotencyKey },
-        });
+        const existing = replayIdempotentRecord(
+          await this.db.brokerageDeal.findUnique({
+            where: { idempotencyKey: input.idempotencyKey },
+          }),
+          principal.companyId,
+        );
         if (existing) return existing;
       }
       throw error;

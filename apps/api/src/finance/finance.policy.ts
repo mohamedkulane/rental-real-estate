@@ -78,6 +78,23 @@ export function assertManualPaymentOnly(autoCapture?: boolean): void {
   }
 }
 
+export function replayIdempotentRecord<T extends { companyId: string }>(
+  existing: T | null | undefined,
+  companyId: string,
+): T | null {
+  if (!existing) return null;
+  if (existing.companyId !== companyId) {
+    throw new ConflictException('Idempotency key is already in use.');
+  }
+  return existing;
+}
+
+export function assertNonNegativeMoney(value: Prisma.Decimal, label: string): void {
+  if (value.lt(0)) {
+    throw new BadRequestException(`${label} cannot be negative.`);
+  }
+}
+
 export function assertJournalDraft(status: JournalStatus): void {
   if (status !== JournalStatus.DRAFT) {
     throw new ConflictException('Only draft journal entries may be edited or posted.');

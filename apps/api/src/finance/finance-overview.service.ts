@@ -23,6 +23,12 @@ export class FinanceOverviewService {
     return branchIds === null ? {} : { branchId: { in: [...branchIds] } };
   }
 
+  private branches(principal: AuthenticatedPrincipal, permission: string, branchId?: string) {
+    const allowed = this.auth.authorizedBranchIds(principal, permission);
+    if (allowed === null) return branchId ? [branchId] : null;
+    return [...allowed].filter((id) => !branchId || id === branchId);
+  }
+
   async overview(principal: AuthenticatedPrincipal) {
     const companyId = principal.companyId;
     const [openInvoices, unallocatedPayments, pendingOwnerPayouts, openExpenses, draftJournals, recentInvoices, recentPayments] =
@@ -97,10 +103,10 @@ export class FinanceOverviewService {
   }
 
   async listOwnerStatements(principal: AuthenticatedPrincipal, query: { branchId?: string; cursor?: string; limit: number }) {
-    const branchIds = this.auth.authorizedBranchIds(principal, 'owner-statement.read');
+    const branchIds = this.branches(principal, 'owner-statement.read', query.branchId);
     const where = {
       companyId: principal.companyId,
-      ...(query.branchId ? { branchId: query.branchId } : branchIds === null ? {} : { branchId: { in: [...branchIds] } }),
+      ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
     };
     const rows = await this.db.ownerStatement.findMany({
       where,

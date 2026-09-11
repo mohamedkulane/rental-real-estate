@@ -18,6 +18,7 @@ import {
   assertRecurringBillingModel,
   billingIdempotencyKey,
   FinancePolicyService,
+  replayIdempotentRecord,
 } from './finance.policy';
 import type {
   BillingScheduleQueryDto,
@@ -112,7 +113,10 @@ export class BillingService {
     }
     const idempotencyKey = `schedule:${input.serviceEngagementId}:${input.leaseId}:${input.chargeTypeId}:${input.effectiveFrom}`;
     return this.db.$transaction(async (tx) => {
-      const existing = await tx.billingSchedule.findUnique({ where: { idempotencyKey } });
+      const existing = replayIdempotentRecord(
+        await tx.billingSchedule.findUnique({ where: { idempotencyKey } }),
+        principal.companyId,
+      );
       if (existing) return existing;
       const schedule = await tx.billingSchedule.create({
         data: {
@@ -192,7 +196,10 @@ export class BillingService {
         const amount = schedule.amount ?? schedule.lease.rentAmount;
         const idempotencyKey = billingIdempotencyKey(schedule.id, period.start, period.end);
         const charge = await this.db.$transaction(async (tx) => {
-          const existing = await tx.charge.findUnique({ where: { idempotencyKey } });
+          const existing = replayIdempotentRecord(
+            await tx.charge.findUnique({ where: { idempotencyKey } }),
+            principal.companyId,
+          );
           if (existing) return existing;
           const created = await tx.charge.create({
             data: {
@@ -294,23 +301,38 @@ export class BillingService {
     input: IssueInvoiceDto,
     correlationId?: string,
   ) {
-    const charges = await this.db.charge.findMany({
-      where: {
-        id: { in: input.chargeIds },
-        companyId: principal.companyId,
-        debtorPartyId: input.debtorPartyId,
-        status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
-      },
-    });
-    if (charges.length !== input.chargeIds.length) {
-      throw new ConflictException('One or more open charges are unavailable for invoicing.');
-    }
-    const branchId = charges[0]!.branchId;
-    this.auth.assertBranchPermission(principal, 'invoice.manage', branchId);
-    if (charges.some((row) => row.branchId !== branchId || row.currency !== input.currency.toUpperCase())) {
-      throw new ConflictException('All invoice charges must share branch and currency.');
-    }
     return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM charges WHERE "companyId" = ${principal.companyId}::uuid AND id IN (${Prisma.join(
+          input.chargeIds.map((id) => Prisma.sql`${id}::uuid`),
+        )}) FOR UPDATE`,
+      );
+      const charges = await tx.charge.findMany({
+        where: {
+          id: { in: input.chargeIds },
+          companyId: principal.companyId,
+          debtorPartyId: input.debtorPartyId,
+          status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
+        },
+      });
+      if (charges.length !== input.chargeIds.length) {
+        throw new ConflictException('One or more open charges are unavailable for invoicing.');
+      }
+      const alreadyInvoiced = await tx.invoiceLine.findFirst({
+        where: {
+          chargeId: { in: input.chargeIds },
+          invoice: { status: { not: InvoiceStatus.VOID } },
+        },
+        select: { chargeId: true },
+      });
+      if (alreadyInvoiced) {
+        throw new ConflictException('One or more charges are already on an active invoice.');
+      }
+      const branchId = charges[0]!.branchId;
+      this.auth.assertBranchPermission(principal, 'invoice.manage', branchId);
+      if (charges.some((row) => row.branchId !== branchId || row.currency !== input.currency.toUpperCase())) {
+        throw new ConflictException('All invoice charges must share branch and currency.');
+      }
       const invoice = await tx.invoice.create({
         data: {
           id: uuidv7(),

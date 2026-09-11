@@ -7,7 +7,7 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import { assertManualPaymentOnly } from './finance.policy';
+import { assertManualPaymentOnly, replayIdempotentRecord } from './finance.policy';
 import type {
   AllocatePaymentDto,
   CreatePaymentDto,
@@ -77,7 +77,10 @@ export class PaymentService {
     try {
       return await this.db.$transaction(async (tx) => {
         if (input.idempotencyKey) {
-          const existing = await tx.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+          const existing = replayIdempotentRecord(
+            await tx.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey } }),
+            principal.companyId,
+          );
           if (existing) return existing;
         }
         const payment = await tx.payment.create({
@@ -114,7 +117,10 @@ export class PaymentService {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         if (input.idempotencyKey) {
-          const existing = await this.db.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+          const existing = replayIdempotentRecord(
+            await this.db.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey } }),
+            principal.companyId,
+          );
           if (existing) return existing;
         }
         throw new ConflictException('Payment idempotency conflict.');
@@ -129,48 +135,62 @@ export class PaymentService {
     input: AllocatePaymentDto,
     correlationId?: string,
   ) {
-    const payment = await this.db.payment.findFirst({
-      where: { id: paymentId, companyId: principal.companyId },
-      include: { allocations: { where: { reversedAt: null } } },
-    });
-    if (!payment) throw new NotFoundException('Payment not found.');
-    this.auth.assertBranchPermission(principal, 'payment.allocate', payment.branchId);
-    if (payment.status === PaymentStatus.REVERSED) {
-      throw new ConflictException('Reversed payments cannot be allocated.');
-    }
-    const allocated = payment.allocations.reduce(
-      (sum, row) => sum.plus(row.amount),
-      new Prisma.Decimal(0),
-    );
     const requested = input.allocations.reduce(
       (sum, row) => sum.plus(new Prisma.Decimal(row.amount)),
       new Prisma.Decimal(0),
     );
-    if (allocated.plus(requested).gt(payment.amount)) {
-      throw new BadRequestException('Allocation exceeds the payment amount.');
-    }
-    const chargeIds = input.allocations.map((row) => row.chargeId);
-    const charges = await this.db.charge.findMany({
-      where: {
-        id: { in: chargeIds },
-        companyId: principal.companyId,
-        branchId: payment.branchId,
-        currency: payment.currency,
-        status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
-      },
-    });
-    if (charges.length !== chargeIds.length) {
-      throw new ConflictException('One or more charges are unavailable for allocation.');
-    }
-    const chargeMap = new Map(charges.map((row) => [row.id, row]));
-    for (const line of input.allocations) {
-      const charge = chargeMap.get(line.chargeId)!;
-      const amount = new Prisma.Decimal(line.amount);
-      if (amount.gt(charge.outstandingAmount)) {
-        throw new BadRequestException(`Allocation exceeds outstanding amount for ${charge.chargeNumber}.`);
-      }
+    const chargeIds = [...new Set(input.allocations.map((row) => row.chargeId))];
+    if (chargeIds.length !== input.allocations.length) {
+      throw new BadRequestException('Each allocation line must target a distinct charge.');
     }
     return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM payments WHERE id = ${paymentId}::uuid AND "companyId" = ${principal.companyId}::uuid FOR UPDATE`,
+      );
+      const payment = await tx.payment.findFirst({
+        where: { id: paymentId, companyId: principal.companyId },
+        include: { allocations: { where: { reversedAt: null } } },
+      });
+      if (!payment) throw new NotFoundException('Payment not found.');
+      this.auth.assertBranchPermission(principal, 'payment.allocate', payment.branchId);
+      if (payment.status === PaymentStatus.REVERSED) {
+        throw new ConflictException('Reversed payments cannot be allocated.');
+      }
+      const allocated = payment.allocations.reduce(
+        (sum, row) => sum.plus(row.amount),
+        new Prisma.Decimal(0),
+      );
+      if (allocated.plus(requested).gt(payment.amount)) {
+        throw new BadRequestException('Allocation exceeds the payment amount.');
+      }
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM charges WHERE "companyId" = ${principal.companyId}::uuid AND id IN (${Prisma.join(
+          chargeIds.map((id) => Prisma.sql`${id}::uuid`),
+        )}) FOR UPDATE`,
+      );
+      const charges = await tx.charge.findMany({
+        where: {
+          id: { in: chargeIds },
+          companyId: principal.companyId,
+          branchId: payment.branchId,
+          currency: payment.currency,
+          status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
+        },
+      });
+      if (charges.length !== chargeIds.length) {
+        throw new ConflictException('One or more charges are unavailable for allocation.');
+      }
+      const chargeMap = new Map(charges.map((row) => [row.id, row]));
+      for (const line of input.allocations) {
+        const charge = chargeMap.get(line.chargeId)!;
+        const amount = new Prisma.Decimal(line.amount);
+        if (amount.lte(0)) {
+          throw new BadRequestException('Allocation amounts must be positive.');
+        }
+        if (amount.gt(charge.outstandingAmount)) {
+          throw new BadRequestException(`Allocation exceeds outstanding amount for ${charge.chargeNumber}.`);
+        }
+      }
       const now = new Date();
       for (const line of input.allocations) {
         const charge = chargeMap.get(line.chargeId)!;
@@ -223,7 +243,7 @@ export class PaymentService {
       include: { receipt: true },
     });
     if (!payment) throw new NotFoundException('Payment not found.');
-    this.auth.assertBranchPermission(principal, 'payment.read', payment.branchId);
+    this.auth.assertBranchPermission(principal, 'payment.create', payment.branchId);
     if (payment.receipt) return payment.receipt;
     return this.db.$transaction(async (tx) => {
       const receipt = await tx.receipt.create({

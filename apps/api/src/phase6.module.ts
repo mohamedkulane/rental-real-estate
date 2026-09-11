@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { Phase3Module } from './phase3.module';
 import { Phase5Module } from './phase5.module';
 import { AccountingService } from './finance/accounting.service';
 import { BillingService } from './finance/billing.service';
@@ -26,7 +27,7 @@ import { SaleSettlementService } from './finance/sale-settlement.service';
 import { FinanceOverviewService } from './finance/finance-overview.service';
 
 @Module({
-  imports: [Phase5Module],
+  imports: [Phase3Module, Phase5Module],
   controllers: [
     BillingScheduleController,
     ChargeController,

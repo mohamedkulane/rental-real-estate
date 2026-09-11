@@ -137,7 +137,7 @@ export class PaymentController {
   }
 
   @Post(':id/receipt')
-  @RequirePermissions('payment.read')
+  @RequirePermissions('payment.create')
   receipt(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.payments.issueReceipt(req.principal, id, req.correlationId);
   }

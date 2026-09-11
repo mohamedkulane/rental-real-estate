@@ -30,6 +30,18 @@ export class AccountingService {
     return [...allowed].filter((id) => !branchId || id === branchId);
   }
 
+  private assertJournalScope(
+    principal: AuthenticatedPrincipal,
+    permission: string,
+    branchId: string | null,
+  ) {
+    if (branchId) {
+      this.auth.assertBranchPermission(principal, permission, branchId);
+      return;
+    }
+    this.auth.assertCompanyPermission(principal, permission);
+  }
+
   private async openPeriod(companyId: string, businessDate: Date) {
     const period = await this.db.accountingPeriod.findFirst({
       where: {
@@ -69,14 +81,7 @@ export class AccountingService {
   async create(principal: AuthenticatedPrincipal, input: CreateJournalDto, correlationId?: string) {
     const businessDate = isoDate(input.businessDate);
     const period = await this.openPeriod(principal.companyId, businessDate);
-    if (input.branchId) {
-      this.auth.assertBranchPermission(principal, 'journal.manage', input.branchId);
-    } else {
-      const branchIds = this.branches(principal, 'journal.manage');
-      if (branchIds !== null && branchIds.length === 0) {
-        throw new ConflictException('No authorized branch for journal creation.');
-      }
-    }
+    this.assertJournalScope(principal, 'journal.manage', input.branchId ?? null);
     assertBalancedJournal(input.lines);
     const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
     const accounts = await this.db.account.findMany({
@@ -136,9 +141,7 @@ export class AccountingService {
       include: { lines: true },
     });
     if (!current) throw new NotFoundException('Journal entry not found.');
-    if (current.branchId) {
-      this.auth.assertBranchPermission(principal, 'journal.manage', current.branchId);
-    }
+    this.assertJournalScope(principal, 'journal.manage', current.branchId);
     assertJournalDraft(current.status);
     assertBalancedJournal(current.lines);
     return this.db.$transaction(async (tx) => {
@@ -172,9 +175,7 @@ export class AccountingService {
       include: { lines: true, reversals: true },
     });
     if (!original) throw new NotFoundException('Journal entry not found.');
-    if (original.branchId) {
-      this.auth.assertBranchPermission(principal, 'journal.manage', original.branchId);
-    }
+    this.assertJournalScope(principal, 'journal.manage', original.branchId);
     assertJournalPosted(original.status);
     if (original.reversals.length) {
       throw new ConflictException('This journal entry has already been reversed.');
@@ -239,9 +240,7 @@ export class AccountingService {
       include: { lines: true, reversalOf: true, reversals: true },
     });
     if (!journal) throw new NotFoundException('Journal entry not found.');
-    if (journal.branchId) {
-      this.auth.assertBranchPermission(principal, 'journal.read', journal.branchId);
-    }
+    this.assertJournalScope(principal, 'journal.read', journal.branchId);
     return journal;
   }
 }

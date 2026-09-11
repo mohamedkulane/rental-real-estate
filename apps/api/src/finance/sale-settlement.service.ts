@@ -7,7 +7,7 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import { computeSaleSettlementAmounts, FinancePolicyService } from './finance.policy';
+import { computeSaleSettlementAmounts, FinancePolicyService, replayIdempotentRecord } from './finance.policy';
 import type {
   CreateSaleSettlementDto,
   SaleSettlementQueryDto,
@@ -76,9 +76,12 @@ export class SaleSettlementService {
     try {
       return await this.db.$transaction(async (tx) => {
         if (input.idempotencyKey) {
-          const existing = await tx.saleSettlement.findUnique({
-            where: { idempotencyKey: input.idempotencyKey },
-          });
+          const existing = replayIdempotentRecord(
+            await tx.saleSettlement.findUnique({
+              where: { idempotencyKey: input.idempotencyKey },
+            }),
+            principal.companyId,
+          );
           if (existing) return existing;
         }
         const settlement = await tx.saleSettlement.create({
@@ -120,9 +123,12 @@ export class SaleSettlementService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && input.idempotencyKey) {
-        const existing = await this.db.saleSettlement.findUnique({
-          where: { idempotencyKey: input.idempotencyKey },
-        });
+        const existing = replayIdempotentRecord(
+          await this.db.saleSettlement.findUnique({
+            where: { idempotencyKey: input.idempotencyKey },
+          }),
+          principal.companyId,
+        );
         if (existing) return existing;
       }
       throw error;

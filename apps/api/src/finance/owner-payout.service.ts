@@ -9,6 +9,7 @@ import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import {
   assertLifecycleTransition,
+  assertNonNegativeMoney,
   computeManagementFee,
   computeOwnerShareAmounts,
   FinancePolicyService,
@@ -97,6 +98,7 @@ export class OwnerPayoutService {
     const income = new Prisma.Decimal(collectedIncome._sum.amount ?? 0);
     const deductions = new Prisma.Decimal(expenseDeductions._sum.amount ?? 0);
     const otherDeductions = new Prisma.Decimal(input.otherDeductions ?? 0);
+    assertNonNegativeMoney(otherDeductions, 'Other deductions');
     const managementFee = computeManagementFee(income, terms?.managementFeePercent ?? null);
     const netPayable = income.minus(deductions).minus(managementFee).minus(otherDeductions);
     if (netPayable.lt(0)) {
@@ -106,6 +108,24 @@ export class OwnerPayoutService {
     const primaryOwner = shareLines[0];
     if (!primaryOwner) throw new BadRequestException('Owner payout requires at least one owner.');
     return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM properties WHERE id = ${input.propertyId}::uuid FOR UPDATE`,
+      );
+      const overlapping = await tx.ownerPayout.findFirst({
+        where: {
+          companyId: principal.companyId,
+          propertyId: input.propertyId,
+          status: { notIn: [PayoutStatus.CANCELLED, PayoutStatus.REJECTED] },
+          periodStart: { lt: periodEnd },
+          periodEnd: { gt: periodStart },
+        },
+        select: { payoutNumber: true },
+      });
+      if (overlapping) {
+        throw new ConflictException(
+          `An active owner payout (${overlapping.payoutNumber}) already covers this property and period.`,
+        );
+      }
       const payout = await tx.ownerPayout.create({
         data: {
           id: uuidv7(),
