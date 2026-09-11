@@ -6,6 +6,7 @@ import { BusinessDateService } from '../common/business-date.service';
 import { cursorPage } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
 import { nextRecordNumber } from '../common/record-number';
+import type { CommandCheckpoint } from '../common/command-checkpoint';
 import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { ObjectStorageService } from './object-storage.service';
@@ -230,6 +231,7 @@ export class PortfolioService {
     principal: AuthenticatedPrincipal,
     input: CreatePropertyDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     this.authorization.assertBranchPermission(
       principal,
@@ -298,6 +300,7 @@ export class PortfolioService {
           status: property.status,
         },
       });
+      await checkpoint?.(transaction, property.id);
       return property;
     });
   }
@@ -338,6 +341,7 @@ export class PortfolioService {
     target: PropertyStatus,
     input: PropertyLifecycleTransitionDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     const branchId = await this.assertPropertyPermission(
       principal,
@@ -408,6 +412,7 @@ export class PortfolioService {
         before: { status: before.status },
         after: { status: target, effectiveDate: effectiveDate.toISOString().slice(0, 10) },
       });
+      await checkpoint?.(transaction, after.id);
       return after;
     });
   }
@@ -531,6 +536,7 @@ export class PortfolioService {
     propertyId: string,
     input: ReplaceOwnershipDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     const branchId = await this.assertPropertyPermission(
       principal,
@@ -675,6 +681,7 @@ export class PortfolioService {
           })),
         },
       });
+      if (created[0]) await checkpoint?.(transaction, created[0].id);
       return created;
     });
   }
@@ -698,6 +705,7 @@ export class PortfolioService {
     propertyId: string,
     input: CreateBuildingDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     const branchId = await this.assertPropertyPermission(
       principal,
@@ -729,6 +737,7 @@ export class PortfolioService {
         correlationId,
         after: { propertyId, buildingCode: building.buildingCode },
       });
+      await checkpoint?.(transaction, building.id);
       return building;
     });
   }
@@ -1693,6 +1702,7 @@ export class PortfolioService {
     principal: AuthenticatedPrincipal,
     input: CreateSpaceDto,
     correlationId?: string,
+    checkpoint?: CommandCheckpoint,
   ) {
     this.validateSpaceProfiles(input);
     const branchId = await this.assertPropertyPermission(
@@ -1837,6 +1847,7 @@ export class PortfolioService {
           parentSpaceId: input.parentSpaceId ?? null,
         },
       });
+      await checkpoint?.(transaction, space.id);
       return space;
     });
   }

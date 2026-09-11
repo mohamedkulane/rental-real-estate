@@ -2,162 +2,55 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { ChevronDown, Home, Landmark, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { humanize } from '@/lib/presentation';
+import { AppHeader } from './app-header';
 import {
-  Building2,
-  ChevronRight,
-  ClipboardList,
-  Home,
-  Landmark,
-  LogOut,
-  Menu,
-  ShieldCheck,
-  UserCog,
-  Users,
-  X,
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { AccessScopeBadge } from './ui';
-import {
-  expandedParentForActive,
-  navigationItemIsActive,
-  nextExpandedParent,
+  normalizeActiveItem,
   type NavigationItem,
 } from './navigation-model';
+import { SidebarAccordion, useSidebarLayoutState } from './sidebar-accordion';
+import { buildSidebarAccordion } from './sidebar-navigation';
+export type ShellSection =
+  | 'overview'
+  | 'organization'
+  | 'portfolio'
+  | 'commercial'
+  | 'crm'
+  | 'administration'
+  | 'projects'
+  | 'workflows';
 
-export type ShellSection = 'overview' | 'organization' | 'portfolio' | 'administration';
 export type ShellSubItem = NavigationItem;
 
-type NavItem = ShellSubItem & { icon?: typeof Home | undefined };
-
-function NavGroup({
-  title,
-  items,
-  activeItem,
-  onNavigate,
-}: {
-  title: string;
-  items: NavItem[];
-  activeItem: string | undefined;
-  onNavigate: () => void;
-}) {
-  const activeParent = expandedParentForActive(items, activeItem);
-  const [expanded, setExpanded] = useState<string | undefined>(activeParent);
-
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    if (activeParent) setExpanded(activeParent);
-  }, [activeParent]);
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return isDesktop;
+}
 
-  if (!items.length) return null;
-  return (
-    <div className="space-y-1">
-      <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-        {title}
-      </p>
-      {items.map((item) => {
-        const Icon = item.icon;
-        const selected = navigationItemIsActive(item, activeItem);
-        const hasChildren = Boolean(item.children?.length);
-        const isExpanded = expanded === item.key;
-        return (
-          <div key={item.key}>
-            <button
-              type="button"
-              aria-expanded={hasChildren ? isExpanded : undefined}
-              aria-controls={hasChildren ? `nav-children-${item.key}` : undefined}
-              aria-current={!hasChildren && selected ? 'page' : undefined}
-              onClick={() => {
-                if (hasChildren) {
-                  setExpanded((current) => nextExpandedParent(current, item.key));
-                  return;
-                }
-                item.onSelect?.();
-                onNavigate();
-              }}
-              className={
-                'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9] ' +
-                (selected
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-300 hover:bg-slate-800/70 hover:text-white')
-              }
-            >
-              {Icon ? (
-                <Icon
-                  className={
-                    'h-[18px] w-[18px] shrink-0 ' +
-                    (selected ? 'text-[#90CAF9]' : 'text-slate-400')
-                  }
-                  aria-hidden="true"
-                />
-              ) : (
-                <span
-                  className={
-                    'ml-1 h-1.5 w-1.5 shrink-0 rounded-full ' +
-                    (selected ? 'bg-[#90CAF9]' : 'bg-slate-600')
-                  }
-                  aria-hidden="true"
-                />
-              )}
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {hasChildren ? (
-                <ChevronRight
-                  className={
-                    'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ' +
-                    (isExpanded ? 'rotate-90' : '')
-                  }
-                  aria-hidden="true"
-                />
-              ) : selected ? (
-                <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden="true" />
-              ) : null}
-            </button>
-            {hasChildren ? (
-              <div
-                id={`nav-children-${item.key}`}
-                className={
-                  'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ' +
-                  (isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')
-                }
-              >
-                <div className="overflow-hidden">
-                  <div className="space-y-0.5 pb-1 pl-8 pt-1">
-                    {item.children?.map((child) => {
-                      const childSelected = activeItem === child.key;
-                      return (
-                        <button
-                          key={child.key}
-                          type="button"
-                          aria-current={childSelected ? 'page' : undefined}
-                          onClick={() => {
-                            child.onSelect?.();
-                            onNavigate();
-                          }}
-                          className={
-                            'flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CAF9] ' +
-                            (childSelected
-                              ? 'bg-[#2196F3]/15 text-[#90CAF9]'
-                              : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')
-                          }
-                        >
-                          <span
-                            className={
-                              'h-1.5 w-1.5 shrink-0 rounded-full ' +
-                              (childSelected ? 'bg-[#90CAF9]' : 'bg-slate-700')
-                            }
-                            aria-hidden="true"
-                          />
-                          <span className="truncate">{child.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
+function branchLabel(
+  accessMode: string,
+  branches: Array<{ id: string; code: string; name: string }>,
+): string {
+  if (accessMode === 'COMPANY_WIDE') return 'Company Wide';
+  if (branches.length === 1) return branches[0]?.name ?? 'Assigned Branch';
+  if (branches.length > 1) return `${branches.length} Branches`;
+  return humanize(accessMode);
+}
+
+function userInitials(label: string): string {
+  const parts = label.split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'ST';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
 }
 
 export function AppShell({
@@ -168,115 +61,102 @@ export function AppShell({
   accessBranches,
   permissions,
   onLogout,
+  userDisplayName,
+  userRoleLabel,
   children,
 }: {
   active: ShellSection;
   activeItem?: string;
-  subNavigation?: Partial<Record<ShellSection, ShellSubItem[]>>;
+  subNavigation?: Partial<
+    Record<'organization' | 'administration' | 'portfolio' | 'commercial', ShellSubItem[]>
+  >;
   accessMode: string;
   accessBranches?: Array<{ id: string; code: string; name: string }>;
   permissions: string[];
   onLogout: () => void;
+  userDisplayName?: string;
+  userRoleLabel?: string;
   children: ReactNode;
 }) {
+  const branches = accessBranches ?? [];
   const [open, setOpen] = useState(false);
-  const organization = subNavigation.organization ?? [];
-  const administration = subNavigation.administration ?? [];
-  const portfolio = subNavigation.portfolio ?? [];
-  const pick = (items: ShellSubItem[], keys: string[], icons: Record<string, typeof Home> = {}) =>
-    keys
-      .map((key) => items.find((item) => item.key === key))
-      .filter((item): item is ShellSubItem => Boolean(item))
-      .map((item) => ({ ...item, icon: icons[item.key] }));
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeNavRef = useRef<HTMLButtonElement>(null);
+  const navAsideRef = useRef<HTMLElement>(null);
 
-  const go = (key: string, label: string, url: string, icon: typeof Home): NavItem => ({
-    key,
-    label,
-    icon,
-    onSelect: () => window.location.assign(url),
+  const navigate = (href: string) => window.location.assign(href);
+
+  const sidebarSubNavigation: {
+    organization?: NavigationItem[];
+    administration?: NavigationItem[];
+    portfolio?: NavigationItem[];
+  } = {};
+  if (subNavigation.organization) sidebarSubNavigation.organization = subNavigation.organization;
+  if (subNavigation.administration)
+    sidebarSubNavigation.administration = subNavigation.administration;
+  if (subNavigation.portfolio) sidebarSubNavigation.portfolio = subNavigation.portfolio;
+
+  const sidebarGroups = buildSidebarAccordion({
+    permissions,
+    navigate,
+    subNavigation: sidebarSubNavigation,
   });
-  const can = (permission: string) => permissions.includes(permission);
-  const allowed = (permission: string, item: NavItem): NavItem[] => (can(permission) ? [item] : []);
-  const companySetup = organization.length
-    ? pick(organization, ['company', 'branches'], { company: Landmark, branches: Building2 })
-    : [
-        ...allowed(
-          'organization.company.read',
-          go('company', 'Company Profile', '/admin?section=company', Landmark),
-        ),
-        ...allowed(
-          'organization.branch.read',
-          go('branches', 'Branches', '/admin?section=branches', Building2),
-        ),
-      ];
-  const localTeamAccess = [
-    ...pick(administration, ['employees', 'users', 'roles'], {
-      employees: Users,
-      users: UserCog,
-      roles: ShieldCheck,
-      permissions: ShieldCheck,
-    }),
-  ];
-  const teamAccess = localTeamAccess.length
-    ? localTeamAccess
-    : [
-        ...allowed(
-          'identity.employee.read',
-          go('employees', 'Employees', '/admin?section=employees', Users),
-        ),
-        ...allowed(
-          'identity.user.read',
-          go('users', 'User Accounts', '/admin?section=users', UserCog),
-        ),
-        ...allowed(
-          'identity.role.read',
-          go('roles', 'Roles & Permissions', '/admin?section=roles', ShieldCheck),
-        ),
-      ];
-  const portfolioItems = portfolio.length
-    ? portfolio
-    : [
-        ...allowed(
-          'party.read',
-          go('parties', 'Parties', '/portfolio?section=parties', Users),
-        ),
-        ...allowed('owner.read', go('owners', 'Owners', '/portfolio?section=owners', Users)),
-        ...allowed(
-          'portfolio.property.read',
-          go('properties', 'Properties', '/portfolio?section=properties', Building2),
-        ),
-        ...allowed(
-          'portfolio.space.read',
-          go('spaces', 'Rentable Spaces', '/portfolio?section=spaces', Building2),
-        ),
-        ...allowed(
-          'portfolio.amenity.read',
-          go('amenities', 'Amenities Catalog', '/portfolio?section=amenities', Building2),
-        ),
-      ];
-  const decoratedPortfolioItems: NavItem[] = portfolioItems.map((item) => ({
-    ...item,
-    icon:
-      item.key === 'parties' || item.key === 'owners'
-        ? Users
-        : item.key === 'properties' || item.key === 'spaces' || item.key === 'amenities'
-          ? Building2
-          : undefined,
-  }));
+  const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } = useSidebarLayoutState(
+    activeItem,
+    sidebarGroups,
+  );
+  const isDesktop = useIsDesktop();
+  const sidebarWidthClass = isDesktop && sidebarCollapsed ? 'w-16' : 'w-[252px]';
+  const contentOffsetClass = isDesktop && sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-[252px]';
+  const accordionCollapsed = isDesktop && sidebarCollapsed;
+  const dashboardSelected =
+    active === 'overview' ||
+    activeItem === 'profile' ||
+    normalizeActiveItem(activeItem) === 'profile';
 
-  const oversight = administration.length
-    ? pick(administration, ['audit'], { audit: ClipboardList })
-    : allowed(
-        'governance.audit.read',
-        go('audit', 'Audit Log', '/admin?section=audit', ClipboardList),
+  const displayName = userDisplayName ?? branchLabel(accessMode, branches);
+  const roleLabel = userRoleLabel ?? humanize(accessMode);
+  const initials = userInitials(displayName);
+
+  useEffect(() => {
+    if (!open) {
+      menuTriggerRef.current?.focus();
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = navAsideRef.current?.querySelectorAll<HTMLElement>(
+        'button, a, [tabindex]:not([tabindex="-1"])',
       );
+      if (!focusable?.length) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    closeNavRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen bg-[var(--background)] font-sans text-slate-900">
       <button
         type="button"
+        ref={menuTriggerRef}
         className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm lg:hidden"
         aria-label="Open navigation"
+        aria-expanded={open}
+        aria-controls="main-navigation"
         onClick={() => setOpen(true)}
       >
         <Menu className="h-5 w-5" />
@@ -289,99 +169,115 @@ export function AppShell({
           onClick={() => setOpen(false)}
         />
       ) : null}
+
       <aside
+        ref={navAsideRef}
+        id="main-navigation"
         className={
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-950 text-white shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none lg:translate-x-0 ' +
+          'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white text-slate-900 shadow-sm transition-[width,transform] duration-200 ease-out motion-reduce:transition-none lg:translate-x-0 ' +
+          sidebarWidthClass +
+          ' ' +
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
-        <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0D47A1] text-white shadow-sm">
-            <Landmark className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <strong className="block truncate text-sm font-bold">Rental Operations</strong>
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-              Staff workspace
+        <div className={'border-b border-slate-200 py-5 ' + (sidebarCollapsed ? 'px-2' : 'px-5')}>
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+              <Landmark className="h-5 w-5" aria-hidden="true" />
             </span>
+            {!accordionCollapsed ? (
+              <div className="min-w-0 flex-1 leading-tight">
+                <strong className="block truncate text-sm font-bold text-slate-900">Horizon</strong>
+                <span className="block text-[11px] text-slate-500">Real Estate Operations</span>
+              </div>
+            ) : null}
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                className="hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 lg:inline-flex"
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                ref={closeNavRef}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+                aria-label="Close navigation"
+                onClick={() => setOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
-            aria-label="Close navigation"
-            onClick={() => setOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         <nav
-          className="sidebar-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-5"
+          className="sidebar-scrollbar flex-1 overflow-y-auto px-2 py-4 lg:px-3"
           aria-label="Main navigation"
         >
-          <div>
+          <div className="mb-2">
             <Link
               href="/admin"
               onClick={() => setOpen(false)}
+              title="Dashboard"
               className={
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ' +
-                (active === 'overview'
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-300 hover:bg-slate-800/70 hover:text-white')
+                'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 ' +
+                (dashboardSelected
+                  ? 'bg-emerald-50 text-emerald-900'
+                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900')
               }
             >
               <Home
                 className={
-                  'h-[18px] w-[18px] ' +
-                  (active === 'overview' ? 'text-[#90CAF9]' : 'text-slate-400')
+                  'h-[18px] w-[18px] shrink-0 ' +
+                  (dashboardSelected ? 'text-emerald-700' : 'text-slate-400')
                 }
+                aria-hidden="true"
               />
-              Dashboard
+              {!accordionCollapsed ? <span>Dashboard</span> : null}
             </Link>
           </div>
-          <NavGroup
-            title="Organization"
-            items={companySetup}
-            activeItem={activeItem}
-            onNavigate={() => setOpen(false)}
-          />
-          <NavGroup
-            title="Team & access"
-            items={teamAccess}
-            activeItem={activeItem}
-            onNavigate={() => setOpen(false)}
-          />
-          <NavGroup
-            title="Portfolio"
-            items={decoratedPortfolioItems}
-            activeItem={activeItem}
-            onNavigate={() => setOpen(false)}
-          />
-          <NavGroup
-            title="Oversight"
-            items={oversight}
-            activeItem={activeItem}
+
+          <SidebarAccordion
+            groups={sidebarGroups}
+            {...(activeItem ? { activeItem } : {})}
+            collapsed={accordionCollapsed}
             onNavigate={() => setOpen(false)}
           />
         </nav>
+
+        {!accordionCollapsed ? (
+          <div className="border-t border-slate-200 px-4 py-4">
+            <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                {initials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
+                <p className="truncate text-xs text-slate-500">{roleLabel}</p>
+              </div>
+              <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+            </div>
+          </div>
+        ) : null}
       </aside>
 
-      <div className="min-h-screen lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-5 backdrop-blur lg:px-8">
-          <div className="ml-12 lg:ml-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              Rental Operations
-            </p>
-            <p className="text-sm font-semibold text-slate-700">Secure staff workspace</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <AccessScopeBadge mode={accessMode} branches={accessBranches ?? []} />
-            <button type="button" className="header-action" onClick={onLogout}>
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Sign out</span>
-            </button>
-          </div>
-        </header>
+      <div className={'min-h-screen ' + contentOffsetClass}>
+        <AppHeader
+          permissions={permissions}
+          accessMode={accessMode}
+          accessBranches={branches}
+          userDisplayName={displayName}
+          userRoleLabel={roleLabel}
+          onLogout={onLogout}
+        />
+
         <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

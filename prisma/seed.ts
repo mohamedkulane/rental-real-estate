@@ -4,7 +4,19 @@ import { loadEnvFile } from 'node:process';
 import { uuidv7 } from '@rerms/shared';
 import { hash } from 'argon2';
 import { parseSeedEnvironment } from '@rerms/config';
-import { PrismaClient, BranchAccessMode, PartyKind, UserStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  BranchAccessMode,
+  LeadIntent,
+  LeadStage,
+  OwnerStatus,
+  PartyKind,
+  PropertyStatus,
+  RentableSpaceStatus,
+  ServiceEngagementStatus,
+  ServiceModel,
+  UserStatus,
+} from '@prisma/client';
 
 const environmentFile = resolve(__dirname, '../.env');
 if (existsSync(environmentFile)) loadEnvFile(environmentFile);
@@ -46,6 +58,14 @@ async function synchronizeRecordNumberSequences(): Promise<void> {
       SELECT MAX(substring("spaceCode" FROM '^SPC-([0-9]+)$')::bigint)
         INTO maximum_value FROM rentable_spaces WHERE "spaceCode" ~ '^SPC-[0-9]+$';
       PERFORM setval('space_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("engagementNumber" FROM '^ENG-([0-9]+)$')::bigint)
+        INTO maximum_value FROM service_engagements WHERE "engagementNumber" ~ '^ENG-[0-9]+$';
+      PERFORM setval('service_engagement_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("leadNumber" FROM '^LEAD-([0-9]+)$')::bigint)
+        INTO maximum_value FROM leads WHERE "leadNumber" ~ '^LEAD-[0-9]+$';
+      PERFORM setval('lead_record_number_seq', COALESCE(maximum_value + 1, 1), false);
     END $$;
   `;
 }
@@ -93,7 +113,72 @@ const permissions = [
   ['portfolio.amenity.manage', 'Manage property and space amenities'],
   ['portfolio.document.read', 'Read portfolio document metadata'],
   ['portfolio.document.manage', 'Manage portfolio document metadata'],
+  ['service-engagement.read', 'Read Service Engagements'],
+  ['service-engagement.create', 'Create Service Engagement drafts'],
+  ['service-engagement.update', 'Update permitted Service Engagement fields'],
+  ['service-engagement.activate', 'Activate Service Engagements'],
+  ['service-engagement.deactivate', 'Deactivate Service Engagements'],
+  ['service-engagement.cancel', 'Cancel Service Engagements'],
+  ['service-engagement.capability.read', 'Resolve effective commercial capabilities'],
+  ['crm.lead.read', 'Read CRM Leads'],
+  ['crm.lead.create', 'Create CRM Leads'],
+  ['crm.lead.update', 'Update permitted CRM Lead fields'],
+  ['crm.lead.stage', 'Perform controlled CRM Lead stage transitions'],
+  ['crm.activity.read', 'Read CRM Lead Activities'],
+  ['crm.activity.create', 'Append CRM Lead Activities'],
+  ['crm.activity.correct', 'Append CRM Activity corrections or voids'],
+  ['crm.followup.read', 'Read CRM Follow-ups'],
+  ['crm.followup.create', 'Create CRM Follow-ups'],
+  ['crm.followup.update', 'Reschedule open CRM Follow-ups'],
+  ['crm.followup.complete', 'Complete CRM Follow-ups'],
+  ['crm.followup.cancel', 'Cancel CRM Follow-ups'],
+  ['crm.assignment.read', 'Read CRM Lead assignment history'],
+  ['crm.assignment.manage', 'Assign and reassign CRM Leads'],
+  ['crm.lead.branch.transfer', 'Transfer CRM Lead responsibility between authorized Branches'],
+  ['crm.source.read', 'Read CRM Lead Sources'],
+  ['crm.source.manage', 'Manage Company-wide CRM Lead Sources'],
+  ['crm.lead.contact.read', 'Read sensitive CRM Lead contact fields'],
+  ['crm.lead.contact.export', 'Export sensitive CRM Lead contact fields'],
+  ['workflow.draft.read', 'Read authorized workflow drafts'],
+  ['workflow.draft.update', 'Create and update authorized workflow drafts'],
+  ['workflow.draft.cancel', 'Cancel authorized workflow drafts'],
+  ['workflow.draft.complete', 'Complete authorized workflow drafts'],
+  ['listing.read', 'Read authorized rental and sale listings'],
+  ['listing.create', 'Create eligible rental and sale listing drafts'],
+  ['listing.update', 'Update listing drafts and permitted marketing fields'],
+  ['listing.review', 'Submit and review listing publication requests'],
+  ['listing.publish', 'Publish, pause, close, and archive listings'],
+  ['listing.match', 'Run deterministic Lead-to-Listing matching'],
+  ['viewing.read', 'Read authorized Viewings'],
+  ['viewing.create', 'Schedule Viewings'],
+  ['viewing.update', 'Reschedule and update Viewings'],
+  ['viewing.complete', 'Complete, cancel, or record no-show Viewings'],
+  ['application.read', 'Read authorized rental Applications'],
+  ['application.create', 'Create and submit rental Applications'],
+  ['application.review', 'Review and decide rental Applications'],
+  ['screening.manage', 'Record restricted screening outcomes'],
+  ['reservation.read', 'Read authorized Reservations'],
+  ['reservation.create', 'Create concurrency-safe Reservations'],
+  ['reservation.manage', 'Expire, cancel, release, or convert Reservations'],
+  ['tenant.read', 'Read Tenant profiles'],
+  ['tenant.create', 'Convert an approved applicant to a Tenant role'],
+  ['lease.read', 'Read authorized Lease Contracts'],
+  ['lease.create', 'Create Lease Contract drafts'],
+  ['lease.approve', 'Approve Lease Contracts'],
+  ['lease.sign', 'Record immutable Lease signature evidence'],
+  ['lease.activate', 'Activate Lease possession safely'],
+  ['lease.manage', 'End, terminate, and archive Lease Contracts'],
+  ['renewal.read', 'Read Lease Renewal workflows'],
+  ['renewal.manage', 'Create and progress Lease Renewals'],
+  ['move-in.read', 'Read Move-In workflows'],
+  ['move-in.manage', 'Schedule and complete Move-In workflows'],
 ] as const;
+
+const phase5OperationsPermissions = permissions
+  .map(([code]) => code)
+  .filter((code) =>
+    ['listing.', 'viewing.', 'application.', 'screening.', 'reservation.', 'tenant.', 'lease.', 'renewal.', 'move-in.'].some((prefix) => code.startsWith(prefix)),
+  );
 
 const rolePermissions: Record<string, readonly string[]> = {
   SUPER_ADMIN: permissions.map(([code]) => code),
@@ -141,6 +226,35 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.amenity.manage',
     'portfolio.document.read',
     'portfolio.document.manage',
+    'service-engagement.read',
+    'service-engagement.create',
+    'service-engagement.update',
+    'service-engagement.activate',
+    'service-engagement.deactivate',
+    'service-engagement.cancel',
+    'service-engagement.capability.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.lead.stage',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.activity.correct',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.followup.update',
+    'crm.followup.complete',
+    'crm.followup.cancel',
+    'crm.assignment.read',
+    'crm.assignment.manage',
+    'crm.lead.branch.transfer',
+    'crm.source.read',
+    'crm.lead.contact.read',
+    'workflow.draft.read',
+    'workflow.draft.update',
+    'workflow.draft.cancel',
+    'workflow.draft.complete',
+    ...phase5OperationsPermissions,
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -167,6 +281,35 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.amenity.manage',
     'portfolio.document.read',
     'portfolio.document.manage',
+    'service-engagement.read',
+    'service-engagement.create',
+    'service-engagement.update',
+    'service-engagement.activate',
+    'service-engagement.deactivate',
+    'service-engagement.cancel',
+    'service-engagement.capability.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.lead.stage',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.activity.correct',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.followup.update',
+    'crm.followup.complete',
+    'crm.followup.cancel',
+    'crm.assignment.read',
+    'crm.assignment.manage',
+    'crm.lead.branch.transfer',
+    'crm.source.read',
+    'crm.lead.contact.read',
+    'workflow.draft.read',
+    'workflow.draft.update',
+    'workflow.draft.cancel',
+    'workflow.draft.complete',
+    ...phase5OperationsPermissions,
   ],
   LEASING_AGENT: [
     'organization.branch.read',
@@ -182,6 +325,23 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.ownership.read',
     'portfolio.amenity.read',
     'portfolio.document.read',
+    'service-engagement.read',
+    'service-engagement.capability.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.lead.stage',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.followup.update',
+    'crm.followup.complete',
+    'crm.followup.cancel',
+    'crm.assignment.read',
+    'crm.source.read',
+    'crm.lead.contact.read',
+    ...phase5OperationsPermissions,
   ],
   ACCOUNTANT: [
     'organization.branch.read',
@@ -195,6 +355,8 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.building.read',
     'portfolio.ownership.read',
     'portfolio.document.read',
+    'service-engagement.read',
+    'service-engagement.capability.read',
   ],
   MAINTENANCE_COORDINATOR: [
     'organization.branch.read',
@@ -227,6 +389,16 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.building.read',
     'portfolio.space.read',
     'portfolio.amenity.read',
+    'crm.lead.read',
+    'crm.lead.create',
+    'crm.lead.update',
+    'crm.activity.read',
+    'crm.activity.create',
+    'crm.followup.read',
+    'crm.followup.create',
+    'crm.assignment.read',
+    'crm.source.read',
+    'crm.lead.contact.read',
   ],
 };
 
@@ -262,6 +434,57 @@ async function seed(): Promise<void> {
       active: true,
     },
   });
+
+  const companyPartyNumber = `PTY-COMP-${company.id.replaceAll('-', '').slice(0, 12)}`;
+  const existingCompanyParty = company.legalPartyId
+    ? await database.party.findUnique({ where: { id: company.legalPartyId } })
+    : null;
+  const companyParty =
+    existingCompanyParty ??
+    (await database.party.upsert({
+      where: {
+        companyId_partyNumber: { companyId: company.id, partyNumber: companyPartyNumber },
+      },
+      update: {
+        displayName: company.legalName ?? company.name,
+        active: true,
+      },
+      create: {
+        id: uuidv7(),
+        companyId: company.id,
+        partyNumber: companyPartyNumber,
+        kind: PartyKind.ORGANIZATION,
+        displayName: company.legalName ?? company.name,
+        active: true,
+      },
+    }));
+  if (existingCompanyParty) {
+    await database.party.update({
+      where: { id: existingCompanyParty.id },
+      data: { displayName: company.legalName ?? company.name, active: true },
+    });
+  }
+  await database.organizationProfile.upsert({
+    where: { partyId: companyParty.id },
+    update: { legalName: company.legalName ?? company.name },
+    create: { partyId: companyParty.id, legalName: company.legalName ?? company.name },
+  });
+  await database.ownerProfile.upsert({
+    where: { partyId: companyParty.id },
+    update: { status: OwnerStatus.ACTIVE, verifiedAt: new Date() },
+    create: {
+      partyId: companyParty.id,
+      ownerNumber: `OWN-COMP-${company.id.replaceAll('-', '').slice(0, 12)}`,
+      status: OwnerStatus.ACTIVE,
+      verifiedAt: new Date(),
+    },
+  });
+  if (company.legalPartyId !== companyParty.id) {
+    await database.company.update({
+      where: { id: company.id },
+      data: { legalPartyId: companyParty.id },
+    });
+  }
 
   const branchInputs = [
     [environment.SEED_BRANCH_CODE, 'Head Office'],
@@ -428,6 +651,27 @@ async function seed(): Promise<void> {
       },
     });
 
+  const leadSources = new Map<string, string>();
+  for (const [code, label, sortOrder] of [
+    ['WALK_IN', 'Walk-in', 10],
+    ['REFERRAL', 'Referral', 20],
+    ['WEBSITE', 'Website', 30],
+  ] as const) {
+    const source = await database.leadSource.upsert({
+      where: { companyId_code: { companyId: company.id, code } },
+      update: { label, sortOrder, status: 'ACTIVE' },
+      create: {
+        id: uuidv7(),
+        companyId: company.id,
+        code,
+        label,
+        sortOrder,
+        createdByUserId: user.id,
+      },
+    });
+    leadSources.set(code, source.id);
+  }
+
   const approvalPolicy = await database.approvalPolicy.upsert({
     where: {
       companyId_code_effectiveFrom: {
@@ -461,11 +705,191 @@ async function seed(): Promise<void> {
       },
     });
 
+  let sampleProperty = await database.property.findUnique({
+    where: {
+      companyId_propertyCode: { companyId: company.id, propertyCode: 'PROP-P5-DEMO' },
+    },
+  });
+  if (!sampleProperty) {
+    sampleProperty = await database.$transaction(async (transaction) => {
+      const ownershipId = uuidv7();
+      return transaction.property.create({
+        data: {
+          id: uuidv7(),
+          companyId: company.id,
+          propertyCode: 'PROP-P5-DEMO',
+          name: 'Company Commercial Demonstration Property',
+          propertyType: 'COMMERCIAL_BUILDING',
+          status: PropertyStatus.ACTIVE,
+          city: 'Mogadishu',
+          description: 'Idempotent Phase 5.1 capability-resolution sample.',
+          propertyLifecycleHistories: {
+            create: {
+              id: uuidv7(),
+              status: PropertyStatus.ACTIVE,
+              effectiveFrom: today,
+              reason: 'Phase 5.1 seed activation',
+              actorUserId: user.id,
+            },
+          },
+          branchAssignments: {
+            create: { id: uuidv7(), branchId: branches[0]!.id, effectiveFrom: today },
+          },
+          ownerships: {
+            create: {
+              id: ownershipId,
+              ownerPartyId: companyParty.id,
+              ownershipPercent: '100',
+              effectiveFrom: today,
+              entitlements: {
+                create: {
+                  id: uuidv7(),
+                  payoutPercent: '100',
+                  effectiveFrom: today,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+  }
+  const wholePropertyType = await database.rentableSpaceType.findUniqueOrThrow({
+    where: { code: 'ENTIRE_PROPERTY' },
+  });
+  let sampleSpace = await database.rentableSpace.findFirst({
+    where: { propertyId: sampleProperty.id, spaceCode: 'SPC-P5-DEMO' },
+  });
+  if (!sampleSpace) {
+    sampleSpace = await database.rentableSpace.create({
+      data: {
+        id: uuidv7(),
+        propertyId: sampleProperty.id,
+        typeId: wholePropertyType.id,
+        spaceCode: 'SPC-P5-DEMO',
+        name: 'Entire Demonstration Property',
+        status: RentableSpaceStatus.ACTIVE,
+        versions: {
+          create: {
+            id: uuidv7(),
+            versionNo: 1,
+            effectiveFrom: today,
+            label: 'Initial whole-property rental scope',
+          },
+        },
+      },
+    });
+  }
+  await database.serviceEngagement.upsert({
+    where: {
+      companyId_engagementNumber: {
+        companyId: company.id,
+        engagementNumber: 'ENG-000001',
+      },
+    },
+    update: { notes: 'Company-owned capability baseline for Phase 5.1.' },
+    create: {
+      id: uuidv7(),
+      companyId: company.id,
+      engagementNumber: 'ENG-000001',
+      serviceModel: ServiceModel.COMPANY_OWNED,
+      status: ServiceEngagementStatus.ACTIVE,
+      propertyId: sampleProperty.id,
+      effectiveFrom: today,
+      notes: 'Company-owned capability baseline for Phase 5.1.',
+      createdByUserId: user.id,
+      history: {
+        create: {
+          id: uuidv7(),
+          toStatus: ServiceEngagementStatus.ACTIVE,
+          action: 'SEEDED',
+          reason: 'Phase 5.1 idempotent sample data',
+          actorUserId: user.id,
+        },
+      },
+    },
+  });
+
+  const referralSourceId = leadSources.get('REFERRAL');
+  if (!referralSourceId) throw new Error('REFERRAL Lead Source was not created');
+  const existingLead = await database.lead.findUnique({
+    where: { companyId_leadNumber: { companyId: company.id, leadNumber: 'LEAD-000001' } },
+  });
+  if (!existingLead) {
+    const recordedAt = new Date();
+    await database.lead.create({
+      data: {
+        id: uuidv7(),
+        companyId: company.id,
+        leadNumber: 'LEAD-000001',
+        intent: LeadIntent.RENT,
+        stage: LeadStage.NEW,
+        sourceId: referralSourceId,
+        responsibleBranchId: branches[0]!.id,
+        currentAssigneeEmployeeId: employee.id,
+        partyId: party.id,
+        displayName: party.displayName,
+        createdByUserId: user.id,
+        preferenceVersions: {
+          create: {
+            id: uuidv7(),
+            intent: LeadIntent.RENT,
+            versionNo: 1,
+            preferredAreaText: ['Mogadishu'],
+            effectiveFrom: recordedAt,
+            actorUserId: user.id,
+            reason: 'Phase 5.2 idempotent sample intake',
+            rent: {
+              create: {
+                propertyTypeCodes: ['COMMERCIAL_BUILDING'],
+                rentableSpaceTypeCodes: ['ENTIRE_PROPERTY'],
+                maxRent: '2500',
+                currency: 'USD',
+                rentPeriod: 'MONTHLY',
+                moveInDate: today,
+                rentableSpaceId: sampleSpace.id,
+              },
+            },
+          },
+        },
+        stageHistory: {
+          create: {
+            id: uuidv7(),
+            toStage: LeadStage.NEW,
+            reason: 'Phase 5.2 idempotent sample intake',
+            actorUserId: user.id,
+            leadVersion: 1,
+            occurredAt: recordedAt,
+          },
+        },
+        branchHistory: {
+          create: {
+            id: uuidv7(),
+            branchId: branches[0]!.id,
+            assignedFrom: recordedAt,
+            actorUserId: user.id,
+            reason: 'Phase 5.2 idempotent sample intake',
+          },
+        },
+        assignments: {
+          create: {
+            id: uuidv7(),
+            employeeId: employee.id,
+            branchId: branches[0]!.id,
+            assignedFrom: recordedAt,
+            actorUserId: user.id,
+            reason: 'Phase 5.2 idempotent sample assignment',
+          },
+        },
+      },
+    });
+  }
+
   // Seeded business identifiers must reserve their values before normal API writes begin.
   await synchronizeRecordNumberSequences();
 
   console.info(
-    `Seeded Phase 4 foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
+    `Seeded Phase 5.2 CRM foundation for ${company.code} with ${branches.length} branches and admin ${emailNormalized}.`,
   );
 }
 

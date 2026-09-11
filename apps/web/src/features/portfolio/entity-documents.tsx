@@ -74,10 +74,12 @@ export function EntityDocuments({
   entityType,
   entityId,
   canManage,
+  onUploaded,
 }: {
   entityType: 'Property' | 'RentableSpace' | 'Owner';
   entityId: string;
   canManage: boolean;
+  onUploaded?: (documentId: string) => void;
 }) {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,21 +90,35 @@ export function EntityDocuments({
   const [editingId, setEditingId] = useState('');
   const [versionsId, setVersionsId] = useState('');
   const [newVersionId, setNewVersionId] = useState('');
+  const [pageInfo, setPageInfo] = useState<CursorPage<DocumentRecord>['pageInfo']>({
+    hasNextPage: false,
+    nextCursor: null,
+  });
+  const [cursors, setCursors] = useState<Array<string | undefined>>([undefined]);
+  const [pageIndex, setPageIndex] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const page = await api<CursorPage<DocumentRecord>>(
-        `/portfolio-documents?entityType=${entityType}&entityId=${entityId}`,
-      );
-      setDocuments(page.items);
-    } catch (cause) {
-      setError(userFacingError(cause, 'Documents could not be loaded.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [entityId, entityType]);
+  const load = useCallback(
+    async (cursor?: string) => {
+      setLoading(true);
+      setError('');
+      try {
+        const page = await api<CursorPage<DocumentRecord>>(
+          `/portfolio-documents?entityType=${entityType}&entityId=${entityId}&limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        );
+        setDocuments(page.items);
+        setPageInfo(page.pageInfo);
+        if (!cursor) {
+          setPageIndex(0);
+          setCursors([undefined]);
+        }
+      } catch (cause) {
+        setError(userFacingError(cause, 'Documents could not be loaded.'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [entityId, entityType],
+  );
 
   useEffect(() => {
     void load();
@@ -117,7 +133,11 @@ export function EntityDocuments({
     form.set('entityId', entityId);
     form.set('purpose', 'SUPPORTING_DOCUMENT');
     try {
-      await api('/portfolio-documents/upload', { method: 'POST', body: form });
+      const uploaded = await api<DocumentRecord>('/portfolio-documents/upload', {
+        method: 'POST',
+        body: form,
+      });
+      onUploaded?.(uploaded.id);
       setShowUpload(false);
       setSelectedFile(null);
       await load();
@@ -523,6 +543,37 @@ export function EntityDocuments({
           action={uploadButton}
         />
       )}
+      <nav aria-label="Document pages" className="mt-4 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          className="button secondary"
+          disabled={loading || busy || pageIndex === 0}
+          onClick={() => {
+            const previous = pageIndex - 1;
+            setPageIndex(previous);
+            void load(cursors[previous]);
+          }}
+        >
+          Previous documents
+        </button>
+        <span className="text-xs text-slate-500">
+          Page {pageIndex + 1} · {documents.length} on this page
+        </span>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={loading || busy || !pageInfo.hasNextPage}
+          onClick={() => {
+            const cursor = pageInfo.nextCursor;
+            if (!cursor) return;
+            setCursors((current) => [...current.slice(0, pageIndex + 1), cursor]);
+            setPageIndex(pageIndex + 1);
+            void load(cursor);
+          }}
+        >
+          Next documents
+        </button>
+      </nav>
     </section>
   );
 }

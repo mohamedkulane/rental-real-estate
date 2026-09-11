@@ -1,6 +1,22 @@
 import type { ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, Inbox, Landmark, RotateCcw } from 'lucide-react';
 import { humanize, statusTone } from '@/lib/presentation';
+import {
+  AppLoadingScreen,
+  SectionLoading,
+} from './loading-system';
+
+export {
+  AppLoadingScreen,
+  DashboardSkeleton,
+  FormSkeleton,
+  ImageSkeleton,
+  InlineLoading,
+  LoadingButtonContent,
+  PageSkeleton,
+  SectionLoading,
+  TableSkeleton,
+} from './loading-system';
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -13,19 +29,20 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
 export function StatusBadge({ value }: { value: string | boolean | null | undefined }) {
   const label = typeof value === 'boolean' ? (value ? 'Active' : 'Inactive') : humanize(value);
   const tones = {
-    positive: 'border-[#90CAF9] bg-[#E3F2FD] text-[#0D47A1]',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    positive: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    warning: 'border-amber-200 bg-amber-50 text-amber-800',
     negative: 'border-red-200 bg-red-50 text-red-700',
-    info: 'border-blue-200 bg-blue-50 text-blue-700',
+    info: 'border-sky-200 bg-sky-50 text-sky-800',
     neutral: 'border-slate-200 bg-slate-100 text-slate-600',
   } as const;
   return (
     <span
       className={
-        'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ' +
+        'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[12px] font-semibold ' +
         tones[statusTone(value)]
       }
     >
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden="true" />
       {label}
     </span>
   );
@@ -119,71 +136,25 @@ export function EmptyState({
   );
 }
 
-function SkeletonRows({ rows = 3 }: { rows?: number }) {
-  return (
-    <div className="skeleton-stack" aria-hidden="true">
-      {Array.from({ length: rows }, (_, index) => (
-        <div className="skeleton-row" key={index}>
-          <span className="skeleton-avatar" />
-          <span className="skeleton-copy">
-            <span className="skeleton-line" />
-            <span className="skeleton-line short" />
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function LoadingState({
   label = 'Loading records',
-  description = 'Securely loading your authorized data...',
-  compact = false,
+  variant = 'table',
 }: {
   label?: string;
   description?: string;
   compact?: boolean;
+  variant?: 'table' | 'form' | 'page';
 }) {
-  return (
-    <div className={`loading-state${compact ? ' compact' : ''}`} role="status" aria-live="polite">
-      <div className="loading-heading">
-        <BrandMark compact />
-        <div>
-          <h3>{label}</h3>
-          <p>{description}</p>
-        </div>
-      </div>
-      <div className="progress-rail" aria-hidden="true">
-        <span />
-      </div>
-      {!compact ? <SkeletonRows /> : null}
-    </div>
-  );
+  return <SectionLoading label={label} variant={variant} />;
 }
 
-export function WorkspaceLoading({ label = 'Preparing your workspace' }: { label?: string }) {
+/** @deprecated Use AppLoadingScreen for page-level loading. */
+export function WorkspaceLoading({ label }: { label?: string }) {
   return (
-    <main className="workspace-preparation" role="status" aria-live="polite">
-      <section className="preparation-panel">
-        <div className="preparation-brand">
-          <BrandMark />
-          <div>
-            <strong>Rental Operations</strong>
-            <span>Secure staff workspace</span>
-          </div>
-        </div>
-        <div className="preparation-copy">
-          <p className="eyebrow">Secure workspace</p>
-          <h1>{label}</h1>
-          <p>Securely loading your authorized data</p>
-        </div>
-        <div className="progress-rail wide" aria-hidden="true">
-          <span />
-        </div>
-        <SkeletonRows rows={3} />
-        <p className="loading-note">This usually takes only a moment.</p>
-      </section>
-    </main>
+    <AppLoadingScreen
+      title={label ? label.replace(/\.$/, '') : 'Setting things up...'}
+      description="Just a moment while we prepare your real estate workspace."
+    />
   );
 }
 

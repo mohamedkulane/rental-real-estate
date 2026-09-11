@@ -1,6 +1,14 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import {
+  crmReportPath,
+  operationalClosureReportPath,
+  reviewLabels,
+  validateIndependentReviews,
+  validateModelInventory,
+  validatePhaseMetadata,
+} from './lib/phase-governance.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const required = [
@@ -12,6 +20,8 @@ const required = [
   'docs/phases/phase-03-identity-access/completion-report.md',
   'docs/phases/phase-04-portfolio/completion-report.md',
   'docs/governance/current-phase.json',
+  'scripts/lib/phase-governance.mjs',
+  'scripts/test/phase-governance.test.mjs',
   ...[
     '00-audit-summary.md',
     '01-confirmed-findings.md',
@@ -38,26 +48,45 @@ for (const phase of ['01-database', '02-foundation', '03-identity-access', '04-p
 }
 
 const metadata = JSON.parse(readFileSync(join(root, 'docs/governance/current-phase.json'), 'utf8'));
-if (metadata.completedPhase !== 4 || metadata.phase5Started !== false)
-  throw new Error('Current phase metadata must show Phase 4 complete and Phase 5 not started.');
+const crmReport = readFileSync(join(root, crmReportPath), 'utf8');
+const operationalReport =
+  metadata.phase5SubPhase === '5.9'
+    ? readFileSync(join(root, operationalClosureReportPath), 'utf8')
+    : '';
+const phase = validatePhaseMetadata(metadata, crmReport, operationalReport);
+if (
+  phase.crmApproved &&
+  metadata.phase5SubPhase === '5.2' &&
+  !existsSync(join(root, metadata.graphRun, 'status.md'))
+) {
+  throw new Error('Approved Phase 5.2 graph run is missing.');
+}
+if (
+  phase.operationalApproved &&
+  metadata.phase5SubPhase === '5.9' &&
+  !existsSync(join(root, metadata.graphRun, 'gate-report.md'))
+) {
+  throw new Error('Approved Phase 5.9 graph run is missing.');
+}
+if (phase.gate === 'PHASE_5_2_CRM_FOUNDATION_PASS') {
+  validateIndependentReviews(
+    Object.fromEntries(
+      Object.keys(reviewLabels).map((file) => [
+        file,
+        readFileSync(join(root, metadata.graphRun, file), 'utf8'),
+      ]),
+    ),
+  );
+}
+
+const phase51Report = readFileSync(join(root, 'docs/phases/phase-05/completion-report.md'), 'utf8');
+if (!/PHASE 5\.1 SERVICE ENGAGEMENTS:\s*PASS/i.test(phase51Report))
+  throw new Error('Phase 5.1 completion report does not contain a PASS gate.');
+if (!/PHASE 5\.2 STARTED:\s*NO/i.test(phase51Report))
+  throw new Error('Phase 5.1 completion report must confirm Phase 5.2 has not started.');
 
 const schema = readFileSync(join(root, 'prisma/schema.prisma'), 'utf8');
-const forbiddenModels = [
-  'ServiceEngagement',
-  'Lead',
-  'Viewing',
-  'RentalApplication',
-  'Reservation',
-  'Lease',
-  'Invoice',
-  'Payment',
-  'JournalEntry',
-  'SecurityDeposit',
-  'MaintenanceRequest',
-  'OwnerStatement',
-];
-const leaked = forbiddenModels.filter((name) => new RegExp(`model\\s+${name}\\b`).test(schema));
-if (leaked.length) throw new Error(`Unapproved future Prisma models found: ${leaked.join(', ')}`);
+validateModelInventory(schema, phase.crmApproved, phase.operationalApproved);
 
 const schemaTables = new Set([...schema.matchAll(/@@map\("([^"]+)"\)/g)].map((match) => match[1]));
 const migrationRoot = join(root, 'prisma/migrations');
@@ -65,7 +94,9 @@ const migrationRoot = join(root, 'prisma/migrations');
 // legitimately be removed by a later migration, so compare the effective final
 // state rather than every historical CREATE TABLE statement.
 const migrationTables = new Set();
-for (const entry of readdirSync(migrationRoot, { withFileTypes: true })) {
+for (const entry of readdirSync(migrationRoot, { withFileTypes: true }).sort((a, b) =>
+  a.name.localeCompare(b.name),
+)) {
   if (!entry.isDirectory()) continue;
   const migration = join(migrationRoot, entry.name, 'migration.sql');
   if (!existsSync(migration)) continue;
@@ -84,14 +115,21 @@ if (schemaOnly.length || migrationOnly.length)
     `Prisma/migration table drift. Schema only: ${schemaOnly.join(', ') || 'none'}; migrations only: ${migrationOnly.join(', ') || 'none'}`,
   );
 
+let docsIgnored = false;
 try {
   execFileSync('git', ['check-ignore', 'docs/README.md'], { cwd: root, stdio: 'ignore' });
-  throw new Error('Canonical docs are still ignored by Git.');
+  docsIgnored = true;
 } catch (error) {
-  if (error instanceof Error && error.message === 'Canonical docs are still ignored by Git.')
-    throw error;
+  // Exit 1 means not ignored. Missing Git/unsafe ownership/other errors are not success.
+  if (error.status !== 1) throw error;
 }
+if (docsIgnored) throw new Error('Canonical docs are still ignored by Git.');
+
+execFileSync(process.execPath, ['--test', join(root, 'scripts/test/phase-governance.test.mjs')], {
+  cwd: root,
+  stdio: 'inherit',
+});
 
 console.log(
-  `Governance verified: ${schemaTables.size} operational models/tables, Phase 4 complete, Phase 5 not started.`,
+  `Governance verified: ${schemaTables.size} operational models/tables; ${phase.gate}; Phase 6 not started. This check does not approve phase closure.`,
 );

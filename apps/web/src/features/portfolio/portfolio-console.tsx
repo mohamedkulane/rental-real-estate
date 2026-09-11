@@ -23,7 +23,8 @@ import {
 import styles from './portfolio-console.module.css';
 import { RentableSpaceOperations, type RentableSpaceDetailTab } from './rentable-space-operations';
 import { AppShell } from '@/components/shared/app-shell';
-import { EmptyState, LoadingState, StatusBadge, WorkspaceLoading } from '@/components/shared/ui';
+import { EmptyState, LoadingState, StatusBadge } from '@/components/shared/ui';
+import { AppLoadingScreen } from '@/components/shared/loading-system';
 import { humanize } from '@/lib/presentation';
 import {
   PropertyRegistry,
@@ -1146,7 +1147,7 @@ export function PortfolioConsole() {
   const propertyDetailTab = activeView as PropertyDetailTab;
   const rentableSpaceDetailTab = activeView as RentableSpaceDetailTab;
 
-  if (!principal) return <WorkspaceLoading label="Checking your secure session" />;
+  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
   return (
     <AppShell
       active="portfolio"

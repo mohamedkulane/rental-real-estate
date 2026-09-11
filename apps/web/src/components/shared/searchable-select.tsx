@@ -56,6 +56,7 @@ export function SearchableSelect({
   disabled,
   value,
   defaultValue,
+  autoFocus,
   ...props
 }: SearchableSelectProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -78,11 +79,18 @@ export function SearchableSelect({
   ).length;
   const showCombobox =
     searchable === true &&
-    selectableOptionCount >= searchThreshold &&
+    (onSearchChange !== undefined || loading || selectableOptionCount >= searchThreshold) &&
     !isStatusSelection(props.name, ariaLabel, className);
   const selectedOption = childOptions.find(
     (option) => String(option.props.value ?? '') === selectedValue,
   );
+  const selectedOptionCache = useRef<OptionElement | undefined>(undefined);
+  if (selectedOption) selectedOptionCache.current = selectedOption;
+  const preservedSelectedOption =
+    selectedOption ??
+    (String(selectedOptionCache.current?.props.value ?? '') === selectedValue
+      ? selectedOptionCache.current
+      : undefined);
   const placeholder =
     childOptions.find((option) => String(option.props.value ?? '') === '')?.props.children ??
     searchPlaceholder;
@@ -116,8 +124,8 @@ export function SearchableSelect({
     if (selectRef.current) {
       selectRef.current.value = nextValue;
       onChange?.({
-        target: selectRef.current,
-        currentTarget: selectRef.current,
+        target: { value: nextValue },
+        currentTarget: { value: nextValue },
       } as ChangeEvent<HTMLSelectElement>);
     }
   };
@@ -129,8 +137,9 @@ export function SearchableSelect({
           ref={selectRef}
           {...props}
           disabled={disabled}
-          value={value}
-          defaultValue={defaultValue}
+          value={controlled ? value : undefined}
+          defaultValue={controlled ? undefined : defaultValue}
+          autoFocus={autoFocus}
           onChange={onChange}
           aria-label={ariaLabel}
           className={className}
@@ -176,6 +185,9 @@ export function SearchableSelect({
         className="sr-only"
       >
         {children}
+        {selectedValue && !selectedOption && preservedSelectedOption
+          ? preservedSelectedOption
+          : null}
       </select>
       <div className="relative">
         <Search
@@ -191,12 +203,14 @@ export function SearchableSelect({
           aria-activedescendant={open ? activeId : undefined}
           aria-autocomplete="list"
           autoComplete="off"
+          autoFocus={autoFocus}
           disabled={disabled}
           value={
             open
               ? query
               : searchableOptionText(
-                  selectedOption ?? ({ props: { children: placeholder } } as OptionElement),
+                  preservedSelectedOption ??
+                    ({ props: { children: placeholder } } as OptionElement),
                 )
           }
           placeholder={searchPlaceholder}
@@ -212,7 +226,7 @@ export function SearchableSelect({
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className={(className ?? '') + ' w-full !pl-10 !pr-16'}
+          className={(className ?? '') + ` w-full !pl-10 ${selectedValue ? '!pr-16' : '!pr-10'}`}
         />
         {selectedValue && !disabled ? (
           <button
@@ -263,7 +277,7 @@ export function SearchableSelect({
                   className={
                     'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ' +
                     (index === activeIndex
-                      ? 'bg-[#E3F2FD] text-[#0D47A1]'
+                      ? 'bg-emerald-50 text-emerald-800'
                       : 'text-slate-800 hover:bg-slate-50')
                   }
                 >

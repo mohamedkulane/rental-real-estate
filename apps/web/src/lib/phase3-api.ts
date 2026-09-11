@@ -55,10 +55,16 @@ export function userFacingError(
   fallback = 'Something went wrong. Please try again.',
 ): string {
   if (cause instanceof ApiError) {
-    if (cause.status === 400 || cause.status === 422) {
+    if (cause.status === 400 || cause.status === 422 || cause.status === 409) {
       const detail = cause.details[0];
       if (detail) return detail.charAt(0).toUpperCase() + detail.slice(1);
-      if (cause.message && cause.message !== 'Bad Request Exception') return cause.message;
+      if (
+        cause.message &&
+        cause.message !== 'Bad Request Exception' &&
+        cause.message !== 'Conflict Exception' &&
+        cause.message !== statusMessages[409]
+      )
+        return cause.message;
     }
     return statusMessages[cause.status] ?? cause.message ?? fallback;
   }

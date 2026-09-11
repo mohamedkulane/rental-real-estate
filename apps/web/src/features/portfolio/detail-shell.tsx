@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shared/app-shell';
-import { WorkspaceLoading } from '@/components/shared/ui';
+import { AppLoadingScreen } from '@/components/shared/loading-system';
 import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 
 export function usePortfolioPrincipal() {
@@ -38,7 +38,7 @@ export function PortfolioDetailShell({
   children: ReactNode;
 }) {
   const router = useRouter();
-  if (!principal) return <WorkspaceLoading label="Checking your secure session" />;
+  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
   return (
     <AppShell
       active="portfolio"
