@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   SIDEBAR_COLLAPSED_STORAGE_KEY,
@@ -24,18 +24,20 @@ export function SidebarAccordion({
   groups,
   activeItem,
   collapsed,
-  onCollapsedChange,
   onNavigate,
 }: {
   groups: SidebarAccordionGroup[];
   activeItem?: string;
   collapsed: boolean;
-  onCollapsedChange: (collapsed: boolean) => void;
   onNavigate: () => void;
 }) {
   const activeGroupId = useMemo(() => expandedGroupForActive(groups, activeItem), [groups, activeItem]);
   const [expandedGroup, setExpandedGroup] = useState<string | undefined>(() => activeGroupId);
   const [flyoutGroup, setFlyoutGroup] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (collapsed) setFlyoutGroup(undefined);
+  }, [collapsed]);
 
   useEffect(() => {
     if (activeGroupId) setExpandedGroup(activeGroupId);
@@ -68,20 +70,6 @@ export function SidebarAccordion({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-2 hidden px-2 lg:flex lg:justify-end">
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          onClick={() => {
-            setFlyoutGroup(undefined);
-            onCollapsedChange(!collapsed);
-          }}
-        >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </button>
-      </div>
-
       <div className="space-y-0.5">
         {groups.map((group) => {
           const Icon = group.icon;

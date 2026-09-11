@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Home, Landmark, Menu, X } from 'lucide-react';
+import { ChevronDown, Home, Landmark, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import { AppHeader } from './app-header';
@@ -190,15 +190,30 @@ export function AppShell({
                 <strong className="block truncate text-sm font-bold text-slate-900">Horizon</strong>
                 <span className="block text-[11px] text-slate-500">Real Estate Operations</span>
               </div>
-            ) : null}            <button
-              type="button"
-              ref={closeNavRef}
-              className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
-              aria-label="Close navigation"
-              onClick={() => setOpen(false)}
-            >
-              <X className="h-5 w-5" />
-            </button>
+            ) : null}
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                className="hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 lg:inline-flex"
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                ref={closeNavRef}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+                aria-label="Close navigation"
+                onClick={() => setOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -233,7 +248,6 @@ export function AppShell({
             groups={sidebarGroups}
             {...(activeItem ? { activeItem } : {})}
             collapsed={accordionCollapsed}
-            onCollapsedChange={setSidebarCollapsed}
             onNavigate={() => setOpen(false)}
           />
         </nav>
