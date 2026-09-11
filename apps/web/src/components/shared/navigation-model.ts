@@ -180,10 +180,22 @@ export const rentalDestinations = [
     permission: 'workflow.draft.update',
   },
   {
+    key: 'commercial:rental-brokerage',
+    label: 'Brokerage Deals',
+    href: '/commercial/rental-brokerage',
+    permission: 'brokerage-deal.read',
+  },
+  {
     key: 'start:full-management',
     label: 'Full Management',
     href: '/workflows/new?type=FULL_MANAGEMENT',
     permission: 'workflow.draft.update',
+  },
+  {
+    key: 'commercial:full-management',
+    label: 'Management Operations',
+    href: '/commercial/full-management',
+    permission: 'service-engagement.read',
   },
   { key: 'viewings', label: 'Viewings', href: '/crm/viewings', permission: 'viewing.read' },
   ...leasingDestinations,
@@ -199,9 +211,103 @@ export const salesOperationsDestinations = [
     href: '/workflows/new?type=PROPERTY_SALE',
     permission: 'workflow.draft.update',
   },
+  {
+    key: 'commercial:property-sales',
+    label: 'Sales Pipeline',
+    href: '/commercial/property-sales',
+    permission: 'sale-offer.read',
+  },
+  {
+    key: 'commercial:offers',
+    label: 'Sale Offers',
+    href: '/commercial/offers',
+    permission: 'sale-offer.read',
+  },
+  {
+    key: 'commercial:settlements',
+    label: 'Settlements',
+    href: '/commercial/settlements',
+    permission: 'sale-settlement.read',
+  },
 ] as const;
 
-export const financeDestinations = [] as const;
+export const financeDestinations = [
+  {
+    key: 'finance:overview',
+    label: 'Billing & Payments',
+    href: '/finance',
+    permission: 'finance.overview.read',
+  },
+  {
+    key: 'finance:invoices',
+    label: 'Invoices',
+    href: '/finance/invoices',
+    permission: 'invoice.read',
+  },
+  {
+    key: 'finance:payments',
+    label: 'Payments',
+    href: '/finance/payments',
+    permission: 'payment.read',
+  },
+  {
+    key: 'finance:owner-statements',
+    label: 'Owner Statements',
+    href: '/finance/owner-statements',
+    permission: 'owner-statement.read',
+  },
+  {
+    key: 'finance:owner-payouts',
+    label: 'Owner Payouts',
+    href: '/finance/owner-payouts',
+    permission: 'payout.read',
+  },
+  {
+    key: 'finance:expenses',
+    label: 'Expenses',
+    href: '/finance/expenses',
+    permission: 'expense.read',
+  },
+  {
+    key: 'finance:accounting',
+    label: 'Accounting',
+    href: '/finance/accounting',
+    permission: 'journal.read',
+  },
+] as const;
+
+export const commercialDestinations = [
+  {
+    key: 'commercial:rental-brokerage',
+    label: 'Rental Brokerage Deals',
+    href: '/commercial/rental-brokerage',
+    permission: 'brokerage-deal.read',
+  },
+  {
+    key: 'commercial:full-management',
+    label: 'Full Management',
+    href: '/commercial/full-management',
+    permission: 'service-engagement.read',
+  },
+  {
+    key: 'commercial:property-sales',
+    label: 'Property Sales Pipeline',
+    href: '/commercial/property-sales',
+    permission: 'sale-offer.read',
+  },
+  {
+    key: 'commercial:offers',
+    label: 'Sale Offers',
+    href: '/commercial/offers',
+    permission: 'sale-offer.read',
+  },
+  {
+    key: 'commercial:settlements',
+    label: 'Sale Settlements',
+    href: '/commercial/settlements',
+    permission: 'sale-settlement.read',
+  },
+] as const;
 
 export const reportingDestinations = [
   {
@@ -437,9 +543,7 @@ export function commercialNavigation(
   permissions: string[],
   navigate: (href: string) => void,
 ): NavigationItem[] {
-  void permissions;
-  void navigate;
-  return [];
+  return authorizedTaskNavigation(commercialDestinations, permissions, navigate);
 }
 
 export function projectsNavigation(

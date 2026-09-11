@@ -24,6 +24,16 @@ TenantProfile Lease LeaseParty LeaseVersion LeasePossession LeaseRenewal MoveIn 
   /\s+/u,
 );
 
+export const phase6FinanceModels = `ServiceEngagementCommercialTerms BillingSchedule ChargeType Charge Invoice
+InvoiceLine ChargeAdjustment PaymentMethod Payment PaymentAllocation Receipt TenantCredit Expense
+OwnerStatement OwnerStatementLine OwnerPayout OwnerPayoutLine FiscalYear AccountingPeriod Account
+JournalEntry JournalLine JournalSourceLink`.split(/\s+/u);
+
+export const phase7CommercialModels = `BrokerageDeal SaleOffer SaleOfferEvent SaleSettlement`.split(/\s+/u);
+
+export const phase6ClosureReportPath = 'docs/decisions/17-phase-6-finance-closure.md';
+export const phase7ClosureReportPath = 'docs/decisions/18-phase-7-commercial-closure.md';
+
 export const reviewLabels = {
   'qa-findings.md': 'AUTOMATED QA',
   'security-findings.md': 'AUTHORIZATION REVIEW',
@@ -36,6 +46,25 @@ export const phase59PassLabels = [
   'PHASE 5.9 OPERATIONAL CLOSURE',
   'SUB-PHASES 5.1 THROUGH 5.8',
   'GUIDED WORKFLOW UX',
+  'AUTOMATED QA',
+  'UI/UX REVIEW',
+];
+
+export const phase69PassLabels = [
+  'PHASE 6 FINANCE CLOSURE',
+  'BILLING AND PAYMENTS',
+  'OWNER PAYOUTS',
+  'ACCOUNTING FOUNDATION',
+  'AUTOMATED QA',
+  'UI/UX REVIEW',
+];
+
+export const phase713PassLabels = [
+  'PHASE 7 COMMERCIAL CLOSURE',
+  'RENTAL BROKERAGE CLOSURE',
+  'FULL MANAGEMENT OPERATIONS',
+  'PROPERTY SALES PIPELINE',
+  'SALE SETTLEMENT',
   'AUTOMATED QA',
   'UI/UX REVIEW',
 ];
@@ -72,9 +101,57 @@ export function validateIndependentReviews(reports) {
   }
 }
 
-export function validatePhaseMetadata(metadata, crmReport = '', operationalReport = '') {
-  if (metadata.completedPhase !== 4 || metadata.phase5Started !== true) {
+export function validatePhaseMetadata(metadata, crmReport = '', operationalReport = '', financeReport = '', commercialReport = '') {
+  if (metadata.phase5Started !== true || typeof metadata.completedPhase !== 'number' || metadata.completedPhase < 4) {
     throw new Error('Phase 4 closure and the approved Phase 5 start must remain recorded.');
+  }
+  if (metadata.phase5SubPhase === '7.13' || metadata.currentGate === 'PHASE_7_13_COMMERCIAL_CLOSURE_PASS') {
+    if (
+      metadata.currentGate !== 'PHASE_7_13_COMMERCIAL_CLOSURE_PASS' ||
+      metadata.productionSchemaScope !== 'PHASES_1_TO_7_ONLY' ||
+      metadata.phase6Started !== true ||
+      metadata.phase7Started !== true ||
+      metadata.canonicalClosureReport !== phase7ClosureReportPath
+    ) {
+      throw new Error('Invalid Phase 7.13 closure metadata.');
+    }
+    for (const label of phase713PassLabels) {
+      requireLine(commercialReport, label, 'PASS', 'Phase 7.13');
+    }
+    requireLine(commercialReport, 'PHASE 8 STARTED', 'NO', 'Phase 7.13');
+    requireLine(commercialReport, 'UNRESOLVED CRITICAL', '0', 'Phase 7.13');
+    requireLine(commercialReport, 'UNRESOLVED HIGH', '0', 'Phase 7.13');
+    return {
+      crmApproved: true,
+      operationalApproved: true,
+      financeApproved: true,
+      commercialApproved: true,
+      gate: metadata.currentGate,
+    };
+  }
+  if (metadata.phase5SubPhase === '6.9' || metadata.currentGate === 'PHASE_6_9_FINANCE_CLOSURE_PASS') {
+    if (
+      metadata.currentGate !== 'PHASE_6_9_FINANCE_CLOSURE_PASS' ||
+      metadata.productionSchemaScope !== 'PHASES_1_TO_6_ONLY' ||
+      metadata.phase6Started !== true ||
+      metadata.phase7Started !== false ||
+      metadata.canonicalClosureReport !== phase6ClosureReportPath
+    ) {
+      throw new Error('Invalid Phase 6.9 closure metadata.');
+    }
+    for (const label of phase69PassLabels) {
+      requireLine(financeReport, label, 'PASS', 'Phase 6.9');
+    }
+    requireLine(financeReport, 'PHASE 7 STARTED', 'NO', 'Phase 6.9');
+    requireLine(financeReport, 'UNRESOLVED CRITICAL', '0', 'Phase 6.9');
+    requireLine(financeReport, 'UNRESOLVED HIGH', '0', 'Phase 6.9');
+    return {
+      crmApproved: true,
+      operationalApproved: true,
+      financeApproved: true,
+      commercialApproved: false,
+      gate: metadata.currentGate,
+    };
   }
   if (metadata.phase5SubPhase === '5.9') {
     if (
@@ -133,7 +210,13 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
   return { crmApproved: true, operationalApproved: false, gate: metadata.currentGate };
 }
 
-export function validateModelInventory(schema, crmApproved, operationalApproved = false) {
+export function validateModelInventory(
+  schema,
+  crmApproved,
+  operationalApproved = false,
+  financeApproved = false,
+  commercialApproved = false,
+) {
   const actual = new Set(
     [...schema.matchAll(/^\s*model\s+(\w+)\s*\{/gmu)].map((match) => match[1]),
   );
@@ -141,6 +224,8 @@ export function validateModelInventory(schema, crmApproved, operationalApproved 
     ...baselineModels,
     ...(crmApproved ? crmModels : []),
     ...(operationalApproved ? phase5OperationalModels : []),
+    ...(financeApproved ? phase6FinanceModels : []),
+    ...(commercialApproved ? phase7CommercialModels : []),
   ]);
   const unapproved = [...actual].filter((name) => !expected.has(name));
   const missing = [...expected].filter((name) => !actual.has(name));

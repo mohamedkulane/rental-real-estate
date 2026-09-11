@@ -103,7 +103,7 @@ describe('mockup sidebar groups', () => {
     'governance.audit.read',
   ];
 
-  it('builds business-aligned groups without finance when no routes exist', () => {
+  it('builds business-aligned groups and omits finance without finance permissions', () => {
     const groups = buildSidebarGroups({ permissions: fullPermissions, navigate: () => undefined });
     expect(groups.map((group) => group.title)).toEqual([
       'CUSTOMERS',
@@ -116,6 +116,14 @@ describe('mockup sidebar groups', () => {
       'ADMINISTRATION',
     ]);
     expect(groups.find((group) => group.title === 'FINANCE')).toBeUndefined();
+  });
+
+  it('includes finance navigation when finance permissions are granted', () => {
+    expect(
+      financeNavigation(['finance.overview.read', 'invoice.read'], () => undefined).map(
+        (item) => item.label,
+      ),
+    ).toEqual(['Billing & Payments', 'Invoices']);
   });
 
   it('keeps CRM items flat under customers', () => {

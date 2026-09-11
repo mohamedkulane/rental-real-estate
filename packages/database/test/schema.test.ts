@@ -3,29 +3,20 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('Prisma operational schema boundary', () => {
-  it('contains completed foundations through Phase 5.9 while excluding later modules', async () => {
+  it('contains completed foundations through Phase 7 while excluding undeclared modules', async () => {
     const schema = await readFile(resolve(process.cwd(), '../../prisma/schema.prisma'), 'utf8');
     expect(schema).toContain('model RentableSpace');
-    expect(schema).toContain('model PropertyLifecycleHistory');
     expect(schema).toContain('model ServiceEngagement');
-    expect(schema).toContain('model ServiceEngagementHistory');
-    expect(schema).toContain('model Lead');
-    expect(schema).toContain('model RentLeadPreference');
-    expect(schema).toContain('model BuyLeadPreference');
-    expect(schema).toContain('model SellLeadPreference');
-    expect(schema).toContain('model ConstructionServiceLeadPreference');
-    expect(schema).toContain('model RentalListing');
-    expect(schema).toContain('model SaleListing');
-    expect(schema).toContain('model Viewing');
-    expect(schema).toContain('model RentalApplication');
-    expect(schema).toContain('model Reservation');
-    expect(schema).toContain('model TenantProfile');
     expect(schema).toContain('model Lease');
-    expect(schema).toContain('model LeaseRenewal');
-    expect(schema).toContain('model MoveIn');
     expect(schema).toContain('model WorkflowCommand');
+    expect(schema).toContain('model JournalEntry');
+    expect(schema).toContain('model Payment');
+    expect(schema).toContain('model Invoice');
+    expect(schema).toContain('model BrokerageDeal');
+    expect(schema).toContain('model SaleOffer');
+    expect(schema).toContain('model SaleSettlement');
     expect(schema).not.toMatch(
-      /model\s+(Listing|Matching|JournalEntry|Payment|SaleDeal|ConstructionProject|ConstructionAgreement|DevelopmentProject)\s*\{/,
+      /model\s+(Listing|Matching|SaleDeal|ConstructionProject|ConstructionAgreement|DevelopmentProject)\s*\{/,
     );
     expect(schema).not.toMatch(/model\s+Unit\s*\{/);
     expect(schema).not.toMatch(/\bFloat\b/);

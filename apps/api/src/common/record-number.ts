@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 export type RecordNumberKind =
   | 'BRANCH' | 'EMPLOYEE' | 'PARTY' | 'OWNER' | 'PROPERTY' | 'BUILDING' | 'SPACE'
   | 'ENGAGEMENT' | 'RENTAL_LISTING' | 'SALE_LISTING' | 'APPLICATION'
-  | 'RESERVATION' | 'TENANT' | 'LEASE';
+  | 'RESERVATION' | 'TENANT' | 'LEASE'
+  | 'CHARGE' | 'INVOICE' | 'PAYMENT' | 'RECEIPT' | 'EXPENSE' | 'PAYOUT'
+  | 'JOURNAL' | 'BROKERAGE_DEAL' | 'SALE_OFFER' | 'SALE_SETTLEMENT';
 
 const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; width: number }> = {
   BRANCH: { prefix: 'BR', sequence: 'public.branch_record_number_seq', width: 3 },
@@ -24,6 +26,16 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   RESERVATION: { prefix: 'RSV', sequence: 'public.reservation_record_number_seq', width: 6 },
   TENANT: { prefix: 'TEN', sequence: 'public.tenant_record_number_seq', width: 6 },
   LEASE: { prefix: 'LSE', sequence: 'public.lease_record_number_seq', width: 6 },
+  CHARGE: { prefix: 'CHG', sequence: 'public.charge_record_number_seq', width: 6 },
+  INVOICE: { prefix: 'INV', sequence: 'public.invoice_record_number_seq', width: 6 },
+  PAYMENT: { prefix: 'PAY', sequence: 'public.payment_record_number_seq', width: 6 },
+  RECEIPT: { prefix: 'RCT', sequence: 'public.receipt_record_number_seq', width: 6 },
+  EXPENSE: { prefix: 'EXP', sequence: 'public.expense_record_number_seq', width: 6 },
+  PAYOUT: { prefix: 'PO', sequence: 'public.payout_record_number_seq', width: 6 },
+  JOURNAL: { prefix: 'JRN', sequence: 'public.journal_record_number_seq', width: 6 },
+  BROKERAGE_DEAL: { prefix: 'BD', sequence: 'public.brokerage_deal_record_number_seq', width: 6 },
+  SALE_OFFER: { prefix: 'SO', sequence: 'public.sale_offer_record_number_seq', width: 6 },
+  SALE_SETTLEMENT: { prefix: 'SS', sequence: 'public.sale_settlement_record_number_seq', width: 6 },
 };
 
 export async function nextRecordNumber(

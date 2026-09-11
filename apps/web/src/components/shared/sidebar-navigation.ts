@@ -78,6 +78,18 @@ const ACTIVE_GROUP_ALIASES: Record<string, string> = {
   'crm:follow-ups': 'customers',
   'crm:sources': 'customers',
   'projects:construction': 'operations',
+  'finance:overview': 'finance',
+  'finance:invoices': 'finance',
+  'finance:payments': 'finance',
+  'finance:owner-statements': 'finance',
+  'finance:owner-payouts': 'finance',
+  'finance:expenses': 'finance',
+  'finance:accounting': 'finance',
+  'commercial:rental-brokerage': 'rental',
+  'commercial:full-management': 'rental',
+  'commercial:property-sales': 'sales',
+  'commercial:offers': 'sales',
+  'commercial:settlements': 'sales',
 };
 
 export function resolveSidebarGroupId(activeItem: string | undefined): string | undefined {

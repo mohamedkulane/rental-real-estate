@@ -4,6 +4,8 @@ import { execFileSync } from 'node:child_process';
 import {
   crmReportPath,
   operationalClosureReportPath,
+  phase6ClosureReportPath,
+  phase7ClosureReportPath,
   reviewLabels,
   validateIndependentReviews,
   validateModelInventory,
@@ -53,7 +55,15 @@ const operationalReport =
   metadata.phase5SubPhase === '5.9'
     ? readFileSync(join(root, operationalClosureReportPath), 'utf8')
     : '';
-const phase = validatePhaseMetadata(metadata, crmReport, operationalReport);
+const financeReport =
+  metadata.phase5SubPhase === '6.9' || metadata.phase7Started
+    ? readFileSync(join(root, phase6ClosureReportPath), 'utf8')
+    : '';
+const commercialReport =
+  metadata.phase5SubPhase === '7.13'
+    ? readFileSync(join(root, phase7ClosureReportPath), 'utf8')
+    : '';
+const phase = validatePhaseMetadata(metadata, crmReport, operationalReport, financeReport, commercialReport);
 if (
   phase.crmApproved &&
   metadata.phase5SubPhase === '5.2' &&
@@ -86,7 +96,13 @@ if (!/PHASE 5\.2 STARTED:\s*NO/i.test(phase51Report))
   throw new Error('Phase 5.1 completion report must confirm Phase 5.2 has not started.');
 
 const schema = readFileSync(join(root, 'prisma/schema.prisma'), 'utf8');
-validateModelInventory(schema, phase.crmApproved, phase.operationalApproved);
+validateModelInventory(
+  schema,
+  phase.crmApproved,
+  phase.operationalApproved,
+  phase.financeApproved,
+  phase.commercialApproved,
+);
 
 const schemaTables = new Set([...schema.matchAll(/@@map\("([^"]+)"\)/g)].map((match) => match[1]));
 const migrationRoot = join(root, 'prisma/migrations');
@@ -131,5 +147,5 @@ execFileSync(process.execPath, ['--test', join(root, 'scripts/test/phase-governa
 });
 
 console.log(
-  `Governance verified: ${schemaTables.size} operational models/tables; ${phase.gate}; Phase 6 not started. This check does not approve phase closure.`,
+  `Governance verified: ${schemaTables.size} operational models/tables; ${phase.gate}; production scope ${metadata.productionSchemaScope}.`,
 );

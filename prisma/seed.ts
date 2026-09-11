@@ -172,12 +172,41 @@ const permissions = [
   ['renewal.manage', 'Create and progress Lease Renewals'],
   ['move-in.read', 'Read Move-In workflows'],
   ['move-in.manage', 'Schedule and complete Move-In workflows'],
+  ['billing.read', 'Read billing schedules, charges, and invoices'],
+  ['billing.manage', 'Create and run recurring billing schedules'],
+  ['finance.overview.read', 'Read finance workspace overview'],
+  ['invoice.read', 'Read invoices'],
+  ['invoice.manage', 'Issue invoices from open charges'],
+  ['payment.read', 'Read manual payments and receipts'],
+  ['payment.create', 'Record manual payments'],
+  ['payment.allocate', 'Allocate manual payments to charges'],
+  ['expense.read', 'Read property expenses'],
+  ['expense.manage', 'Create and approve property expenses'],
+  ['payout.read', 'Read owner payout drafts and history'],
+  ['payout.manage', 'Calculate and approve owner payouts'],
+  ['owner-statement.read', 'Read owner statements'],
+  ['journal.read', 'Read journal entries'],
+  ['journal.manage', 'Create, post, and reverse journal entries'],
+  ['brokerage-deal.read', 'Read rental brokerage deal closures'],
+  ['brokerage-deal.manage', 'Create and close rental brokerage deals'],
+  ['sale-offer.read', 'Read property sale offers'],
+  ['sale-offer.manage', 'Manage property sale offers'],
+  ['sale-settlement.read', 'Read property sale settlements'],
+  ['sale-settlement.manage', 'Create and settle property sales'],
 ] as const;
 
 const phase5OperationsPermissions = permissions
   .map(([code]) => code)
   .filter((code) =>
     ['listing.', 'viewing.', 'application.', 'screening.', 'reservation.', 'tenant.', 'lease.', 'renewal.', 'move-in.'].some((prefix) => code.startsWith(prefix)),
+  );
+
+const phase6FinancePermissions = permissions
+  .map(([code]) => code)
+  .filter((code) =>
+    ['billing.', 'finance.overview.', 'invoice.', 'payment.', 'expense.', 'payout.', 'owner-statement.', 'journal.', 'brokerage-deal.', 'sale-offer.', 'sale-settlement.'].some((prefix) =>
+      code.startsWith(prefix),
+    ),
   );
 
 const rolePermissions: Record<string, readonly string[]> = {
@@ -255,6 +284,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'workflow.draft.cancel',
     'workflow.draft.complete',
     ...phase5OperationsPermissions,
+    ...phase6FinancePermissions,
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -357,6 +387,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.document.read',
     'service-engagement.read',
     'service-engagement.capability.read',
+    ...phase6FinancePermissions,
   ],
   MAINTENANCE_COORDINATOR: [
     'organization.branch.read',

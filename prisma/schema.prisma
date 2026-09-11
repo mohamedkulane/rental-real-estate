@@ -44,6 +44,24 @@ model Company {
   reservations       Reservation[]
   tenantProfiles     TenantProfile[]
   leases             Lease[]
+  fiscalYears        FiscalYear[]
+  accounts           Account[]
+  chargeTypes        ChargeType[]
+  paymentMethods     PaymentMethod[]
+  charges            Charge[]
+  invoices           Invoice[]
+  chargeAdjustments  ChargeAdjustment[]
+  payments           Payment[]
+  receipts           Receipt[]
+  tenantCredits      TenantCredit[]
+  expenses           Expense[]
+  ownerStatements    OwnerStatement[]
+  ownerPayouts       OwnerPayout[]
+  journalEntries     JournalEntry[]
+  billingSchedules   BillingSchedule[]
+  brokerageDeals     BrokerageDeal[]
+  saleOffers         SaleOffer[]
+  saleSettlements    SaleSettlement[]
 
   @@map("companies")
 }
@@ -78,6 +96,21 @@ model Branch {
   rentalApplications  RentalApplication[]
   reservations        Reservation[]
   leases              Lease[]
+  billingSchedules    BillingSchedule[]
+  charges             Charge[]
+  invoices            Invoice[]
+  chargeAdjustments   ChargeAdjustment[]
+  payments            Payment[]
+  receipts            Receipt[]
+  tenantCredits       TenantCredit[]
+  expenses            Expense[]
+  ownerStatements     OwnerStatement[]
+  ownerPayouts        OwnerPayout[]
+  journalEntries      JournalEntry[]
+  journalLines        JournalLine[]
+  brokerageDeals      BrokerageDeal[]
+  saleOffers          SaleOffer[]
+  saleSettlements     SaleSettlement[]
 
   @@unique([companyId, code], map: "uq_branches__company_code")
   @@map("branches")
@@ -134,6 +167,8 @@ model User {
   leaseVersionsCreated                              LeaseVersion[]             @relation("LeaseVersionCreatedBy")
   renewalsCreated                                   LeaseRenewal[]             @relation("LeaseRenewalCreatedBy")
   moveInsRecorded                                   MoveIn[]                   @relation("MoveInRecordedBy")
+  saleOfferEvents                                   SaleOfferEvent[]           @relation("SaleOfferEventActor")
+  paymentsReceived                                  Payment[]                  @relation("PaymentReceivedBy")
 
   @@map("users")
 }
@@ -285,6 +320,20 @@ model Party {
   tenant                                                         TenantProfile?
   rentalApplications                                             RentalApplication[]
   leaseParties                                                   LeaseParty[]
+  chargesAsDebtor                                              Charge[]            @relation("ChargeDebtor")
+  invoicesAsDebtor                                             Invoice[]           @relation("InvoiceDebtor")
+  paymentsAsPayer                                              Payment[]           @relation("PaymentPayer")
+  receiptsAsPayer                                              Receipt[]           @relation("ReceiptPayer")
+  tenantCredits                                                TenantCredit[]      @relation("TenantCreditParty")
+  expensesAsVendor                                             Expense[]           @relation("ExpenseVendor")
+  expensesAsOwner                                              Expense[]           @relation("ExpenseOwner")
+  ownerStatements                                              OwnerStatement[]    @relation("OwnerStatementOwner")
+  ownerPayouts                                                 OwnerPayout[]       @relation("OwnerPayoutOwner")
+  journalLinesAsOwner                                          JournalLine[]       @relation("JournalLineOwner")
+  journalLinesAsTenant                                         JournalLine[]       @relation("JournalLineTenant")
+  journalLinesAsVendor                                         JournalLine[]       @relation("JournalLineVendor")
+  saleOffersAsBuyer                                            SaleOffer[]         @relation("SaleOfferBuyer")
+  ownerPayoutLines                                             OwnerPayoutLine[]   @relation("OwnerPayoutLineOwner")
 
   @@unique([companyId, partyNumber])
   @@map("parties")
@@ -413,6 +462,13 @@ model Property {
   sellLeadPreferences         SellLeadPreference[]
   constructionLeadPreferences ConstructionServiceLeadPreference[]
   saleListings                SaleListing[]
+  charges                     Charge[]
+  expenses                    Expense[]
+  ownerPayoutLines            OwnerPayoutLine[]
+  ownerPayouts                OwnerPayout[]
+  journalLines                JournalLine[]
+  saleOffers                  SaleOffer[]
+  saleSettlements             SaleSettlement[]
 
   @@unique([companyId, propertyCode], map: "uq_properties_company_code")
   @@index([companyId, status, propertyType], map: "properties_company_status_type_idx")
@@ -535,6 +591,10 @@ model RentableSpace {
   leases                                                                Lease[]
   leasePossessions                                                      LeasePossession[]
   rentalApplications                                                    RentalApplication[]
+  charges                                                               Charge[]
+  expenses                                                              Expense[]
+  journalLines                                                          JournalLine[]
+  brokerageDeals                                                        BrokerageDeal[]
 
   @@unique([propertyId, spaceCode], map: "uq_rentable_space_property_code")
   @@index([propertyId, status, typeId], map: "rentable_space_property_status_type_idx")
@@ -600,6 +660,8 @@ model Lead {
   followUps                 LeadFollowUp[]
   viewings                  Viewing[]
   rentalApplications        RentalApplication[]
+  brokerageDeals            BrokerageDeal[]
+  saleOffers                SaleOffer[]
 
   @@unique([companyId, leadNumber], map: "uq_lead_company_number")
   @@index([companyId, createdAt(sort: Desc), id(sort: Desc)], map: "lead_register_order_idx")
@@ -903,6 +965,14 @@ model ServiceEngagement {
   rentalListings   RentalListing[]
   saleListings     SaleListing[]
   leases           Lease[]
+  commercialTerms  ServiceEngagementCommercialTerms?
+  billingSchedules BillingSchedule[]
+  charges          Charge[]
+  expenses         Expense[]
+  journalLines     JournalLine[]
+  brokerageDeals   BrokerageDeal[]
+  saleOffers       SaleOffer[]
+  saleSettlements  SaleSettlement[]
 
   @@unique([companyId, engagementNumber], map: "uq_service_engagement_company_number")
   @@index([companyId, status, serviceModel, createdAt(sort: Desc), id(sort: Desc)], map: "service_engagement_company_status_model_created_idx")
@@ -985,6 +1055,7 @@ model SaleListing {
   serviceEngagement   ServiceEngagement @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdBy           User              @relation("SaleListingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   viewings            Viewing[]
+  saleOffers          SaleOffer[]
 
   @@unique([companyId, listingNumber], map: "uq_sale_listing_company_number")
   @@index([companyId, branchId, status, createdAt(sort: Desc), id(sort: Desc)], map: "sale_listing_register_idx")
@@ -1015,6 +1086,7 @@ model Viewing {
   saleListing        SaleListing?   @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   assignedEmployee   Employee       @relation("ViewingAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdBy          User           @relation("ViewingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  brokerageDeals     BrokerageDeal[]
 
   @@index([companyId, branchId, status, scheduledAt, id], map: "viewing_register_idx")
   @@index([leadId, scheduledAt(sort: Desc), id(sort: Desc)], map: "viewing_lead_timeline_idx")
@@ -1049,6 +1121,7 @@ model RentalApplication {
   createdBy                 User              @relation("RentalApplicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   reservations              Reservation[]
   lease                     Lease?
+  brokerageDeals            BrokerageDeal[]
 
   @@unique([companyId, applicationNumber], map: "uq_application_company_number")
   @@unique([leadId, rentalListingId], map: "uq_application_lead_listing")
@@ -1133,6 +1206,12 @@ model Lease {
   renewalRequests     LeaseRenewal[]    @relation("OriginalLeaseRenewals")
   resultingRenewals   LeaseRenewal[]    @relation("SuccessorLeaseRenewals")
   moveIn              MoveIn?
+  billingSchedules    BillingSchedule[]
+  charges             Charge[]
+  tenantCredits       TenantCredit[]
+  expenses            Expense[]
+  journalLines        JournalLine[]
+  brokerageDeals      BrokerageDeal[]
 
   @@unique([companyId, leaseNumber], map: "uq_lease_company_number")
   @@index([companyId, branchId, status, leaseStartDate, id], map: "lease_register_idx")
@@ -1575,6 +1654,658 @@ model DocumentLink {
   @@map("document_links")
 }
 
+model ServiceEngagementCommercialTerms {
+  id                   String            @id @db.Uuid
+  serviceEngagementId  String            @unique @db.Uuid
+  managementFeePercent Decimal?          @db.Decimal(9, 6)
+  commissionPercent    Decimal?          @db.Decimal(9, 6)
+  commissionMethod     CommissionMethod?
+  billingDayOfMonth    Int?
+  effectiveFrom        DateTime          @db.Date
+  effectiveTo          DateTime?         @db.Date
+  createdAt            DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(6)
+  engagement           ServiceEngagement @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([serviceEngagementId, effectiveFrom], map: "commercial_terms_engagement_period_idx")
+  @@map("service_engagement_commercial_terms")
+}
+
+model BillingSchedule {
+  id                  String                @id @db.Uuid
+  companyId           String                @db.Uuid
+  branchId            String                @db.Uuid
+  serviceEngagementId String                @db.Uuid
+  leaseId             String?               @db.Uuid
+  chargeTypeId        String                @db.Uuid
+  frequency           String                @db.VarChar(20)
+  billingDayOfMonth   Int
+  currency            String                @db.Char(3)
+  amount              Decimal?              @db.Decimal(20, 4)
+  effectiveFrom       DateTime              @db.Date
+  effectiveTo         DateTime?             @db.Date
+  nextRunOn           DateTime?             @db.Date
+  idempotencyKey      String                @unique @db.VarChar(160)
+  status              BillingScheduleStatus @default(ACTIVE)
+  lastRunAt           DateTime?             @db.Timestamptz(6)
+  createdAt           DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime              @updatedAt @db.Timestamptz(6)
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  engagement          ServiceEngagement     @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease               Lease?                @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  chargeType          ChargeType            @relation(fields: [chargeTypeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  charges             Charge[]
+
+  @@index([companyId, branchId, status, nextRunOn], map: "billing_schedule_run_idx")
+  @@index([serviceEngagementId, effectiveFrom, effectiveTo], map: "billing_schedule_engagement_period_idx")
+  @@map("billing_schedules")
+}
+
+model ChargeType {
+  id               String            @id @db.Uuid
+  companyId        String            @db.Uuid
+  code             String            @db.VarChar(50)
+  name             String            @db.VarChar(120)
+  active           Boolean           @default(true)
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  charges          Charge[]
+  billingSchedules BillingSchedule[]
+
+  @@unique([companyId, code], map: "uq_charge_type_company_code")
+  @@map("charge_types")
+}
+
+model Charge {
+  id                  String             @id @db.Uuid
+  companyId           String             @db.Uuid
+  branchId            String             @db.Uuid
+  chargeNumber        String             @db.VarChar(50)
+  debtorPartyId       String             @db.Uuid
+  leaseId             String?            @db.Uuid
+  propertyId          String?            @db.Uuid
+  rentableSpaceId     String?            @db.Uuid
+  serviceEngagementId String?            @db.Uuid
+  chargeTypeId        String             @db.Uuid
+  billingScheduleId   String?            @db.Uuid
+  businessDate        DateTime           @db.Date
+  periodStart         DateTime?          @db.Date
+  periodEnd           DateTime?          @db.Date
+  dueDate             DateTime           @db.Date
+  currency            String             @db.Char(3)
+  originalAmount      Decimal            @db.Decimal(20, 4)
+  outstandingAmount   Decimal            @db.Decimal(20, 4)
+  status              ChargeStatus       @default(OPEN)
+  idempotencyKey      String?            @unique @db.VarChar(160)
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
+  company             Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  debtor              Party              @relation("ChargeDebtor", fields: [debtorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease               Lease?             @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property?          @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace?     @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  serviceEngagement   ServiceEngagement? @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  chargeType          ChargeType         @relation(fields: [chargeTypeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  billingSchedule     BillingSchedule?   @relation(fields: [billingScheduleId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  invoiceLines        InvoiceLine[]
+  allocations         PaymentAllocation[]
+  adjustments         ChargeAdjustment[]
+
+  @@unique([companyId, chargeNumber], map: "uq_charge_company_number")
+  @@index([companyId, branchId, status, dueDate], map: "charge_register_idx")
+  @@index([debtorPartyId, status, dueDate], map: "charge_debtor_status_due_idx")
+  @@index([leaseId, status, businessDate], map: "charge_lease_status_date_idx")
+  @@map("charges")
+}
+
+model Invoice {
+  id            String        @id @db.Uuid
+  companyId     String        @db.Uuid
+  branchId      String        @db.Uuid
+  invoiceNumber String        @db.VarChar(50)
+  debtorPartyId String        @db.Uuid
+  issueDate     DateTime      @db.Date
+  dueDate       DateTime      @db.Date
+  currency      String        @db.Char(3)
+  status        InvoiceStatus @default(DRAFT)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  debtor        Party         @relation("InvoiceDebtor", fields: [debtorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lines         InvoiceLine[]
+
+  @@unique([companyId, invoiceNumber], map: "uq_invoice_company_number")
+  @@index([companyId, branchId, status, issueDate], map: "invoice_register_idx")
+  @@index([debtorPartyId, issueDate], map: "invoice_debtor_date_idx")
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id            String  @id @db.Uuid
+  invoiceId     String  @db.Uuid
+  chargeId      String  @db.Uuid
+  displayAmount Decimal @db.Decimal(20, 4)
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  charge        Charge  @relation(fields: [chargeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([invoiceId, chargeId], map: "uq_invoice_line_charge")
+  @@map("invoice_lines")
+}
+
+model ChargeAdjustment {
+  id             String             @id @db.Uuid
+  companyId      String             @db.Uuid
+  branchId       String             @db.Uuid
+  chargeId       String             @db.Uuid
+  amount         Decimal            @db.Decimal(20, 4)
+  reason         String             @db.Text
+  journalEntryId String?            @db.Uuid
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  company        Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  charge         Charge             @relation(fields: [chargeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalEntry   JournalEntry?      @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalSource  JournalSourceLink?
+
+  @@index([chargeId, createdAt(sort: Desc)], map: "charge_adjustment_timeline_idx")
+  @@map("charge_adjustments")
+}
+
+model PaymentMethod {
+  id        String    @id @db.Uuid
+  companyId String    @db.Uuid
+  code      String    @db.VarChar(40)
+  name      String    @db.VarChar(100)
+  active    Boolean   @default(true)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payments  Payment[]
+
+  @@unique([companyId, code], map: "uq_payment_method_company_code")
+  @@map("payment_methods")
+}
+
+model Payment {
+  id                 String              @id @db.Uuid
+  companyId          String              @db.Uuid
+  branchId           String              @db.Uuid
+  paymentNumber      String              @db.VarChar(50)
+  payerPartyId       String              @db.Uuid
+  methodId           String              @db.Uuid
+  receivingAccountId String              @db.Uuid
+  currency           String              @db.Char(3)
+  amount             Decimal             @db.Decimal(20, 4)
+  verifiedAmount     Decimal?            @db.Decimal(20, 4)
+  status             PaymentStatus       @default(CAPTURED)
+  externalRef        String?             @db.VarChar(160)
+  externalRefScope   String?             @db.VarChar(100)
+  idempotencyKey     String?             @unique @db.VarChar(160)
+  receivedAt         DateTime            @db.Timestamptz(6)
+  postedAt           DateTime?           @db.Timestamptz(6)
+  notes              String?             @db.VarChar(1000)
+  receivedByUserId   String              @db.Uuid
+  createdAt          DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(6)
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch             Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payer              Party               @relation("PaymentPayer", fields: [payerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  method             PaymentMethod       @relation(fields: [methodId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receivingAccount   Account             @relation("PaymentReceivingAccount", fields: [receivingAccountId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receivedBy         User                @relation("PaymentReceivedBy", fields: [receivedByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  allocations        PaymentAllocation[]
+  receipt            Receipt?
+  tenantCredits      TenantCredit[]
+  journalSource      JournalSourceLink?
+
+  @@unique([companyId, paymentNumber], map: "uq_payment_company_number")
+  @@index([companyId, branchId, status, receivedAt], map: "payment_register_idx")
+  @@index([payerPartyId, status, receivedAt], map: "payment_payer_status_received_idx")
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id          String    @id @db.Uuid
+  paymentId   String    @db.Uuid
+  chargeId    String    @db.Uuid
+  amount      Decimal   @db.Decimal(20, 4)
+  allocatedAt DateTime  @db.Timestamptz(6)
+  reversedAt  DateTime? @db.Timestamptz(6)
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  charge      Charge    @relation(fields: [chargeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([paymentId, allocatedAt], map: "payment_allocation_payment_idx")
+  @@index([chargeId, allocatedAt], map: "payment_allocation_charge_idx")
+  @@map("payment_allocations")
+}
+
+model Receipt {
+  id            String        @id @db.Uuid
+  companyId     String        @db.Uuid
+  branchId      String        @db.Uuid
+  receiptNumber String        @db.VarChar(50)
+  paymentId     String        @unique @db.Uuid
+  payerPartyId  String        @db.Uuid
+  currency      String        @db.Char(3)
+  amount        Decimal       @db.Decimal(20, 4)
+  issuedAt      DateTime      @db.Timestamptz(6)
+  status        ReceiptStatus @default(ISSUED)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payer         Party         @relation("ReceiptPayer", fields: [payerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([companyId, receiptNumber], map: "uq_receipt_company_number")
+  @@index([companyId, branchId, issuedAt], map: "receipt_register_idx")
+  @@map("receipts")
+}
+
+model TenantCredit {
+  id              String             @id @db.Uuid
+  companyId       String             @db.Uuid
+  branchId        String             @db.Uuid
+  tenantPartyId   String             @db.Uuid
+  leaseId         String?            @db.Uuid
+  currency        String             @db.Char(3)
+  amount          Decimal            @db.Decimal(20, 4)
+  status          TenantCreditStatus @default(OPEN)
+  sourcePaymentId String?            @db.Uuid
+  createdAt       DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(6)
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch          Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  tenant          Party              @relation("TenantCreditParty", fields: [tenantPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease           Lease?             @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourcePayment   Payment?           @relation(fields: [sourcePaymentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([companyId, branchId, status], map: "tenant_credit_register_idx")
+  @@index([tenantPartyId, leaseId, status], map: "tenant_credit_party_lease_idx")
+  @@map("tenant_credits")
+}
+
+model Expense {
+  id                  String                @id @db.Uuid
+  companyId           String                @db.Uuid
+  branchId            String                @db.Uuid
+  expenseNumber       String                @db.VarChar(50)
+  vendorPartyId       String?               @db.Uuid
+  propertyId          String?               @db.Uuid
+  rentableSpaceId     String?               @db.Uuid
+  ownerPartyId        String?               @db.Uuid
+  leaseId             String?               @db.Uuid
+  serviceEngagementId String?               @db.Uuid
+  categoryCode        String                @db.VarChar(50)
+  currency            String                @db.Char(3)
+  amount              Decimal               @db.Decimal(20, 4)
+  responsibility      ExpenseResponsibility
+  businessDate        DateTime              @db.Date
+  status              ExpenseStatus         @default(DRAFT)
+  approvalRequestId   String?               @db.Uuid
+  journalEntryId      String?               @db.Uuid
+  description         String?               @db.VarChar(500)
+  createdAt           DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime              @updatedAt @db.Timestamptz(6)
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  vendor              Party?                @relation("ExpenseVendor", fields: [vendorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property?             @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace?        @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  owner               Party?                @relation("ExpenseOwner", fields: [ownerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease               Lease?                @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  serviceEngagement   ServiceEngagement?    @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalEntry        JournalEntry?         @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalSource       JournalSourceLink?
+
+  @@unique([companyId, expenseNumber], map: "uq_expense_company_number")
+  @@index([companyId, branchId, status, businessDate], map: "expense_register_idx")
+  @@index([propertyId, ownerPartyId, businessDate], map: "expense_property_owner_date_idx")
+  @@map("expenses")
+}
+
+model OwnerStatement {
+  id              String               @id @db.Uuid
+  companyId       String               @db.Uuid
+  branchId        String               @db.Uuid
+  statementNumber String               @db.VarChar(50)
+  ownerPartyId    String               @db.Uuid
+  periodStart     DateTime             @db.Date
+  periodEnd       DateTime             @db.Date
+  currency        String               @db.Char(3)
+  status          OwnerStatementStatus @default(DRAFT)
+  issuedAt        DateTime?            @db.Timestamptz(6)
+  calculationHash String               @db.VarChar(128)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @db.Timestamptz(6)
+  company         Company              @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch          Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  owner           Party                @relation("OwnerStatementOwner", fields: [ownerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lines           OwnerStatementLine[]
+
+  @@unique([companyId, statementNumber], map: "uq_owner_statement_company_number")
+  @@index([companyId, branchId, ownerPartyId, periodStart], map: "owner_statement_register_idx")
+  @@map("owner_statements")
+}
+
+model OwnerStatementLine {
+  id            String         @id @db.Uuid
+  statementId   String         @db.Uuid
+  lineNo        Int
+  journalLineId String?        @db.Uuid
+  description   String         @db.VarChar(240)
+  amount        Decimal        @db.Decimal(20, 4)
+  statement     OwnerStatement @relation(fields: [statementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalLine   JournalLine?   @relation(fields: [journalLineId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([statementId, lineNo], map: "uq_owner_statement_line_no")
+  @@map("owner_statement_lines")
+}
+
+model OwnerPayout {
+  id                  String              @id @db.Uuid
+  companyId           String              @db.Uuid
+  branchId            String              @db.Uuid
+  payoutNumber        String              @db.VarChar(50)
+  ownerPartyId        String              @db.Uuid
+  propertyId          String?             @db.Uuid
+  periodStart         DateTime            @db.Date
+  periodEnd           DateTime            @db.Date
+  currency            String              @db.Char(3)
+  collectedIncome     Decimal             @db.Decimal(20, 4)
+  expenseDeductions   Decimal             @db.Decimal(20, 4)
+  managementFee       Decimal             @db.Decimal(20, 4)
+  otherDeductions     Decimal             @db.Decimal(20, 4)
+  netPayable          Decimal             @db.Decimal(20, 4)
+  status              PayoutStatus        @default(DRAFT)
+  approvalRequestId   String?             @db.Uuid
+  journalEntryId      String?             @db.Uuid
+  destinationSnapshot Json
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(6)
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  owner               Party               @relation("OwnerPayoutOwner", fields: [ownerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property?           @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalEntry        JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lines               OwnerPayoutLine[]
+  journalSource       JournalSourceLink?
+
+  @@unique([companyId, payoutNumber], map: "uq_owner_payout_company_number")
+  @@index([companyId, branchId, ownerPartyId, status], map: "owner_payout_register_idx")
+  @@map("owner_payouts")
+}
+
+model OwnerPayoutLine {
+  id            String      @id @db.Uuid
+  ownerPayoutId String      @db.Uuid
+  ownerPartyId  String      @db.Uuid
+  propertyId    String?     @db.Uuid
+  sharePercent  Decimal     @db.Decimal(9, 6)
+  amount        Decimal     @db.Decimal(20, 4)
+  payout        OwnerPayout @relation(fields: [ownerPayoutId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  owner         Party       @relation("OwnerPayoutLineOwner", fields: [ownerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property      Property?   @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([ownerPayoutId], map: "owner_payout_line_payout_idx")
+  @@map("owner_payout_lines")
+}
+
+model FiscalYear {
+  id        String           @id @db.Uuid
+  companyId String           @db.Uuid
+  name      String           @db.VarChar(30)
+  startsOn  DateTime         @db.Date
+  endsOn    DateTime         @db.Date
+  status    FiscalYearStatus @default(OPEN)
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  periods   AccountingPeriod[]
+
+  @@unique([companyId, name], map: "uq_fiscal_year_company_name")
+  @@map("fiscal_years")
+}
+
+model AccountingPeriod {
+  id           String       @id @db.Uuid
+  fiscalYearId String       @db.Uuid
+  periodNo     Int
+  startsOn     DateTime     @db.Date
+  endsOn       DateTime     @db.Date
+  status       PeriodStatus @default(OPEN)
+  fiscalYear   FiscalYear   @relation(fields: [fiscalYearId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journals     JournalEntry[]
+
+  @@unique([fiscalYearId, periodNo], map: "uq_accounting_period_year_no")
+  @@map("accounting_periods")
+}
+
+model Account {
+  id                String        @id @db.Uuid
+  companyId         String        @db.Uuid
+  code              String        @db.VarChar(30)
+  name              String        @db.VarChar(160)
+  accountType       AccountType
+  normalBalance     NormalBalance
+  fundClass         FundClass?
+  currency          String?       @db.Char(3)
+  systemReserved    Boolean       @default(false)
+  postingAllowed    Boolean       @default(true)
+  active            Boolean       @default(true)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(6)
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalLines      JournalLine[]
+  receivingPayments Payment[]     @relation("PaymentReceivingAccount")
+
+  @@unique([companyId, code], map: "uq_account_company_code")
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id                String             @id @db.Uuid
+  companyId         String             @db.Uuid
+  branchId          String?            @db.Uuid
+  journalNumber     String             @db.VarChar(50)
+  periodId          String             @db.Uuid
+  businessDate      DateTime           @db.Date
+  postedAt          DateTime?          @db.Timestamptz(6)
+  status            JournalStatus      @default(DRAFT)
+  currency          String             @db.Char(3)
+  description       String             @db.VarChar(300)
+  reversalOfId      String?            @db.Uuid
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  period            AccountingPeriod   @relation(fields: [periodId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reversalOf        JournalEntry?      @relation("JournalReversal", fields: [reversalOfId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reversals         JournalEntry[]     @relation("JournalReversal")
+  lines             JournalLine[]
+  source            JournalSourceLink?
+  chargeAdjustments ChargeAdjustment[]
+  expenses          Expense[]
+  ownerPayouts      OwnerPayout[]
+
+  @@unique([companyId, journalNumber], map: "uq_journal_entry_company_number")
+  @@index([companyId, periodId, status, businessDate], map: "journal_entry_period_status_date_idx")
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id                  String               @id @db.Uuid
+  journalEntryId      String               @db.Uuid
+  lineNo              Int
+  accountId           String               @db.Uuid
+  signedAmount        Decimal              @db.Decimal(20, 4)
+  reportingAmount     Decimal?             @db.Decimal(20, 4)
+  exchangeRate        Decimal?             @db.Decimal(20, 10)
+  branchId            String?              @db.Uuid
+  propertyId          String?              @db.Uuid
+  rentableSpaceId     String?              @db.Uuid
+  ownerPartyId        String?              @db.Uuid
+  tenantPartyId       String?              @db.Uuid
+  leaseId             String?              @db.Uuid
+  vendorPartyId       String?              @db.Uuid
+  serviceEngagementId String?              @db.Uuid
+  journal             JournalEntry         @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  account             Account              @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch?              @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property?            @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace?       @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  owner               Party?               @relation("JournalLineOwner", fields: [ownerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  tenant              Party?               @relation("JournalLineTenant", fields: [tenantPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease               Lease?               @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  vendor              Party?               @relation("JournalLineVendor", fields: [vendorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  serviceEngagement   ServiceEngagement?   @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  ownerStatementLines OwnerStatementLine[]
+
+  @@unique([journalEntryId, lineNo], map: "uq_journal_line_entry_no")
+  @@index([ownerPartyId, propertyId], map: "journal_line_owner_property_idx")
+  @@map("journal_lines")
+}
+
+model JournalSourceLink {
+  id                 String            @id @db.Uuid
+  journalEntryId     String            @unique @db.Uuid
+  paymentId          String?           @unique @db.Uuid
+  ownerPayoutId      String?           @unique @db.Uuid
+  expenseId          String?           @unique @db.Uuid
+  chargeAdjustmentId String?           @unique @db.Uuid
+  brokerageDealId    String?           @unique @db.Uuid
+  saleSettlementId   String?           @unique @db.Uuid
+  journal            JournalEntry      @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payment            Payment?          @relation(fields: [paymentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  ownerPayout        OwnerPayout?      @relation(fields: [ownerPayoutId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  expense            Expense?          @relation(fields: [expenseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  chargeAdjustment   ChargeAdjustment? @relation(fields: [chargeAdjustmentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  brokerageDeal      BrokerageDeal?    @relation(fields: [brokerageDealId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  saleSettlement     SaleSettlement?   @relation(fields: [saleSettlementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@map("journal_source_links")
+}
+
+model BrokerageDeal {
+  id                  String              @id @db.Uuid
+  companyId           String              @db.Uuid
+  branchId            String              @db.Uuid
+  serviceEngagementId String              @db.Uuid
+  leaseId             String?             @db.Uuid
+  rentableSpaceId     String              @db.Uuid
+  leadId              String?             @db.Uuid
+  viewingId           String?             @db.Uuid
+  rentalApplicationId String?             @db.Uuid
+  dealNumber          String              @db.VarChar(50)
+  status              BrokerageDealStatus @default(DRAFT)
+  rentBasis           Decimal?            @db.Decimal(20, 4)
+  grossCommission     Decimal             @db.Decimal(20, 4)
+  agentCommission     Decimal?            @db.Decimal(20, 4)
+  currency            String              @db.Char(3)
+  closedAt            DateTime?           @db.Timestamptz(6)
+  idempotencyKey      String?             @unique @db.VarChar(160)
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(6)
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  engagement          ServiceEngagement   @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease               Lease?              @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace       @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lead                Lead?               @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  viewing             Viewing?            @relation(fields: [viewingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentalApplication   RentalApplication?  @relation(fields: [rentalApplicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalSource       JournalSourceLink?
+
+  @@unique([companyId, dealNumber], map: "uq_brokerage_deal_company_number")
+  @@index([companyId, branchId, status, createdAt(sort: Desc)], map: "brokerage_deal_register_idx")
+  @@index([rentableSpaceId, status], map: "brokerage_deal_space_status_idx")
+  @@map("brokerage_deals")
+}
+
+model SaleOffer {
+  id                  String            @id @db.Uuid
+  companyId           String            @db.Uuid
+  branchId            String            @db.Uuid
+  serviceEngagementId String            @db.Uuid
+  propertyId          String            @db.Uuid
+  saleListingId       String?           @db.Uuid
+  leadId              String?           @db.Uuid
+  buyerPartyId        String?           @db.Uuid
+  offerNumber         String            @db.VarChar(50)
+  status              SaleOfferStatus   @default(DRAFT)
+  offerAmount         Decimal           @db.Decimal(20, 4)
+  currency            String            @db.Char(3)
+  offerDate           DateTime          @db.Date
+  expiresAt           DateTime?         @db.Timestamptz(6)
+  termsNotes          String?           @db.VarChar(2000)
+  counterOfOfferId    String?           @db.Uuid
+  acceptedAt          DateTime?         @db.Timestamptz(6)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  company             Company           @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  engagement          ServiceEngagement @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  saleListing         SaleListing?      @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lead                Lead?             @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  buyer               Party?            @relation("SaleOfferBuyer", fields: [buyerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  counterOfOffer      SaleOffer?        @relation("SaleOfferCounter", fields: [counterOfOfferId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  counterOffers       SaleOffer[]       @relation("SaleOfferCounter")
+  events              SaleOfferEvent[]
+  settlement          SaleSettlement?
+
+  @@unique([companyId, offerNumber], map: "uq_sale_offer_company_number")
+  @@index([companyId, branchId, status, createdAt(sort: Desc)], map: "sale_offer_register_idx")
+  @@index([propertyId, status], map: "sale_offer_property_status_idx")
+  @@map("sale_offers")
+}
+
+model SaleOfferEvent {
+  id          String             @id @db.Uuid
+  saleOfferId String             @db.Uuid
+  eventType   SaleOfferEventType
+  fromAmount  Decimal?           @db.Decimal(20, 4)
+  toAmount    Decimal?           @db.Decimal(20, 4)
+  actorUserId String?            @db.Uuid
+  occurredAt  DateTime           @default(now()) @db.Timestamptz(6)
+  notes       String?            @db.VarChar(1000)
+  saleOffer   SaleOffer          @relation(fields: [saleOfferId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor       User?              @relation("SaleOfferEventActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([saleOfferId, occurredAt(sort: Desc)], map: "sale_offer_event_timeline_idx")
+  @@map("sale_offer_events")
+}
+
+model SaleSettlement {
+  id                  String               @id @db.Uuid
+  companyId           String               @db.Uuid
+  branchId            String               @db.Uuid
+  saleOfferId         String               @unique @db.Uuid
+  serviceEngagementId String               @db.Uuid
+  propertyId          String               @db.Uuid
+  settlementNumber    String               @db.VarChar(50)
+  salePrice           Decimal              @db.Decimal(20, 4)
+  grossCommission     Decimal              @db.Decimal(20, 4)
+  sellerProceeds      Decimal              @db.Decimal(20, 4)
+  companyProceeds     Decimal              @db.Decimal(20, 4)
+  approvedDeductions  Decimal              @db.Decimal(20, 4)
+  currency            String               @db.Char(3)
+  status              SaleSettlementStatus @default(DRAFT)
+  closingDate         DateTime?            @db.Date
+  settledAt           DateTime?            @db.Timestamptz(6)
+  idempotencyKey      String?              @unique @db.VarChar(160)
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  saleOffer           SaleOffer            @relation(fields: [saleOfferId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  engagement          ServiceEngagement    @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property             @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  journalSource       JournalSourceLink?
+
+  @@unique([companyId, settlementNumber], map: "uq_sale_settlement_company_number")
+  @@index([companyId, branchId, status, settledAt], map: "sale_settlement_register_idx")
+  @@map("sale_settlements")
+}
+
 enum PartyKind {
   PERSON
   ORGANIZATION
@@ -1870,4 +2601,168 @@ enum ApprovalStatus {
   REJECTED
   EXPIRED
   WITHDRAWN
+}
+
+enum PaymentStatus {
+  CAPTURED
+  VERIFYING
+  VERIFIED
+  POSTED
+  PARTIALLY_ALLOCATED
+  FULLY_ALLOCATED
+  REJECTED
+  REVERSED
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum PeriodStatus {
+  OPEN
+  SOFT_CLOSED
+  CLOSED
+  LOCKED
+}
+
+enum FundClass {
+  COMPANY_FUNDS
+  OWNER_FUNDS
+  SECURITY_DEPOSIT_FUNDS
+  TENANT_CREDIT_FUNDS
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum NormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum ChargeStatus {
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  WRITTEN_OFF
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  VOID
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  REVIEW
+  APPROVED
+  POSTED
+  PAID
+  RECONCILED
+  REJECTED
+  CANCELLED
+  REVERSED
+}
+
+enum ExpenseResponsibility {
+  COMPANY
+  OWNER
+  TENANT
+  SHARED
+}
+
+enum PayoutStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  QUEUED
+  PROCESSING
+  PAID
+  RECONCILED
+  HELD
+  REJECTED
+  FAILED
+  CANCELLED
+}
+
+enum TenantCreditStatus {
+  OPEN
+  PARTIALLY_APPLIED
+  FULLY_APPLIED
+  REFUNDED
+  CANCELLED
+}
+
+enum ReceiptStatus {
+  ISSUED
+  VOIDED
+}
+
+enum CommissionMethod {
+  PERCENT_OF_RENT
+  PERCENT_OF_SALE
+  PERCENT_OF_COLLECTION
+  FIXED_AMOUNT
+}
+
+enum BillingScheduleStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum FiscalYearStatus {
+  OPEN
+  CLOSED
+}
+
+enum OwnerStatementStatus {
+  DRAFT
+  ISSUED
+  SUPERSEDED
+}
+
+enum BrokerageDealStatus {
+  DRAFT
+  NEGOTIATING
+  CONFIRMED
+  CLOSED
+  CANCELLED
+}
+
+enum SaleOfferStatus {
+  DRAFT
+  SUBMITTED
+  COUNTERED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum SaleOfferEventType {
+  SUBMITTED
+  COUNTER
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+  NOTE
+}
+
+enum SaleSettlementStatus {
+  DRAFT
+  APPROVED
+  SETTLED
+  CANCELLED
 }
