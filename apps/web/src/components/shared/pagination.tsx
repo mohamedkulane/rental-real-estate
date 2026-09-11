@@ -52,7 +52,7 @@ export function CursorPaginationControls({
           type="button"
           disabled={busy || !hasPrevious}
           onClick={onPrevious}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:border-[#2196F3] hover:text-[#0D47A1] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft className="h-4 w-4" /> Previous
         </button>
@@ -61,7 +61,7 @@ export function CursorPaginationControls({
           type="button"
           disabled={busy || !hasNext}
           onClick={onNext}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:border-[#2196F3] hover:text-[#0D47A1] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next <ChevronRight className="h-4 w-4" />
         </button>
@@ -96,7 +96,7 @@ export function PaginationControls({
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:border-[#2196F3] hover:text-[#0D47A1] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft className="h-4 w-4" /> Previous
         </button>
@@ -107,7 +107,7 @@ export function PaginationControls({
           type="button"
           disabled={page >= pageCount}
           onClick={() => onPageChange(page + 1)}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:border-[#2196F3] hover:text-[#0D47A1] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next <ChevronRight className="h-4 w-4" />
         </button>

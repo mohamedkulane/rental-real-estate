@@ -3,7 +3,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shared/app-shell';
-import { ErrorState, WorkspaceLoading } from '@/components/shared/ui';
+import { AppLoadingScreen } from '@/components/shared/loading-system';
+import { ErrorState } from '@/components/shared/ui';
+import { useClientReady } from '@/lib/client-ready';
 import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 import styles from './crm-workspace.module.css';
 
@@ -36,8 +38,10 @@ export function CrmShell({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const ready = useClientReady();
+  if (!ready) return <AppLoadingScreen title="Setting things up..." />;
   if (principalError) return <ErrorState message={principalError} />;
-  if (!principal) return <WorkspaceLoading label="Opening CRM workspace" />;
+  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
   return (
     <AppShell
       active="crm"

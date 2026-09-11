@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSidebarGroups,
-  commercialNavigation,
+  rentalNavigation,
+  salesNavigation,
   companyNavigation,
   customersNavigation,
   expandedParentForActive,
@@ -105,43 +106,40 @@ describe('mockup sidebar groups', () => {
   it('builds business-aligned groups without finance when no routes exist', () => {
     const groups = buildSidebarGroups({ permissions: fullPermissions, navigate: () => undefined });
     expect(groups.map((group) => group.title)).toEqual([
-      'COMPANY',
       'CUSTOMERS',
-      'PROPERTIES',
-      'COMMERCIAL',
-      'PROJECTS',
-      'REPORTING',
+      'PORTFOLIO',
+      'RENTAL',
+      'SALES',
       'WORKFLOWS',
+      'OPERATIONS',
+      'REPORTING',
+      'ADMINISTRATION',
     ]);
     expect(groups.find((group) => group.title === 'FINANCE')).toBeUndefined();
   });
 
-  it('keeps CRM children scoped to implemented customer routes', () => {
+  it('keeps CRM items flat under customers', () => {
     const customers = customersNavigation(['crm.lead.read', 'crm.followup.read'], () => undefined);
-    expect(customers[0]?.label).toBe('CRM');
-    expect(customers[0]?.children?.map((item) => item.label)).toEqual([
-      'Leads',
-      'Opportunities',
-      'Follow-Ups',
-    ]);
+    expect(customers.map((item) => item.label)).toEqual(['Leads', 'Pipeline', 'Follow-Ups']);
   });
 
-  it('nests rental and sales operations under commercial', () => {
-    const commercial = commercialNavigation(
-      ['service-engagement.read', 'listing.read', 'workflow.draft.update', 'lease.read'],
+  it('lists rental workspaces as a flat rental group', () => {
+    const rental = rentalNavigation(
+      ['listing.read', 'workflow.draft.update', 'viewing.read', 'lease.read'],
       () => undefined,
     );
-    expect(commercial.map((item) => item.label)).toEqual([
-      'Service Engagements',
-      'Rental Operations',
-      'Sales Operations',
-    ]);
-    expect(commercial[1]?.children?.map((item) => item.label)).toEqual([
+    expect(rental.map((item) => item.label)).toEqual([
       'Rental Listings',
       'Rental Brokerage',
       'Full Management',
+      'Viewings',
       'Lease Contracts',
     ]);
+  });
+
+  it('lists sales workspaces separately', () => {
+    const sales = salesNavigation(['listing.read', 'workflow.draft.update'], () => undefined);
+    expect(sales.map((item) => item.label)).toEqual(['Sale Listings', 'Property Sale']);
   });
 
   it('routes construction enquiries through projects', () => {
@@ -158,11 +156,11 @@ describe('mockup sidebar groups', () => {
     expect(reportingNavigation([], () => undefined)).toEqual([]);
   });
 
-  it('exposes Parties before Owners in the properties group', () => {
+  it('exposes Parties before Owners in the portfolio group', () => {
     const properties = buildSidebarGroups({
       permissions: ['party.read', 'owner.read'],
       navigate: () => undefined,
-    }).find((group) => group.title === 'PROPERTIES');
+    }).find((group) => group.title === 'PORTFOLIO');
     expect(properties?.items.map((item) => item.label)).toEqual(['Parties', 'Owners']);
   });
 });

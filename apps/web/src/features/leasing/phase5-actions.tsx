@@ -45,7 +45,14 @@ function pickerMap(kind: string) {
     if (kind === 'application') return { id: value(raw, 'id'), label: `${value(raw, 'applicationNumber')} — ${value(applicant, 'displayName') || value(lead, 'displayName')}`, applicantPartyId: value(applicant, 'id'), serviceEngagementId: value(listing, 'serviceEngagementId') };
     if (kind === 'tenant') return { id: value(raw, 'partyId') || value(raw, 'id'), label: `${value(raw, 'tenantNumber')} — ${value(party, 'displayName')}` };
     if (kind === 'owner') return { id: value(raw, 'partyId') || value(raw, 'id'), label: `${value(raw, 'ownerNumber')} — ${value(party, 'displayName')}` };
-    if (kind === 'lease') return { id: value(raw, 'id'), label: `${value(raw, 'leaseNumber')} — ${value(space, 'name')}` };
+    if (kind === 'lease') return {
+      id: value(raw, 'id'),
+      label: `${value(raw, 'leaseNumber')} — ${value(space, 'name')}`,
+      leaseEndDate: value(raw, 'leaseEndDate'),
+      leaseStartDate: value(raw, 'leaseStartDate'),
+      rentAmount: raw.rentAmount != null ? String(raw.rentAmount) : '',
+      currency: value(raw, 'currency') || 'USD',
+    };
     return { id: value(raw, 'id'), label: value(raw, 'id') };
   };
 }
@@ -76,6 +83,20 @@ function CreateDialog({ mode, onClose, onSuccess }: { mode: OperationsMode; onCl
   const [first, setFirst] = useState<PickRecord | null>(null); const [second, setSecond] = useState<PickRecord | null>(null); const [third, setThird] = useState<PickRecord | null>(null);
   const [listingType, setListingType] = useState<'rental' | 'sale'>('rental');
   const [title, setTitle] = useState(''); const [amount, setAmount] = useState(''); const [currency, setCurrency] = useState('USD'); const [notes, setNotes] = useState(''); const [start, setStart] = useState(dateInput(1)); const [end, setEnd] = useState(dateInput(366)); const [scheduled, setScheduled] = useState(dateTimeInput());
+  useEffect(() => {
+    if (mode !== 'renewals' || !first) return;
+    const leaseEnd = value(first, 'leaseEndDate');
+    if (!leaseEnd) return;
+    const endDay = leaseEnd.slice(0, 10);
+    setStart(endDay);
+    const successorEnd = new Date(`${endDay}T00:00:00.000Z`);
+    successorEnd.setUTCFullYear(successorEnd.getUTCFullYear() + 1);
+    setEnd(successorEnd.toISOString().slice(0, 10));
+    const rent = value(first, 'rentAmount');
+    if (rent) setAmount(rent);
+    const leaseCurrency = value(first, 'currency');
+    if (leaseCurrency) setCurrency(leaseCurrency);
+  }, [mode, first]);
   const mutation = useMutation({ mutationFn: async () => {
     if (mode === 'rental-listings') return api('/rental-listings', { method: 'POST', body: JSON.stringify({ rentableSpaceId: first?.id, serviceEngagementId: second?.id, title, askingRent: amount || undefined, currency, availableFrom: start }) });
     if (mode === 'sale-listings') return api('/sale-listings', { method: 'POST', body: JSON.stringify({ propertyId: first?.id, serviceEngagementId: second?.id, title, askingPrice: amount || undefined, currency }) });

@@ -3,7 +3,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shared/app-shell';
-import { ErrorState, WorkspaceLoading } from '@/components/shared/ui';
+import { AppLoadingScreen } from '@/components/shared/loading-system';
+import { ErrorState } from '@/components/shared/ui';
+import { useClientReady } from '@/lib/client-ready';
 import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 
 export function useOperationsPrincipal() {
@@ -19,7 +21,9 @@ export function useOperationsPrincipal() {
 
 export function OperationsShell({ principal, error, activeItem, children }: { principal: Principal | null; error?: string; activeItem: string; children: ReactNode }) {
   const router = useRouter();
+  const ready = useClientReady();
+  if (!ready) return <AppLoadingScreen title="Setting things up..." />;
   if (error) return <ErrorState message={error} />;
-  if (!principal) return <WorkspaceLoading label="Opening operations workspace" />;
+  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
   return <AppShell active="commercial" activeItem={activeItem} accessMode={principal.accessMode} accessBranches={principal.branches} permissions={principal.permissions} onLogout={() => { void api('/auth/logout', { method: 'POST' }).finally(() => { clearApiCache(); router.replace('/login'); }); }}>{children}</AppShell>;
 }

@@ -5,41 +5,67 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LockKeyhole, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { api, clearApiCache, isServiceUnavailable, userFacingError } from '@/lib/phase3-api';
+import { API_BASE, api, clearApiCache, isServiceUnavailable, userFacingError } from '@/lib/phase3-api';
 import { BrandMark } from '@/components/shared/ui';
+
+type BackendStatus = 'checking' | 'online' | 'offline';
+
+const HEALTH_TIMEOUT_MS = 2500;
+const RETRY_DELAYS_MS = [400, 800, 1500, 2500];
+
+async function pingBackendHealth(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${API_BASE}/health`, {
+      cache: 'no-store',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [serviceReady, setServiceReady] = useState(false);
-  const [readinessCycle, setReadinessCycle] = useState(0);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking');
+  const [healthCycle, setHealthCycle] = useState(0);
 
   useEffect(() => {
     let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let attempt = 0;
 
-    async function checkReadiness() {
-      try {
-        await api('/readiness', { cache: 'no-store' });
-        if (active) setServiceReady(true);
-      } catch {
-        if (!active) return;
-        setServiceReady(false);
-        retryTimer = setTimeout(() => void checkReadiness(), 1000);
+    async function checkHealth() {
+      const online = await pingBackendHealth();
+      if (!active) return;
+
+      if (online) {
+        setBackendStatus('online');
+        return;
       }
+
+      setBackendStatus('offline');
+      const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]!;
+      attempt += 1;
+      retryTimer = window.setTimeout(() => void checkHealth(), delay);
     }
 
-    void checkReadiness();
+    void checkHealth();
     return () => {
       active = false;
-      if (retryTimer) clearTimeout(retryTimer);
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
-  }, [readinessCycle]);
+  }, [healthCycle]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!serviceReady) return;
     setBusy(true);
     setError('');
     const values = new FormData(event.currentTarget);
@@ -50,6 +76,7 @@ export function LoginForm() {
         body: JSON.stringify({ email: values.get('email'), password: values.get('password') }),
       });
       clearApiCache();
+      setBackendStatus('online');
       router.replace('/admin');
     } catch (cause) {
       const message =
@@ -57,8 +84,10 @@ export function LoginForm() {
           ? 'The email or password was not accepted.'
           : userFacingError(cause, 'We could not sign you in. Please try again.');
       if (isServiceUnavailable(cause)) {
-        setServiceReady(false);
-        setReadinessCycle((cycle) => cycle + 1);
+        setBackendStatus('offline');
+        setHealthCycle((cycle) => cycle + 1);
+      } else if (backendStatus === 'offline') {
+        setBackendStatus('online');
       }
       setError(message);
       toast.error(message);
@@ -100,26 +129,23 @@ export function LoginForm() {
           />
         </span>
       </label>
-      {!serviceReady ? (
-        <div
-          className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800"
-          role="status"
-          aria-live="polite"
-        >
-          <span
-            className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-blue-600 motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          <span>Preparing secure sign-in. This page will reconnect automatically.</span>
-        </div>
+      {backendStatus === 'checking' ? (
+        <p className="auth-status auth-status-checking" role="status" aria-live="polite">
+          Checking connection...
+        </p>
+      ) : null}
+      {backendStatus === 'offline' ? (
+        <p className="auth-status auth-status-offline" role="status" aria-live="polite">
+          The service is starting or temporarily unavailable. You can still try signing in.
+        </p>
       ) : null}
       {error ? (
         <p className="error" role="alert">
           {error}
         </p>
       ) : null}
-      <button className="primary" disabled={busy || !serviceReady} aria-busy={busy}>
-        {busy ? 'Signing in...' : serviceReady ? 'Sign in' : 'Preparing sign in...'}
+      <button className="primary" disabled={busy} aria-busy={busy}>
+        {busy ? 'Signing in...' : 'Sign in'}
       </button>
     </form>
   );

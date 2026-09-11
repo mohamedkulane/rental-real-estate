@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
-import { WorkspaceLoading } from '@/components/shared/ui';
+import { PageSkeleton } from '@/components/shared/loading-system';
 import { EngagementRegister } from '@/features/commercial/engagement-register';
 
 export default function ServiceEngagementsPage() {
   return (
-    <Suspense fallback={<WorkspaceLoading label="Loading Service Engagement Register" />}>
+    <Suspense fallback={<PageSkeleton />}>
       <EngagementRegister />
     </Suspense>
   );

@@ -8,9 +8,13 @@ Worktree: `C:\Users\maxam\real-estate-rental-system\.worktrees\workflow-ux-wave1
 
 ## Status
 
-**Phase 5.9 PASS — full Phase 5 regression and browser verification complete.**
+**Operational leasing verification complete on this branch; formal Phase 5.9 governance closure is not complete.**
 
-Phase 6 may proceed only after governance review of this checkpoint. This document does not merge to `master`.
+Sub-phases 5.7–5.8 browser flows were verified on 2026-09-10. Phase 5.9 full regression/closure and Phase 6 entry remain pending explicit governance sign-off. This document does not merge to `master`.
+
+## UX Wave 1 (follow-on, same branch)
+
+After the operational checkpoint, frontend UX work continued: accordion sidebar, Classic header, Modern loading system, shared DataTable primitives, Manrope typography, and faster login readiness. Web unit tests: **110 passed** (2026-09-11).
 
 ## Sub-phase verification
 

@@ -137,8 +137,8 @@ export function SearchableSelect({
           ref={selectRef}
           {...props}
           disabled={disabled}
-          value={value}
-          defaultValue={defaultValue}
+          value={controlled ? value : undefined}
+          defaultValue={controlled ? undefined : defaultValue}
           autoFocus={autoFocus}
           onChange={onChange}
           aria-label={ariaLabel}
@@ -277,7 +277,7 @@ export function SearchableSelect({
                   className={
                     'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ' +
                     (index === activeIndex
-                      ? 'bg-[#E3F2FD] text-[#0D47A1]'
+                      ? 'bg-emerald-50 text-emerald-800'
                       : 'text-slate-800 hover:bg-slate-50')
                   }
                 >

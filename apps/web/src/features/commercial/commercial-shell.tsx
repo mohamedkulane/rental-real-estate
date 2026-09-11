@@ -3,7 +3,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shared/app-shell';
-import { WorkspaceLoading } from '@/components/shared/ui';
+import { AppLoadingScreen } from '@/components/shared/loading-system';
+import { useClientReady } from '@/lib/client-ready';
 import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 
 export function useCommercialPrincipal() {
@@ -35,7 +36,9 @@ export function CommercialShell({
   children: ReactNode;
 }) {
   const router = useRouter();
-  if (!principal) return <WorkspaceLoading label="Checking your secure session" />;
+  const ready = useClientReady();
+  if (!ready) return <AppLoadingScreen title="Setting things up..." />;
+  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
   return (
     <AppShell
       active="commercial"

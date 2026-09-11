@@ -66,7 +66,7 @@ const crmChildDestinations = [
   { key: 'crm:leads', label: 'Leads', href: '/crm/leads', permission: 'crm.lead.read' },
   {
     key: 'crm:pipeline',
-    label: 'Opportunities',
+    label: 'Pipeline',
     href: '/crm/pipeline',
     permission: 'crm.lead.read',
   },
@@ -171,7 +171,7 @@ export const leasingDestinations = [
   { key: 'move-ins', label: 'Move-In', href: '/leasing/move-ins', permission: 'move-in.read' },
 ] as const;
 
-export const rentalOperationsDestinations = [
+export const rentalDestinations = [
   marketingDestinations[0],
   {
     key: 'start:rental-brokerage',
@@ -185,8 +185,11 @@ export const rentalOperationsDestinations = [
     href: '/workflows/new?type=FULL_MANAGEMENT',
     permission: 'workflow.draft.update',
   },
+  { key: 'viewings', label: 'Viewings', href: '/crm/viewings', permission: 'viewing.read' },
   ...leasingDestinations,
 ] as const;
+
+export const rentalOperationsDestinations = rentalDestinations;
 
 export const salesOperationsDestinations = [
   marketingDestinations[1],
@@ -218,7 +221,14 @@ export const projectsDestinations = [
   },
 ] as const;
 
-const PROPERTY_NAV_KEYS = new Set(['parties', 'owners', 'properties', 'spaces', 'amenities']);
+const PROPERTY_NAV_KEYS = new Set([
+  'parties',
+  'owners',
+  'properties',
+  'spaces',
+  'amenities',
+  'service-engagements',
+]);
 
 const ACTIVE_ITEM_ALIASES: Record<string, string[]> = {
   'service-engagements': ['service-engagements', 'engagement-register'],
@@ -279,7 +289,7 @@ export function customersNavigation(
   permissions: string[],
   navigate: (href: string) => void,
 ): NavigationItem[] {
-  const children = crmChildDestinations
+  return crmChildDestinations
     .filter((destination) => {
       if (!permissions.includes(destination.permission)) return false;
       if ('alsoRequires' in destination && destination.alsoRequires) {
@@ -292,7 +302,6 @@ export function customersNavigation(
       label: destination.label,
       onSelect: () => navigate(destination.href),
     }));
-  return collapsibleWhenChildren('crm', 'CRM', children);
 }
 
 export function companyNavigation(
@@ -397,9 +406,15 @@ export function propertiesNavigation(
     },
     {
       key: 'amenities',
-      label: 'Amenities Catalog',
+      label: 'Amenities',
       href: '/portfolio?section=amenities',
       permission: 'portfolio.amenity.read',
+    },
+    {
+      key: 'service-engagements',
+      label: 'Service Agreements',
+      href: '/commercial/service-engagements',
+      permission: 'service-engagement.read',
     },
   ] as const;
 
@@ -412,35 +427,25 @@ export function propertiesNavigation(
     }));
 }
 
+export function rentalNavigation(
+  permissions: string[],
+  navigate: (href: string) => void,
+): NavigationItem[] {
+  return authorizedTaskNavigation(rentalDestinations, permissions, navigate);
+}
+
+export function salesNavigation(
+  permissions: string[],
+  navigate: (href: string) => void,
+): NavigationItem[] {
+  return authorizedTaskNavigation(salesOperationsDestinations, permissions, navigate);
+}
+
 export function commercialNavigation(
   permissions: string[],
   navigate: (href: string) => void,
 ): NavigationItem[] {
-  const items: NavigationItem[] = [];
-
-  if (permissions.includes('service-engagement.read')) {
-    items.push({
-      key: 'service-engagements',
-      label: 'Service Engagements',
-      onSelect: () => navigate('/commercial/service-engagements'),
-    });
-  }
-
-  const rentalChildren = authorizedTaskNavigation(
-    rentalOperationsDestinations,
-    permissions,
-    navigate,
-  );
-  items.push(...collapsibleWhenChildren('rental-operations', 'Rental Operations', rentalChildren));
-
-  const salesChildren = authorizedTaskNavigation(
-    salesOperationsDestinations,
-    permissions,
-    navigate,
-  );
-  items.push(...collapsibleWhenChildren('sales-operations', 'Sales Operations', salesChildren));
-
-  return items;
+  return [];
 }
 
 export function projectsNavigation(
@@ -472,7 +477,20 @@ export function workflowsNavigation(
   permissions: string[],
   navigate: (href: string) => void,
 ): NavigationItem[] {
-  return authorizedTaskNavigation(workflowDestinations, permissions, navigate);
+  const items: NavigationItem[] = [];
+  if (permissions.includes('workflow.draft.update')) {
+    items.push({
+      key: 'workflow-new',
+      label: 'Start New',
+      onSelect: () => navigate('/workflows/new'),
+    });
+  }
+  items.push(
+    ...authorizedTaskNavigation(workflowDestinations, permissions, navigate).filter(
+      (item) => item.key === 'incomplete-work',
+    ),
+  );
+  return items;
 }
 
 export function buildSidebarGroups(options: {
@@ -488,34 +506,34 @@ export function buildSidebarGroups(options: {
 
   return [
     {
-      id: 'company',
-      title: 'COMPANY',
-      items: companyNavigation(permissions, navigate, subNavigation),
-    },
-    {
       id: 'customers',
       title: 'CUSTOMERS',
       items: customersNavigation(permissions, navigate),
     },
     {
-      id: 'properties',
-      title: 'PROPERTIES',
+      id: 'portfolio',
+      title: 'PORTFOLIO',
       items: propertiesNavigation(permissions, navigate, subNavigation?.portfolio),
     },
     {
-      id: 'commercial',
-      title: 'COMMERCIAL',
-      items: commercialNavigation(permissions, navigate),
+      id: 'rental',
+      title: 'RENTAL',
+      items: rentalNavigation(permissions, navigate),
     },
     {
-      id: 'projects',
-      title: 'PROJECTS',
+      id: 'sales',
+      title: 'SALES',
+      items: salesNavigation(permissions, navigate),
+    },
+    {
+      id: 'workflows',
+      title: 'WORKFLOWS',
+      items: workflowsNavigation(permissions, navigate),
+    },
+    {
+      id: 'operations',
+      title: 'OPERATIONS',
       items: projectsNavigation(permissions, navigate),
-    },
-    {
-      id: 'finance',
-      title: 'FINANCE',
-      items: financeNavigation(permissions, navigate),
     },
     {
       id: 'reporting',
@@ -523,9 +541,9 @@ export function buildSidebarGroups(options: {
       items: reportingNavigation(permissions, navigate, subNavigation?.administration),
     },
     {
-      id: 'workflows',
-      title: 'WORKFLOWS',
-      items: workflowsNavigation(permissions, navigate),
+      id: 'administration',
+      title: 'ADMINISTRATION',
+      items: companyNavigation(permissions, navigate, subNavigation),
     },
   ].filter((group) => group.items.length > 0);
 }

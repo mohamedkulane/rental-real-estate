@@ -1,5 +1,5 @@
-import { WorkspaceLoading } from '@/components/shared/ui';
+import { AppLoadingScreen } from '@/components/shared/loading-system';
 
 export default function Loading() {
-  return <WorkspaceLoading label="Loading CRM workspace" />;
+  return <AppLoadingScreen />;
 }

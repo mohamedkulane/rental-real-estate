@@ -25,7 +25,7 @@ import {
   LoadingState,
   PageHeader,
   StatusBadge,
-  WorkspaceLoading,
+  AppLoadingScreen,
 } from '@/components/shared/ui';
 import { formatDate, humanize, permissionDomain, permissionLabel } from '@/lib/presentation';
 import { EmployeeDirectory, type EmployeeRecord } from './pages/employee-directory';
@@ -1253,7 +1253,7 @@ export function AdminConsole() {
     );
   }
 
-  if (!principal) return <WorkspaceLoading label="Checking your secure session" />;
+  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
   const shellActive =
     active === 'profile'
       ? 'overview'
