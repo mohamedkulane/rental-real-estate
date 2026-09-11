@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -10,6 +9,11 @@ import { ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/
 import { api, pageItems, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { OperationsShell, useOperationsPrincipal } from '@/features/leasing/operations-shell';
 import { OnboardingWorkspace } from './onboarding-workspace';
+import { Building2, UserRound } from 'lucide-react';
+import { GuidedWorkflowFooter, GuidedWorkflowShell } from './guided-workflow-shell';
+import { stepPresentation, workflowPresentation } from './workflow-presentation';
+import { WorkflowOwnerPicker } from './workflow-owner-picker';
+import { WorkflowPropertyPicker } from './workflow-property-picker';
 import { EntityDocuments } from '@/features/portfolio/entity-documents';
 import { WorkflowServiceCreate } from './workflow-service-create';
 import { WorkflowCancel } from './workflow-cancel';
@@ -72,7 +76,6 @@ function optionsFor(kind: WorkflowStepKind, rows: unknown[]): Option[] {
 }
 
 export function WorkflowEditor({ workflowId }: { workflowId: string }) {
-  const router = useRouter();
   const { principal, error: principalError } = useOperationsPrincipal();
   const client = useQueryClient();
   const [payload, setPayload] = useState<WorkflowPayload>({});
@@ -308,213 +311,197 @@ export function WorkflowEditor({ workflowId }: { workflowId: string }) {
         }}
       />
     );
-  return (
-    <OperationsShell principal={principal} error={principalError} activeItem="incomplete-work">
-      <PageHeader
-        eyebrow="Guided workflow"
-        title={workflowLabels[row.type]}
-        description={`Step ${step} of 8 · ${stepDefinition.label}`}
-        action={<StatusBadge value={row.status} />}
-      />
-      <ol
-        className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8"
-        aria-label="Workflow progress"
-      >
-        {steps.map(({ label }, index) => (
-          <li
-            key={`${index}-${label}`}
-            aria-current={index + 1 === step ? 'step' : undefined}
-            className={`rounded-lg border px-3 py-2 text-xs font-semibold ${index + 1 === step ? 'border-blue-500 bg-blue-50 text-blue-800' : index + 1 < step ? 'border-blue-200 bg-white text-blue-700' : 'border-slate-200 bg-white text-slate-500'}`}
-          >
-            <span className="block text-[10px] uppercase">Step {index + 1}</span>
-            {label}
-          </li>
-        ))}
-      </ol>
-      <section className="mx-auto mt-6 max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        {message ? (
-          <div className="feedback feedback-error mb-4" role="alert">
-            {message}
-          </div>
-        ) : null}
-        {kind === 'details' ? (
-          <>
-            <h2>{stepDefinition.label}</h2>
-            <p className="mb-5 text-sm text-slate-500">
-              Record the operational context without creating a duplicate domain record.
-            </p>
-            <label>
-              {row.type === 'FULL_MANAGEMENT' ? 'Management terms' : 'Readiness notes'}
-              <textarea
-                rows={6}
-                value={
-                  row.type === 'FULL_MANAGEMENT'
-                    ? (payload.managementTerms ?? '')
-                    : (payload.readinessNotes ?? '')
-                }
-                onChange={(event) =>
-                  setPayload((current) =>
-                    row.type === 'FULL_MANAGEMENT'
-                      ? { ...current, managementTerms: event.target.value }
-                      : { ...current, readinessNotes: event.target.value },
-                  )
-                }
-                maxLength={2000}
-              />
-            </label>
-          </>
-        ) : kind === 'review' ? (
-          <>
-            <h2>{stepDefinition.label}</h2>
-            <p className="text-sm text-slate-600">
+
+  const presentation = workflowPresentation[row.type];
+  const stepMeta = stepPresentation(row.type, step);
+  const progressPercent = Math.round((step / steps.length) * 100);
+  const pending = commandBusy || save.isPending || complete.isPending;
+  const stepIcon =
+    kind === 'property' ? (
+      <Building2 size={20} />
+    ) : kind === 'owner' ? (
+      <UserRound size={20} />
+    ) : undefined;
+
+  const stepContent = (
+    <>
+      {message ? (
+        <div className="feedback feedback-error mb-4" role="alert">
+          {message}
+        </div>
+      ) : null}
+      {kind === 'details' ? (
+        <div className="guided-workflow__field">
+          <label htmlFor="workflow-details">
+            {row.type === 'FULL_MANAGEMENT' ? 'Management terms' : 'Readiness notes'}
+          </label>
+          <textarea
+            id="workflow-details"
+            rows={6}
+            value={
+              row.type === 'FULL_MANAGEMENT'
+                ? (payload.managementTerms ?? '')
+                : (payload.readinessNotes ?? '')
+            }
+            onChange={(event) =>
+              setPayload((current) =>
+                row.type === 'FULL_MANAGEMENT'
+                  ? { ...current, managementTerms: event.target.value }
+                  : { ...current, readinessNotes: event.target.value },
+              )
+            }
+            maxLength={2000}
+            placeholder="Describe listing readiness, marketing constraints, or launch notes."
+          />
+        </div>
+      ) : kind === 'review' ? (
+        <>
+          {step === 8 ? (
+            <p className="guided-workflow__muted">
               The server will re-check current permissions, Branch scope, canonical references,
               expected versions, and completion idempotency before finalizing.
             </p>
-            <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-              {[
-                ['Owner', payload.ownerPartyId ? 'Selected' : 'Not required'],
-                ['Property', payload.propertyId ? 'Selected' : 'Missing'],
-                ['Ownership evidence', payload.ownershipId ? 'Verified' : 'Not required'],
-                ['Rentable spaces', `${payload.rentableSpaceIds?.length ?? 0} selected`],
-                ['Company service', payload.serviceEngagementId ? 'Ready to activate' : 'Missing'],
-                ['Documents', `${payload.documentIds?.length ?? 0} linked`],
-              ].map(([key, value]) => (
-                <div key={key} className="rounded-lg bg-slate-50 p-3">
-                  <dt className="text-xs font-bold uppercase text-slate-500">{key}</dt>
-                  <dd className="mt-1 break-words text-sm">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </>
-        ) : kind === 'documents' && payload.propertyId && principal ? (
-          <EntityDocuments
-            entityType="Property"
-            entityId={payload.propertyId}
-            canManage={principal.permissions.includes('portfolio.document.manage')}
-            onUploaded={(documentId) =>
-              setPayload((current) => ({
-                ...current,
-                documentIds: [...new Set([...(current.documentIds ?? []), documentId])],
-              }))
-            }
-          />
-        ) : (
-          <>
-            <h2>{stepDefinition.label}</h2>
-            <p className="mb-5 text-sm text-slate-500">
-              Select an authorized canonical record. Search is server-side and does not depend on
-              another register page.
-            </p>
-            <label>
-              {stepDefinition.label}
-              <SearchableSelect
-                aria-label={stepDefinition.label}
-                searchable
-                searchThreshold={1}
-                searchPlaceholder={`Search ${stepDefinition.label}`}
-                loading={selector.isLoading}
-                value={selected ?? ''}
-                onSearchChange={setSearch}
-                onChange={(event) => setSelected(event.target.value)}
-              >
-                <option value="">
-                  {kind === 'buildings' ||
-                  kind === 'documents' ||
-                  (kind === 'owner' && row.type === 'PROPERTY_SALE') ||
-                  (kind === 'engagement' && row.type === 'PROPERTY_ONBOARDING')
-                    ? 'Skip this optional step'
-                    : `Choose ${stepDefinition.label}`}
-                </option>
-                {options
-                  .filter((option) => !selectedIds.includes(option.id))
-                  .map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-              </SearchableSelect>
-            </label>
-            {selectedIds.length ? (
-              <ul
-                className="mt-3 flex flex-wrap gap-2"
-                aria-label={`Selected ${stepDefinition.label}`}
-              >
-                {selectedIds.map((id) => (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800"
-                      onClick={() => removeSelected(id)}
-                    >
-                      Selected · Remove
-                    </button>
-                  </li>
+          ) : null}
+          <dl className="guided-workflow__review-grid">
+            {[
+              ['Owner', payload.ownerPartyId ? 'Selected' : 'Not required'],
+              ['Property', payload.propertyId ? 'Selected' : 'Missing'],
+              ['Ownership evidence', payload.ownershipId ? 'Verified' : 'Not required'],
+              ['Rentable spaces', `${payload.rentableSpaceIds?.length ?? 0} selected`],
+              ['Company service', payload.serviceEngagementId ? 'Ready to activate' : 'Missing'],
+              ['Documents', `${payload.documentIds?.length ?? 0} linked`],
+            ].map(([key, value]) => (
+              <div key={key} className="guided-workflow__review-item">
+                <dt>{key}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      ) : kind === 'documents' && payload.propertyId && principal ? (
+        <EntityDocuments
+          entityType="Property"
+          entityId={payload.propertyId}
+          canManage={principal.permissions.includes('portfolio.document.manage')}
+          onUploaded={(documentId) =>
+            setPayload((current) => ({
+              ...current,
+              documentIds: [...new Set([...(current.documentIds ?? []), documentId])],
+            }))
+          }
+        />
+      ) : kind === 'property' ? (
+        <WorkflowPropertyPicker
+          options={options}
+          rows={selector.data ? pageItems(selector.data) : []}
+          selectedId={selected ?? ''}
+          loading={selector.isLoading}
+          search={search}
+          onSearchChange={setSearch}
+          onSelect={setSelected}
+        />
+      ) : kind === 'owner' ? (
+        <WorkflowOwnerPicker
+          rows={selector.data ? pageItems(selector.data) : []}
+          selectedId={selected ?? ''}
+          loading={selector.isLoading}
+          search={search}
+          onSearchChange={setSearch}
+          onSelect={setSelected}
+          optional={row.type === 'PROPERTY_SALE'}
+        />
+      ) : (
+        <div className="guided-workflow__picker">
+          <label className="guided-workflow__field">
+            {stepDefinition.label}
+            <SearchableSelect
+              aria-label={stepDefinition.label}
+              searchable
+              searchThreshold={1}
+              searchPlaceholder={`Search ${stepDefinition.label}`}
+              loading={selector.isLoading}
+              value={selected ?? ''}
+              onSearchChange={setSearch}
+              onChange={(event) => setSelected(event.target.value)}
+            >
+              <option value="">
+                {kind === 'buildings' || kind === 'documents'
+                  ? 'Skip this optional step'
+                  : `Choose ${stepDefinition.label}`}
+              </option>
+              {options
+                .filter((option) => !selectedIds.includes(option.id))
+                .map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
                 ))}
-              </ul>
-            ) : null}
-            {kind === 'engagement' && principal ? (
-              <WorkflowServiceCreate
-                row={{ ...row, payload }}
-                principal={principal}
-                onBusyChange={setCommandBusy}
-                onSaved={(updated) => {
-                  setPayload(updated.payload);
-                  client.setQueryData(['workflow', workflowId], updated);
-                }}
-              />
-            ) : null}
-          </>
+            </SearchableSelect>
+          </label>
+          {selectedIds.length ? (
+            <ul className="guided-workflow__chips" aria-label={`Selected ${stepDefinition.label}`}>
+              {selectedIds.map((id) => (
+                <li key={id}>
+                  <button type="button" onClick={() => removeSelected(id)}>
+                    Selected · Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {kind === 'engagement' && principal ? (
+            <WorkflowServiceCreate
+              row={{ ...row, payload }}
+              principal={principal}
+              onBusyChange={setCommandBusy}
+              onSaved={(updated) => {
+                setPayload(updated.payload);
+                client.setQueryData(['workflow', workflowId], updated);
+              }}
+            />
+          ) : null}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <OperationsShell principal={principal} error={principalError} activeItem="incomplete-work">
+      <GuidedWorkflowShell
+        breadcrumbs={presentation.breadcrumbs.map((crumb, index) =>
+          index === presentation.breadcrumbs.length - 1 && row.status === 'DRAFT'
+            ? { ...crumb, label: 'Draft' }
+            : crumb,
         )}
-        <footer className="mt-7 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
-          <button
-            className="button danger"
-            disabled={commandBusy || save.isPending || complete.isPending}
-            onClick={() => setCancelOpen(true)}
-          >
-            Cancel Workflow
-          </button>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <button
-              className="button secondary"
-              disabled={commandBusy || save.isPending}
-              onClick={() => save.mutate(step, { onSuccess: () => router.push('/workflows') })}
-            >
-              Save & resume later
-            </button>
-            <button
-              className="button secondary"
-              disabled={commandBusy || save.isPending || step === 1}
-              onClick={() => save.mutate(Math.max(1, step - 1))}
-            >
-              Back
-            </button>
-            <button
-              className="button secondary"
-              disabled={commandBusy || save.isPending}
-              onClick={() => save.mutate(step)}
-            >
-              Save Draft
-            </button>
-            {step < 8 ? (
-              <button
-                className="button primary"
-                disabled={commandBusy || save.isPending}
-                onClick={() => save.mutate(step + 1)}
-              >
-                Continue
-              </button>
-            ) : (
-              <button
-                className="button primary"
-                disabled={commandBusy || complete.isPending}
-                onClick={() => complete.mutate()}
-              >
-                {complete.isPending ? 'Completing…' : 'Complete Workflow'}
-              </button>
-            )}
-          </div>
-        </footer>
-      </section>
+        title={presentation.title}
+        subtitle={presentation.subtitle}
+        status={row.status}
+        steps={presentation.steps}
+        currentStep={step}
+        stepTitle={stepMeta.title}
+        stepDescription={stepMeta.description}
+        progressPercent={progressPercent}
+        stepIcon={stepIcon}
+        footer={
+          <GuidedWorkflowFooter
+            cancelDisabled={pending}
+            draftDisabled={pending}
+            backDisabled={pending || step === 1}
+            continueDisabled={pending}
+            continuePending={save.isPending || complete.isPending}
+            showBack={step > 1}
+            continueLabel={
+              step < 8 ? 'Continue' : complete.isPending ? 'Completing…' : 'Activate'
+            }
+            onCancel={() => setCancelOpen(true)}
+            onSaveDraft={() => save.mutate(step)}
+            onBack={() => save.mutate(Math.max(1, step - 1))}
+            onContinue={() => (step < 8 ? save.mutate(step + 1) : complete.mutate())}
+          />
+        }
+      >
+        {stepContent}
+      </GuidedWorkflowShell>
       {cancelOpen ? (
         <WorkflowCancel
           row={row}

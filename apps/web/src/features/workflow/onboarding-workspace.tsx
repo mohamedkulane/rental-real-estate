@@ -5,13 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, api, type Principal, userFacingError } from '@/lib/phase3-api';
-import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { OperationsShell } from '@/features/leasing/operations-shell';
 import { EntityDocuments } from '@/features/portfolio/entity-documents';
 import { OnboardingCreate } from './onboarding-create';
 import { WorkflowCancel } from './workflow-cancel';
 import { RecordPicker } from './record-picker';
-import { workflowSteps, type WorkflowPayload, type WorkflowRecord } from './workflow-types';
+import { GuidedWorkflowFooter, GuidedWorkflowShell } from './guided-workflow-shell';
+import { stepPresentation, workflowPresentation } from './workflow-presentation';
+import { type WorkflowPayload, type WorkflowRecord } from './workflow-types';
 
 const object = (value: unknown) =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -186,55 +187,61 @@ export function OnboardingWorkspace({
         ),
       },
     });
+  const stepMeta = stepPresentation('PROPERTY_ONBOARDING', step);
+  const progressPercent = Math.round((step / 8) * 100);
   return (
     <OperationsShell principal={principal} activeItem="incomplete-work">
-      <PageHeader
-        eyebrow="Start New"
-        title="Onboard Property"
-        description="Register the owner, property and services together. Save your progress at any step."
-        action={<StatusBadge value={row.status} />}
-      />
-      <div className="mt-5 grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
-        <nav aria-label="Onboarding steps">
-          <ol className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-1">
-            {workflowSteps.PROPERTY_ONBOARDING.map((item, index) => (
-              <li
-                key={item.label}
-                aria-current={index + 1 === step ? 'step' : undefined}
-                className={`rounded-lg border px-3 py-3 text-sm ${step === index + 1 ? 'border-blue-400 bg-blue-50 font-semibold text-blue-900' : 'border-slate-200 bg-white text-slate-600'}`}
-              >
-                <span className="mr-2 tabular-nums">{index + 1}.</span>
-                {item.label}
-              </li>
-            ))}
-          </ol>
-        </nav>
-        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="mb-5 border-b border-slate-100 pb-4">
-            <h2 className="text-xl font-semibold">
-              {workflowSteps.PROPERTY_ONBOARDING[step - 1]?.label}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {ownerName} · {propertyName}
-            </p>
+      <GuidedWorkflowShell
+        breadcrumbs={workflowPresentation.PROPERTY_ONBOARDING.breadcrumbs.map((crumb, index) =>
+          index === workflowPresentation.PROPERTY_ONBOARDING.breadcrumbs.length - 1 &&
+          row.status === 'DRAFT'
+            ? { ...crumb, label: 'Draft' }
+            : crumb,
+        )}
+        title={workflowPresentation.PROPERTY_ONBOARDING.title}
+        subtitle={workflowPresentation.PROPERTY_ONBOARDING.subtitle}
+        status={row.status}
+        steps={workflowPresentation.PROPERTY_ONBOARDING.steps}
+        currentStep={step}
+        stepTitle={stepMeta.title}
+        stepDescription={stepMeta.description}
+        progressPercent={progressPercent}
+        footer={
+          <GuidedWorkflowFooter
+            cancelDisabled={pending}
+            draftDisabled={pending}
+            backDisabled={pending || step === 1}
+            continueDisabled={pending || (step === 3 && !payload.ownershipId)}
+            continuePending={busy}
+            showBack={step > 1}
+            continueLabel={step < 8 ? 'Continue' : busy ? 'Completing…' : 'Complete onboarding'}
+            onCancel={() => setCancelOpen(true)}
+            onSaveDraft={() => void save(step)}
+            onBack={() => void save(step - 1)}
+            onContinue={() => void (step < 8 ? save(step + 1) : finish())}
+          />
+        }
+      >
+        <p className="guided-workflow__muted">
+          {ownerName} · {propertyName}
+        </p>
+        {error ? (
+          <div role="alert" className="feedback feedback-error mb-4">
+            {error}{' '}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                setError('');
+                void api<WorkflowRecord>(`/workflows/${row.id}`)
+                  .then(updated)
+                  .catch((cause) => setError(userFacingError(cause)));
+              }}
+            >
+              Reload saved version
+            </button>
           </div>
-          {error ? (
-            <div role="alert" className="feedback feedback-error mb-4">
-              {error}{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => {
-                  setError('');
-                  void api<WorkflowRecord>(`/workflows/${row.id}`)
-                    .then(updated)
-                    .catch((cause) => setError(userFacingError(cause)));
-                }}
-              >
-                Reload saved version
-              </button>
-            </div>
-          ) : null}
+        ) : null}
           {step === 1 ? (
             <RecordPicker
               label="Existing owner"
@@ -446,58 +453,14 @@ export function OnboardingWorkspace({
               ) : null}
             </div>
           ) : null}
-          <OnboardingCreate
-            key={`${row.id}-${step}-${payload.propertyId ?? ''}-${payload.ownershipId ?? ''}`}
-            row={{ ...row, payload, version: versionRef.current }}
-            principal={principal}
-            onSaved={updated}
-            onBusyChange={setCommandBusy}
-          />
-          <footer className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:flex-wrap sm:justify-end">
-            {principal.permissions.includes('workflow.draft.cancel') &&
-            ['DRAFT', 'IN_PROGRESS', 'FAILED'].includes(row.status) ? (
-              <button
-                type="button"
-                className="button danger sm:mr-auto"
-                disabled={pending}
-                onClick={() => setCancelOpen(true)}
-              >
-                Cancel workflow
-              </button>
-            ) : null}
-            <button
-              className="button secondary"
-              disabled={pending}
-              onClick={() => void save(step, true)}
-            >
-              Save & resume later
-            </button>
-            <button
-              className="button secondary"
-              disabled={pending || step === 1}
-              onClick={() => void save(step - 1)}
-            >
-              Back
-            </button>
-            <button className="button secondary" disabled={pending} onClick={() => void save(step)}>
-              Save Draft
-            </button>
-            {step < 8 ? (
-              <button
-                className="button primary"
-                disabled={pending || (step === 3 && !payload.ownershipId)}
-                onClick={() => void save(step + 1)}
-              >
-                {busy ? 'Saving…' : 'Continue'}
-              </button>
-            ) : (
-              <button className="button primary" disabled={pending} onClick={() => void finish()}>
-                {busy ? 'Completing…' : 'Complete onboarding'}
-              </button>
-            )}
-          </footer>
-        </section>
-      </div>
+        <OnboardingCreate
+          key={`${row.id}-${step}-${payload.propertyId ?? ''}-${payload.ownershipId ?? ''}`}
+          row={{ ...row, payload, version: versionRef.current }}
+          principal={principal}
+          onSaved={updated}
+          onBusyChange={setCommandBusy}
+        />
+      </GuidedWorkflowShell>
       {cancelOpen ? (
         <WorkflowCancel row={row} onClose={() => setCancelOpen(false)} onSaved={updated} />
       ) : null}
