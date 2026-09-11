@@ -2308,28 +2308,23 @@ details[open] > :not(summary) {
 .guided-workflow__track-line.is-active {
   background: var(--primary);
 }
-.guided-workflow__layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 20px;
-  align-items: start;
-}
-.guided-workflow__main,
-.guided-workflow__aside-card,
-.guided-workflow__help {
+.guided-workflow__main {
+  min-width: 0;
+  padding: 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   background: white;
   box-shadow: var(--shadow-card);
 }
-.guided-workflow__main {
-  padding: 24px;
-}
 .guided-workflow__step-head {
   display: flex;
   gap: 14px;
   align-items: flex-start;
+  min-width: 0;
   margin-bottom: 18px;
+}
+.guided-workflow__step-head > div:last-child {
+  min-width: 0;
 }
 .guided-workflow__step-icon {
   display: grid;
@@ -2376,100 +2371,6 @@ details[open] > :not(summary) {
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
-}
-.guided-workflow__aside {
-  display: grid;
-  gap: 16px;
-}
-.guided-workflow__aside-card,
-.guided-workflow__help {
-  padding: 18px;
-}
-.guided-workflow__aside-card h2,
-.guided-workflow__help h3 {
-  margin-bottom: 6px;
-  font-size: 16px;
-}
-.guided-workflow__aside-meta {
-  margin: 0 0 14px;
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-.guided-workflow__aside-steps {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.guided-workflow__aside-step {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  color: var(--text-secondary);
-}
-.guided-workflow__aside-step strong,
-.guided-workflow__aside-step span {
-  display: block;
-}
-.guided-workflow__aside-step span {
-  margin-top: 2px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  line-height: 1.45;
-}
-.guided-workflow__aside-step.is-active strong {
-  color: var(--primary-hover);
-}
-.guided-workflow__aside-index {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  font-size: 12px;
-  font-weight: 700;
-}
-.guided-workflow__aside-step.is-active .guided-workflow__aside-index {
-  background: var(--primary);
-  color: white;
-}
-.guided-workflow__aside-step.is-complete .guided-workflow__aside-index {
-  background: var(--success-soft);
-  color: var(--success);
-}
-.guided-workflow__help {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 12px;
-  background: var(--primary-soft);
-  border-color: var(--success-border);
-}
-.guided-workflow__help-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: white;
-  color: var(--primary);
-}
-.guided-workflow__help p {
-  margin: 0 0 10px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
-}
-.guided-workflow__help-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--primary-hover);
-  font-size: 13px;
-  font-weight: 650;
-  text-decoration: none;
 }
 .guided-workflow__footer {
   position: sticky;
@@ -2520,6 +2421,7 @@ details[open] > :not(summary) {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -2527,9 +2429,81 @@ details[open] > :not(summary) {
 }
 .guided-workflow__search input {
   width: 100%;
+  min-width: 0;
   border: 0;
   background: transparent;
   padding: 12px 0;
+}
+.guided-workflow__record-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(420px, 55vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.guided-workflow__record-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: white;
+  text-align: left;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+.guided-workflow__record-row:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+}
+.guided-workflow__record-row.is-selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 1px rgb(5 150 105 / 0.12);
+}
+.guided-workflow__record-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: var(--primary);
+}
+.guided-workflow__record-row.is-selected .guided-workflow__record-avatar {
+  background: white;
+}
+.guided-workflow__record-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.guided-workflow__record-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--foreground);
+}
+.guided-workflow__record-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.guided-workflow__record-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
 }
 .guided-workflow__property-grid {
   display: grid;
@@ -2667,20 +2641,33 @@ details[open] > :not(summary) {
   .guided-workflow__track-step {
     min-width: 92px;
   }
-  .guided-workflow__layout {
-    grid-template-columns: 1fr;
-  }
   .guided-workflow__property-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 767px) {
+  .guided-workflow__main {
+    padding: 16px;
+  }
   .guided-workflow__property-grid,
   .guided-workflow__review-grid {
     grid-template-columns: 1fr;
   }
+  .guided-workflow__record-list {
+    max-height: min(360px, 50vh);
+  }
   .guided-workflow__footer {
     position: static;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .guided-workflow__footer-actions {
+    width: 100%;
+  }
+  .guided-workflow__footer-actions .button,
+  .guided-workflow__footer > .button {
+    width: 100%;
+    justify-content: center;
   }
 }

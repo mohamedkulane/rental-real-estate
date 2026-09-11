@@ -9,9 +9,10 @@ import { ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/
 import { api, pageItems, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { OperationsShell, useOperationsPrincipal } from '@/features/leasing/operations-shell';
 import { OnboardingWorkspace } from './onboarding-workspace';
-import { Building2 } from 'lucide-react';
+import { Building2, UserRound } from 'lucide-react';
 import { GuidedWorkflowFooter, GuidedWorkflowShell } from './guided-workflow-shell';
 import { stepPresentation, workflowPresentation } from './workflow-presentation';
+import { WorkflowOwnerPicker } from './workflow-owner-picker';
 import { WorkflowPropertyPicker } from './workflow-property-picker';
 import { EntityDocuments } from '@/features/portfolio/entity-documents';
 import { WorkflowServiceCreate } from './workflow-service-create';
@@ -315,7 +316,12 @@ export function WorkflowEditor({ workflowId }: { workflowId: string }) {
   const stepMeta = stepPresentation(row.type, step);
   const progressPercent = Math.round((step / steps.length) * 100);
   const pending = commandBusy || save.isPending || complete.isPending;
-  const stepIcon = kind === 'property' ? <Building2 size={20} /> : undefined;
+  const stepIcon =
+    kind === 'property' ? (
+      <Building2 size={20} />
+    ) : kind === 'owner' ? (
+      <UserRound size={20} />
+    ) : undefined;
 
   const stepContent = (
     <>
@@ -394,6 +400,16 @@ export function WorkflowEditor({ workflowId }: { workflowId: string }) {
           onSearchChange={setSearch}
           onSelect={setSelected}
         />
+      ) : kind === 'owner' ? (
+        <WorkflowOwnerPicker
+          rows={selector.data ? pageItems(selector.data) : []}
+          selectedId={selected ?? ''}
+          loading={selector.isLoading}
+          search={search}
+          onSearchChange={setSearch}
+          onSelect={setSelected}
+          optional={row.type === 'PROPERTY_SALE'}
+        />
       ) : (
         <div className="guided-workflow__picker">
           <label className="guided-workflow__field">
@@ -409,9 +425,7 @@ export function WorkflowEditor({ workflowId }: { workflowId: string }) {
               onChange={(event) => setSelected(event.target.value)}
             >
               <option value="">
-                {kind === 'buildings' ||
-                kind === 'documents' ||
-                (kind === 'owner' && row.type === 'PROPERTY_SALE')
+                {kind === 'buildings' || kind === 'documents'
                   ? 'Skip this optional step'
                   : `Choose ${stepDefinition.label}`}
               </option>
