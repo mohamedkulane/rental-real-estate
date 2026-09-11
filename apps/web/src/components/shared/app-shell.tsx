@@ -231,7 +231,7 @@ export function AppShell({
 
           <SidebarAccordion
             groups={sidebarGroups}
-            activeItem={activeItem}
+            {...(activeItem ? { activeItem } : {})}
             collapsed={accordionCollapsed}
             onCollapsedChange={setSidebarCollapsed}
             onNavigate={() => setOpen(false)}

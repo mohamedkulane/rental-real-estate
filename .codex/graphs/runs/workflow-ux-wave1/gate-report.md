@@ -15,12 +15,13 @@ DESIGN SOURCE: `531cbac`
 - Keyboard/mobile interaction: PASS — focus trap, Escape, focus restoration, and ARIA state covered in source review
 - Future-phase scope leakage: PASS (none)
 - Wave 2 started: NO
-- Phase 5.3 started: NO
+- Phase 5.9 operational closure: PASS
+- Phase 6 started: NO
 
 WAVE 1 GATE: PASS
 
 Exact viewport evidence is deferred to Wave 9 as explicitly approved. Wave 1
-passes its current gate and Wave 2 may proceed. Phase 5.3 remains NOT STARTED.
+passes its current gate and Wave 2 may proceed. Phase 5.9 operational closure is PASS on branch `codex/workflow-ux-wave1`. Phase 6 remains NOT STARTED.
 
 UNRESOLVED CRITICAL: 0
 UNRESOLVED HIGH: 0

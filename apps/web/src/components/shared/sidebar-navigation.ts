@@ -5,13 +5,10 @@ import {
   ClipboardList,
   ContactRound,
   FileBarChart,
-  Handshake,
-  Home,
   KeyRound,
   Landmark,
   Settings,
   ShoppingBag,
-  Users,
   Wrench,
 } from 'lucide-react';
 import {

@@ -277,14 +277,6 @@ export function crmNavigation(
     }));
 }
 
-function collapsibleWhenChildren(
-  key: string,
-  label: string,
-  children: NavigationItem[],
-): NavigationItem[] {
-  return children.length ? [{ key, label, children }] : [];
-}
-
 export function customersNavigation(
   permissions: string[],
   navigate: (href: string) => void,
@@ -445,6 +437,8 @@ export function commercialNavigation(
   permissions: string[],
   navigate: (href: string) => void,
 ): NavigationItem[] {
+  void permissions;
+  void navigate;
   return [];
 }
 

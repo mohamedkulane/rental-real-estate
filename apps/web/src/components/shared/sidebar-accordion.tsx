@@ -1,6 +1,5 @@
 'use client';
 
-import type { LucideIcon } from 'lucide-react';
 import { ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {

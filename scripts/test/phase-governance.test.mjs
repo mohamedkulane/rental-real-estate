@@ -5,6 +5,9 @@ import {
   crmModels,
   crmPassLabels,
   crmReportPath,
+  operationalClosureReportPath,
+  phase5OperationalModels,
+  phase59PassLabels,
   reviewLabels,
   validateIndependentReviews,
   validateModelInventory,
@@ -85,6 +88,33 @@ test('rejects later phase metadata and widened schema scope', () => {
   ]) {
     assert.throws(() => validatePhaseMetadata({ ...active, ...patch }, incomplete));
   }
+});
+test('accepts Phase 5.9 closure metadata and operational inventory', () => {
+  const phase59 = {
+    completedPhase: 4,
+    phase5Started: true,
+    phase5SubPhase: '5.9',
+    currentGate: 'PHASE_5_9_OPERATIONAL_CLOSURE_PASS',
+    productionSchemaScope: 'PHASES_1_TO_5_9_ONLY',
+    phase6Started: false,
+    phase53Started: true,
+    canonicalClosureReport: operationalClosureReportPath,
+    graphRun: '.codex/graphs/runs/workflow-ux-wave1',
+  };
+  const operationalComplete = [
+    ...phase59PassLabels.map((label) => `${label}: PASS`),
+    'PHASE 6 STARTED: NO',
+    'UNRESOLVED CRITICAL: 0',
+    'UNRESOLVED HIGH: 0',
+  ].join('\n');
+  const result = validatePhaseMetadata(phase59, '', operationalComplete);
+  assert.equal(result.operationalApproved, true);
+  validateModelInventory(
+    schema([...baselineModels, ...crmModels, ...phase5OperationalModels]),
+    true,
+    true,
+  );
+  assert.throws(() => validatePhaseMetadata({ ...phase59, phase6Started: true }, '', operationalComplete));
 });
 test('rejects every prohibited future-domain model and unknown additions', () => {
   for (const future of [

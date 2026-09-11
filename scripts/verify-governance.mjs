@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
   crmReportPath,
+  operationalClosureReportPath,
   reviewLabels,
   validateIndependentReviews,
   validateModelInventory,
@@ -47,12 +48,25 @@ for (const phase of ['01-database', '02-foundation', '03-identity-access', '04-p
 }
 
 const metadata = JSON.parse(readFileSync(join(root, 'docs/governance/current-phase.json'), 'utf8'));
-const phase = validatePhaseMetadata(
-  metadata,
-  metadata.phase5SubPhase === '5.2' ? readFileSync(join(root, crmReportPath), 'utf8') : '',
-);
-if (phase.crmApproved && !existsSync(join(root, metadata.graphRun, 'status.md'))) {
+const crmReport = readFileSync(join(root, crmReportPath), 'utf8');
+const operationalReport =
+  metadata.phase5SubPhase === '5.9'
+    ? readFileSync(join(root, operationalClosureReportPath), 'utf8')
+    : '';
+const phase = validatePhaseMetadata(metadata, crmReport, operationalReport);
+if (
+  phase.crmApproved &&
+  metadata.phase5SubPhase === '5.2' &&
+  !existsSync(join(root, metadata.graphRun, 'status.md'))
+) {
   throw new Error('Approved Phase 5.2 graph run is missing.');
+}
+if (
+  phase.operationalApproved &&
+  metadata.phase5SubPhase === '5.9' &&
+  !existsSync(join(root, metadata.graphRun, 'gate-report.md'))
+) {
+  throw new Error('Approved Phase 5.9 graph run is missing.');
 }
 if (phase.gate === 'PHASE_5_2_CRM_FOUNDATION_PASS') {
   validateIndependentReviews(
@@ -72,7 +86,7 @@ if (!/PHASE 5\.2 STARTED:\s*NO/i.test(phase51Report))
   throw new Error('Phase 5.1 completion report must confirm Phase 5.2 has not started.');
 
 const schema = readFileSync(join(root, 'prisma/schema.prisma'), 'utf8');
-validateModelInventory(schema, phase.crmApproved);
+validateModelInventory(schema, phase.crmApproved, phase.operationalApproved);
 
 const schemaTables = new Set([...schema.matchAll(/@@map\("([^"]+)"\)/g)].map((match) => match[1]));
 const migrationRoot = join(root, 'prisma/migrations');
@@ -117,5 +131,5 @@ execFileSync(process.execPath, ['--test', join(root, 'scripts/test/phase-governa
 });
 
 console.log(
-  `Governance verified: ${schemaTables.size} operational models/tables; ${phase.gate}; Phase 5.3 not started. This check does not approve phase closure.`,
+  `Governance verified: ${schemaTables.size} operational models/tables; ${phase.gate}; Phase 6 not started. This check does not approve phase closure.`,
 );

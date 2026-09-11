@@ -3,13 +3,7 @@ import { AlertCircle, CheckCircle2, Inbox, Landmark, RotateCcw } from 'lucide-re
 import { humanize, statusTone } from '@/lib/presentation';
 import {
   AppLoadingScreen,
-  DashboardSkeleton,
-  FormSkeleton,
-  ImageSkeleton,
-  InlineLoading,
-  PageSkeleton,
   SectionLoading,
-  TableSkeleton,
 } from './loading-system';
 
 export {

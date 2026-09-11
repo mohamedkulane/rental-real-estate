@@ -240,7 +240,7 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
           ...(canReadChild(principal, 'crm.activity.read', branch!) ? ['activity'] : []),
           ...(canReadChild(principal, 'crm.followup.read', branch!) ? ['follow-ups'] : []),
           ...(canReadChild(principal, 'crm.assignment.read', branch!) ? ['assignment'] : []),
-          ...(can(principal, 'listing.match', branch!) &&
+          ...(can(principal, 'listing.match', branch) &&
           (lead.intent === 'RENT' || lead.intent === 'BUY')
             ? ['matches']
             : []),

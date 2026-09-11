@@ -10,8 +10,14 @@ import { RecordPicker, type PickRecord } from '@/features/workflow/record-picker
 
 export type OperationsMode = 'rental-listings' | 'sale-listings' | 'viewings' | 'applications' | 'reservations' | 'tenants' | 'leases' | 'renewals' | 'move-ins';
 type Row = Record<string, unknown> & { id: string; status?: string; version?: number };
-const record = (value: unknown) => value && typeof value === 'object' ? value as Record<string, unknown> : {};
-const value = (row: Record<string, unknown>, key: string) => typeof row[key] === 'string' ? row[key] as string : '';
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
+const value = (row: Record<string, unknown>, key: string) => {
+  const candidate = row[key];
+  return typeof candidate === 'string' ? candidate : '';
+};
 const label = (row: Record<string, unknown>, number: string, name: string) => `${value(row, number)} — ${value(row, name)}`;
 const dateInput = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const dateTimeInput = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 16);
@@ -50,7 +56,10 @@ function pickerMap(kind: string) {
       label: `${value(raw, 'leaseNumber')} — ${value(space, 'name')}`,
       leaseEndDate: value(raw, 'leaseEndDate'),
       leaseStartDate: value(raw, 'leaseStartDate'),
-      rentAmount: raw.rentAmount != null ? String(raw.rentAmount) : '',
+      rentAmount:
+        typeof raw.rentAmount === 'string' || typeof raw.rentAmount === 'number'
+          ? String(raw.rentAmount)
+          : '',
       currency: value(raw, 'currency') || 'USD',
     };
     return { id: value(raw, 'id'), label: value(raw, 'id') };

@@ -39,7 +39,7 @@ export function LoginForm() {
 
   useEffect(() => {
     let active = true;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryTimer: number | undefined;
     let attempt = 0;
 
     async function checkHealth() {

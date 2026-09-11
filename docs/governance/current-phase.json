@@ -1,10 +1,11 @@
 {
   "completedPhase": 4,
-  "currentGate": "PHASE_5_2_CRM_FOUNDATION_PASS",
+  "currentGate": "PHASE_5_9_OPERATIONAL_CLOSURE_PASS",
   "phase5Started": true,
-  "phase5SubPhase": "5.2",
-  "productionSchemaScope": "PHASES_1_TO_5_2_ONLY",
-  "canonicalClosureReport": "docs/phases/phase-05/crm-foundation/completion-report.md",
-  "graphRun": ".codex/graphs/runs/phase-05-02",
-  "phase53Started": false
+  "phase5SubPhase": "5.9",
+  "productionSchemaScope": "PHASES_1_TO_5_9_ONLY",
+  "canonicalClosureReport": "docs/decisions/16-phase-5-operational-closure.md",
+  "graphRun": ".codex/graphs/runs/workflow-ux-wave1",
+  "phase53Started": true,
+  "phase6Started": false
 }
