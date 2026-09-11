@@ -8,6 +8,11 @@ import {
   operationalClosureReportPath,
   phase5OperationalModels,
   phase59PassLabels,
+  phase6FinanceModels,
+  phase7CommercialModels,
+  phase8ClosureReportPath,
+  phase8OperationsModels,
+  phase813PassLabels,
   reviewLabels,
   validateIndependentReviews,
   validateModelInventory,
@@ -179,3 +184,42 @@ test('rejects premature PASS and accepts only a complete closure declaration', (
   }
   assert.equal(validatePhaseMetadata(passed, complete).gate, passed.currentGate);
 });
+test('accepts Phase 8 operations closure metadata and inventory', () => {
+  const phase8 = {
+    completedPhase: 8,
+    phase5Started: true,
+    phase5SubPhase: '8.13',
+    currentGate: 'PHASE_8_13_OPERATIONS_CLOSURE_PASS',
+    productionSchemaScope: 'PHASES_1_TO_8_ONLY',
+    canonicalClosureReport: phase8ClosureReportPath,
+    graphRun: '.codex/graphs/runs/workflow-ux-wave1',
+    phase53Started: true,
+    phase6Started: true,
+    phase7Started: true,
+    phase8Started: true,
+  };
+  const operationsComplete = [
+    ...phase813PassLabels.map((label) => `${label}: PASS`),
+    'PHASE 9 STARTED: NO',
+    'UNRESOLVED CRITICAL: 0',
+    'UNRESOLVED HIGH: 0',
+  ].join('\n');
+  const result = validatePhaseMetadata(phase8, '', '', '', '', operationsComplete);
+  assert.equal(result.operationsApproved, true);
+  validateModelInventory(
+    schema([
+      ...baselineModels,
+      ...crmModels,
+      ...phase5OperationalModels,
+      ...phase6FinanceModels,
+      ...phase7CommercialModels,
+      ...phase8OperationsModels,
+    ]),
+    true,
+    true,
+    true,
+    true,
+    true,
+  );
+});
+

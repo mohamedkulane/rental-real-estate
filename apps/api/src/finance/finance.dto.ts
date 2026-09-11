@@ -33,6 +33,20 @@ export class FinanceBranchQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() branchId?: string;
 }
 
+export class OwnerStatementQueryDto extends FinanceBranchQueryDto {
+  @IsOptional() @IsUUID() ownerPartyId?: string;
+  @IsOptional() @IsUUID() propertyId?: string;
+}
+
+export class GenerateOwnerStatementDto {
+  @IsUUID() branchId!: string;
+  @IsUUID() ownerPartyId!: string;
+  @IsOptional() @IsUUID() propertyId?: string;
+  @IsDateString() periodStart!: string;
+  @IsDateString() periodEnd!: string;
+  @IsString() @Length(3, 3) currency!: string;
+}
+
 export class BillingScheduleQueryDto extends FinanceBranchQueryDto {
   @IsOptional() @IsUUID() serviceEngagementId?: string;
   @IsOptional() @IsUUID() leaseId?: string;

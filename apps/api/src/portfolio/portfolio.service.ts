@@ -21,6 +21,7 @@ import type {
   CreateDocumentMetadataDto,
   CreatePropertyDto,
   CreateSpaceDto,
+  DocumentEntityType,
   ListDocumentsQueryDto,
   ListPropertiesQueryDto,
   ListBuildingsQueryDto,
@@ -2379,7 +2380,7 @@ export class PortfolioService {
 
   private async assertDocumentEntityPermission(
     principal: AuthenticatedPrincipal,
-    entityType: 'Property' | 'RentableSpace' | 'Owner',
+    entityType: DocumentEntityType,
     entityId: string,
     permission: string,
   ): Promise<string | undefined> {
@@ -2391,6 +2392,43 @@ export class PortfolioService {
         where: { id: entityId, property: { companyId: principal.companyId } },
       });
       return this.assertPropertyPermission(principal, space.propertyId, permission);
+    }
+    if (entityType === 'MaintenanceRequest') {
+      const row = await this.database.maintenanceRequest.findFirstOrThrow({
+        where: { id: entityId, companyId: principal.companyId },
+      });
+      this.authorization.assertBranchPermission(principal, 'maintenance.read', row.branchId);
+      return row.branchId;
+    }
+    if (entityType === 'WorkOrder') {
+      const row = await this.database.workOrder.findFirstOrThrow({
+        where: { id: entityId, companyId: principal.companyId },
+      });
+      this.authorization.assertBranchPermission(principal, 'work-order.read', row.branchId);
+      return row.branchId;
+    }
+    if (entityType === 'Inspection') {
+      const row = await this.database.inspection.findFirstOrThrow({
+        where: { id: entityId, companyId: principal.companyId },
+      });
+      this.authorization.assertBranchPermission(principal, 'inspection.read', row.branchId);
+      return row.branchId;
+    }
+    if (entityType === 'DefectIssue') {
+      const row = await this.database.defectIssue.findFirstOrThrow({
+        where: { id: entityId, companyId: principal.companyId },
+      });
+      this.authorization.assertBranchPermission(principal, 'defect.read', row.branchId);
+      return row.branchId;
+    }
+    if (entityType === 'Vendor') {
+      const row = await this.database.vendorProfile.findFirstOrThrow({
+        where: { partyId: entityId, party: { companyId: principal.companyId } },
+        include: { branches: true },
+      });
+      const branchId = row.branches[0]?.branchId;
+      if (branchId) this.authorization.assertBranchPermission(principal, 'vendor.read', branchId);
+      return branchId;
     }
     const ownerBranchIds = await this.assertOwnerPermission(principal, entityId, permission);
     return ownerBranchIds.length === 1 ? ownerBranchIds[0] : undefined;
@@ -2469,7 +2507,7 @@ export class PortfolioService {
 
   private async documentEntityIds(
     principal: AuthenticatedPrincipal,
-    entityType: 'Property' | 'RentableSpace' | 'Owner',
+    entityType: DocumentEntityType,
     entitySearch?: string,
   ): Promise<string[] | null> {
     const permission = 'portfolio.document.read';
@@ -2526,6 +2564,46 @@ export class PortfolioService {
         select: { id: true },
       });
       return spaces.map((space) => space.id);
+    }
+
+    const scoped = branchIds === null ? {} : { branchId: { in: branchIds } };
+    if (entityType === 'MaintenanceRequest') {
+      const rows = await this.database.maintenanceRequest.findMany({
+        where: { companyId: principal.companyId, ...scoped },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    }
+    if (entityType === 'WorkOrder') {
+      const rows = await this.database.workOrder.findMany({
+        where: { companyId: principal.companyId, ...scoped },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    }
+    if (entityType === 'Inspection') {
+      const rows = await this.database.inspection.findMany({
+        where: { companyId: principal.companyId, ...scoped },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    }
+    if (entityType === 'DefectIssue') {
+      const rows = await this.database.defectIssue.findMany({
+        where: { companyId: principal.companyId, ...scoped },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    }
+    if (entityType === 'Vendor') {
+      const rows = await this.database.vendorProfile.findMany({
+        where: {
+          party: { companyId: principal.companyId },
+          ...(branchIds === null ? {} : { branches: { some: { branchId: { in: branchIds } } } }),
+        },
+        select: { partyId: true },
+      });
+      return rows.map((row) => row.partyId);
     }
 
     const active = {
@@ -2721,7 +2799,7 @@ export class PortfolioService {
     }
     await this.assertDocumentEntityPermission(
       principal,
-      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityType as DocumentEntityType,
       link.entityId,
       'portfolio.document.read',
     );
@@ -2744,7 +2822,7 @@ export class PortfolioService {
     }
     const branchId = await this.assertDocumentEntityPermission(
       principal,
-      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityType as DocumentEntityType,
       link.entityId,
       'portfolio.document.manage',
     );
@@ -2804,7 +2882,7 @@ export class PortfolioService {
     }
     const branchId = await this.assertDocumentEntityPermission(
       principal,
-      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityType as DocumentEntityType,
       link.entityId,
       'portfolio.document.read',
     );
@@ -2847,7 +2925,7 @@ export class PortfolioService {
     }
     const branchId = await this.assertDocumentEntityPermission(
       principal,
-      link.entityType as 'Property' | 'RentableSpace' | 'Owner',
+      link.entityType as DocumentEntityType,
       link.entityId,
       'portfolio.document.manage',
     );

@@ -23,12 +23,6 @@ export class FinanceOverviewService {
     return branchIds === null ? {} : { branchId: { in: [...branchIds] } };
   }
 
-  private branches(principal: AuthenticatedPrincipal, permission: string, branchId?: string) {
-    const allowed = this.auth.authorizedBranchIds(principal, permission);
-    if (allowed === null) return branchId ? [branchId] : null;
-    return [...allowed].filter((id) => !branchId || id === branchId);
-  }
-
   async overview(principal: AuthenticatedPrincipal) {
     const companyId = principal.companyId;
     const [openInvoices, unallocatedPayments, pendingOwnerPayouts, openExpenses, draftJournals, recentInvoices, recentPayments] =
@@ -99,27 +93,6 @@ export class FinanceOverviewService {
       },
       recentInvoices,
       recentPayments,
-    };
-  }
-
-  async listOwnerStatements(principal: AuthenticatedPrincipal, query: { branchId?: string; cursor?: string; limit: number }) {
-    const branchIds = this.branches(principal, 'owner-statement.read', query.branchId);
-    const where = {
-      companyId: principal.companyId,
-      ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
-    };
-    const rows = await this.db.ownerStatement.findMany({
-      where,
-      take: query.limit + 1,
-      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-      orderBy: [{ periodStart: 'desc' }, { id: 'desc' }],
-      include: { owner: { select: { displayName: true } } },
-    });
-    const hasMore = rows.length > query.limit;
-    const items = hasMore ? rows.slice(0, query.limit) : rows;
-    return {
-      items,
-      nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null,
     };
   }
 }

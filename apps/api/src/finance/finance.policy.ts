@@ -78,6 +78,95 @@ export function assertManualPaymentOnly(autoCapture?: boolean): void {
   }
 }
 
+export const ownerStatementLineCodes = [
+  'OPENING_BALANCE',
+  'RENT_COLLECTED',
+  'MANAGEMENT_FEE',
+  'EXPENSE',
+  'ADJUSTMENT',
+  'PAYOUT',
+  'CLOSING_BALANCE',
+] as const;
+
+export type OwnerStatementLineCode = (typeof ownerStatementLineCodes)[number];
+
+export function ownerStatementIdempotencyKey(input: {
+  ownerPartyId: string;
+  propertyId?: string | null;
+  periodStart: Date;
+  periodEnd: Date;
+  currency: string;
+}): string {
+  const propertyScope = input.propertyId ?? 'portfolio';
+  return `owner-statement:${input.ownerPartyId}:${propertyScope}:${input.periodStart.toISOString().slice(0, 10)}:${input.periodEnd.toISOString().slice(0, 10)}:${input.currency.toUpperCase()}`;
+}
+
+export function assembleOwnerStatementLines(input: {
+  openingBalance: Prisma.Decimal;
+  rentCollected: Prisma.Decimal;
+  managementFee: Prisma.Decimal;
+  expenses: Prisma.Decimal;
+  adjustments: Prisma.Decimal;
+  payouts: Prisma.Decimal;
+}): {
+  lines: Array<{ lineCode: OwnerStatementLineCode; description: string; amount: Prisma.Decimal }>;
+  closingBalance: Prisma.Decimal;
+} {
+  const closingBalance = input.openingBalance
+    .plus(input.rentCollected)
+    .minus(input.managementFee)
+    .minus(input.expenses)
+    .plus(input.adjustments)
+    .minus(input.payouts);
+  return {
+    closingBalance,
+    lines: [
+      {
+        lineCode: 'OPENING_BALANCE',
+        description: 'Opening balance',
+        amount: input.openingBalance,
+      },
+      {
+        lineCode: 'RENT_COLLECTED',
+        description: 'Rent collected',
+        amount: input.rentCollected,
+      },
+      {
+        lineCode: 'MANAGEMENT_FEE',
+        description: 'Management fees',
+        amount: input.managementFee.negated(),
+      },
+      {
+        lineCode: 'EXPENSE',
+        description: 'Owner expenses',
+        amount: input.expenses.negated(),
+      },
+      {
+        lineCode: 'ADJUSTMENT',
+        description: 'Adjustments',
+        amount: input.adjustments,
+      },
+      {
+        lineCode: 'PAYOUT',
+        description: 'Owner payouts',
+        amount: input.payouts.negated(),
+      },
+      {
+        lineCode: 'CLOSING_BALANCE',
+        description: 'Closing balance',
+        amount: closingBalance,
+      },
+    ],
+  };
+}
+
+export function applyOwnershipShare(
+  amount: Prisma.Decimal,
+  ownershipPercent: Prisma.Decimal,
+): Prisma.Decimal {
+  return amount.mul(ownershipPercent).div(100);
+}
+
 export function replayIdempotentRecord<T extends { companyId: string }>(
   existing: T | null | undefined,
   companyId: string,

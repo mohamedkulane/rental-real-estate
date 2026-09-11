@@ -1,12 +1,13 @@
 {
-  "completedPhase": 7,
-  "currentGate": "PHASE_7_13_COMMERCIAL_CLOSURE_PASS",
+  "completedPhase": 8,
+  "currentGate": "PHASE_8_13_OPERATIONS_CLOSURE_PASS",
   "phase5Started": true,
-  "phase5SubPhase": "7.13",
-  "productionSchemaScope": "PHASES_1_TO_7_ONLY",
-  "canonicalClosureReport": "docs/decisions/18-phase-7-commercial-closure.md",
+  "phase5SubPhase": "8.13",
+  "productionSchemaScope": "PHASES_1_TO_8_ONLY",
+  "canonicalClosureReport": "docs/decisions/19-phase-8-operations-closure.md",
   "graphRun": ".codex/graphs/runs/workflow-ux-wave1",
   "phase53Started": true,
   "phase6Started": true,
-  "phase7Started": true
+  "phase7Started": true,
+  "phase8Started": true
 }

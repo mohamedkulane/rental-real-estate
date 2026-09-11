@@ -5,7 +5,8 @@ export type RecordNumberKind =
   | 'ENGAGEMENT' | 'RENTAL_LISTING' | 'SALE_LISTING' | 'APPLICATION'
   | 'RESERVATION' | 'TENANT' | 'LEASE'
   | 'CHARGE' | 'INVOICE' | 'PAYMENT' | 'RECEIPT' | 'EXPENSE' | 'PAYOUT'
-  | 'JOURNAL' | 'BROKERAGE_DEAL' | 'SALE_OFFER' | 'SALE_SETTLEMENT';
+  | 'STATEMENT' | 'JOURNAL' | 'BROKERAGE_DEAL' | 'SALE_OFFER' | 'SALE_SETTLEMENT'
+  | 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'INSPECTION' | 'DEFECT';
 
 const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; width: number }> = {
   BRANCH: { prefix: 'BR', sequence: 'public.branch_record_number_seq', width: 3 },
@@ -32,10 +33,15 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   RECEIPT: { prefix: 'RCT', sequence: 'public.receipt_record_number_seq', width: 6 },
   EXPENSE: { prefix: 'EXP', sequence: 'public.expense_record_number_seq', width: 6 },
   PAYOUT: { prefix: 'PO', sequence: 'public.payout_record_number_seq', width: 6 },
+  STATEMENT: { prefix: 'OST', sequence: 'public.owner_statement_record_number_seq', width: 6 },
   JOURNAL: { prefix: 'JRN', sequence: 'public.journal_record_number_seq', width: 6 },
   BROKERAGE_DEAL: { prefix: 'BD', sequence: 'public.brokerage_deal_record_number_seq', width: 6 },
   SALE_OFFER: { prefix: 'SO', sequence: 'public.sale_offer_record_number_seq', width: 6 },
   SALE_SETTLEMENT: { prefix: 'SS', sequence: 'public.sale_settlement_record_number_seq', width: 6 },
+  MAINTENANCE_REQUEST: { prefix: 'MR', sequence: 'public.maintenance_request_record_number_seq', width: 6 },
+  WORK_ORDER: { prefix: 'WO', sequence: 'public.work_order_record_number_seq', width: 6 },
+  INSPECTION: { prefix: 'INSP', sequence: 'public.inspection_record_number_seq', width: 6 },
+  DEFECT: { prefix: 'DEF', sequence: 'public.defect_issue_record_number_seq', width: 6 },
 };
 
 export async function nextRecordNumber(

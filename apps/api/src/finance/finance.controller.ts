@@ -22,12 +22,13 @@ import {
   CreateSaleSettlementDto,
   ExpenseQueryDto,
   ExpenseTransitionDto,
-  FinanceBranchQueryDto,
+  GenerateOwnerStatementDto,
   InvoiceQueryDto,
   IssueInvoiceDto,
   JournalQueryDto,
   OwnerPayoutQueryDto,
   OwnerPayoutTransitionDto,
+  OwnerStatementQueryDto,
   PaymentQueryDto,
   ReverseJournalDto,
   RunBillingDto,
@@ -39,6 +40,7 @@ import {
 import { ExpenseService } from './expense.service';
 import { FinanceOverviewService } from './finance-overview.service';
 import { OwnerPayoutService } from './owner-payout.service';
+import { OwnerStatementService } from './owner-statement.service';
 import { PaymentService } from './payment.service';
 import { SaleOfferService } from './sale-offer.service';
 import { SaleSettlementService } from './sale-settlement.service';
@@ -266,12 +268,24 @@ export class FinanceOverviewController {
 @UseGuards(SessionAuthGuard, PermissionGuard)
 @Controller({ path: 'owner-statements', version: '1' })
 export class OwnerStatementController {
-  constructor(private readonly overview: FinanceOverviewService) {}
+  constructor(private readonly statements: OwnerStatementService) {}
 
   @Get()
   @RequirePermissions('owner-statement.read')
-  list(@Req() req: AuthenticatedRequest, @Query() query: FinanceBranchQueryDto) {
-    return this.overview.listOwnerStatements(req.principal, query);
+  list(@Req() req: AuthenticatedRequest, @Query() query: OwnerStatementQueryDto) {
+    return this.statements.list(req.principal, query);
+  }
+
+  @Post()
+  @RequirePermissions('owner-statement.manage')
+  generate(@Req() req: AuthenticatedRequest, @Body() input: GenerateOwnerStatementDto) {
+    return this.statements.generate(req.principal, input, req.correlationId);
+  }
+
+  @Get(':id')
+  @RequirePermissions('owner-statement.read')
+  get(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.statements.get(req.principal, id);
   }
 }
 

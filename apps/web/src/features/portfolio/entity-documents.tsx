@@ -76,7 +76,7 @@ export function EntityDocuments({
   canManage,
   onUploaded,
 }: {
-  entityType: 'Property' | 'RentableSpace' | 'Owner';
+  entityType: 'Property' | 'RentableSpace' | 'Owner' | 'MaintenanceRequest' | 'WorkOrder' | 'Inspection' | 'DefectIssue' | 'Vendor';
   entityId: string;
   canManage: boolean;
   onUploaded?: (documentId: string) => void;

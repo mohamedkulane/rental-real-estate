@@ -6,11 +6,16 @@ import { hash } from 'argon2';
 import { parseSeedEnvironment } from '@rerms/config';
 import {
   PrismaClient,
+  AccountType,
   BranchAccessMode,
+  FundClass,
+  FiscalYearStatus,
   LeadIntent,
   LeadStage,
+  NormalBalance,
   OwnerStatus,
   PartyKind,
+  PeriodStatus,
   PropertyStatus,
   RentableSpaceStatus,
   ServiceEngagementStatus,
@@ -66,6 +71,26 @@ async function synchronizeRecordNumberSequences(): Promise<void> {
       SELECT MAX(substring("leadNumber" FROM '^LEAD-([0-9]+)$')::bigint)
         INTO maximum_value FROM leads WHERE "leadNumber" ~ '^LEAD-[0-9]+$';
       PERFORM setval('lead_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("statementNumber" FROM '^OST-([0-9]+)$')::bigint)
+        INTO maximum_value FROM owner_statements WHERE "statementNumber" ~ '^OST-[0-9]+$';
+      PERFORM setval('owner_statement_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("requestNumber" FROM '^MR-([0-9]+)$')::bigint)
+        INTO maximum_value FROM maintenance_requests WHERE "requestNumber" ~ '^MR-[0-9]+$';
+      PERFORM setval('maintenance_request_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("workOrderNumber" FROM '^WO-([0-9]+)$')::bigint)
+        INTO maximum_value FROM work_orders WHERE "workOrderNumber" ~ '^WO-[0-9]+$';
+      PERFORM setval('work_order_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("inspectionNumber" FROM '^INSP-([0-9]+)$')::bigint)
+        INTO maximum_value FROM inspections WHERE "inspectionNumber" ~ '^INSP-[0-9]+$';
+      PERFORM setval('inspection_record_number_seq', COALESCE(maximum_value + 1, 1), false);
+
+      SELECT MAX(substring("defectNumber" FROM '^DEF-([0-9]+)$')::bigint)
+        INTO maximum_value FROM defect_issues WHERE "defectNumber" ~ '^DEF-[0-9]+$';
+      PERFORM setval('defect_issue_record_number_seq', COALESCE(maximum_value + 1, 1), false);
     END $$;
   `;
 }
@@ -185,6 +210,7 @@ const permissions = [
   ['payout.read', 'Read owner payout drafts and history'],
   ['payout.manage', 'Calculate and approve owner payouts'],
   ['owner-statement.read', 'Read owner statements'],
+  ['owner-statement.manage', 'Generate and issue owner statements'],
   ['journal.read', 'Read journal entries'],
   ['journal.manage', 'Create, post, and reverse journal entries'],
   ['brokerage-deal.read', 'Read rental brokerage deal closures'],
@@ -193,6 +219,17 @@ const permissions = [
   ['sale-offer.manage', 'Manage property sale offers'],
   ['sale-settlement.read', 'Read property sale settlements'],
   ['sale-settlement.manage', 'Create and settle property sales'],
+  ['operations.overview.read', 'Read operations dashboard widgets'],
+  ['maintenance.read', 'Read maintenance requests'],
+  ['maintenance.manage', 'Create and progress maintenance requests'],
+  ['work-order.read', 'Read work orders'],
+  ['work-order.manage', 'Create and complete work orders'],
+  ['inspection.read', 'Read inspections'],
+  ['inspection.manage', 'Create and complete inspections'],
+  ['vendor.read', 'Read vendors and service providers'],
+  ['vendor.manage', 'Create and update vendors'],
+  ['defect.read', 'Read inspection defects'],
+  ['defect.manage', 'Create defects and follow-up work'],
 ] as const;
 
 const phase5OperationsPermissions = permissions
@@ -205,6 +242,14 @@ const phase6FinancePermissions = permissions
   .map(([code]) => code)
   .filter((code) =>
     ['billing.', 'finance.overview.', 'invoice.', 'payment.', 'expense.', 'payout.', 'owner-statement.', 'journal.', 'brokerage-deal.', 'sale-offer.', 'sale-settlement.'].some((prefix) =>
+      code.startsWith(prefix),
+    ),
+  );
+
+const phase8OperationsPermissions = permissions
+  .map(([code]) => code)
+  .filter((code) =>
+    ['operations.overview.', 'maintenance.', 'work-order.', 'inspection.', 'vendor.', 'defect.'].some((prefix) =>
       code.startsWith(prefix),
     ),
   );
@@ -285,6 +330,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'workflow.draft.complete',
     ...phase5OperationsPermissions,
     ...phase6FinancePermissions,
+    ...phase8OperationsPermissions,
   ],
   PROPERTY_MANAGER: [
     'organization.branch.read',
@@ -340,6 +386,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'workflow.draft.cancel',
     'workflow.draft.complete',
     ...phase5OperationsPermissions,
+    ...phase8OperationsPermissions,
   ],
   LEASING_AGENT: [
     'organization.branch.read',
@@ -399,6 +446,9 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.space.read',
     'portfolio.amenity.read',
     'portfolio.document.read',
+    'expense.read',
+    'expense.manage',
+    ...phase8OperationsPermissions,
   ],
   INSPECTOR: [
     'organization.branch.read',
@@ -407,6 +457,12 @@ const rolePermissions: Record<string, readonly string[]> = {
     'portfolio.space.read',
     'portfolio.amenity.read',
     'portfolio.document.read',
+    'operations.overview.read',
+    'inspection.read',
+    'inspection.manage',
+    'defect.read',
+    'defect.manage',
+    'maintenance.read',
   ],
   RECEPTIONIST: [
     'organization.branch.read',
@@ -620,6 +676,142 @@ async function seed(): Promise<void> {
       update: { name, active: true },
       create: { id: uuidv7(), code, name, active: true },
     });
+  }
+
+  const chargeTypes = [
+    ['RENT', 'Rent'],
+    ['SERVICE_CHARGE', 'Service charge'],
+    ['UTILITY', 'Utility'],
+    ['MAINTENANCE_RECOVERY', 'Maintenance recovery'],
+    ['LATE_FEE', 'Late fee'],
+    ['PARKING', 'Parking'],
+    ['CLEANING', 'Cleaning'],
+    ['DAMAGE', 'Damage'],
+    ['OTHER', 'Other'],
+  ] as const;
+  for (const [code, name] of chargeTypes) {
+    await database.chargeType.upsert({
+      where: { companyId_code: { companyId: company.id, code } },
+      update: { name, active: true },
+      create: { id: uuidv7(), companyId: company.id, code, name, active: true },
+    });
+  }
+  const paymentMethods = [
+    ['CASH', 'Cash'],
+    ['BANK_TRANSFER', 'Bank transfer'],
+    ['MOBILE_MONEY', 'Mobile money'],
+    ['CHEQUE', 'Cheque'],
+    ['CARD', 'Card'],
+  ] as const;
+  for (const [code, name] of paymentMethods) {
+    await database.paymentMethod.upsert({
+      where: { companyId_code: { companyId: company.id, code } },
+      update: { name, active: true },
+      create: { id: uuidv7(), companyId: company.id, code, name, active: true },
+    });
+  }
+  const chartOfAccounts = [
+    ['1000', 'Assets', 'ASSET', 'DEBIT', true, false, 'COMPANY_FUNDS'],
+    ['1010', 'Cash on Hand', 'ASSET', 'DEBIT', true, true, 'COMPANY_FUNDS'],
+    ['1020', 'Bank', 'ASSET', 'DEBIT', true, true, 'COMPANY_FUNDS'],
+    ['1030', 'Mobile Money', 'ASSET', 'DEBIT', true, true, 'COMPANY_FUNDS'],
+    ['1100', 'Accounts Receivable', 'ASSET', 'DEBIT', true, true, 'COMPANY_FUNDS'],
+    ['1110', 'Owner Receivable', 'ASSET', 'DEBIT', true, true, 'OWNER_FUNDS'],
+    ['1200', 'Prepaid Expenses', 'ASSET', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['2000', 'Liabilities', 'LIABILITY', 'CREDIT', true, false, 'COMPANY_FUNDS'],
+    ['2010', 'Owner Payable', 'LIABILITY', 'CREDIT', true, true, 'OWNER_FUNDS'],
+    ['2020', 'Security Deposits Held', 'LIABILITY', 'CREDIT', true, true, 'SECURITY_DEPOSIT_FUNDS'],
+    ['2030', 'Tenant Credits', 'LIABILITY', 'CREDIT', true, true, 'TENANT_CREDIT_FUNDS'],
+    ['2040', 'Vendor Payable', 'LIABILITY', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['2050', 'Accrued Expenses', 'LIABILITY', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['3000', 'Equity', 'EQUITY', 'CREDIT', true, false, 'COMPANY_FUNDS'],
+    ['3010', 'Opening Balance Equity', 'EQUITY', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['3020', 'Retained Earnings', 'EQUITY', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4000', 'Income', 'INCOME', 'CREDIT', true, false, 'COMPANY_FUNDS'],
+    ['4010', 'Brokerage Commission Income', 'INCOME', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4020', 'Tenant Placement Fee Income', 'INCOME', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4030', 'Management Fee Income', 'INCOME', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4040', 'Rent Collection Fee Income', 'INCOME', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4050', 'Company-Owned Rental Income', 'INCOME', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4060', 'Sublease Rental Income', 'INCOME', 'CREDIT', true, true, 'COMPANY_FUNDS'],
+    ['4070', 'Maintenance Service Income', 'INCOME', 'CREDIT', false, true, 'COMPANY_FUNDS'],
+    ['4090', 'Other Service Income', 'INCOME', 'CREDIT', false, true, 'COMPANY_FUNDS'],
+    ['5000', 'Expenses', 'EXPENSE', 'DEBIT', true, false, 'COMPANY_FUNDS'],
+    ['5010', 'Master Lease Rent Expense', 'EXPENSE', 'DEBIT', true, true, 'COMPANY_FUNDS'],
+    ['5020', 'Maintenance Expense', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['5030', 'Utilities Expense', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['5040', 'Vendor Costs', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['5050', 'Agent Commission Expense', 'EXPENSE', 'DEBIT', true, true, 'COMPANY_FUNDS'],
+    ['5060', 'Marketing Expense', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['5070', 'Office Expense', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['5080', 'Payroll Expense', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+    ['5090', 'Bank Charges', 'EXPENSE', 'DEBIT', false, true, 'COMPANY_FUNDS'],
+  ] as const;
+  for (const [code, name, accountType, normalBalance, reserved, posting, fundClass] of chartOfAccounts) {
+    await database.account.upsert({
+      where: { companyId_code: { companyId: company.id, code } },
+      update: {
+        name,
+        accountType: accountType as AccountType,
+        normalBalance: normalBalance as NormalBalance,
+        systemReserved: reserved,
+        postingAllowed: posting,
+        fundClass: fundClass as FundClass,
+        active: true,
+      },
+      create: {
+        id: uuidv7(),
+        companyId: company.id,
+        code,
+        name,
+        accountType: accountType as AccountType,
+        normalBalance: normalBalance as NormalBalance,
+        systemReserved: reserved,
+        postingAllowed: posting,
+        fundClass: fundClass as FundClass,
+        currency: company.defaultCurrency,
+        active: true,
+      },
+    });
+  }
+  const fiscalYearName = `FY${today.getUTCFullYear()}`;
+  const fiscalStartsOn = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+  const fiscalEndsOn = new Date(Date.UTC(today.getUTCFullYear(), 11, 31));
+  const fiscalYear = await database.fiscalYear.upsert({
+    where: { companyId_name: { companyId: company.id, name: fiscalYearName } },
+    update: { startsOn: fiscalStartsOn, endsOn: fiscalEndsOn, status: FiscalYearStatus.OPEN },
+    create: {
+      id: uuidv7(),
+      companyId: company.id,
+      name: fiscalYearName,
+      startsOn: fiscalStartsOn,
+      endsOn: fiscalEndsOn,
+      status: FiscalYearStatus.OPEN,
+    },
+  });
+  for (let periodNo = 1; periodNo <= 12; periodNo += 1) {
+    const startsOn = new Date(Date.UTC(today.getUTCFullYear(), periodNo - 1, 1));
+    const endsOn = new Date(Date.UTC(today.getUTCFullYear(), periodNo, 0));
+    const existingPeriod = await database.accountingPeriod.findUnique({
+      where: { fiscalYearId_periodNo: { fiscalYearId: fiscalYear.id, periodNo } },
+    });
+    if (existingPeriod) {
+      await database.accountingPeriod.update({
+        where: { id: existingPeriod.id },
+        data: { startsOn, endsOn, status: PeriodStatus.OPEN },
+      });
+    } else {
+      await database.accountingPeriod.create({
+        data: {
+          id: uuidv7(),
+          fiscalYearId: fiscalYear.id,
+          periodNo,
+          startsOn,
+          endsOn,
+          status: PeriodStatus.OPEN,
+        },
+      });
+    }
   }
 
   const emailNormalized = environment.SEED_ADMIN_EMAIL.trim().toLowerCase();

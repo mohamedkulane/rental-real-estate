@@ -6,6 +6,7 @@ import {
   operationalClosureReportPath,
   phase6ClosureReportPath,
   phase7ClosureReportPath,
+  phase8ClosureReportPath,
   reviewLabels,
   validateIndependentReviews,
   validateModelInventory,
@@ -63,7 +64,18 @@ const commercialReport =
   metadata.phase5SubPhase === '7.13'
     ? readFileSync(join(root, phase7ClosureReportPath), 'utf8')
     : '';
-const phase = validatePhaseMetadata(metadata, crmReport, operationalReport, financeReport, commercialReport);
+const operationsReport =
+  metadata.phase5SubPhase === '8.13'
+    ? readFileSync(join(root, phase8ClosureReportPath), 'utf8')
+    : '';
+const phase = validatePhaseMetadata(
+  metadata,
+  crmReport,
+  operationalReport,
+  financeReport,
+  commercialReport,
+  operationsReport,
+);
 if (
   phase.crmApproved &&
   metadata.phase5SubPhase === '5.2' &&
@@ -102,6 +114,7 @@ validateModelInventory(
   phase.operationalApproved,
   phase.financeApproved,
   phase.commercialApproved,
+  phase.operationsApproved,
 );
 
 const schemaTables = new Set([...schema.matchAll(/@@map\("([^"]+)"\)/g)].map((match) => match[1]));

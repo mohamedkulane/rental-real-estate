@@ -9,6 +9,18 @@ import {
 } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { CursorPageQueryDto } from '../common/cursor-pagination';
+
+export const documentEntityTypes = [
+  'Property',
+  'RentableSpace',
+  'Owner',
+  'MaintenanceRequest',
+  'WorkOrder',
+  'Inspection',
+  'DefectIssue',
+  'Vendor',
+] as const;
+export type DocumentEntityType = (typeof documentEntityTypes)[number];
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -330,7 +342,7 @@ export class UploadDocumentDto {
   ])
   categoryCode!: string;
   @IsIn(['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED']) accessClass!: string;
-  @IsIn(['Property', 'RentableSpace', 'Owner']) entityType!: 'Property' | 'RentableSpace' | 'Owner';
+  @IsIn([...documentEntityTypes]) entityType!: DocumentEntityType;
   @IsUUID() entityId!: string;
   @IsString() @Length(2, 50) purpose!: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
@@ -349,7 +361,7 @@ export class CreateDocumentMetadataDto {
   @IsString() @Length(16, 128) checksum!: string;
   @IsString() @Length(3, 160) mimeType!: string;
   @IsInt() @Min(1) sizeBytes!: number;
-  @IsIn(['Property', 'RentableSpace', 'Owner']) entityType!: 'Property' | 'RentableSpace' | 'Owner';
+  @IsIn([...documentEntityTypes]) entityType!: DocumentEntityType;
   @IsUUID() entityId!: string;
   @IsString() @Length(2, 50) purpose!: string;
 }
@@ -364,8 +376,8 @@ export class UpdateDocumentMetadataDto {
 
 export class ListDocumentsQueryDto extends CursorPageQueryDto {
   @IsOptional()
-  @IsIn(['Property', 'RentableSpace', 'Owner'])
-  entityType?: 'Property' | 'RentableSpace' | 'Owner';
+  @IsIn([...documentEntityTypes])
+  entityType?: DocumentEntityType;
   @IsOptional() @IsUUID() entityId?: string;
   @IsOptional() @IsString() @MaxLength(120) entitySearch?: string;
   @IsOptional() @IsString() @MaxLength(50) categoryCode?: string;

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
   DataTable,
   DataTableActions,
@@ -215,6 +217,7 @@ const config: Record<
 export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
   const definition = config[mode];
   const { principal, error: principalError } = useFinancePrincipal();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [status, setStatus] = useState('');
@@ -268,6 +271,13 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
       {principal && !allowed ? (
         <FinanceAccessDenied />
       ) : (
+        <>
+          {mode === 'owner-statements' && principal && hasPermission(principal, 'owner-statement.manage') ? (
+            <OwnerStatementGenerateForm
+              branches={principal.branches}
+              onIssued={() => void queryClient.invalidateQueries({ queryKey: ['finance-register', mode] })}
+            />
+          ) : null}
         <DataTableSurface className="mt-6">
           <DataTableToolbar>
             <label className="block min-w-0 flex-1">
@@ -345,9 +355,15 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
                     <DataTableBody>
                       {query.data.items.map((row) => (
                         <DataTableRow key={row.id}>
-                          {definition.columns.map((column) => (
+                          {definition.columns.map((column, index) => (
                             <DataTableCell key={column.label}>
-                              {column.value(row) ?? '—'}
+                              {mode === 'owner-statements' && index === 0 ? (
+                                <Link className="text-emerald-700" href={`/finance/owner-statements/${row.id}`}>
+                                  {column.value(row) ?? '—'}
+                                </Link>
+                              ) : (
+                                (column.value(row) ?? '—')
+                              )}
                             </DataTableCell>
                           ))}
                           <DataTableCell>
@@ -381,7 +397,121 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
             }}
           />
         </DataTableSurface>
+        </>
       )}
     </FinanceShell>
+  );
+}
+
+function OwnerStatementGenerateForm({
+  branches,
+  onIssued,
+}: {
+  branches: Array<{ id: string; code: string; name: string }>;
+  onIssued: () => void;
+}) {
+  const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
+  const [ownerPartyId, setOwnerPartyId] = useState('');
+  const [propertyId, setPropertyId] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const generate = useMutation({
+    mutationFn: () =>
+      api('/owner-statements', {
+        method: 'POST',
+        body: JSON.stringify({
+          branchId,
+          ownerPartyId,
+          propertyId: propertyId || undefined,
+          periodStart,
+          periodEnd,
+          currency,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success('Owner statement issued.');
+      onIssued();
+    },
+    onError: (err) => toast.error(userFacingError(err)),
+  });
+
+  return (
+    <form
+      className="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-5 md:grid-cols-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        generate.mutate();
+      }}
+    >
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-semibold text-slate-500">Branch</span>
+        <select
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+          value={branchId}
+          onChange={(event) => setBranchId(event.target.value)}
+          required
+        >
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-semibold text-slate-500">Owner party ID</span>
+        <input
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+          value={ownerPartyId}
+          onChange={(event) => setOwnerPartyId(event.target.value)}
+          required
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-semibold text-slate-500">Property ID (optional)</span>
+        <input
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+          value={propertyId}
+          onChange={(event) => setPropertyId(event.target.value)}
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-semibold text-slate-500">Period start</span>
+        <input
+          type="date"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+          value={periodStart}
+          onChange={(event) => setPeriodStart(event.target.value)}
+          required
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-semibold text-slate-500">Period end</span>
+        <input
+          type="date"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+          value={periodEnd}
+          onChange={(event) => setPeriodEnd(event.target.value)}
+          required
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-semibold text-slate-500">Currency</span>
+        <input
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+          value={currency}
+          minLength={3}
+          maxLength={3}
+          onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+          required
+        />
+      </label>
+      <div className="md:col-span-3">
+        <button className="primary" type="submit" disabled={generate.isPending}>
+          {generate.isPending ? 'Issuing...' : 'Issue statement'}
+        </button>
+      </div>
+    </form>
   );
 }

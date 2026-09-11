@@ -150,6 +150,17 @@ describe('mockup sidebar groups', () => {
     expect(sales.map((item) => item.label)).toEqual(['Sale Listings', 'Property Sale']);
   });
 
+  it('lists operations workspaces under OPERATIONS', () => {
+    expect(
+      buildSidebarGroups({
+        permissions: ['maintenance.read', 'work-order.read', 'inspection.read', 'vendor.read'],
+        navigate: () => undefined,
+      })
+        .find((group) => group.title === 'OPERATIONS')
+        ?.items.map((item) => item.label),
+    ).toEqual(['Maintenance', 'Work Orders', 'Inspections', 'Vendors']);
+  });
+
   it('routes construction enquiries through projects', () => {
     expect(projectsNavigation(['crm.lead.read'], () => undefined)[0]?.label).toBe(
       'Construction Enquiries',

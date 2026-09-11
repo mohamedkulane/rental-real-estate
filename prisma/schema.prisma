@@ -62,6 +62,10 @@ model Company {
   brokerageDeals     BrokerageDeal[]
   saleOffers         SaleOffer[]
   saleSettlements    SaleSettlement[]
+  maintenanceRequests MaintenanceRequest[]
+  workOrders         WorkOrder[]
+  inspections        Inspection[]
+  defectIssues       DefectIssue[]
 
   @@map("companies")
 }
@@ -111,6 +115,11 @@ model Branch {
   brokerageDeals      BrokerageDeal[]
   saleOffers          SaleOffer[]
   saleSettlements     SaleSettlement[]
+  vendorAvailability  VendorBranchAvailability[]
+  maintenanceRequests MaintenanceRequest[]
+  workOrders          WorkOrder[]
+  inspections         Inspection[]
+  defectIssues        DefectIssue[]
 
   @@unique([companyId, code], map: "uq_branches__company_code")
   @@map("branches")
@@ -169,6 +178,8 @@ model User {
   moveInsRecorded                                   MoveIn[]                   @relation("MoveInRecordedBy")
   saleOfferEvents                                   SaleOfferEvent[]           @relation("SaleOfferEventActor")
   paymentsReceived                                  Payment[]                  @relation("PaymentReceivedBy")
+  maintenanceActivities                             MaintenanceActivity[]      @relation("MaintenanceActivityActor")
+  workOrderEvents                                   WorkOrderEvent[]           @relation("WorkOrderEventActor")
 
   @@map("users")
 }
@@ -227,6 +238,9 @@ model Employee {
   leadAssignments                                                          LeadAssignment[]
   responsibleLeadFollowUps                                                 LeadFollowUp[]
   assignedViewings                                                         Viewing[]                  @relation("ViewingAssignedEmployee")
+  assignedMaintenanceRequests                                              MaintenanceRequest[]       @relation("MaintenanceAssignedEmployee")
+  assignedWorkOrders                                                       WorkOrder[]                @relation("WorkOrderAssignedEmployee")
+  inspectionsAsInspector                                                   Inspection[]               @relation("InspectionInspector")
 
   @@unique([companyId, employeeNumber])
   @@map("employees")
@@ -334,6 +348,10 @@ model Party {
   journalLinesAsVendor                                         JournalLine[]       @relation("JournalLineVendor")
   saleOffersAsBuyer                                            SaleOffer[]         @relation("SaleOfferBuyer")
   ownerPayoutLines                                             OwnerPayoutLine[]   @relation("OwnerPayoutLineOwner")
+  vendorProfile                                                VendorProfile?
+  maintenanceAsTenant                                          MaintenanceRequest[] @relation("MaintenanceTenant")
+  maintenanceAsReporter                                        MaintenanceRequest[] @relation("MaintenanceReporter")
+  inspectionsAsTenant                                          Inspection[]         @relation("InspectionTenant")
 
   @@unique([companyId, partyNumber])
   @@map("parties")
@@ -464,11 +482,16 @@ model Property {
   saleListings                SaleListing[]
   charges                     Charge[]
   expenses                    Expense[]
+  ownerStatements             OwnerStatement[]
   ownerPayoutLines            OwnerPayoutLine[]
   ownerPayouts                OwnerPayout[]
   journalLines                JournalLine[]
   saleOffers                  SaleOffer[]
   saleSettlements             SaleSettlement[]
+  maintenanceRequests         MaintenanceRequest[]
+  workOrders                  WorkOrder[]
+  inspections                 Inspection[]
+  defectIssues                DefectIssue[]
 
   @@unique([companyId, propertyCode], map: "uq_properties_company_code")
   @@index([companyId, status, propertyType], map: "properties_company_status_type_idx")
@@ -595,6 +618,10 @@ model RentableSpace {
   expenses                                                              Expense[]
   journalLines                                                          JournalLine[]
   brokerageDeals                                                        BrokerageDeal[]
+  maintenanceRequests                                                   MaintenanceRequest[]
+  workOrders                                                            WorkOrder[]
+  inspections                                                           Inspection[]
+  defectIssues                                                          DefectIssue[]
 
   @@unique([propertyId, spaceCode], map: "uq_rentable_space_property_code")
   @@index([propertyId, status, typeId], map: "rentable_space_property_status_type_idx")
@@ -973,6 +1000,7 @@ model ServiceEngagement {
   brokerageDeals   BrokerageDeal[]
   saleOffers       SaleOffer[]
   saleSettlements  SaleSettlement[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@unique([companyId, engagementNumber], map: "uq_service_engagement_company_number")
   @@index([companyId, status, serviceModel, createdAt(sort: Desc), id(sort: Desc)], map: "service_engagement_company_status_model_created_idx")
@@ -1944,6 +1972,8 @@ model Expense {
   approvalRequestId   String?               @db.Uuid
   journalEntryId      String?               @db.Uuid
   description         String?               @db.VarChar(500)
+  workOrderId         String?               @unique @db.Uuid
+  idempotencyKey      String?               @unique @db.VarChar(180)
   createdAt           DateTime              @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime              @updatedAt @db.Timestamptz(6)
   company             Company               @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -1955,6 +1985,7 @@ model Expense {
   lease               Lease?                @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   serviceEngagement   ServiceEngagement?    @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   journalEntry        JournalEntry?         @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  workOrder           WorkOrder?            @relation(fields: [workOrderId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   journalSource       JournalSourceLink?
 
   @@unique([companyId, expenseNumber], map: "uq_expense_company_number")
@@ -1969,21 +2000,25 @@ model OwnerStatement {
   branchId        String               @db.Uuid
   statementNumber String               @db.VarChar(50)
   ownerPartyId    String               @db.Uuid
+  propertyId      String?              @db.Uuid
   periodStart     DateTime             @db.Date
   periodEnd       DateTime             @db.Date
   currency        String               @db.Char(3)
   status          OwnerStatementStatus @default(DRAFT)
   issuedAt        DateTime?            @db.Timestamptz(6)
   calculationHash String               @db.VarChar(128)
+  idempotencyKey  String               @unique @db.VarChar(180)
   createdAt       DateTime             @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime             @updatedAt @db.Timestamptz(6)
   company         Company              @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   branch          Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   owner           Party                @relation("OwnerStatementOwner", fields: [ownerPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property        Property?            @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   lines           OwnerStatementLine[]
 
   @@unique([companyId, statementNumber], map: "uq_owner_statement_company_number")
   @@index([companyId, branchId, ownerPartyId, periodStart], map: "owner_statement_register_idx")
+  @@index([ownerPartyId, propertyId, periodStart], map: "owner_statement_owner_property_period_idx")
   @@map("owner_statements")
 }
 
@@ -1991,6 +2026,7 @@ model OwnerStatementLine {
   id            String         @id @db.Uuid
   statementId   String         @db.Uuid
   lineNo        Int
+  lineCode      String         @db.VarChar(40)
   journalLineId String?        @db.Uuid
   description   String         @db.VarChar(240)
   amount        Decimal        @db.Decimal(20, 4)
@@ -2304,6 +2340,232 @@ model SaleSettlement {
   @@unique([companyId, settlementNumber], map: "uq_sale_settlement_company_number")
   @@index([companyId, branchId, status, settledAt], map: "sale_settlement_register_idx")
   @@map("sale_settlements")
+}
+
+model VendorProfile {
+  partyId   String  @id @db.Uuid
+  notes     String? @db.VarChar(2000)
+  active    Boolean @default(true)
+  party     Party   @relation(fields: [partyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  services  VendorService[]
+  branches  VendorBranchAvailability[]
+  requests  MaintenanceRequest[] @relation("MaintenanceAssignedVendor")
+  workOrders WorkOrder[] @relation("WorkOrderVendor")
+
+  @@map("vendor_profiles")
+}
+
+model VendorService {
+  id            String        @id @db.Uuid
+  vendorPartyId String        @db.Uuid
+  categoryCode  String        @db.VarChar(50)
+  name          String        @db.VarChar(120)
+  active        Boolean       @default(true)
+  vendor        VendorProfile @relation(fields: [vendorPartyId], references: [partyId], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([vendorPartyId, categoryCode], map: "uq_vendor_service_category")
+  @@map("vendor_services")
+}
+
+model VendorBranchAvailability {
+  id            String        @id @db.Uuid
+  vendorPartyId String        @db.Uuid
+  branchId      String        @db.Uuid
+  active        Boolean       @default(true)
+  vendor        VendorProfile @relation(fields: [vendorPartyId], references: [partyId], onDelete: Restrict, onUpdate: NoAction)
+  branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([vendorPartyId, branchId], map: "uq_vendor_branch")
+  @@map("vendor_branch_availability")
+}
+
+model MaintenanceRequest {
+  id                     String                    @id @db.Uuid
+  companyId              String                    @db.Uuid
+  branchId               String                    @db.Uuid
+  requestNumber          String                    @db.VarChar(50)
+  propertyId             String                    @db.Uuid
+  rentableSpaceId        String?                   @db.Uuid
+  tenantPartyId          String?                   @db.Uuid
+  reportedByPartyId      String?                   @db.Uuid
+  title                  String                    @db.VarChar(200)
+  description            String                    @db.Text
+  categoryCode           String                    @db.VarChar(50)
+  priority               MaintenancePriority       @default(MEDIUM)
+  status                 MaintenanceRequestStatus  @default(NEW)
+  reportedAt             DateTime                  @db.Timestamptz(6)
+  assignedEmployeeId     String?                   @db.Uuid
+  assignedVendorPartyId  String?                   @db.Uuid
+  serviceEngagementId    String?                   @db.Uuid
+  sourceInspectionId     String?                   @db.Uuid
+  sourceDefectId         String?                   @db.Uuid
+  createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
+  company                Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                 Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property               Property                  @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace          RentableSpace?            @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  tenant                 Party?                    @relation("MaintenanceTenant", fields: [tenantPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reportedBy             Party?                    @relation("MaintenanceReporter", fields: [reportedByPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedEmployee       Employee?                 @relation("MaintenanceAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedVendor         VendorProfile?            @relation("MaintenanceAssignedVendor", fields: [assignedVendorPartyId], references: [partyId], onDelete: Restrict, onUpdate: NoAction)
+  engagement             ServiceEngagement?        @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceInspection       Inspection?               @relation("InspectionMaintenanceRequests", fields: [sourceInspectionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceDefect           DefectIssue?              @relation("DefectMaintenanceRequests", fields: [sourceDefectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  activities             MaintenanceActivity[]
+  workOrders             WorkOrder[]
+  defects                DefectIssue[]             @relation("MaintenanceDefects")
+
+  @@unique([companyId, requestNumber], map: "uq_maintenance_request_company_number")
+  @@index([companyId, branchId, status, priority], map: "maintenance_request_register_idx")
+  @@index([propertyId, status, reportedAt], map: "maintenance_request_property_idx")
+  @@map("maintenance_requests")
+}
+
+model MaintenanceActivity {
+  id          String              @id @db.Uuid
+  requestId   String              @db.Uuid
+  action      String              @db.VarChar(80)
+  fromStatus  MaintenanceRequestStatus?
+  toStatus    MaintenanceRequestStatus?
+  notes       String?             @db.VarChar(1000)
+  actorUserId String              @db.Uuid
+  occurredAt  DateTime            @default(now()) @db.Timestamptz(6)
+  request     MaintenanceRequest  @relation(fields: [requestId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor       User                @relation("MaintenanceActivityActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([requestId, occurredAt], map: "maintenance_activity_timeline_idx")
+  @@map("maintenance_activities")
+}
+
+model WorkOrder {
+  id                    String                 @id @db.Uuid
+  companyId             String                 @db.Uuid
+  branchId              String                 @db.Uuid
+  workOrderNumber       String                 @db.VarChar(50)
+  maintenanceRequestId  String?                @db.Uuid
+  propertyId            String                 @db.Uuid
+  rentableSpaceId       String?                @db.Uuid
+  assignedEmployeeId    String?                @db.Uuid
+  vendorPartyId         String?                @db.Uuid
+  status                WorkOrderStatus        @default(DRAFT)
+  approvalStatus        WorkOrderApprovalStatus @default(NOT_REQUIRED)
+  scheduledAt           DateTime?              @db.Timestamptz(6)
+  startedAt             DateTime?              @db.Timestamptz(6)
+  completedAt           DateTime?              @db.Timestamptz(6)
+  laborNotes            String?                @db.VarChar(2000)
+  materialNotes         String?                @db.VarChar(2000)
+  estimatedCost         Decimal?               @db.Decimal(20, 4)
+  actualCost            Decimal?               @db.Decimal(20, 4)
+  currency              String                 @db.Char(3)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(6)
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  request               MaintenanceRequest?    @relation(fields: [maintenanceRequestId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property              Property               @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace         RentableSpace?         @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedEmployee      Employee?              @relation("WorkOrderAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  vendor                VendorProfile?         @relation("WorkOrderVendor", fields: [vendorPartyId], references: [partyId], onDelete: Restrict, onUpdate: NoAction)
+  events                WorkOrderEvent[]
+  expenses              Expense[]
+
+  @@unique([companyId, workOrderNumber], map: "uq_work_order_company_number")
+  @@index([companyId, branchId, status, scheduledAt], map: "work_order_register_idx")
+  @@map("work_orders")
+}
+
+model WorkOrderEvent {
+  id          String     @id @db.Uuid
+  workOrderId String     @db.Uuid
+  action      String     @db.VarChar(80)
+  fromStatus  WorkOrderStatus?
+  toStatus    WorkOrderStatus?
+  notes       String?    @db.VarChar(1000)
+  actorUserId String     @db.Uuid
+  occurredAt  DateTime   @default(now()) @db.Timestamptz(6)
+  workOrder   WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor       User       @relation("WorkOrderEventActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([workOrderId, occurredAt], map: "work_order_event_timeline_idx")
+  @@map("work_order_events")
+}
+
+model Inspection {
+  id                  String           @id @db.Uuid
+  companyId           String           @db.Uuid
+  branchId            String           @db.Uuid
+  inspectionNumber    String           @db.VarChar(50)
+  type                InspectionType
+  status              InspectionStatus @default(SCHEDULED)
+  propertyId          String           @db.Uuid
+  rentableSpaceId     String?          @db.Uuid
+  tenantPartyId       String?          @db.Uuid
+  inspectorEmployeeId String?          @db.Uuid
+  scheduledAt         DateTime         @db.Timestamptz(6)
+  completedAt         DateTime?        @db.Timestamptz(6)
+  notes               String?          @db.VarChar(2000)
+  createdAt           DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(6)
+  company             Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch              Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property            Property         @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace       RentableSpace?   @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  tenant              Party?           @relation("InspectionTenant", fields: [tenantPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  inspector           Employee?        @relation("InspectionInspector", fields: [inspectorEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  items               InspectionItem[]
+  defects             DefectIssue[]
+  maintenanceRequests MaintenanceRequest[] @relation("InspectionMaintenanceRequests")
+
+  @@unique([companyId, inspectionNumber], map: "uq_inspection_company_number")
+  @@index([companyId, branchId, status, scheduledAt], map: "inspection_register_idx")
+  @@map("inspections")
+}
+
+model InspectionItem {
+  id            String               @id @db.Uuid
+  inspectionId  String               @db.Uuid
+  area          String               @db.VarChar(120)
+  item          String               @db.VarChar(160)
+  condition     InspectionCondition
+  notes         String?              @db.VarChar(1000)
+  severity      String?              @db.VarChar(30)
+  photoDocumentId String?            @db.Uuid
+  inspection    Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  defects       DefectIssue[]
+
+  @@index([inspectionId], map: "inspection_item_inspection_idx")
+  @@map("inspection_items")
+}
+
+model DefectIssue {
+  id                    String          @id @db.Uuid
+  companyId             String          @db.Uuid
+  branchId              String          @db.Uuid
+  defectNumber          String          @db.VarChar(50)
+  propertyId            String          @db.Uuid
+  rentableSpaceId       String?         @db.Uuid
+  inspectionId          String?         @db.Uuid
+  inspectionItemId      String?         @db.Uuid
+  maintenanceRequestId  String?         @db.Uuid
+  title                 String          @db.VarChar(200)
+  description           String?         @db.Text
+  severity              String          @db.VarChar(30)
+  status                DefectStatus    @default(OPEN)
+  createdAt             DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime        @updatedAt @db.Timestamptz(6)
+  company               Company         @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property              Property        @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace         RentableSpace?  @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  inspection            Inspection?     @relation(fields: [inspectionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  inspectionItem        InspectionItem? @relation(fields: [inspectionItemId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  maintenanceRequest    MaintenanceRequest? @relation("MaintenanceDefects", fields: [maintenanceRequestId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  followUpRequests      MaintenanceRequest[] @relation("DefectMaintenanceRequests")
+
+  @@unique([companyId, defectNumber], map: "uq_defect_issue_company_number")
+  @@index([companyId, branchId, status, createdAt], map: "defect_issue_register_idx")
+  @@map("defect_issues")
 }
 
 enum PartyKind {
@@ -2765,4 +3027,67 @@ enum SaleSettlementStatus {
   APPROVED
   SETTLED
   CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceRequestStatus {
+  NEW
+  TRIAGED
+  ASSIGNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkOrderApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InspectionType {
+  MOVE_IN
+  MOVE_OUT
+  PERIODIC
+  PROPERTY
+  MAINTENANCE
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InspectionCondition {
+  GOOD
+  FAIR
+  DAMAGED
+  NEEDS_ATTENTION
+  NOT_APPLICABLE
+}
+
+enum DefectStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }

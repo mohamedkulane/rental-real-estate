@@ -327,6 +327,33 @@ export const projectsDestinations = [
   },
 ] as const;
 
+export const operationsDestinations = [
+  {
+    key: 'operations:maintenance',
+    label: 'Maintenance',
+    href: '/operations/maintenance',
+    permission: 'maintenance.read',
+  },
+  {
+    key: 'operations:work-orders',
+    label: 'Work Orders',
+    href: '/operations/work-orders',
+    permission: 'work-order.read',
+  },
+  {
+    key: 'operations:inspections',
+    label: 'Inspections',
+    href: '/operations/inspections',
+    permission: 'inspection.read',
+  },
+  {
+    key: 'operations:vendors',
+    label: 'Vendors',
+    href: '/operations/vendors',
+    permission: 'vendor.read',
+  },
+] as const;
+
 const PROPERTY_NAV_KEYS = new Set([
   'parties',
   'owners',
@@ -553,6 +580,16 @@ export function projectsNavigation(
   return authorizedTaskNavigation(projectsDestinations, permissions, navigate);
 }
 
+export function operationsNavigation(
+  permissions: string[],
+  navigate: (href: string) => void,
+): NavigationItem[] {
+  return [
+    ...authorizedTaskNavigation(operationsDestinations, permissions, navigate),
+    ...projectsNavigation(permissions, navigate),
+  ];
+}
+
 export function financeNavigation(
   permissions: string[],
   navigate: (href: string) => void,
@@ -631,7 +668,7 @@ export function buildSidebarGroups(options: {
     {
       id: 'operations',
       title: 'OPERATIONS',
-      items: projectsNavigation(permissions, navigate),
+      items: operationsNavigation(permissions, navigate),
     },
     {
       id: 'reporting',

@@ -7,10 +7,13 @@ import {
   assertManualPaymentOnly,
   assertNonNegativeMoney,
   assertRecurringBillingModel,
+  assembleOwnerStatementLines,
+  applyOwnershipShare,
   billingIdempotencyKey,
   computeManagementFee,
   computeOwnerShareAmounts,
   computeSaleSettlementAmounts,
+  ownerStatementIdempotencyKey,
   replayIdempotentRecord,
 } from './finance.policy';
 
@@ -155,5 +158,45 @@ describe('finance.policy idempotency replay', () => {
     expect(() =>
       replayIdempotentRecord({ id: 'pay-1', companyId: 'company-b' }, 'company-a'),
     ).toThrow('Idempotency key is already in use.');
+  });
+});
+
+describe('finance.policy owner statements', () => {
+  it('applies joint ownership share before assembling totals', () => {
+    const rent = applyOwnershipShare(new Prisma.Decimal('1000'), new Prisma.Decimal('60'));
+    expect(rent.toString()).toBe('600');
+    const assembled = assembleOwnerStatementLines({
+      openingBalance: new Prisma.Decimal('100'),
+      rentCollected: rent,
+      managementFee: new Prisma.Decimal('60'),
+      expenses: new Prisma.Decimal('40'),
+      adjustments: new Prisma.Decimal('10'),
+      payouts: new Prisma.Decimal('200'),
+    });
+    expect(assembled.closingBalance.toString()).toBe('410');
+    expect(assembled.lines.map((line) => line.lineCode)).toEqual([
+      'OPENING_BALANCE',
+      'RENT_COLLECTED',
+      'MANAGEMENT_FEE',
+      'EXPENSE',
+      'ADJUSTMENT',
+      'PAYOUT',
+      'CLOSING_BALANCE',
+    ]);
+    expect(assembled.lines.find((line) => line.lineCode === 'MANAGEMENT_FEE')?.amount.toString()).toBe(
+      '-60',
+    );
+  });
+
+  it('builds a stable owner-statement idempotency key', () => {
+    expect(
+      ownerStatementIdempotencyKey({
+        ownerPartyId: 'owner-a',
+        propertyId: null,
+        periodStart: new Date('2026-01-01T00:00:00.000Z'),
+        periodEnd: new Date('2026-02-01T00:00:00.000Z'),
+        currency: 'usd',
+      }),
+    ).toBe('owner-statement:owner-a:portfolio:2026-01-01:2026-02-01:USD');
   });
 });

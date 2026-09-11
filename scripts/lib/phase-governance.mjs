@@ -33,6 +33,11 @@ export const phase7CommercialModels = `BrokerageDeal SaleOffer SaleOfferEvent Sa
 
 export const phase6ClosureReportPath = 'docs/decisions/17-phase-6-finance-closure.md';
 export const phase7ClosureReportPath = 'docs/decisions/18-phase-7-commercial-closure.md';
+export const phase8ClosureReportPath = 'docs/decisions/19-phase-8-operations-closure.md';
+
+export const phase8OperationsModels = `VendorProfile VendorService VendorBranchAvailability MaintenanceRequest MaintenanceActivity WorkOrder WorkOrderEvent Inspection InspectionItem DefectIssue`.split(
+  /\s+/u,
+);
 
 export const reviewLabels = {
   'qa-findings.md': 'AUTOMATED QA',
@@ -55,6 +60,16 @@ export const phase69PassLabels = [
   'BILLING AND PAYMENTS',
   'OWNER PAYOUTS',
   'ACCOUNTING FOUNDATION',
+  'AUTOMATED QA',
+  'UI/UX REVIEW',
+];
+
+export const phase813PassLabels = [
+  'PHASE 8 OPERATIONS CLOSURE',
+  'MAINTENANCE REQUESTS',
+  'WORK ORDERS',
+  'INSPECTIONS',
+  'MAINTENANCE EXPENSE INTEGRATION',
   'AUTOMATED QA',
   'UI/UX REVIEW',
 ];
@@ -101,9 +116,36 @@ export function validateIndependentReviews(reports) {
   }
 }
 
-export function validatePhaseMetadata(metadata, crmReport = '', operationalReport = '', financeReport = '', commercialReport = '') {
+export function validatePhaseMetadata(metadata, crmReport = '', operationalReport = '', financeReport = '', commercialReport = '', operationsReport = '') {
   if (metadata.phase5Started !== true || typeof metadata.completedPhase !== 'number' || metadata.completedPhase < 4) {
     throw new Error('Phase 4 closure and the approved Phase 5 start must remain recorded.');
+  }
+  if (metadata.phase5SubPhase === '8.13' || metadata.currentGate === 'PHASE_8_13_OPERATIONS_CLOSURE_PASS') {
+    if (
+      metadata.currentGate !== 'PHASE_8_13_OPERATIONS_CLOSURE_PASS' ||
+      metadata.productionSchemaScope !== 'PHASES_1_TO_8_ONLY' ||
+      metadata.phase6Started !== true ||
+      metadata.phase7Started !== true ||
+      metadata.phase8Started !== true ||
+      metadata.completedPhase !== 8 ||
+      metadata.canonicalClosureReport !== phase8ClosureReportPath
+    ) {
+      throw new Error('Invalid Phase 8.13 closure metadata.');
+    }
+    for (const label of phase813PassLabels) {
+      requireLine(operationsReport, label, 'PASS', 'Phase 8.13');
+    }
+    requireLine(operationsReport, 'PHASE 9 STARTED', 'NO', 'Phase 8.13');
+    requireLine(operationsReport, 'UNRESOLVED CRITICAL', '0', 'Phase 8.13');
+    requireLine(operationsReport, 'UNRESOLVED HIGH', '0', 'Phase 8.13');
+    return {
+      crmApproved: true,
+      operationalApproved: true,
+      financeApproved: true,
+      commercialApproved: true,
+      operationsApproved: true,
+      gate: metadata.currentGate,
+    };
   }
   if (metadata.phase5SubPhase === '7.13' || metadata.currentGate === 'PHASE_7_13_COMMERCIAL_CLOSURE_PASS') {
     if (
@@ -126,6 +168,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
       operationalApproved: true,
       financeApproved: true,
       commercialApproved: true,
+      operationsApproved: false,
       gate: metadata.currentGate,
     };
   }
@@ -216,6 +259,7 @@ export function validateModelInventory(
   operationalApproved = false,
   financeApproved = false,
   commercialApproved = false,
+  operationsApproved = false,
 ) {
   const actual = new Set(
     [...schema.matchAll(/^\s*model\s+(\w+)\s*\{/gmu)].map((match) => match[1]),
@@ -226,6 +270,7 @@ export function validateModelInventory(
     ...(operationalApproved ? phase5OperationalModels : []),
     ...(financeApproved ? phase6FinanceModels : []),
     ...(commercialApproved ? phase7CommercialModels : []),
+    ...(operationsApproved ? phase8OperationsModels : []),
   ]);
   const unapproved = [...actual].filter((name) => !expected.has(name));
   const missing = [...expected].filter((name) => !actual.has(name));

@@ -10,6 +10,8 @@ PHASE 6 FINANCE CLOSURE: PASS
 - Billing schedules with idempotent FULL_MANAGEMENT recurring rent generation
 - Manual payment capture, allocation, and receipt issuance
 - Owner payouts with joint ownership share allocation and management fee from commercial terms
+- Owner statements with opening balance, rent collected, management fees, owner expenses, adjustments, payouts, and closing balance
+- Chart of accounts, charge types, payment methods, and fiscal period reference seed
 - Expenses with branch/property/owner attribution
 - Accounting foundation: FiscalYear, AccountingPeriod, Account, JournalEntry, JournalLine, JournalSourceLink
 - Finance UI workspaces under `/finance/*`

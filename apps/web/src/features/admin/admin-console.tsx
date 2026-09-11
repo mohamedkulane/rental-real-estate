@@ -85,6 +85,13 @@ type DashboardSnapshot = {
   properties: Row[];
   spaces: Row[];
   activity: Row[];
+  operations: {
+    openMaintenance: number;
+    highPriorityIssues: number;
+    workOrdersInProgress: number;
+    upcomingInspections: number;
+    overdueTasks: number;
+  } | null;
 };
 const emptyDashboard: DashboardSnapshot = {
   branches: [],
@@ -93,6 +100,7 @@ const emptyDashboard: DashboardSnapshot = {
   properties: [],
   spaces: [],
   activity: [],
+  operations: null,
 };
 
 const roleWorkspaceDescriptions: Record<string, string> = {
@@ -343,15 +351,24 @@ export function AdminConsole() {
             .then(pageItems)
             .catch(() => [])
         : [];
-    const [branches, employees, owners, properties, spaces, activity] = await Promise.all([
+    const [branches, employees, owners, properties, spaces, activity, operations] = await Promise.all([
       request('organization.branch.read', '/branches'),
       request('identity.employee.read', '/employees'),
       request('owner.read', '/owners'),
       request('portfolio.property.read', '/properties'),
       request('portfolio.space.read', '/rentable-spaces'),
       request('governance.audit.read', '/audit'),
+      hasPermission(current, 'operations.overview.read')
+        ? apiCached<{
+            openMaintenance: number;
+            highPriorityIssues: number;
+            workOrdersInProgress: number;
+            upcomingInspections: number;
+            overdueTasks: number;
+          }>('/operations/overview').catch(() => null)
+        : Promise.resolve(null),
     ]);
-    setDashboard({ branches, employees, owners, properties, spaces, activity });
+    setDashboard({ branches, employees, owners, properties, spaces, activity, operations });
     setDashboardLoading(false);
   }, []);
 
@@ -955,6 +972,35 @@ export function AdminConsole() {
                 value={dashboardLoading ? '...' : dashboard.spaces.length}
                 icon={<MapPinned />}
               />
+            ) : null}
+            {hasPermission(principal!, 'operations.overview.read') ? (
+              <>
+                <MetricCard
+                  label="Open Maintenance"
+                  value={dashboardLoading ? '...' : dashboard.operations?.openMaintenance ?? 0}
+                  icon={<Activity />}
+                />
+                <MetricCard
+                  label="High Priority Issues"
+                  value={dashboardLoading ? '...' : dashboard.operations?.highPriorityIssues ?? 0}
+                  icon={<Activity />}
+                />
+                <MetricCard
+                  label="Work Orders In Progress"
+                  value={dashboardLoading ? '...' : dashboard.operations?.workOrdersInProgress ?? 0}
+                  icon={<Activity />}
+                />
+                <MetricCard
+                  label="Upcoming Inspections"
+                  value={dashboardLoading ? '...' : dashboard.operations?.upcomingInspections ?? 0}
+                  icon={<Activity />}
+                />
+                <MetricCard
+                  label="Overdue Tasks"
+                  value={dashboardLoading ? '...' : dashboard.operations?.overdueTasks ?? 0}
+                  icon={<Activity />}
+                />
+              </>
             ) : null}
           </div>
           {dashboardLoading ? (

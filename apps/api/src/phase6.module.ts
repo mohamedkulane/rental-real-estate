@@ -21,6 +21,7 @@ import {
   SaleSettlementController,
 } from './finance/finance.controller';
 import { OwnerPayoutService } from './finance/owner-payout.service';
+import { OwnerStatementService } from './finance/owner-statement.service';
 import { PaymentService } from './finance/payment.service';
 import { SaleOfferService } from './finance/sale-offer.service';
 import { SaleSettlementService } from './finance/sale-settlement.service';
@@ -48,6 +49,7 @@ import { FinanceOverviewService } from './finance/finance-overview.service';
     PaymentService,
     ExpenseService,
     OwnerPayoutService,
+    OwnerStatementService,
     AccountingService,
     BrokerageDealService,
     SaleOfferService,
@@ -60,6 +62,7 @@ import { FinanceOverviewService } from './finance/finance-overview.service';
     PaymentService,
     ExpenseService,
     OwnerPayoutService,
+    OwnerStatementService,
     AccountingService,
     BrokerageDealService,
     SaleOfferService,
