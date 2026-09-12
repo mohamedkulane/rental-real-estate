@@ -6,7 +6,8 @@ export type RecordNumberKind =
   | 'RESERVATION' | 'TENANT' | 'LEASE'
   | 'CHARGE' | 'INVOICE' | 'PAYMENT' | 'RECEIPT' | 'EXPENSE' | 'PAYOUT'
   | 'STATEMENT' | 'JOURNAL' | 'BROKERAGE_DEAL' | 'SALE_OFFER' | 'SALE_SETTLEMENT'
-  | 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'INSPECTION' | 'DEFECT';
+  | 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'INSPECTION' | 'DEFECT'
+  | 'CONSTRUCTION_PROJECT' | 'CONSTRUCTION_CONTRACT' | 'DEVELOPMENT_PROJECT';
 
 const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; width: number }> = {
   BRANCH: { prefix: 'BR', sequence: 'public.branch_record_number_seq', width: 3 },
@@ -42,6 +43,9 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   WORK_ORDER: { prefix: 'WO', sequence: 'public.work_order_record_number_seq', width: 6 },
   INSPECTION: { prefix: 'INSP', sequence: 'public.inspection_record_number_seq', width: 6 },
   DEFECT: { prefix: 'DEF', sequence: 'public.defect_issue_record_number_seq', width: 6 },
+  CONSTRUCTION_PROJECT: { prefix: 'CP', sequence: 'public.construction_project_record_number_seq', width: 6 },
+  CONSTRUCTION_CONTRACT: { prefix: 'CC', sequence: 'public.construction_contract_record_number_seq', width: 6 },
+  DEVELOPMENT_PROJECT: { prefix: 'DP', sequence: 'public.development_project_record_number_seq', width: 6 },
 };
 
 export async function nextRecordNumber(

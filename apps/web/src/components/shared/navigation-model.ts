@@ -327,9 +327,15 @@ export const reportingDestinations = [
 export const projectsDestinations = [
   {
     key: 'projects:construction',
-    label: 'Construction Enquiries',
-    href: '/crm/leads?intent=CONSTRUCTION_SERVICE',
-    permission: 'crm.lead.read',
+    label: 'Construction',
+    href: '/construction',
+    permission: 'construction.read',
+  },
+  {
+    key: 'projects:development',
+    label: 'Development',
+    href: '/development',
+    permission: 'development.read',
   },
 ] as const;
 
@@ -590,10 +596,7 @@ export function operationsNavigation(
   permissions: string[],
   navigate: (href: string) => void,
 ): NavigationItem[] {
-  return [
-    ...authorizedTaskNavigation(operationsDestinations, permissions, navigate),
-    ...projectsNavigation(permissions, navigate),
-  ];
+  return authorizedTaskNavigation(operationsDestinations, permissions, navigate);
 }
 
 export function financeNavigation(
@@ -675,6 +678,11 @@ export function buildSidebarGroups(options: {
       id: 'operations',
       title: 'OPERATIONS',
       items: operationsNavigation(permissions, navigate),
+    },
+    {
+      id: 'projects',
+      title: 'PROJECTS',
+      items: projectsNavigation(permissions, navigate),
     },
     {
       id: 'reporting',

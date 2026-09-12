@@ -8,14 +8,14 @@ import { DatabaseModule } from './database/database.module';
 import { FoundationController } from './foundation/foundation.controller';
 import { HealthController } from './health/health.controller';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
-import { Phase9Module } from './phase9.module';
+import { Phase10Module } from './phase10.module';
 
 @Module({
   imports: [
     FoundationConfigModule,
     DatabaseModule,
     InfrastructureModule,
-    Phase9Module,
+    Phase10Module,
     LoggerModule.forRoot({
       forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
       pinoHttp: {

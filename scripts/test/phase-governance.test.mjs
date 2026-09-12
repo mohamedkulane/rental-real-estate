@@ -16,6 +16,9 @@ import {
   phase9ClosureReportPath,
   phase913PassLabels,
   phase9PortalModels,
+  phase10ClosureReportPath,
+  phase10ConstructionModels,
+  phase1026PassLabels,
   reviewLabels,
   validateIndependentReviews,
   validateModelInventory,
@@ -265,6 +268,54 @@ test('accepts Phase 9 portals closure metadata and inventory', () => {
     true,
     true,
     true,
+  );
+});
+
+test('accepts Phase 10 construction closure metadata and inventory', () => {
+  const phase10 = {
+    completedPhase: 10,
+    phase5Started: true,
+    phase5SubPhase: '10.26',
+    currentGate: 'PHASE_10_CONSTRUCTION_DEVELOPMENT_CLOSURE_PASS',
+    productionSchemaScope: 'PHASES_1_TO_10_ONLY',
+    canonicalClosureReport: phase10ClosureReportPath,
+    graphRun: '.codex/graphs/runs/workflow-ux-wave1',
+    phase53Started: true,
+    phase6Started: true,
+    phase7Started: true,
+    phase8Started: true,
+    phase9Started: true,
+    phase10Started: true,
+  };
+  const constructionComplete = [
+    ...phase1026PassLabels.map((label) => `${label}: PASS`),
+    'PHASE 11 STARTED: NO',
+    'UNRESOLVED CRITICAL: 0',
+    'UNRESOLVED HIGH: 0',
+  ].join('\n');
+  const result = validatePhaseMetadata(phase10, '', '', '', '', '', '', constructionComplete);
+  assert.equal(result.constructionApproved, true);
+  validateModelInventory(
+    schema([
+      ...baselineModels,
+      ...crmModels,
+      ...phase5OperationalModels,
+      ...phase6FinanceModels,
+      ...phase7CommercialModels,
+      ...phase8OperationsModels,
+      ...phase9PortalModels,
+      ...phase10ConstructionModels,
+    ]),
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+  );
+  assert.throws(() =>
+    validatePhaseMetadata({ ...phase10, phase10Started: false }, '', '', '', '', '', '', constructionComplete),
   );
 });
 

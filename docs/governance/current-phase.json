@@ -1,14 +1,15 @@
 {
-  "completedPhase": 9,
-  "currentGate": "PHASE_9_13_PORTALS_REPORTING_CLOSURE_PASS",
+  "completedPhase": 10,
+  "currentGate": "PHASE_10_CONSTRUCTION_DEVELOPMENT_CLOSURE_PASS",
   "phase5Started": true,
-  "phase5SubPhase": "9.13",
-  "productionSchemaScope": "PHASES_1_TO_9_ONLY",
-  "canonicalClosureReport": "docs/decisions/20-phase-9-portals-reporting-closure.md",
+  "phase5SubPhase": "10.26",
+  "productionSchemaScope": "PHASES_1_TO_10_ONLY",
+  "canonicalClosureReport": "docs/decisions/21-phase-10-construction-development-closure.md",
   "graphRun": ".codex/graphs/runs/workflow-ux-wave1",
   "phase53Started": true,
   "phase6Started": true,
   "phase7Started": true,
   "phase8Started": true,
-  "phase9Started": true
+  "phase9Started": true,
+  "phase10Started": true
 }

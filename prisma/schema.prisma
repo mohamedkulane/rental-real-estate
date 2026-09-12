@@ -68,6 +68,9 @@ model Company {
   defectIssues       DefectIssue[]
   portalAccounts     PortalAccount[]
   notifications      Notification[]
+  constructionProjects ConstructionProject[]
+  constructionContracts ConstructionContract[]
+  developmentProjects DevelopmentProject[]
 
   @@map("companies")
 }
@@ -122,6 +125,9 @@ model Branch {
   workOrders          WorkOrder[]
   inspections         Inspection[]
   defectIssues        DefectIssue[]
+  constructionProjects ConstructionProject[]
+  constructionContracts ConstructionContract[]
+  developmentProjects DevelopmentProject[]
 
   @@unique([companyId, code], map: "uq_branches__company_code")
   @@map("branches")
@@ -245,6 +251,10 @@ model Employee {
   assignedMaintenanceRequests                                              MaintenanceRequest[]       @relation("MaintenanceAssignedEmployee")
   assignedWorkOrders                                                       WorkOrder[]                @relation("WorkOrderAssignedEmployee")
   inspectionsAsInspector                                                   Inspection[]               @relation("InspectionInspector")
+  managedConstructionProjects                                              ConstructionProject[]      @relation("ConstructionProjectManager")
+  managedDevelopmentProjects                                               DevelopmentProject[]       @relation("DevelopmentProjectManager")
+  assignedConstructionMilestones                                           ConstructionMilestone[]    @relation("ConstructionMilestoneAssignee")
+  assignedConstructionWorkPackages                                         ConstructionWorkPackage[]  @relation("ConstructionWorkPackageAssignee")
 
   @@unique([companyId, employeeNumber])
   @@map("employees")
@@ -357,6 +367,11 @@ model Party {
   maintenanceAsReporter                                        MaintenanceRequest[] @relation("MaintenanceReporter")
   inspectionsAsTenant                                          Inspection[]         @relation("InspectionTenant")
   portalAccount                                                PortalAccount?
+  constructionProjectsAsClient                                 ConstructionProject[] @relation("ConstructionProjectClient")
+  constructionContractsAsClient                                ConstructionContract[] @relation("ConstructionContractClient")
+  constructionWorkPackagesAsVendor                             ConstructionWorkPackage[] @relation("ConstructionWorkPackageVendor")
+  constructionCostsAsVendor                                    ConstructionCost[] @relation("ConstructionCostVendor")
+  developmentCostsAsVendor                                     DevelopmentCost[] @relation("DevelopmentCostVendor")
 
   @@unique([companyId, partyNumber])
   @@map("parties")
@@ -497,6 +512,9 @@ model Property {
   workOrders                  WorkOrder[]
   inspections                 Inspection[]
   defectIssues                DefectIssue[]
+  constructionProjects        ConstructionProject[]
+  developmentProjects         DevelopmentProject[] @relation("DevelopmentSourceProperty")
+  developmentOutputAssets     DevelopmentOutputAsset[]
 
   @@unique([companyId, propertyCode], map: "uq_properties_company_code")
   @@index([companyId, status, propertyType], map: "properties_company_status_type_idx")
@@ -694,6 +712,7 @@ model Lead {
   rentalApplications        RentalApplication[]
   brokerageDeals            BrokerageDeal[]
   saleOffers                SaleOffer[]
+  constructionProjects      ConstructionProject[]
 
   @@unique([companyId, leadNumber], map: "uq_lead_company_number")
   @@index([companyId, createdAt(sort: Desc), id(sort: Desc)], map: "lead_register_order_idx")
@@ -1089,6 +1108,7 @@ model SaleListing {
   createdBy           User              @relation("SaleListingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   viewings            Viewing[]
   saleOffers          SaleOffer[]
+  developmentOutput   DevelopmentOutputAsset?
 
   @@unique([companyId, listingNumber], map: "uq_sale_listing_company_number")
   @@index([companyId, branchId, status, createdAt(sort: Desc), id(sort: Desc)], map: "sale_listing_register_idx")
@@ -1784,6 +1804,7 @@ model Charge {
   invoiceLines        InvoiceLine[]
   allocations         PaymentAllocation[]
   adjustments         ChargeAdjustment[]
+  constructionBilling ConstructionBillingEvent?
 
   @@unique([companyId, chargeNumber], map: "uq_charge_company_number")
   @@index([companyId, branchId, status, dueDate], map: "charge_register_idx")
@@ -1808,6 +1829,7 @@ model Invoice {
   branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   debtor        Party         @relation("InvoiceDebtor", fields: [debtorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   lines         InvoiceLine[]
+  constructionBillings ConstructionBillingEvent[]
 
   @@unique([companyId, invoiceNumber], map: "uq_invoice_company_number")
   @@index([companyId, branchId, status, issueDate], map: "invoice_register_idx")
@@ -1992,6 +2014,8 @@ model Expense {
   journalEntry        JournalEntry?         @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   workOrder           WorkOrder?            @relation(fields: [workOrderId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   journalSource       JournalSourceLink?
+  constructionCost    ConstructionCost?
+  developmentCost     DevelopmentCost?
 
   @@unique([companyId, expenseNumber], map: "uq_expense_company_number")
   @@index([companyId, branchId, status, businessDate], map: "expense_register_idx")
@@ -3144,4 +3168,482 @@ model Notification {
   @@unique([userId, dedupeKey], map: "uq_notification_user_dedupe")
   @@index([userId, status, createdAt(sort: Desc)], map: "notification_inbox_idx")
   @@map("notifications")
+}
+
+enum ConstructionEconomicModel {
+  CONSTRUCTION_FOR_CLIENT
+  COMPANY_DEVELOPMENT
+}
+
+enum ConstructionProjectStatus {
+  DRAFT
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ConstructionContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ConstructionBudgetCategory {
+  MATERIALS
+  LABOR
+  EQUIPMENT
+  SUBCONTRACTORS
+  PERMITS
+  PROFESSIONAL_SERVICES
+  TRANSPORT
+  CONTINGENCY
+  OTHER
+}
+
+enum ConstructionMilestoneStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+  CANCELLED
+}
+
+enum ConstructionWorkPackageStatus {
+  PLANNED
+  SCHEDULED
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+enum ConstructionWorkPackagePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ConstructionBillingBasis {
+  MILESTONE
+  INSTALLMENT
+  PROGRESS
+  MANUAL
+}
+
+enum ConstructionBillingStatus {
+  DRAFT
+  APPROVED
+  INVOICED
+  CANCELLED
+}
+
+enum DevelopmentProjectStatus {
+  PLANNING
+  APPROVED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum DevelopmentType {
+  RESIDENTIAL
+  COMMERCIAL
+  MIXED_USE
+  LAND_SUBDIVISION
+  OTHER
+}
+
+enum DevelopmentBlockStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum DevelopmentPlotStatus {
+  PLANNED
+  AVAILABLE
+  UNDER_CONSTRUCTION
+  COMPLETED
+  SALE_READY
+  RESERVED
+  SOLD
+  CANCELLED
+}
+
+enum DevelopmentCostCategory {
+  LAND
+  CONSTRUCTION
+  INFRASTRUCTURE
+  PROFESSIONAL_FEES
+  OTHER
+}
+
+model ConstructionProject {
+  id                      String                     @id @db.Uuid
+  companyId               String                     @db.Uuid
+  branchId                String                     @db.Uuid
+  projectNumber           String                     @db.VarChar(50)
+  name                    String                     @db.VarChar(200)
+  economicModel           ConstructionEconomicModel
+  status                  ConstructionProjectStatus  @default(DRAFT)
+  clientPartyId           String?                    @db.Uuid
+  propertyId              String?                    @db.Uuid
+  leadId                  String?                    @db.Uuid
+  developmentProjectId    String?                    @unique @db.Uuid
+  projectManagerEmployeeId String?                   @db.Uuid
+  startDate               DateTime?                  @db.Date
+  expectedEndDate         DateTime?                  @db.Date
+  actualCompletionDate    DateTime?                  @db.Date
+  scope                   String?                    @db.VarChar(4000)
+  notes                   String?                    @db.VarChar(2000)
+  contractValue           Decimal?                   @db.Decimal(20, 4)
+  currency                String                     @db.Char(3)
+  plannedPercent          Decimal                    @default(0) @db.Decimal(5, 2)
+  actualPercent           Decimal                    @default(0) @db.Decimal(5, 2)
+  createdAt               DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                   @updatedAt @db.Timestamptz(6)
+  company                 Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                  Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  client                  Party?                     @relation("ConstructionProjectClient", fields: [clientPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property                Property?                  @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lead                    Lead?                      @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  developmentProject      DevelopmentProject?        @relation(fields: [developmentProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projectManager          Employee?                  @relation("ConstructionProjectManager", fields: [projectManagerEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  contracts               ConstructionContract[]
+  budgetLines             ConstructionBudgetLine[]
+  milestones              ConstructionMilestone[]
+  workPackages            ConstructionWorkPackage[]
+  costs                   ConstructionCost[]
+  billingEvents           ConstructionBillingEvent[]
+  progressEntries         ConstructionProgressEntry[]
+
+  @@unique([companyId, projectNumber], map: "uq_construction_project_company_number")
+  @@index([companyId, branchId, status], map: "construction_project_register_idx")
+  @@index([clientPartyId, status], map: "construction_project_client_idx")
+  @@map("construction_projects")
+}
+
+model ConstructionContract {
+  id                   String                     @id @db.Uuid
+  companyId            String                     @db.Uuid
+  branchId             String                     @db.Uuid
+  contractNumber       String                     @db.VarChar(50)
+  constructionProjectId String                    @db.Uuid
+  clientPartyId        String                     @db.Uuid
+  status               ConstructionContractStatus @default(DRAFT)
+  contractValue        Decimal                    @db.Decimal(20, 4)
+  currency             String                     @db.Char(3)
+  paymentTermsSummary  String                     @db.VarChar(1000)
+  retentionPercent     Decimal?                   @db.Decimal(5, 2)
+  effectiveDate        DateTime                   @db.Date
+  completionTarget     DateTime?                  @db.Date
+  scope                String?                    @db.VarChar(4000)
+  createdAt            DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                   @updatedAt @db.Timestamptz(6)
+  company              Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch               Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  project              ConstructionProject        @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  client               Party                      @relation("ConstructionContractClient", fields: [clientPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  installments         ConstructionPaymentTerm[]
+  billingEvents        ConstructionBillingEvent[]
+
+  @@unique([companyId, contractNumber], map: "uq_construction_contract_company_number")
+  @@index([constructionProjectId, status], map: "construction_contract_project_idx")
+  @@map("construction_contracts")
+}
+
+model ConstructionPaymentTerm {
+  id         String               @id @db.Uuid
+  contractId String               @db.Uuid
+  sequence   Int
+  label      String               @db.VarChar(160)
+  percent    Decimal?             @db.Decimal(5, 2)
+  amount     Decimal?             @db.Decimal(20, 4)
+  dueDate    DateTime?            @db.Date
+  notes      String?              @db.VarChar(500)
+  contract   ConstructionContract @relation(fields: [contractId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([contractId, sequence], map: "uq_construction_payment_term_sequence")
+  @@map("construction_payment_terms")
+}
+
+model ConstructionBudgetLine {
+  id                    String                     @id @db.Uuid
+  constructionProjectId String                     @db.Uuid
+  category              ConstructionBudgetCategory
+  label                 String                     @db.VarChar(160)
+  budgetAmount          Decimal                    @db.Decimal(20, 4)
+  committedAmount       Decimal                    @default(0) @db.Decimal(20, 4)
+  actualAmount          Decimal                    @default(0) @db.Decimal(20, 4)
+  notes                 String?                    @db.VarChar(500)
+  createdAt             DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                   @updatedAt @db.Timestamptz(6)
+  project               ConstructionProject        @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([constructionProjectId, category], map: "construction_budget_project_idx")
+  @@map("construction_budget_lines")
+}
+
+model ConstructionMilestone {
+  id                    String                       @id @db.Uuid
+  constructionProjectId String                       @db.Uuid
+  title                 String                       @db.VarChar(200)
+  description           String?                      @db.VarChar(2000)
+  sequence              Int
+  plannedStart          DateTime?                    @db.Date
+  plannedEnd            DateTime?                    @db.Date
+  actualStart           DateTime?                    @db.Date
+  actualEnd             DateTime?                    @db.Date
+  percentComplete       Decimal                      @default(0) @db.Decimal(5, 2)
+  status                ConstructionMilestoneStatus  @default(PLANNED)
+  assigneeEmployeeId    String?                      @db.Uuid
+  createdAt             DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                     @updatedAt @db.Timestamptz(6)
+  project               ConstructionProject          @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignee              Employee?                    @relation("ConstructionMilestoneAssignee", fields: [assigneeEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  workPackages          ConstructionWorkPackage[]
+  costs                 ConstructionCost[]
+  billingEvents         ConstructionBillingEvent[]
+
+  @@index([constructionProjectId, sequence], map: "construction_milestone_project_seq_idx")
+  @@map("construction_milestones")
+}
+
+model ConstructionWorkPackage {
+  id                    String                           @id @db.Uuid
+  constructionProjectId String                           @db.Uuid
+  milestoneId           String?                          @db.Uuid
+  title                 String                           @db.VarChar(200)
+  description           String?                          @db.VarChar(2000)
+  assigneeEmployeeId    String?                          @db.Uuid
+  vendorPartyId         String?                          @db.Uuid
+  priority              ConstructionWorkPackagePriority  @default(MEDIUM)
+  scheduledStart        DateTime?                        @db.Date
+  scheduledEnd          DateTime?                        @db.Date
+  actualStart           DateTime?                        @db.Date
+  actualEnd             DateTime?                        @db.Date
+  status                ConstructionWorkPackageStatus    @default(PLANNED)
+  estimatedCost         Decimal?                         @db.Decimal(20, 4)
+  actualCost            Decimal?                         @db.Decimal(20, 4)
+  notes                 String?                          @db.VarChar(2000)
+  createdAt             DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                         @updatedAt @db.Timestamptz(6)
+  project               ConstructionProject              @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  milestone             ConstructionMilestone?           @relation(fields: [milestoneId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignee              Employee?                        @relation("ConstructionWorkPackageAssignee", fields: [assigneeEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  vendor                Party?                           @relation("ConstructionWorkPackageVendor", fields: [vendorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  costs                 ConstructionCost[]
+  blockers              ConstructionWorkPackageDependency[] @relation("WorkPackageBlocked")
+  blocking              ConstructionWorkPackageDependency[] @relation("WorkPackageBlocking")
+
+  @@index([constructionProjectId, status], map: "construction_work_package_project_idx")
+  @@map("construction_work_packages")
+}
+
+model ConstructionWorkPackageDependency {
+  id              String                   @id @db.Uuid
+  workPackageId   String                   @db.Uuid
+  dependsOnId     String                   @db.Uuid
+  workPackage     ConstructionWorkPackage  @relation("WorkPackageBlocked", fields: [workPackageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  dependsOn       ConstructionWorkPackage  @relation("WorkPackageBlocking", fields: [dependsOnId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([workPackageId, dependsOnId], map: "uq_construction_work_package_dependency")
+  @@map("construction_work_package_dependencies")
+}
+
+model ConstructionProgressEntry {
+  id                    String              @id @db.Uuid
+  constructionProjectId String              @db.Uuid
+  plannedPercent        Decimal             @db.Decimal(5, 2)
+  actualPercent         Decimal             @db.Decimal(5, 2)
+  notes                 String?             @db.VarChar(1000)
+  recordedAt            DateTime            @default(now()) @db.Timestamptz(6)
+  project               ConstructionProject @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([constructionProjectId, recordedAt(sort: Desc)], map: "construction_progress_project_idx")
+  @@map("construction_progress_entries")
+}
+
+model ConstructionCost {
+  id                    String                     @id @db.Uuid
+  companyId             String                     @db.Uuid
+  constructionProjectId String                     @db.Uuid
+  milestoneId           String?                    @db.Uuid
+  workPackageId         String?                    @db.Uuid
+  expenseId             String                     @unique @db.Uuid
+  vendorPartyId         String?                    @db.Uuid
+  category              ConstructionBudgetCategory
+  amount                Decimal                    @db.Decimal(20, 4)
+  currency              String                     @db.Char(3)
+  businessDate          DateTime                   @db.Date
+  idempotencyKey        String                     @unique @db.VarChar(180)
+  createdAt             DateTime                   @default(now()) @db.Timestamptz(6)
+  project               ConstructionProject        @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  milestone             ConstructionMilestone?     @relation(fields: [milestoneId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  workPackage           ConstructionWorkPackage?   @relation(fields: [workPackageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  expense               Expense                    @relation(fields: [expenseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  vendor                Party?                     @relation("ConstructionCostVendor", fields: [vendorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([constructionProjectId, businessDate], map: "construction_cost_project_date_idx")
+  @@map("construction_costs")
+}
+
+model ConstructionBillingEvent {
+  id                    String                     @id @db.Uuid
+  companyId             String                     @db.Uuid
+  constructionProjectId String                     @db.Uuid
+  contractId            String                     @db.Uuid
+  milestoneId           String?                    @db.Uuid
+  installmentSequence   Int?
+  basis                 ConstructionBillingBasis
+  status                ConstructionBillingStatus  @default(DRAFT)
+  amount                Decimal                    @db.Decimal(20, 4)
+  currency              String                     @db.Char(3)
+  dueDate               DateTime                   @db.Date
+  chargeId              String?                    @unique @db.Uuid
+  invoiceId             String?                    @db.Uuid
+  idempotencyKey        String                     @unique @db.VarChar(180)
+  createdAt             DateTime                   @default(now()) @db.Timestamptz(6)
+  project               ConstructionProject        @relation(fields: [constructionProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  contract              ConstructionContract       @relation(fields: [contractId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  milestone             ConstructionMilestone?     @relation(fields: [milestoneId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  charge                Charge?                    @relation(fields: [chargeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  invoice               Invoice?                   @relation(fields: [invoiceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([constructionProjectId, status], map: "construction_billing_project_idx")
+  @@map("construction_billing_events")
+}
+
+model DevelopmentProject {
+  id                       String                   @id @db.Uuid
+  companyId                String                   @db.Uuid
+  branchId                 String                   @db.Uuid
+  projectNumber            String                   @db.VarChar(50)
+  name                     String                   @db.VarChar(200)
+  sourcePropertyId         String                   @db.Uuid
+  projectManagerEmployeeId String?                  @db.Uuid
+  status                   DevelopmentProjectStatus @default(PLANNING)
+  developmentType          DevelopmentType
+  plannedStart             DateTime?                @db.Date
+  plannedCompletion        DateTime?                @db.Date
+  actualCompletion         DateTime?                @db.Date
+  totalArea                Decimal?                 @db.Decimal(20, 6)
+  areaUnit                 String?                  @db.VarChar(20)
+  budgetAmount             Decimal?                 @db.Decimal(20, 4)
+  currency                 String                   @db.Char(3)
+  notes                    String?                  @db.VarChar(2000)
+  createdAt                DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                 @updatedAt @db.Timestamptz(6)
+  company                  Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                   Branch                   @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceProperty           Property                 @relation("DevelopmentSourceProperty", fields: [sourcePropertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projectManager           Employee?                @relation("DevelopmentProjectManager", fields: [projectManagerEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  constructionProject      ConstructionProject?
+  blocks                   DevelopmentBlock[]
+  plots                    DevelopmentPlot[]
+  budgetLines              DevelopmentBudgetLine[]
+  costs                    DevelopmentCost[]
+  outputAssets             DevelopmentOutputAsset[]
+
+  @@unique([companyId, projectNumber], map: "uq_development_project_company_number")
+  @@index([companyId, branchId, status], map: "development_project_register_idx")
+  @@map("development_projects")
+}
+
+model DevelopmentBlock {
+  id                   String                 @id @db.Uuid
+  developmentProjectId String                 @db.Uuid
+  code                 String                 @db.VarChar(40)
+  name                 String                 @db.VarChar(160)
+  area                 Decimal?               @db.Decimal(20, 6)
+  purpose              String?                @db.VarChar(200)
+  status               DevelopmentBlockStatus @default(PLANNED)
+  notes                String?                @db.VarChar(1000)
+  createdAt            DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @db.Timestamptz(6)
+  project              DevelopmentProject     @relation(fields: [developmentProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  plots                DevelopmentPlot[]
+
+  @@unique([developmentProjectId, code], map: "uq_development_block_project_code")
+  @@map("development_blocks")
+}
+
+model DevelopmentPlot {
+  id                   String                 @id @db.Uuid
+  developmentProjectId String                 @db.Uuid
+  blockId              String?                @db.Uuid
+  plotNumber           String                 @db.VarChar(40)
+  plannedArea          Decimal?               @db.Decimal(20, 6)
+  useType              String?                @db.VarChar(80)
+  status               DevelopmentPlotStatus  @default(PLANNED)
+  notes                String?                @db.VarChar(1000)
+  createdAt            DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @db.Timestamptz(6)
+  project              DevelopmentProject     @relation(fields: [developmentProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  block                DevelopmentBlock?      @relation(fields: [blockId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  outputAsset          DevelopmentOutputAsset?
+
+  @@unique([developmentProjectId, plotNumber], map: "uq_development_plot_project_number")
+  @@index([developmentProjectId, status], map: "development_plot_project_status_idx")
+  @@map("development_plots")
+}
+
+model DevelopmentBudgetLine {
+  id                   String                   @id @db.Uuid
+  developmentProjectId String                   @db.Uuid
+  category             DevelopmentCostCategory
+  label                String                   @db.VarChar(160)
+  budgetAmount         Decimal                  @db.Decimal(20, 4)
+  actualAmount         Decimal                  @default(0) @db.Decimal(20, 4)
+  notes                String?                  @db.VarChar(500)
+  createdAt            DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                 @updatedAt @db.Timestamptz(6)
+  project              DevelopmentProject       @relation(fields: [developmentProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([developmentProjectId, category], map: "development_budget_project_idx")
+  @@map("development_budget_lines")
+}
+
+model DevelopmentCost {
+  id                   String                  @id @db.Uuid
+  companyId            String                  @db.Uuid
+  developmentProjectId String                  @db.Uuid
+  expenseId            String                  @unique @db.Uuid
+  vendorPartyId        String?                 @db.Uuid
+  category             DevelopmentCostCategory
+  amount               Decimal                 @db.Decimal(20, 4)
+  currency             String                  @db.Char(3)
+  businessDate         DateTime                @db.Date
+  allocationNotes      String?                 @db.VarChar(500)
+  idempotencyKey       String                  @unique @db.VarChar(180)
+  createdAt            DateTime                @default(now()) @db.Timestamptz(6)
+  project              DevelopmentProject      @relation(fields: [developmentProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  expense              Expense                 @relation(fields: [expenseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  vendor               Party?                  @relation("DevelopmentCostVendor", fields: [vendorPartyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([developmentProjectId, businessDate], map: "development_cost_project_date_idx")
+  @@map("development_costs")
+}
+
+model DevelopmentOutputAsset {
+  id                   String             @id @db.Uuid
+  developmentProjectId String             @db.Uuid
+  plotId               String?            @unique @db.Uuid
+  propertyId           String             @unique @db.Uuid
+  saleListingId        String?            @unique @db.Uuid
+  saleReady            Boolean            @default(false)
+  createdAt            DateTime           @default(now()) @db.Timestamptz(6)
+  project              DevelopmentProject @relation(fields: [developmentProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  plot                 DevelopmentPlot?   @relation(fields: [plotId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property             Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  saleListing          SaleListing?       @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([developmentProjectId, saleReady], map: "development_output_project_idx")
+  @@map("development_output_assets")
 }

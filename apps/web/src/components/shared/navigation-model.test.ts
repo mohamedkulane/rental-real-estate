@@ -111,7 +111,6 @@ describe('mockup sidebar groups', () => {
       'RENTAL',
       'SALES',
       'WORKFLOWS',
-      'OPERATIONS',
       'REPORTING',
       'ADMINISTRATION',
     ]);
@@ -161,10 +160,12 @@ describe('mockup sidebar groups', () => {
     ).toEqual(['Maintenance', 'Work Orders', 'Inspections', 'Vendors']);
   });
 
-  it('routes construction enquiries through projects', () => {
-    expect(projectsNavigation(['crm.lead.read'], () => undefined)[0]?.label).toBe(
-      'Construction Enquiries',
-    );
+  it('routes construction and development through projects', () => {
+    expect(
+      projectsNavigation(['construction.read', 'development.read'], () => undefined).map(
+        (item) => item.label,
+      ),
+    ).toEqual(['Construction', 'Development']);
   });
 
   it('omits empty groups for unauthorized users', () => {

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
   ChargeStatus,
+  ConstructionEconomicModel,
+  ConstructionProjectStatus,
+  DevelopmentProjectStatus,
   InvoiceStatus,
   LeadFollowUpState,
   LeadStage,
@@ -50,10 +53,24 @@ export class ReportingService {
     const sales = await this.salesReport(principal, branchId);
     const operations = await this.operationsReport(principal, branchId);
     const finance = await this.financeReport(principal, branchId);
+    const construction = await this.constructionReport(principal, branchId);
+    const development = await this.developmentReport(principal, branchId);
     const branch = branchId
       ? { selectedBranchId: branchId, comparisonAvailable: false }
       : { selectedBranchId: null, comparisonAvailable: principal.accessMode === 'COMPANY_WIDE' };
-    return { portfolio, crm, rental, fullManagement, sales, operations, finance, branch, companyId };
+    return {
+      portfolio,
+      crm,
+      rental,
+      fullManagement,
+      sales,
+      operations,
+      finance,
+      construction,
+      development,
+      branch,
+      companyId,
+    };
   }
 
   private async portfolioReport(
@@ -250,6 +267,114 @@ export class ReportingService {
       openInvoices: await this.db.invoice.count({
         where: { companyId, ...branchFilter, status: InvoiceStatus.ISSUED },
       }),
+    };
+  }
+
+  private async constructionReport(
+    principal: AuthenticatedPrincipal,
+    branchId?: string,
+  ): Promise<ReportSection> {
+    const companyId = principal.companyId;
+    const branchFilter = this.branchFilter(principal, 'construction.read', branchId);
+    const today = new Date();
+    const [activeProjects, delayedProjects, costs] = await Promise.all([
+      this.db.constructionProject.count({
+        where: {
+          companyId,
+          ...branchFilter,
+          economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
+          status: ConstructionProjectStatus.ACTIVE,
+        },
+      }),
+      this.db.constructionProject.count({
+        where: {
+          companyId,
+          ...branchFilter,
+          economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
+          status: ConstructionProjectStatus.ACTIVE,
+          expectedEndDate: { lt: today },
+        },
+      }),
+      this.db.constructionCost.aggregate({
+        where: { project: { companyId, ...branchFilter } },
+        _sum: { amount: true },
+      }),
+    ]);
+    const progress = await this.db.constructionProject.aggregate({
+      where: {
+        companyId,
+        ...branchFilter,
+        economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
+      },
+      _avg: { actualPercent: true },
+    });
+    const receivables = await this.db.charge.aggregate({
+      where: {
+        companyId,
+        ...branchFilter,
+        constructionBilling: { isNot: null },
+        status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
+      },
+      _sum: { outstandingAmount: true },
+    });
+    const budget = await this.db.constructionBudgetLine.aggregate({
+      where: { project: { companyId, ...branchFilter, economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT } },
+      _sum: { budgetAmount: true, actualAmount: true },
+    });
+    return {
+      activeProjects,
+      delayedProjects,
+      completionPercent: Number(progress._avg.actualPercent ?? 0),
+      budgetAmount: budget._sum.budgetAmount?.toString() ?? '0',
+      actualCosts: costs._sum.amount?.toString() ?? '0',
+      clientReceivables: receivables._sum.outstandingAmount?.toString() ?? '0',
+    };
+  }
+
+  private async developmentReport(
+    principal: AuthenticatedPrincipal,
+    branchId?: string,
+  ): Promise<ReportSection> {
+    const companyId = principal.companyId;
+    const branchFilter = this.branchFilter(principal, 'development.read', branchId);
+    const [activeDevelopments, plots, outputs, saleReady, costs] = await Promise.all([
+      this.db.developmentProject.count({
+        where: { companyId, ...branchFilter, status: DevelopmentProjectStatus.ACTIVE },
+      }),
+      this.db.developmentPlot.count({ where: { project: { companyId, ...branchFilter } } }),
+      this.db.developmentOutputAsset.count({ where: { project: { companyId, ...branchFilter } } }),
+      this.db.developmentOutputAsset.count({
+        where: { project: { companyId, ...branchFilter }, saleReady: true },
+      }),
+      this.db.developmentCost.aggregate({
+        where: { project: { companyId, ...branchFilter } },
+        _sum: { amount: true },
+      }),
+    ]);
+    const proceeds = await this.db.saleSettlement.aggregate({
+      where: {
+        companyId,
+        ...this.branchFilter(principal, 'sale-settlement.read', branchId),
+        property: { developmentOutputAssets: { some: {} } },
+      },
+      _sum: { companyProceeds: true },
+    });
+    const construction = await this.db.constructionProject.aggregate({
+      where: {
+        companyId,
+        ...branchFilter,
+        economicModel: ConstructionEconomicModel.COMPANY_DEVELOPMENT,
+      },
+      _avg: { actualPercent: true },
+    });
+    return {
+      activeDevelopments,
+      plots,
+      outputProperties: outputs,
+      saleReadyAssets: saleReady,
+      constructionProgress: Number(construction._avg.actualPercent ?? 0),
+      totalCosts: costs._sum.amount?.toString() ?? '0',
+      realizedSaleProceeds: proceeds._sum.companyProceeds?.toString() ?? '0',
     };
   }
 

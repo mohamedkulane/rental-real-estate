@@ -40,8 +40,27 @@ export const phase8OperationsModels = `VendorProfile VendorService VendorBranchA
 );
 
 export const phase9ClosureReportPath = 'docs/decisions/20-phase-9-portals-reporting-closure.md';
+export const phase10ClosureReportPath = 'docs/decisions/21-phase-10-construction-development-closure.md';
 
 export const phase9PortalModels = `PortalAccount Notification`.split(/\s+/u);
+
+export const phase10ConstructionModels = `ConstructionProject ConstructionContract ConstructionPaymentTerm ConstructionBudgetLine ConstructionMilestone ConstructionWorkPackage ConstructionWorkPackageDependency ConstructionProgressEntry ConstructionCost ConstructionBillingEvent DevelopmentProject DevelopmentBlock DevelopmentPlot DevelopmentBudgetLine DevelopmentCost DevelopmentOutputAsset`.split(
+  /\s+/u,
+);
+
+export const phase1026PassLabels = [
+  'PHASE 10 CONSTRUCTION DEVELOPMENT CLOSURE',
+  'CLIENT CONSTRUCTION',
+  'CONSTRUCTION CONTRACTS',
+  'PROJECT BUDGET',
+  'MILESTONES AND WORK PACKAGES',
+  'CONSTRUCTION COSTS',
+  'CLIENT BILLING',
+  'COMPANY DEVELOPMENT',
+  'DEVELOPMENT ASSET CONVERSION',
+  'AUTOMATED QA',
+  'UI/UX REVIEW',
+];
 
 export const phase913PassLabels = [
   'PHASE 9 PORTALS REPORTING CLOSURE',
@@ -132,9 +151,40 @@ export function validateIndependentReviews(reports) {
   }
 }
 
-export function validatePhaseMetadata(metadata, crmReport = '', operationalReport = '', financeReport = '', commercialReport = '', operationsReport = '', portalsReport = '') {
+export function validatePhaseMetadata(metadata, crmReport = '', operationalReport = '', financeReport = '', commercialReport = '', operationsReport = '', portalsReport = '', constructionReport = '') {
   if (metadata.phase5Started !== true || typeof metadata.completedPhase !== 'number' || metadata.completedPhase < 4) {
     throw new Error('Phase 4 closure and the approved Phase 5 start must remain recorded.');
+  }
+  if (metadata.phase5SubPhase === '10.26' || metadata.currentGate === 'PHASE_10_CONSTRUCTION_DEVELOPMENT_CLOSURE_PASS') {
+    if (
+      metadata.currentGate !== 'PHASE_10_CONSTRUCTION_DEVELOPMENT_CLOSURE_PASS' ||
+      metadata.productionSchemaScope !== 'PHASES_1_TO_10_ONLY' ||
+      metadata.phase6Started !== true ||
+      metadata.phase7Started !== true ||
+      metadata.phase8Started !== true ||
+      metadata.phase9Started !== true ||
+      metadata.phase10Started !== true ||
+      metadata.completedPhase !== 10 ||
+      metadata.canonicalClosureReport !== phase10ClosureReportPath
+    ) {
+      throw new Error('Invalid Phase 10.26 closure metadata.');
+    }
+    for (const label of phase1026PassLabels) {
+      requireLine(constructionReport, label, 'PASS', 'Phase 10.26');
+    }
+    requireLine(constructionReport, 'PHASE 11 STARTED', 'NO', 'Phase 10.26');
+    requireLine(constructionReport, 'UNRESOLVED CRITICAL', '0', 'Phase 10.26');
+    requireLine(constructionReport, 'UNRESOLVED HIGH', '0', 'Phase 10.26');
+    return {
+      crmApproved: true,
+      operationalApproved: true,
+      financeApproved: true,
+      commercialApproved: true,
+      operationsApproved: true,
+      portalsApproved: true,
+      constructionApproved: true,
+      gate: metadata.currentGate,
+    };
   }
   if (metadata.phase5SubPhase === '9.13' || metadata.currentGate === 'PHASE_9_13_PORTALS_REPORTING_CLOSURE_PASS') {
     if (
@@ -162,6 +212,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
       commercialApproved: true,
       operationsApproved: true,
       portalsApproved: true,
+      constructionApproved: false,
       gate: metadata.currentGate,
     };
   }
@@ -190,6 +241,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
       commercialApproved: true,
       operationsApproved: true,
       portalsApproved: false,
+      constructionApproved: false,
       gate: metadata.currentGate,
     };
   }
@@ -215,6 +267,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
       financeApproved: true,
       commercialApproved: true,
       operationsApproved: false,
+      constructionApproved: false,
       gate: metadata.currentGate,
     };
   }
@@ -239,6 +292,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
       operationalApproved: true,
       financeApproved: true,
       commercialApproved: false,
+      constructionApproved: false,
       gate: metadata.currentGate,
     };
   }
@@ -260,6 +314,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
     return {
       crmApproved: true,
       operationalApproved: true,
+      constructionApproved: false,
       gate: metadata.currentGate,
     };
   }
@@ -270,7 +325,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
       metadata.canonicalClosureReport !== 'docs/phases/phase-05/completion-report.md'
     )
       throw new Error('Invalid Phase 5.1 gate metadata.');
-    return { crmApproved: false, operationalApproved: false, gate: 'PHASE_5_1_SERVICE_ENGAGEMENTS_PASS' };
+    return { crmApproved: false, operationalApproved: false, constructionApproved: false, gate: 'PHASE_5_1_SERVICE_ENGAGEMENTS_PASS' };
   }
   const gates = [
     'PHASE_5_2_CRM_FOUNDATION_IN_PROGRESS',
@@ -296,7 +351,7 @@ export function validatePhaseMetadata(metadata, crmReport = '', operationalRepor
   } else {
     requireLine(crmReport, 'PHASE 5.2 CRM FOUNDATION', 'FAIL');
   }
-  return { crmApproved: true, operationalApproved: false, gate: metadata.currentGate };
+  return { crmApproved: true, operationalApproved: false, constructionApproved: false, gate: metadata.currentGate };
 }
 
 export function validateModelInventory(
@@ -307,6 +362,7 @@ export function validateModelInventory(
   commercialApproved = false,
   operationsApproved = false,
   portalsApproved = false,
+  constructionApproved = false,
 ) {
   const actual = new Set(
     [...schema.matchAll(/^\s*model\s+(\w+)\s*\{/gmu)].map((match) => match[1]),
@@ -319,6 +375,7 @@ export function validateModelInventory(
     ...(commercialApproved ? phase7CommercialModels : []),
     ...(operationsApproved ? phase8OperationsModels : []),
     ...(portalsApproved ? phase9PortalModels : []),
+    ...(constructionApproved ? phase10ConstructionModels : []),
   ]);
   const unapproved = [...actual].filter((name) => !expected.has(name));
   const missing = [...expected].filter((name) => !actual.has(name));

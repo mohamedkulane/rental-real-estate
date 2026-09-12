@@ -27,6 +27,8 @@ type WorkspaceData = {
   sales: ReportSection;
   operations: ReportSection;
   finance: ReportSection;
+  construction: ReportSection;
+  development: ReportSection;
   branch: { selectedBranchId: string | null; comparisonAvailable: boolean };
 };
 
@@ -38,6 +40,8 @@ const sectionOrder = [
   { key: 'sales', label: 'Sales' },
   { key: 'operations', label: 'Operations' },
   { key: 'finance', label: 'Finance' },
+  { key: 'construction', label: 'Construction' },
+  { key: 'development', label: 'Development' },
 ] as const;
 
 function metricLabel(key: string): string {
