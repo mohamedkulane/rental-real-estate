@@ -12,10 +12,13 @@ import {
   FiscalYearStatus,
   LeadIntent,
   LeadStage,
+  LeasePartyRole,
+  LeaseStatus,
   NormalBalance,
   OwnerStatus,
   PartyKind,
   PeriodStatus,
+  PortalType,
   PropertyStatus,
   RentableSpaceStatus,
   ServiceEngagementStatus,
@@ -29,6 +32,136 @@ if (existsSync(environmentFile)) loadEnvFile(environmentFile);
 const database = new PrismaClient();
 const environment = parseSeedEnvironment(process.env);
 const today = new Date(new Date().toISOString().slice(0, 10));
+
+async function seedPortalAccounts(input: {
+  company: { id: string };
+  companyParty: { id: string; displayName: string };
+  branches: Array<{ id: string }>;
+  sampleProperty: { id: string };
+  sampleSpace: { id: string };
+  user: { id: string };
+  today: Date;
+}): Promise<void> {
+  const portalPassword = await hash('Portal-Demo-Password1!', {
+    type: 2,
+    memoryCost: 65_536,
+    timeCost: 3,
+    parallelism: 1,
+  });
+  const ownerEmail = 'owner.portal@example.test';
+  const tenantEmail = 'tenant.portal@example.test';
+  const ownerUser = await database.user.upsert({
+    where: { emailNormalized: ownerEmail },
+    update: { status: UserStatus.ACTIVE, passwordHash: portalPassword },
+    create: { id: uuidv7(), emailNormalized: ownerEmail, passwordHash: portalPassword, status: UserStatus.ACTIVE },
+  });
+  const tenantUser = await database.user.upsert({
+    where: { emailNormalized: tenantEmail },
+    update: { status: UserStatus.ACTIVE, passwordHash: portalPassword },
+    create: { id: uuidv7(), emailNormalized: tenantEmail, passwordHash: portalPassword, status: UserStatus.ACTIVE },
+  });
+  await database.portalAccount.upsert({
+    where: { userId: ownerUser.id },
+    update: { active: true, portalType: PortalType.OWNER, partyId: input.companyParty.id },
+    create: {
+      id: uuidv7(),
+      userId: ownerUser.id,
+      companyId: input.company.id,
+      partyId: input.companyParty.id,
+      portalType: PortalType.OWNER,
+      active: true,
+    },
+  });
+  let tenantParty = await database.party.findFirst({
+    where: { companyId: input.company.id, partyNumber: 'TNT-PORTAL-DEMO' },
+  });
+  if (!tenantParty) {
+    tenantParty = await database.party.create({
+      data: {
+        id: uuidv7(),
+        companyId: input.company.id,
+        partyNumber: 'TNT-PORTAL-DEMO',
+        kind: PartyKind.PERSON,
+        displayName: 'Portal Demo Tenant',
+      },
+    });
+    await database.tenantProfile.create({
+      data: {
+        partyId: tenantParty.id,
+        companyId: input.company.id,
+        tenantNumber: 'TNT-PORTAL-DEMO',
+        status: 'ACTIVE',
+      },
+    });
+  }
+  await database.portalAccount.upsert({
+    where: { userId: tenantUser.id },
+    update: { active: true, portalType: PortalType.TENANT, partyId: tenantParty.id },
+    create: {
+      id: uuidv7(),
+      userId: tenantUser.id,
+      companyId: input.company.id,
+      partyId: tenantParty.id,
+      portalType: PortalType.TENANT,
+      active: true,
+    },
+  });
+  let engagement = await database.serviceEngagement.findFirst({
+    where: { companyId: input.company.id, propertyId: input.sampleProperty.id },
+  });
+  if (!engagement) {
+    engagement = await database.serviceEngagement.create({
+      data: {
+        id: uuidv7(),
+        companyId: input.company.id,
+        branchId: input.branches[0]!.id,
+        engagementNumber: 'ENG-PORTAL-DEMO',
+        serviceModel: ServiceModel.FULL_MANAGEMENT,
+        status: ServiceEngagementStatus.ACTIVE,
+        propertyId: input.sampleProperty.id,
+        rentableSpaceId: input.sampleSpace.id,
+        ownerPartyId: input.companyParty.id,
+        effectiveFrom: input.today,
+        createdByUserId: input.user.id,
+      },
+    });
+  }
+  if (engagement) {
+    const existingLease = await database.lease.findFirst({
+      where: {
+        companyId: input.company.id,
+        rentableSpaceId: input.sampleSpace.id,
+        status: { in: [LeaseStatus.ACTIVE, LeaseStatus.SIGNED] },
+      },
+    });
+    if (!existingLease) {
+      const lease = await database.lease.create({
+        data: {
+          id: uuidv7(),
+          companyId: input.company.id,
+          branchId: input.branches[0]!.id,
+          leaseNumber: 'LSE-PORTAL-DEMO',
+          rentableSpaceId: input.sampleSpace.id,
+          serviceEngagementId: engagement.id,
+          status: LeaseStatus.ACTIVE,
+          leaseStartDate: input.today,
+          leaseEndDate: new Date(input.today.getFullYear() + 1, input.today.getMonth(), input.today.getDate()),
+          rentAmount: '1200',
+          currency: 'USD',
+          createdByUserId: input.user.id,
+          parties: {
+            create: {
+              id: uuidv7(),
+              partyId: tenantParty.id,
+              role: LeasePartyRole.TENANT,
+            },
+          },
+        },
+      });
+      await lease;
+    }
+  }
+}
 
 async function synchronizeRecordNumberSequences(): Promise<void> {
   await database.$executeRaw`
@@ -230,6 +363,9 @@ const permissions = [
   ['vendor.manage', 'Create and update vendors'],
   ['defect.read', 'Read inspection defects'],
   ['defect.manage', 'Create defects and follow-up work'],
+  ['report.read', 'Read reporting workspaces and exports'],
+  ['dashboard.read', 'Read aggregated dashboard read models'],
+  ['search.read', 'Use authorized global search'],
 ] as const;
 
 const phase5OperationsPermissions = permissions
@@ -1109,6 +1245,7 @@ async function seed(): Promise<void> {
   }
 
   // Seeded business identifiers must reserve their values before normal API writes begin.
+  await seedPortalAccounts({ company, companyParty, branches, sampleProperty, sampleSpace, user, today });
   await synchronizeRecordNumberSequences();
 
   console.info(

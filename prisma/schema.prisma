@@ -66,6 +66,8 @@ model Company {
   workOrders         WorkOrder[]
   inspections        Inspection[]
   defectIssues       DefectIssue[]
+  portalAccounts     PortalAccount[]
+  notifications      Notification[]
 
   @@map("companies")
 }
@@ -180,6 +182,8 @@ model User {
   paymentsReceived                                  Payment[]                  @relation("PaymentReceivedBy")
   maintenanceActivities                             MaintenanceActivity[]      @relation("MaintenanceActivityActor")
   workOrderEvents                                   WorkOrderEvent[]           @relation("WorkOrderEventActor")
+  portalAccount                                     PortalAccount?
+  notifications                                     Notification[]
 
   @@map("users")
 }
@@ -352,6 +356,7 @@ model Party {
   maintenanceAsTenant                                          MaintenanceRequest[] @relation("MaintenanceTenant")
   maintenanceAsReporter                                        MaintenanceRequest[] @relation("MaintenanceReporter")
   inspectionsAsTenant                                          Inspection[]         @relation("InspectionTenant")
+  portalAccount                                                PortalAccount?
 
   @@unique([companyId, partyNumber])
   @@map("parties")
@@ -3090,4 +3095,53 @@ enum DefectStatus {
   IN_PROGRESS
   RESOLVED
   CLOSED
+}
+
+enum PortalType {
+  OWNER
+  TENANT
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+model PortalAccount {
+  id         String     @id @db.Uuid
+  userId     String     @unique @db.Uuid
+  companyId  String     @db.Uuid
+  partyId    String     @unique @db.Uuid
+  portalType PortalType
+  active     Boolean    @default(true)
+  createdAt  DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime   @updatedAt @db.Timestamptz(6)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  party      Party      @relation(fields: [partyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([companyId, portalType, active], map: "portal_account_company_type_idx")
+  @@map("portal_accounts")
+}
+
+model Notification {
+  id         String             @id @db.Uuid
+  companyId  String             @db.Uuid
+  userId     String             @db.Uuid
+  dedupeKey  String             @db.VarChar(200)
+  category   String             @db.VarChar(50)
+  title      String             @db.VarChar(200)
+  body       String             @db.VarChar(1000)
+  linkPath   String?            @db.VarChar(500)
+  entityType String?            @db.VarChar(80)
+  entityId   String?            @db.Uuid
+  status     NotificationStatus @default(UNREAD)
+  readAt     DateTime?          @db.Timestamptz(6)
+  createdAt  DateTime           @default(now()) @db.Timestamptz(6)
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([userId, dedupeKey], map: "uq_notification_user_dedupe")
+  @@index([userId, status, createdAt(sort: Desc)], map: "notification_inbox_idx")
+  @@map("notifications")
 }

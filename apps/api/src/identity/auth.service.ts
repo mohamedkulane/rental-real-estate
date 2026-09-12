@@ -106,37 +106,10 @@ export class AuthService {
       !session ||
       session.revokedAt ||
       session.expiresAt <= now ||
-      session.user.status !== UserStatus.ACTIVE ||
-      !session.user.employee?.active
+      session.user.status !== UserStatus.ACTIVE
     ) {
       throw new UnauthorizedException('Session is invalid or expired.');
     }
-    const employee = session.user.employee;
-    const businessDate = await this.businessDate.today(employee.companyId, now);
-    const activeAt = (from: Date, to: Date | null) =>
-      from <= businessDate && (!to || businessDate < to);
-    const roles = employee.roles.filter(
-      (assignment) =>
-        activeAt(assignment.effectiveFrom, assignment.effectiveTo) && assignment.role.active,
-    );
-    const permissions = new Set(
-      roles.flatMap((assignment) =>
-        assignment.role.permissions.map((grant) => grant.permission.code),
-      ),
-    );
-    const permissionBranchScopes = new Map<string, Set<string | null>>();
-    for (const assignment of roles) {
-      for (const grant of assignment.role.permissions) {
-        const scopes =
-          permissionBranchScopes.get(grant.permission.code) ?? new Set<string | null>();
-        scopes.add(assignment.branchId);
-        permissionBranchScopes.set(grant.permission.code, scopes);
-      }
-    }
-    const activeBranchAssignments = employee.branchAssignments.filter((assignment) =>
-      activeAt(assignment.effectiveFrom, assignment.effectiveTo),
-    );
-    const branchIds = new Set(activeBranchAssignments.map((assignment) => assignment.branchId));
     const activityWriteBefore = new Date(
       now.getTime() - this.environment.SESSION_ACTIVITY_WRITE_INTERVAL_MINUTES * 60 * 1000,
     );
@@ -146,22 +119,74 @@ export class AuthService {
         data: { lastActivityAt: now },
       });
     }
+    const employee = session.user.employee;
+    if (employee?.active) {
+      const businessDate = await this.businessDate.today(employee.companyId, now);
+      const activeAt = (from: Date, to: Date | null) =>
+        from <= businessDate && (!to || businessDate < to);
+      const roles = employee.roles.filter(
+        (assignment) =>
+          activeAt(assignment.effectiveFrom, assignment.effectiveTo) && assignment.role.active,
+      );
+      const permissions = new Set(
+        roles.flatMap((assignment) =>
+          assignment.role.permissions.map((grant) => grant.permission.code),
+        ),
+      );
+      const permissionBranchScopes = new Map<string, Set<string | null>>();
+      for (const assignment of roles) {
+        for (const grant of assignment.role.permissions) {
+          const scopes =
+            permissionBranchScopes.get(grant.permission.code) ?? new Set<string | null>();
+          scopes.add(assignment.branchId);
+          permissionBranchScopes.set(grant.permission.code, scopes);
+        }
+      }
+      const activeBranchAssignments = employee.branchAssignments.filter((assignment) =>
+        activeAt(assignment.effectiveFrom, assignment.effectiveTo),
+      );
+      const branchIds = new Set(activeBranchAssignments.map((assignment) => assignment.branchId));
+      return {
+        kind: 'STAFF',
+        userId: session.userId,
+        sessionId: session.id,
+        employeeId: employee.id,
+        companyId: employee.companyId,
+        businessDate: businessDate.toISOString().slice(0, 10),
+        accessMode: employee.accessMode,
+        roles: roles.map((assignment) => ({
+          code: assignment.role.code,
+          name: assignment.role.name,
+          branchId: assignment.branchId,
+        })),
+        permissions,
+        permissionBranchScopes,
+        branchIds,
+        branches: activeBranchAssignments.map((assignment) => assignment.branch),
+      };
+    }
+    const portal = await this.database.portalAccount.findUnique({
+      where: { userId: session.userId },
+      include: { party: { select: { id: true, displayName: true, companyId: true } } },
+    });
+    if (!portal?.active) throw new UnauthorizedException('Session is invalid or expired.');
+    const businessDate = await this.businessDate.today(portal.companyId, now);
     return {
+      kind: portal.portalType === 'OWNER' ? 'OWNER' : 'TENANT',
       userId: session.userId,
       sessionId: session.id,
-      employeeId: employee.id,
-      companyId: employee.companyId,
+      employeeId: '',
+      companyId: portal.companyId,
       businessDate: businessDate.toISOString().slice(0, 10),
-      accessMode: employee.accessMode,
-      roles: roles.map((assignment) => ({
-        code: assignment.role.code,
-        name: assignment.role.name,
-        branchId: assignment.branchId,
-      })),
-      permissions,
-      permissionBranchScopes,
-      branchIds,
-      branches: activeBranchAssignments.map((assignment) => assignment.branch),
+      accessMode: BranchAccessMode.BRANCH,
+      roles: [],
+      permissions: new Set<string>(),
+      permissionBranchScopes: new Map<string, Set<string | null>>(),
+      branchIds: new Set<string>(),
+      branches: [],
+      partyId: portal.partyId,
+      displayName: portal.party.displayName,
+      portalType: portal.portalType,
     };
   }
 

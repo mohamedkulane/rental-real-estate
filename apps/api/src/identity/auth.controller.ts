@@ -60,8 +60,9 @@ export class AuthController {
   me(@Req() request: AuthenticatedRequest) {
     const principal = request.principal;
     return {
+      kind: principal.kind,
       userId: principal.userId,
-      employeeId: principal.employeeId,
+      employeeId: principal.employeeId || undefined,
       companyId: principal.companyId,
       businessDate: principal.businessDate,
       accessMode: principal.accessMode,
@@ -75,6 +76,9 @@ export class AuthController {
       ),
       branchIds: [...principal.branchIds],
       branches: principal.branches ?? [],
+      partyId: principal.partyId,
+      displayName: principal.displayName,
+      portalType: principal.portalType,
     };
   }
 

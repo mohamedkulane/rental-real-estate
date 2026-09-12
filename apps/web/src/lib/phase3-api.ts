@@ -3,6 +3,8 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api/backend';
 export const apiUrl = (path: string) => API_BASE + path;
 
+export type PrincipalKind = 'STAFF' | 'OWNER' | 'TENANT';
+
 export interface Principal {
   userId: string;
   employeeId: string;
@@ -14,6 +16,10 @@ export interface Principal {
   permissionBranchScopes: Record<string, Array<string | null>>;
   branchIds: string[];
   branches: Array<{ id: string; code: string; name: string }>;
+  kind?: PrincipalKind;
+  partyId?: string;
+  displayName?: string;
+  portalType?: string;
 }
 
 export interface CursorPage<T> {

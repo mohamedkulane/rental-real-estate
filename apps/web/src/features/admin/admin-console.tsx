@@ -78,7 +78,18 @@ type Section = {
   permission?: string;
   path?: string;
 };
+type DashboardSummary = {
+  widgets: Record<string, number | string>;
+  recentActivity: Array<{
+    kind: string;
+    label: string;
+    status: string;
+    occurredAt: string;
+    href: string;
+  }>;
+};
 type DashboardSnapshot = {
+  summary: DashboardSummary | null;
   branches: Row[];
   employees: Row[];
   owners: Row[];
@@ -94,6 +105,7 @@ type DashboardSnapshot = {
   } | null;
 };
 const emptyDashboard: DashboardSnapshot = {
+  summary: null,
   branches: [],
   employees: [],
   owners: [],
@@ -345,6 +357,16 @@ export function AdminConsole() {
 
   const loadDashboardData = useCallback(async (current: Principal) => {
     setDashboardLoading(true);
+    if (hasPermission(current, 'dashboard.read')) {
+      try {
+        const summary = await apiCached<DashboardSummary>('/dashboard/summary');
+        setDashboard({ ...emptyDashboard, summary });
+        setDashboardLoading(false);
+        return;
+      } catch {
+        /* fall back to legacy dashboard loads */
+      }
+    }
     const request = async (permission: string, path: string) =>
       hasPermission(current, permission)
         ? apiCached<Row[] | CursorPage<Row>>(path)
@@ -368,7 +390,7 @@ export function AdminConsole() {
           }>('/operations/overview').catch(() => null)
         : Promise.resolve(null),
     ]);
-    setDashboard({ branches, employees, owners, properties, spaces, activity, operations });
+    setDashboard({ ...emptyDashboard, branches, employees, owners, properties, spaces, activity, operations });
     setDashboardLoading(false);
   }, []);
 
@@ -911,10 +933,25 @@ export function AdminConsole() {
         />
       );
     if (active === 'profile') {
+      const summaryWidgets = dashboard.summary?.widgets ?? null;
+      const summaryActivity = dashboard.summary?.recentActivity ?? [];
       const propertyGroups = Object.entries(
         Object.groupBy(dashboard.properties, (property) => humanize(text(property.propertyType))),
       ).sort(([, left], [, right]) => (right?.length ?? 0) - (left?.length ?? 0));
       const totalProperties = dashboard.properties.length;
+      const summaryMetricLabels: Record<string, string> = {
+        totalProperties: 'Properties',
+        rentableSpaces: 'Rentable spaces',
+        occupancyRate: 'Occupancy rate',
+        activeTenants: 'Active tenants',
+        activeLeases: 'Active leases',
+        openApplications: 'Open applications',
+        openMaintenance: 'Open maintenance',
+        monthlyRevenue: 'Monthly revenue',
+        outstandingReceivables: 'Outstanding receivables',
+        upcomingRenewals: 'Upcoming renewals',
+        pendingOwnerPayouts: 'Pending owner payouts',
+      };
       return (
         <div className="dashboard-stack">
           <section className="card">
@@ -938,42 +975,62 @@ export function AdminConsole() {
             </div>
           </section>
           <div className="metric-grid" aria-label="Current workspace totals">
-            {hasPermission(principal!, 'organization.branch.read') ? (
+            {summaryWidgets
+              ? Object.entries(summaryWidgets).map(([key, value]) => (
+                  <MetricCard
+                    key={key}
+                    label={summaryMetricLabels[key] ?? humanize(key)}
+                    value={dashboardLoading ? '...' : String(value)}
+                    icon={
+                      key.includes('Maintenance') || key === 'openMaintenance' ? (
+                        <Activity />
+                      ) : key.includes('Propert') ? (
+                        <Building2 />
+                      ) : key.includes('Tenant') || key.includes('Lease') ? (
+                        <UsersRound />
+                      ) : (
+                        <MapPinned />
+                      )
+                    }
+                  />
+                ))
+              : null}
+            {!summaryWidgets && hasPermission(principal!, 'organization.branch.read') ? (
               <MetricCard
                 label="Branches"
                 value={dashboardLoading ? '...' : dashboard.branches.length}
                 icon={<GitBranch />}
               />
             ) : null}
-            {hasPermission(principal!, 'identity.employee.read') ? (
+            {!summaryWidgets && hasPermission(principal!, 'identity.employee.read') ? (
               <MetricCard
                 label="Employees"
                 value={dashboardLoading ? '...' : dashboard.employees.length}
                 icon={<UsersRound />}
               />
             ) : null}
-            {hasPermission(principal!, 'owner.read') ? (
+            {!summaryWidgets && hasPermission(principal!, 'owner.read') ? (
               <MetricCard
                 label="Owners"
                 value={dashboardLoading ? '...' : dashboard.owners.length}
                 icon={<UsersRound />}
               />
             ) : null}
-            {hasPermission(principal!, 'portfolio.property.read') ? (
+            {!summaryWidgets && hasPermission(principal!, 'portfolio.property.read') ? (
               <MetricCard
                 label="Properties"
                 value={dashboardLoading ? '...' : dashboard.properties.length}
                 icon={<Building2 />}
               />
             ) : null}
-            {hasPermission(principal!, 'portfolio.space.read') ? (
+            {!summaryWidgets && hasPermission(principal!, 'portfolio.space.read') ? (
               <MetricCard
                 label="Rentable spaces"
                 value={dashboardLoading ? '...' : dashboard.spaces.length}
                 icon={<MapPinned />}
               />
             ) : null}
-            {hasPermission(principal!, 'operations.overview.read') ? (
+            {!summaryWidgets && hasPermission(principal!, 'operations.overview.read') ? (
               <>
                 <MetricCard
                   label="Open Maintenance"
@@ -1005,6 +1062,30 @@ export function AdminConsole() {
           </div>
           {dashboardLoading ? (
             <LoadingState label="Preparing your portfolio overview" compact />
+          ) : summaryActivity.length ? (
+            <section className="card dashboard-panel dashboard-activity">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Operations</p>
+                  <h2>Recent activity</h2>
+                </div>
+                <Activity aria-hidden="true" />
+              </div>
+              <div className="activity-list">
+                {summaryActivity.slice(0, 8).map((item) => (
+                  <article className="activity-row" key={`${item.kind}-${item.label}`}>
+                    <span className="activity-dot" />
+                    <div>
+                      <strong>{item.label}</strong>
+                      <small>
+                        {humanize(item.kind)} ... {formatDate(item.occurredAt, true)}
+                      </small>
+                    </div>
+                    <StatusBadge value={item.status} />
+                  </article>
+                ))}
+              </div>
+            </section>
           ) : (
             <div className="dashboard-grid">
               <section className="card dashboard-panel">

@@ -11,12 +11,32 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { humanize } from '@/lib/presentation';
+import { api } from '@/lib/phase3-api';
 import {
   startNewDestinations,
   startNewNavigation,
 } from './navigation-model';
+
+type SearchResult = {
+  type: string;
+  id: string;
+  label: string;
+  context: string;
+  branch?: string;
+  href: string;
+};
+
+type NotificationItem = {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  linkPath?: string | null;
+  status: string;
+  createdAt: string;
+};
 
 function branchLabel(
   accessMode: string,
@@ -54,13 +74,22 @@ export function AppHeader({
   const [startNewOpen, setStartNewOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const startNewTriggerRef = useRef<HTMLButtonElement>(null);
   const startNewDialogRef = useRef<HTMLElement>(null);
   const startNewCloseRef = useRef<HTMLButtonElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const profileTriggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
+  const notificationPanelRef = useRef<HTMLDivElement>(null);
 
+  const canSearch = permissions.includes('search.read');
   const navigate = (href: string) => window.location.assign(href);
   const startNewItems = startNewNavigation(permissions, (href) => {
     setStartNewOpen(false);
@@ -72,11 +101,49 @@ export function AppHeader({
   const initials = userInitials(displayName);
   const branchName = branchLabel(accessMode, branches);
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      const data = await api<{ items: NotificationItem[]; unreadCount: number }>('/notifications');
+      setNotifications(data.items);
+      setUnreadCount(data.unreadCount);
+    } catch {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (!canSearch) return;
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      void api<{ items: SearchResult[] }>(`/search?q=${encodeURIComponent(trimmed)}`)
+        .then((data) => setSearchResults(data.items))
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [canSearch, searchQuery]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (event.key === 'Escape') {
+        setSearchOpen(false);
+        setNotificationsOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -115,12 +182,21 @@ export function AppHeader({
   }, [startNewOpen]);
 
   useEffect(() => {
-    if (!profileOpen) return;
+    if (!profileOpen && !notificationsOpen && !searchOpen) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (!profileMenuRef.current?.contains(event.target as Node)) setProfileOpen(false);
+      const target = event.target as Node;
+      if (profileOpen && !profileMenuRef.current?.contains(target)) setProfileOpen(false);
+      if (notificationsOpen && !notificationPanelRef.current?.contains(target)) {
+        setNotificationsOpen(false);
+      }
+      if (searchOpen && !searchPanelRef.current?.contains(target)) setSearchOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setProfileOpen(false);
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+        setNotificationsOpen(false);
+        setSearchOpen(false);
+      }
     };
     window.addEventListener('mousedown', onPointerDown);
     window.addEventListener('keydown', onKeyDown);
@@ -128,7 +204,21 @@ export function AppHeader({
       window.removeEventListener('mousedown', onPointerDown);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [profileOpen]);
+  }, [notificationsOpen, profileOpen, searchOpen]);
+
+  async function markNotificationRead(id?: string) {
+    await api(`/notifications/read${id ? `?id=${encodeURIComponent(id)}` : ''}`, {
+      method: 'POST',
+    });
+    await loadNotifications();
+  }
+
+  function selectSearchResult(result: SearchResult) {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    navigate(result.href);
+  }
 
   return (
     <>
@@ -144,18 +234,69 @@ export function AppHeader({
                 <span>Real Estate</span>
               </span>
             </div>
-            <label className="app-header-search">
-              <span className="sr-only">Global search</span>
-              <Search className="app-header-search-icon" aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search properties, owners, tenants, leads..."
-              />
-              <kbd className="app-header-search-kbd">Ctrl K</kbd>
-            </label>
+            {canSearch ? (
+              <div className="relative" ref={searchPanelRef}>
+                <label className="app-header-search">
+                  <span className="sr-only">Global search</span>
+                  <Search className="app-header-search-icon" aria-hidden="true" />
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                      setSearchOpen(true);
+                    }}
+                    onFocus={() => setSearchOpen(true)}
+                    placeholder="Search properties, owners, tenants, leads..."
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={searchOpen}
+                    aria-controls="global-search-results"
+                  />
+                  <kbd className="app-header-search-kbd">Ctrl K</kbd>
+                </label>
+                {searchOpen && searchQuery.trim().length >= 2 ? (
+                  <div
+                    id="global-search-results"
+                    role="listbox"
+                    className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                  >
+                    {searchLoading ? (
+                      <p className="px-4 py-3 text-sm text-slate-500">Searching...</p>
+                    ) : searchResults.length ? (
+                      <ul>
+                        {searchResults.map((result) => (
+                          <li key={`${result.type}-${result.id}`}>
+                            <button
+                              type="button"
+                              role="option"
+                              className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                              onClick={() => selectSearchResult(result)}
+                            >
+                              <span className="mt-0.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                {humanize(result.type)}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold text-slate-900">
+                                  {result.label}
+                                </span>
+                                <span className="block truncate text-xs text-slate-500">
+                                  {result.context}
+                                  {result.branch ? ` · ${result.branch}` : ''}
+                                </span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-4 py-3 text-sm text-slate-500">No matching records found.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="app-header-actions">
@@ -183,10 +324,70 @@ export function AppHeader({
               <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
             </button>
 
-            <button type="button" className="app-header-icon-button relative" aria-label="Notifications">
-              <Bell className="h-4 w-4" aria-hidden="true" />
-              <span className="app-header-notification-badge">3</span>
-            </button>
+            <div className="relative" ref={notificationPanelRef}>
+              <button
+                type="button"
+                className="app-header-icon-button relative"
+                aria-label="Notifications"
+                aria-expanded={notificationsOpen}
+                onClick={() => {
+                  setNotificationsOpen((value) => !value);
+                  void loadNotifications();
+                }}
+              >
+                <Bell className="h-4 w-4" aria-hidden="true" />
+                {unreadCount > 0 ? (
+                  <span className="app-header-notification-badge">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
+              </button>
+              {notificationsOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                    {unreadCount > 0 ? (
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-emerald-700"
+                        onClick={() => void markNotificationRead()}
+                      >
+                        Mark all read
+                      </button>
+                    ) : null}
+                  </div>
+                  {notifications.length ? (
+                    <ul className="max-h-80 overflow-y-auto">
+                      {notifications.map((item) => (
+                        <li key={item.id} className="border-b border-slate-50 last:border-b-0">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className={
+                              'flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-slate-50 ' +
+                              (item.status === 'UNREAD' ? 'bg-emerald-50/40' : '')
+                            }
+                            onClick={() => {
+                              void markNotificationRead(item.id);
+                              setNotificationsOpen(false);
+                              if (item.linkPath) navigate(item.linkPath);
+                            }}
+                          >
+                            <span className="text-sm font-semibold text-slate-900">{item.title}</span>
+                            <span className="text-xs text-slate-500">{item.body}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="px-4 py-6 text-sm text-slate-500">No notifications yet.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
             <div className="relative" ref={profileMenuRef}>
               <button

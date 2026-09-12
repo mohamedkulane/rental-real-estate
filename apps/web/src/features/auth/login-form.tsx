@@ -5,7 +5,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LockKeyhole, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { API_BASE, api, clearApiCache, isServiceUnavailable, userFacingError } from '@/lib/phase3-api';
+import {
+  API_BASE,
+  api,
+  clearApiCache,
+  isServiceUnavailable,
+  userFacingError,
+  type Principal,
+} from '@/lib/phase3-api';
 import { BrandMark } from '@/components/shared/ui';
 
 type BackendStatus = 'checking' | 'online' | 'offline';
@@ -77,7 +84,10 @@ export function LoginForm() {
       });
       clearApiCache();
       setBackendStatus('online');
-      router.replace('/admin');
+      const me = await api<Principal>('/auth/me');
+      if (me.kind === 'OWNER') router.replace('/portal/owner');
+      else if (me.kind === 'TENANT') router.replace('/portal/tenant');
+      else router.replace('/admin');
     } catch (cause) {
       const message =
         cause instanceof Error && 'status' in cause && cause.status === 401

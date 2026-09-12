@@ -311,6 +311,12 @@ export const commercialDestinations = [
 
 export const reportingDestinations = [
   {
+    key: 'reports',
+    label: 'Reports',
+    href: '/reports',
+    permission: 'report.read',
+  },
+  {
     key: 'audit',
     label: 'Audit Log',
     href: '/admin?section=audit',
@@ -603,7 +609,7 @@ export function reportingNavigation(
   override?: NavigationItem[],
 ): NavigationItem[] {
   if (override?.length) {
-    return override.filter((item) => item.key === 'audit');
+    return override.filter((item) => item.key === 'audit' || item.key === 'reports');
   }
   return authorizedTaskNavigation(reportingDestinations, permissions, navigate);
 }
