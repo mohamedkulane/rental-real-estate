@@ -97,7 +97,7 @@ export class DevelopmentController {
   }
 
   @Post('convert-plot')
-  @RequirePermissions('portfolio.property.create')
+  @RequirePermissions('development.manage', 'portfolio.property.create', 'service-engagement.create')
   convert(@Req() req: AuthenticatedRequest, @Body() input: ConvertDevelopmentPlotDto) {
     return this.development.convertPlot(req.principal, input, req.correlationId);
   }

@@ -390,7 +390,12 @@ export class DevelopmentService {
       include: { project: { include: { sourceProperty: true } }, outputAsset: true },
     });
     if (!plot) throw new NotFoundException('Development plot not found.');
+    this.auth.assertBranchPermission(principal, 'development.manage', plot.project.branchId);
     this.auth.assertBranchPermission(principal, 'portfolio.property.create', plot.project.branchId);
+    this.auth.assertBranchPermission(principal, 'service-engagement.create', plot.project.branchId);
+    if (input.createSaleListing) {
+      this.auth.assertBranchPermission(principal, 'listing.create', plot.project.branchId);
+    }
     if (plot.outputAsset) throw new ConflictException('This plot already has a canonical Property.');
     const company = await this.db.company.findFirstOrThrow({
       where: { id: principal.companyId },

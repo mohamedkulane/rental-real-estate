@@ -44,6 +44,7 @@ PHASE 11 STARTED: NO
 - Client billing and contracts are refused for company-development construction
 - Sale-ready/sold plot status requires a converted Property
 - Cost and billing idempotency keys are company-scoped
+- Plot conversion requires development.manage, portfolio.property.create, service-engagement.create, and listing.create when a sale listing is created
 
 ## Known non-blocking follow-ups
 
