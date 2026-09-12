@@ -45,7 +45,9 @@ import type {
 import {
   assertConfigurablePaymentTerms,
   assertConstructionEconomicModel,
+  assertInvoiceWithinContractCeiling,
   constructionContractTransitions,
+  remainingBillableContractValue,
 } from './construction.policy';
 
 const isoDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
@@ -645,6 +647,22 @@ export class ConstructionService {
       const locked = await tx.constructionBillingEvent.findUnique({ where: { idempotencyKey } });
       const again = replayIdempotentRecord(locked, principal.companyId);
       if (again) return again;
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM construction_contracts WHERE id = ${contract.id}::uuid AND "companyId" = ${principal.companyId}::uuid FOR UPDATE`,
+      );
+      const invoiced = await tx.constructionBillingEvent.aggregate({
+        where: {
+          contractId: contract.id,
+          companyId: principal.companyId,
+          status: { not: ConstructionBillingStatus.CANCELLED },
+        },
+        _sum: { amount: true },
+      });
+      const remaining = remainingBillableContractValue({
+        contractValue: contract.contractValue,
+        invoicedAmount: invoiced._sum.amount ?? 0,
+      });
+      assertInvoiceWithinContractCeiling({ amount, remaining });
       const charge = await tx.charge.create({
         data: {
           id: uuidv7(),

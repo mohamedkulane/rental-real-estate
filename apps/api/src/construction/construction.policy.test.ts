@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   assertConfigurablePaymentTerms,
   assertConstructionEconomicModel,
+  assertInvoiceWithinContractCeiling,
   assertSaleablePlotHasProperty,
   constructionContractTransitions,
+  remainingBillableContractValue,
 } from './construction.policy';
 
 describe('construction economic models', () => {
@@ -44,6 +46,44 @@ describe('construction payment terms', () => {
     expect(() => assertConfigurablePaymentTerms([{ percent: '140' }])).toThrow(
       'Payment term percents must be between 0 and 100.',
     );
+  });
+});
+
+describe('construction contract billing ceiling', () => {
+  it('allows an invoice below remaining contract value', () => {
+    const remaining = remainingBillableContractValue({
+      contractValue: '10000.00',
+      invoicedAmount: '2500.00',
+    });
+    expect(remaining.equals(7500)).toBe(true);
+    expect(() => assertInvoiceWithinContractCeiling({ amount: '7499.99', remaining })).not.toThrow();
+  });
+
+  it('allows an invoice exactly equal to remaining contract value', () => {
+    const remaining = remainingBillableContractValue({
+      contractValue: '10000.00',
+      invoicedAmount: '4000.00',
+    });
+    expect(() => assertInvoiceWithinContractCeiling({ amount: '6000.00', remaining })).not.toThrow();
+  });
+
+  it('blocks an invoice that exceeds remaining contract value', () => {
+    const remaining = remainingBillableContractValue({
+      contractValue: '10000.00',
+      invoicedAmount: '9000.00',
+    });
+    expect(() => assertInvoiceWithinContractCeiling({ amount: '1000.01', remaining })).toThrow(
+      /exceeds remaining contract value/u,
+    );
+  });
+
+  it('keeps approved variation amount as an unused extension point', () => {
+    const remaining = remainingBillableContractValue({
+      contractValue: '10000.00',
+      invoicedAmount: '10000.00',
+      approvedVariationAmount: '500.00',
+    });
+    expect(remaining.toString()).toBe('500');
   });
 });
 

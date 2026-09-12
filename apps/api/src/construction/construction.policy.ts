@@ -3,7 +3,11 @@ import {
   ConstructionContractStatus,
   ConstructionEconomicModel,
   DevelopmentPlotStatus,
+  Prisma,
 } from '@prisma/client';
+
+const asDecimal = (value: Prisma.Decimal | string | number): Prisma.Decimal =>
+  value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
 
 export function assertConstructionEconomicModel(input: {
   economicModel: ConstructionEconomicModel;
@@ -45,6 +49,31 @@ export const constructionContractTransitions: Record<
   COMPLETED: [],
   CANCELLED: [],
 };
+
+export function remainingBillableContractValue(input: {
+  contractValue: Prisma.Decimal | string | number;
+  invoicedAmount: Prisma.Decimal | string | number;
+  approvedVariationAmount?: Prisma.Decimal | string | number;
+}): Prisma.Decimal {
+  const contractValue = asDecimal(input.contractValue);
+  const invoicedAmount = asDecimal(input.invoicedAmount);
+  const approvedVariationAmount = asDecimal(input.approvedVariationAmount ?? 0);
+  const remaining = contractValue.plus(approvedVariationAmount).minus(invoicedAmount);
+  return remaining.lt(0) ? new Prisma.Decimal(0) : remaining;
+}
+
+export function assertInvoiceWithinContractCeiling(input: {
+  amount: Prisma.Decimal | string | number;
+  remaining: Prisma.Decimal | string | number;
+}): void {
+  const amount = asDecimal(input.amount);
+  const remaining = asDecimal(input.remaining);
+  if (amount.gt(remaining)) {
+    throw new ConflictException(
+      `Invoice amount ${amount.toFixed(4)} exceeds remaining contract value ${remaining.toFixed(4)}.`,
+    );
+  }
+}
 
 export function assertSaleablePlotHasProperty(
   status: DevelopmentPlotStatus,

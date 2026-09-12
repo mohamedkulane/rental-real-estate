@@ -384,4 +384,166 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 10 constru
       .set('Cookie', `rerms_session=${sessionToken(ownerLogin)}`)
       .expect(403);
   });
+
+  it('enforces the active contract billing ceiling with idempotent retries and concurrency', async () => {
+    if (!clientPartyId) return;
+    const suffix = randomUUID().slice(0, 6);
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/construction/projects')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        branchId,
+        name: `Ceiling ${suffix}`,
+        economicModel: 'CONSTRUCTION_FOR_CLIENT',
+        clientPartyId,
+      })
+      .expect(201);
+    const projectId = recordId(created.body);
+    const contract = await request(app.getHttpServer())
+      .post('/api/v1/construction/contracts')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        constructionProjectId: projectId,
+        contractValue: '1000.00',
+        paymentTermsSummary: 'Progress billing against contract value',
+        effectiveDate: '2026-09-12',
+        installments: [{ label: 'Progress', percent: '100' }],
+      })
+      .expect(201);
+    const contractId = recordId(contract.body);
+    await request(app.getHttpServer())
+      .post(`/api/v1/construction/contracts/${contractId}/transition`)
+      .set('Cookie', `rerms_session=${token}`)
+      .send({ status: 'ACTIVE' })
+      .expect(201);
+
+    const below = await request(app.getHttpServer())
+      .post('/api/v1/construction/billing')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        constructionProjectId: projectId,
+        contractId,
+        basis: 'MANUAL',
+        amount: '400.00',
+        dueDate: '2026-10-01',
+        idempotencyKey: `ceil-below-${suffix}`,
+      })
+      .expect(201);
+    const exactKey = `ceil-exact-${suffix}`;
+    const exact = await request(app.getHttpServer())
+      .post('/api/v1/construction/billing')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        constructionProjectId: projectId,
+        contractId,
+        basis: 'MANUAL',
+        amount: '600.00',
+        dueDate: '2026-10-02',
+        idempotencyKey: exactKey,
+      })
+      .expect(201);
+    const blocked = await request(app.getHttpServer())
+      .post('/api/v1/construction/billing')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        constructionProjectId: projectId,
+        contractId,
+        basis: 'MANUAL',
+        amount: '0.01',
+        dueDate: '2026-10-03',
+        idempotencyKey: `ceil-over-${suffix}`,
+      })
+      .expect(409);
+    expect(stringField(blocked.body, 'message')).toMatch(/exceeds remaining contract value/i);
+    const replay = await request(app.getHttpServer())
+      .post('/api/v1/construction/billing')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        constructionProjectId: projectId,
+        contractId,
+        basis: 'MANUAL',
+        amount: '600.00',
+        dueDate: '2026-10-02',
+        idempotencyKey: exactKey,
+      })
+      .expect(201);
+    expect(recordId(replay.body)).toBe(recordId(exact.body));
+    expect(recordId(replay.body)).not.toBe(recordId(below.body));
+
+    const concurrent = await request(app.getHttpServer())
+      .post('/api/v1/construction/projects')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        branchId,
+        name: `Ceil race ${suffix}`,
+        economicModel: 'CONSTRUCTION_FOR_CLIENT',
+        clientPartyId,
+      })
+      .expect(201);
+    const raceProjectId = recordId(concurrent.body);
+    const raceContract = await request(app.getHttpServer())
+      .post('/api/v1/construction/contracts')
+      .set('Cookie', `rerms_session=${token}`)
+      .send({
+        constructionProjectId: raceProjectId,
+        contractValue: '100.00',
+        paymentTermsSummary: 'Concurrent ceiling',
+        effectiveDate: '2026-09-12',
+        installments: [{ label: 'Progress', percent: '100' }],
+      })
+      .expect(201);
+    const raceContractId = recordId(raceContract.body);
+    await request(app.getHttpServer())
+      .post(`/api/v1/construction/contracts/${raceContractId}/transition`)
+      .set('Cookie', `rerms_session=${token}`)
+      .send({ status: 'ACTIVE' })
+      .expect(201);
+    const [first, second] = await Promise.all([
+      request(app.getHttpServer())
+        .post('/api/v1/construction/billing')
+        .set('Cookie', `rerms_session=${token}`)
+        .send({
+          constructionProjectId: raceProjectId,
+          contractId: raceContractId,
+          basis: 'MANUAL',
+          amount: '80.00',
+          dueDate: '2026-10-04',
+          idempotencyKey: `ceil-race-a-${suffix}`,
+        }),
+      request(app.getHttpServer())
+        .post('/api/v1/construction/billing')
+        .set('Cookie', `rerms_session=${token}`)
+        .send({
+          constructionProjectId: raceProjectId,
+          contractId: raceContractId,
+          basis: 'MANUAL',
+          amount: '80.00',
+          dueDate: '2026-10-04',
+          idempotencyKey: `ceil-race-b-${suffix}`,
+        }),
+    ]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([201, 409]);
+    const billed = await database.constructionBillingEvent.aggregate({
+      where: { contractId: raceContractId, status: { not: 'CANCELLED' } },
+      _sum: { amount: true },
+    });
+    expect(Number(billed._sum.amount ?? 0)).toBeLessThanOrEqual(100);
+
+    const ownerLogin = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: 'owner.portal@example.test', password: 'Portal-Demo-Password1!' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/construction/billing')
+      .set('Cookie', `rerms_session=${sessionToken(ownerLogin)}`)
+      .send({
+        constructionProjectId: projectId,
+        contractId,
+        basis: 'MANUAL',
+        amount: '10.00',
+        dueDate: '2026-10-05',
+      })
+      .expect(403);
+  });
 });
