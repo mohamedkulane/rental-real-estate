@@ -27,14 +27,14 @@ export class DashboardReadModelService {
   }
 
   private propertyBranchFilter(principal: AuthenticatedPrincipal) {
-    const branchIds = this.auth.authorizedBranchIds(principal, 'property.read');
+    const branchIds = this.auth.authorizedBranchIds(principal, 'portfolio.property.read');
     if (branchIds === null) return {};
     return { branchAssignments: { some: { branchId: { in: [...branchIds] } } } };
   }
 
   async summary(principal: AuthenticatedPrincipal) {
     const companyId = principal.companyId;
-    const branchFilter = this.branchFilter(principal, 'property.read');
+    const branchFilter = this.branchFilter(principal, 'application.read');
     const propertyBranchFilter = this.propertyBranchFilter(principal);
     const leaseBranchFilter = this.branchFilter(principal, 'lease.read');
     const [

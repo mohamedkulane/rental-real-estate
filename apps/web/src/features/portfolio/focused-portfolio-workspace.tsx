@@ -506,11 +506,12 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
       <StatusBadge value={period} />,
       <span className="flex flex-wrap justify-end gap-3">
         {propertyId ? recordLink('/portfolio/properties/' + propertyId, 'Open Property') : null}
-        {recordLink(
-          '/portfolio?section=properties&view=ownership&propertyId=' +
-            encodeURIComponent(propertyId),
-          'Manage Ownership',
-        )}
+        {propertyId
+          ? recordLink(
+              '/portfolio/properties/' + encodeURIComponent(propertyId) + '?tab=ownership&manage=1',
+              'Manage Ownership',
+            )
+          : null}
       </span>,
     ];
   }

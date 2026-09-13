@@ -223,6 +223,7 @@ export function PropertyRegistry({
   onQueryChange,
   initialDetailTab = 'overview',
   owners,
+  canManageOwnership,
   onReplaceOwnership,
 }: {
   records: PropertyRecord[];
@@ -951,6 +952,15 @@ export function PropertyRegistry({
                 >
                   Open Property
                 </a>
+                {canManageOwnership(selected) ? (
+                  <button
+                    type="button"
+                    onClick={() => setPanel('ownership')}
+                    className="inline-flex min-h-10 items-center rounded-lg border border-[#0D47A1] px-4 text-sm font-bold text-[#0D47A1]"
+                  >
+                    Manage ownership
+                  </button>
+                ) : null}
                 {canUpdate(selected) ? (
                   <button
                     type="button"

@@ -5,13 +5,14 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Building2, Edit3, Plus } from 'lucide-react';
 import { DetailTabs } from '@/components/shared/detail-tabs';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
-import { api, apiCached, userFacingError } from '@/lib/phase3-api';
+import { api, apiCached, pageItems, userFacingError, type CursorPage } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
 import { PropertyOperations } from './property-operations';
 import { PropertyActivity } from './property-activity';
 import { PROPERTY_DETAIL_TABS } from './portfolio-ia';
 import type { BranchOption, PropertyDetailTab, PropertyRecord } from './pages/property-registry';
-import { OwnershipWorkspace } from './ownership-workflow';
+import { OwnershipEditor, OwnershipWorkspace } from './ownership-workflow';
+import type { OwnerOption, ReplaceOwnershipInput } from './ownership-model';
 import { PortfolioDetailShell, usePortfolioPrincipal } from './detail-shell';
 
 const formValue = (form: FormData, key: string) => {
@@ -36,6 +37,10 @@ export function PropertyDetailWorkspace() {
   const [error, setError] = useState('');
   const [showAddBuilding, setShowAddBuilding] = useState(false);
   const [savingBuilding, setSavingBuilding] = useState(false);
+  const [editingOwnership, setEditingOwnership] = useState(searchParams.get('manage') === '1');
+  const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
+  const [loadingOwners, setLoadingOwners] = useState(false);
+  const [savingOwnership, setSavingOwnership] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -57,6 +62,46 @@ export function PropertyDetailWorkspace() {
   useEffect(() => {
     if (principal) void load();
   }, [params.propertyId, principal]);
+
+  useEffect(() => {
+    if (tab === 'ownership' && searchParams.get('manage') === '1') {
+      setEditingOwnership(true);
+    }
+  }, [searchParams, tab]);
+
+  async function openOwnershipEditor() {
+    if (!principal?.permissions.includes('portfolio.ownership.manage')) return;
+    setEditingOwnership(true);
+    setLoadingOwners(true);
+    try {
+      const page = await api<CursorPage<OwnerOption>>('/owners?status=ACTIVE&limit=50');
+      setOwnerOptions(pageItems(page));
+    } catch (cause) {
+      setError(userFacingError(cause, 'Owners could not be loaded.'));
+      setEditingOwnership(false);
+    } finally {
+      setLoadingOwners(false);
+    }
+  }
+
+  async function saveOwnership(input: ReplaceOwnershipInput) {
+    if (!record) return;
+    setSavingOwnership(true);
+    setError('');
+    try {
+      await api(`/properties/${record.id}/ownership`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      });
+      setEditingOwnership(false);
+      router.replace('/portfolio/properties/' + record.id + '?tab=ownership', { scroll: false });
+      await load();
+    } catch (cause) {
+      setError(userFacingError(cause, 'Ownership could not be saved.'));
+    } finally {
+      setSavingOwnership(false);
+    }
+  }
 
   async function createBuilding(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -338,9 +383,9 @@ export function PropertyDetailWorkspace() {
                 detailsComplete: Boolean(record.name && record.propertyType && record.city),
                 isDraft: record.status === 'DRAFT',
               }}
-              onManage={() =>
-                router.push('/portfolio?section=properties&view=ownership&propertyId=' + record.id)
-              }
+              onManage={() => {
+                void openOwnershipEditor();
+              }}
             />
           ) : null}
 
@@ -353,6 +398,42 @@ export function PropertyDetailWorkspace() {
             />
           ) : null}
           {tab === 'activity' ? <PropertyActivity property={record} /> : null}
+          {editingOwnership && record ? (
+            <div
+              className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="manage-ownership-title"
+            >
+              <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-2xl">
+                <div className="mb-4">
+                  <h2 id="manage-ownership-title" className="text-lg font-bold text-slate-950">
+                    Manage ownership
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Assign owners for {record.name}. Ownership and payout must each total 100%.
+                  </p>
+                </div>
+                {loadingOwners ? (
+                  <LoadingState label="Loading owners" />
+                ) : (
+                  <OwnershipEditor
+                    owners={ownerOptions}
+                    current={currentOwners}
+                    businessDate={principal.businessDate}
+                    busy={savingOwnership}
+                    onCancel={() => {
+                      setEditingOwnership(false);
+                      router.replace('/portfolio/properties/' + record.id + '?tab=ownership', {
+                        scroll: false,
+                      });
+                    }}
+                    onSave={saveOwnership}
+                  />
+                )}
+              </div>
+            </div>
+          ) : null}
           {showAddBuilding ? (
             <div
               className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4"

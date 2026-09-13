@@ -364,7 +364,7 @@ export function OnboardingWorkspace({
               <div className="mt-3">
                 <RecordPicker
                   label="Property"
-                  path={`/properties?branchId=${row.branchId}`}
+                  path="/properties"
                   value={payload.propertyId ?? ''}
                   map={propertyOption}
                   onChange={(record) => {
@@ -373,7 +373,8 @@ export function OnboardingWorkspace({
                 />
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                Save Draft after selecting an existing property, then confirm its ownership.
+                Search across every branch you can access. Save Draft after selecting the property,
+                then confirm its ownership.
               </p>
             </details>
           ) : null}

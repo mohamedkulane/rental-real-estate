@@ -12,6 +12,21 @@ import type { Response } from 'express';
 import type { CorrelatedRequest } from './correlation-id.middleware';
 import { crmSafeCorrelationId, isCrmRequest } from './crm-log-privacy';
 
+function readPostgresMessage(exception: unknown): string {
+  const parts: string[] = [];
+  if (
+    exception instanceof Prisma.PrismaClientKnownRequestError &&
+    typeof exception.meta?.message === 'string'
+  ) {
+    parts.push(exception.meta.message);
+  }
+  if (exception instanceof Error) {
+    parts.push(exception.message);
+    if (exception.cause instanceof Error) parts.push(exception.cause.message);
+  }
+  return parts.join('\n');
+}
+
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(ApiExceptionFilter.name);
@@ -23,11 +38,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const isHttp = exception instanceof HttpException;
     const prismaCode =
       exception instanceof Prisma.PrismaClientKnownRequestError ? exception.code : undefined;
-    const databaseMessage =
-      exception instanceof Prisma.PrismaClientKnownRequestError &&
-      typeof exception.meta?.message === 'string'
-        ? exception.meta.message
-        : '';
+    const databaseMessage = readPostgresMessage(exception);
     const integrityMessage = databaseMessage.includes('ownership must total')
       ? 'Active Property ownership must total 100% for the effective period.'
       : databaseMessage.includes('payout entitlement must total')
@@ -49,11 +60,13 @@ export class ApiExceptionFilter implements ExceptionFilter {
                       : undefined;
     const statusCode = isHttp
       ? exception.getStatus()
-      : prismaCode === 'P2025'
-        ? HttpStatus.NOT_FOUND
-        : prismaCode && ['P2002', 'P2003', 'P2004', 'P2010'].includes(prismaCode)
-          ? HttpStatus.CONFLICT
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+      : integrityMessage
+        ? HttpStatus.CONFLICT
+        : prismaCode === 'P2025'
+          ? HttpStatus.NOT_FOUND
+          : prismaCode && ['P2002', 'P2003', 'P2004', 'P2010'].includes(prismaCode)
+            ? HttpStatus.CONFLICT
+            : HttpStatus.INTERNAL_SERVER_ERROR;
     const raw = isHttp ? exception.getResponse() : undefined;
     const validationMessages =
       typeof raw === 'object' && raw && 'message' in raw && Array.isArray(raw.message)

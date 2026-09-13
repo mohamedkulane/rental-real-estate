@@ -169,6 +169,15 @@ export function PortfolioConsole() {
       .then(async (current) => {
         setPrincipal(current);
         const parameters = new URLSearchParams(window.location.search);
+        const manageOwnershipPropertyId = parameters.get('propertyId');
+        if (parameters.get('view') === 'ownership' && manageOwnershipPropertyId) {
+          router.replace(
+            '/portfolio/properties/' +
+              encodeURIComponent(manageOwnershipPropertyId) +
+              '?tab=ownership&manage=1',
+          );
+          return;
+        }
         const requested = parameters.get('section');
         const first =
           tabs.find((item) => item.key === requested && hasPermission(current, item.permission))

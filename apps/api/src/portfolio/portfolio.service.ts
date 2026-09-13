@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { uuidv7 } from '@rerms/shared';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { BuildingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
 import { cursorPage } from '../common/cursor-pagination';
@@ -58,6 +63,65 @@ export class PortfolioService {
     private readonly audit: AuditService,
     private readonly objectStorage: ObjectStorageService,
   ) {}
+
+  private async assertActivePropertyConfiguration(
+    transaction: Prisma.TransactionClient,
+    propertyId: string,
+    effectiveDate: Date,
+  ): Promise<void> {
+    const activeOwnership = {
+      propertyId,
+      effectiveFrom: { lte: effectiveDate },
+      OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
+    };
+    const ownershipTotal = await transaction.propertyOwnership.aggregate({
+      where: activeOwnership,
+      _sum: { ownershipPercent: true },
+    });
+    const ownership = ownershipTotal._sum.ownershipPercent ?? new Prisma.Decimal(0);
+    if (!ownership.equals(100)) {
+      throw new ConflictException(
+        'Active Property ownership must total 100% for the effective period.',
+      );
+    }
+
+    const entitlements = await transaction.propertyOwnerEntitlement.findMany({
+      where: {
+        ownership: activeOwnership,
+        effectiveFrom: { lte: effectiveDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
+      },
+      select: { payoutPercent: true },
+    });
+    const payout = entitlements.reduce(
+      (sum, row) => sum.plus(row.payoutPercent),
+      new Prisma.Decimal(0),
+    );
+    if (!payout.equals(100)) {
+      throw new ConflictException(
+        'Active Property payout entitlement must total 100% for the effective period.',
+      );
+    }
+
+    const branchCount = await transaction.propertyBranchAssignment.count({
+      where: activeOwnership,
+    });
+    if (branchCount !== 1) {
+      throw new ConflictException(
+        'Active Property requires exactly one operating branch for the effective period.',
+      );
+    }
+
+    const missingOwnerProfiles = await transaction.propertyOwnership.count({
+      where: {
+        ...activeOwnership,
+        owner: { owner: { is: null } },
+      },
+    });
+    if (missingOwnerProfiles > 0) {
+      throw new ConflictException('Property ownership requires an Owner profile.');
+    }
+  }
 
   private async currentPropertyBranch(companyId: string, propertyId: string): Promise<string> {
     const at = await this.businessDate.today(companyId);
@@ -377,6 +441,9 @@ export class PortfolioService {
       if (!current) throw new BadRequestException('Property lifecycle history is missing.');
       if (current.effectiveFrom > effectiveDate)
         throw new BadRequestException('A later Property lifecycle change is already scheduled.');
+      if (target === PropertyStatus.ACTIVE) {
+        await this.assertActivePropertyConfiguration(transaction, propertyId, effectiveDate);
+      }
       if (current.effectiveFrom.getTime() === effectiveDate.getTime()) {
         await transaction.propertyLifecycleHistory.update({
           where: { id: current.id },

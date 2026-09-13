@@ -27,24 +27,24 @@ export class SearchService {
     const companyId = principal.companyId;
     const perType = Math.max(2, Math.ceil(limit / 6));
     const propertyBranch =
-      branchId && this.auth.canPerformInBranch(principal, 'property.read', branchId)
+      branchId && this.auth.canPerformInBranch(principal, 'portfolio.property.read', branchId)
         ? { branchAssignments: { some: { branchId } } }
-        : this.auth.authorizedBranchIds(principal, 'property.read') === null
+        : this.auth.authorizedBranchIds(principal, 'portfolio.property.read') === null
           ? {}
           : {
               branchAssignments: {
-                some: { branchId: { in: [...(this.auth.authorizedBranchIds(principal, 'property.read') ?? [])] } },
+                some: { branchId: { in: [...(this.auth.authorizedBranchIds(principal, 'portfolio.property.read') ?? [])] } },
               },
             };
     const branchFilter =
-      branchId && this.auth.canPerformInBranch(principal, 'lead.read', branchId)
+      branchId && this.auth.canPerformInBranch(principal, 'crm.lead.read', branchId)
         ? { branchId }
-        : this.auth.authorizedBranchIds(principal, 'lead.read') === null
+        : this.auth.authorizedBranchIds(principal, 'crm.lead.read') === null
           ? {}
-          : { branchId: { in: [...(this.auth.authorizedBranchIds(principal, 'lead.read') ?? [])] } };
+          : { branchId: { in: [...(this.auth.authorizedBranchIds(principal, 'crm.lead.read') ?? [])] } };
 
     const [properties, owners, tenants, leads, leases, listings, invoices] = await Promise.all([
-      this.auth.hasPermission(principal, 'property.read')
+      this.auth.hasPermission(principal, 'portfolio.property.read')
         ? this.db.property.findMany({
             where: {
               companyId,
@@ -85,7 +85,7 @@ export class SearchService {
             select: { id: true, displayName: true, partyNumber: true },
           })
         : [],
-      this.auth.hasPermission(principal, 'lead.read')
+      this.auth.hasPermission(principal, 'crm.lead.read')
         ? this.db.lead.findMany({
             where: {
               companyId,

@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "declaration": false, "noEmit": false },
+  "compilerOptions": {
+    "declaration": false,
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
   "exclude": ["test", "**/*.test.ts"]
 }

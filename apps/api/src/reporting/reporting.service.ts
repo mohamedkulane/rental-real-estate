@@ -78,10 +78,10 @@ export class ReportingService {
     branchId?: string,
   ): Promise<ReportSection> {
     const companyId = principal.companyId;
-    const branchFilter = this.branchFilter(principal, 'property.read', branchId);
+    const branchFilter = this.branchFilter(principal, 'portfolio.property.read', branchId);
     const propertyBranchFilter = this.propertyBranchFilter(
       branchId,
-      branchId ? null : this.auth.authorizedBranchIds(principal, 'property.read'),
+      branchId ? null : this.auth.authorizedBranchIds(principal, 'portfolio.property.read'),
     );
     const [properties, spaces, activeLeases] = await Promise.all([
       this.db.property.count({
@@ -113,11 +113,11 @@ export class ReportingService {
     const companyId = principal.companyId;
     const leadBranchFilter = branchId
       ? { responsibleBranchId: branchId }
-      : this.auth.authorizedBranchIds(principal, 'lead.read') === null
+      : this.auth.authorizedBranchIds(principal, 'crm.lead.read') === null
         ? {}
         : {
             responsibleBranchId: {
-              in: [...(this.auth.authorizedBranchIds(principal, 'lead.read') ?? [])],
+              in: [...(this.auth.authorizedBranchIds(principal, 'crm.lead.read') ?? [])],
             },
           };
     const [leads, followUps, sources] = await Promise.all([
