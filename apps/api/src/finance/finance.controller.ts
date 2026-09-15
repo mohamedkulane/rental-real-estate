@@ -44,6 +44,8 @@ import { OwnerStatementService } from './owner-statement.service';
 import { PaymentService } from './payment.service';
 import { SaleOfferService } from './sale-offer.service';
 import { SaleSettlementService } from './sale-settlement.service';
+import { FinanceSelectorsService } from './finance-selectors.service';
+import { CursorPageQueryDto } from '../common/cursor-pagination';
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
 @Controller({ path: 'billing-schedules', version: '1' })
@@ -388,5 +390,41 @@ export class SaleSettlementController {
     @Body() input: SaleSettlementTransitionDto,
   ) {
     return this.settlements.transition(req.principal, id, input, req.correlationId);
+  }
+}
+
+@UseGuards(SessionAuthGuard, PermissionGuard)
+@Controller({ path: 'finance/selectors', version: '1' })
+export class FinanceSelectorsController {
+  constructor(private readonly selectors: FinanceSelectorsService) {}
+
+  @Get('charge-types')
+  @RequirePermissions('billing.read')
+  chargeTypes(@Req() req: AuthenticatedRequest, @Query() query: CursorPageQueryDto) {
+    return this.selectors.chargeTypes(req.principal, query);
+  }
+
+  @Get('payment-methods')
+  @RequirePermissions('payment.read')
+  paymentMethods(@Req() req: AuthenticatedRequest, @Query() query: CursorPageQueryDto) {
+    return this.selectors.paymentMethods(req.principal, query);
+  }
+
+  @Get('accounts')
+  @RequirePermissions('journal.read')
+  accounts(@Req() req: AuthenticatedRequest, @Query() query: CursorPageQueryDto) {
+    return this.selectors.accounts(req.principal, query);
+  }
+
+  @Get('receiving-accounts')
+  @RequirePermissions('payment.read')
+  listReceivingAccounts(@Req() req: AuthenticatedRequest, @Query() query: CursorPageQueryDto) {
+    return this.selectors.receivingAccounts(req.principal, query);
+  }
+
+  @Get('expense-categories')
+  @RequirePermissions('expense.read')
+  expenseCategories() {
+    return this.selectors.expenseCategories();
   }
 }

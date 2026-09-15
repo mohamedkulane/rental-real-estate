@@ -40,9 +40,14 @@ export function OwnerStatementDetail() {
         title={query.data?.statementNumber ?? 'Owner Statement'}
         description="Issued snapshot of owner activity for the selected period. Posted totals are not edited in place."
         action={
-          <Link className="text-sm font-semibold text-emerald-700" href="/finance/owner-statements">
-            Back to register
-          </Link>
+          <div className="flex items-center gap-3">
+            <button className="button secondary" type="button" onClick={() => window.print()}>
+              Print / Export
+            </button>
+            <Link className="text-sm font-semibold text-emerald-700" href="/finance/owner-statements">
+              Back to register
+            </Link>
+          </div>
         }
       />
       {principal && !allowed ? <FinanceAccessDenied /> : null}

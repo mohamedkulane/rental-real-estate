@@ -60,6 +60,9 @@ const config: Record<
     endpoint: string;
     empty: string;
     detailPath?: (id: string) => string;
+    createHref?: string;
+    createLabel?: string;
+    createPermission?: string;
     statuses?: string[];
     columns: Column[];
   }
@@ -72,6 +75,10 @@ const config: Record<
     permission: 'brokerage-deal.read',
     endpoint: '/brokerage-deals',
     empty: 'No Brokerage Deals match the current filters.',
+    detailPath: (id) => `/commercial/rental-brokerage/${id}`,
+    createHref: '/commercial/rental-brokerage/new',
+    createLabel: 'Create Deal',
+    createPermission: 'brokerage-deal.manage',
     statuses: ['DRAFT', 'NEGOTIATING', 'CONFIRMED', 'CLOSED', 'CANCELLED'],
     columns: [
       { label: 'Deal', value: (row) => row.dealNumber as string },
@@ -98,6 +105,9 @@ const config: Record<
     endpoint: '/sale-offers',
     empty: 'No Sale Offers match the current filters.',
     detailPath: (id) => `/commercial/offers/${id}`,
+    createHref: '/commercial/offers/new',
+    createLabel: 'Create Offer',
+    createPermission: 'sale-offer.manage',
     statuses: ['DRAFT', 'SUBMITTED', 'COUNTERED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'EXPIRED'],
     columns: [
       { label: 'Offer', value: (row) => row.offerNumber as string },
@@ -119,6 +129,10 @@ const config: Record<
     permission: 'sale-settlement.read',
     endpoint: '/sale-settlements',
     empty: 'No Sale Settlements match the current filters.',
+    detailPath: (id) => `/commercial/settlements/${id}`,
+    createHref: '/commercial/settlements/new',
+    createLabel: 'Create Settlement',
+    createPermission: 'sale-settlement.manage',
     statuses: ['DRAFT', 'APPROVED', 'SETTLED', 'CANCELLED'],
     columns: [
       { label: 'Settlement', value: (row) => row.settlementNumber as string },
@@ -193,6 +207,16 @@ export function CommercialRegister({ mode }: { mode: CommercialRegisterMode }) {
         eyebrow={definition.eyebrow}
         title={definition.title}
         description={definition.description}
+        action={
+          definition.createHref &&
+          principal &&
+          definition.createPermission &&
+          hasPermission(principal, definition.createPermission) ? (
+            <Link className="button primary" href={definition.createHref}>
+              {definition.createLabel}
+            </Link>
+          ) : null
+        }
       />
 
       {principal && !allowed ? (

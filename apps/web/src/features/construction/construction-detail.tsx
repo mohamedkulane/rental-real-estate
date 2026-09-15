@@ -65,6 +65,16 @@ export function ConstructionDetail({ projectId }: { projectId: string }) {
 
   const contract = project.contracts[0];
   const canManage = hasPermission(principal, 'construction.manage');
+  const invoicedTotal = project.billingEvents.reduce(
+    (sum, event) => sum + Number.parseFloat(event.amount || '0'),
+    0,
+  );
+  const contractValue = Number.parseFloat(contract?.contractValue || '0');
+  const remainingBillable = Math.max(contractValue - invoicedTotal, 0);
+  const costTotal = project.budgetLines.reduce(
+    (sum, line) => sum + Number.parseFloat(line.actualAmount || '0'),
+    0,
+  );
 
   return (
     <AppShell
@@ -87,6 +97,27 @@ export function ConstructionDetail({ projectId }: { projectId: string }) {
         action={<StatusBadge value={project.status} />}
       />
       {error ? <ErrorState message={error} /> : null}
+
+      {contract ? (
+        <section className="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-5 md:grid-cols-4">
+          <div>
+            <p className="text-[12px] font-semibold text-slate-500">Contract value</p>
+            <p className="mt-1 text-[18px] font-bold text-slate-900">{contract.contractValue}</p>
+          </div>
+          <div>
+            <p className="text-[12px] font-semibold text-slate-500">Already invoiced</p>
+            <p className="mt-1 text-[18px] font-bold text-slate-900">{invoicedTotal.toFixed(2)}</p>
+          </div>
+          <div>
+            <p className="text-[12px] font-semibold text-slate-500">Remaining billable</p>
+            <p className="mt-1 text-[18px] font-bold text-emerald-700">{remainingBillable.toFixed(2)}</p>
+          </div>
+          <div>
+            <p className="text-[12px] font-semibold text-slate-500">Recorded costs</p>
+            <p className="mt-1 text-[18px] font-bold text-slate-900">{costTotal.toFixed(2)}</p>
+          </div>
+        </section>
+      ) : null}
 
       {canManage && !contract ? (
         <FormSection title="Construction contract">
@@ -235,6 +266,9 @@ export function ConstructionDetail({ projectId }: { projectId: string }) {
           </FormSection>
           {contract ? (
             <FormSection title="Client billing">
+              <p className="mb-3 text-[13px] text-slate-600">
+                Billing ceiling: {remainingBillable.toFixed(2)} remaining of {contract.contractValue} contract value.
+              </p>
               <form
                 className="grid gap-3"
                 onSubmit={(event) => {

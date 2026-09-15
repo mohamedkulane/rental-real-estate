@@ -239,6 +239,18 @@ export const financeDestinations = [
     permission: 'finance.overview.read',
   },
   {
+    key: 'finance:billing',
+    label: 'Billing Schedules',
+    href: '/finance/billing-schedules',
+    permission: 'billing.read',
+  },
+  {
+    key: 'finance:charges',
+    label: 'Charges',
+    href: '/finance/charges',
+    permission: 'billing.read',
+  },
+  {
     key: 'finance:invoices',
     label: 'Invoices',
     href: '/finance/invoices',

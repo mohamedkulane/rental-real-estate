@@ -138,6 +138,10 @@ export class ExpenseService {
   async get(principal: AuthenticatedPrincipal, expenseId: string) {
     const expense = await this.db.expense.findFirst({
       where: { id: expenseId, companyId: principal.companyId },
+      include: {
+        property: { select: { name: true, propertyCode: true } },
+        vendor: { select: { displayName: true } },
+      },
     });
     if (!expense) throw new NotFoundException('Expense not found.');
     this.auth.assertBranchPermission(principal, 'expense.read', expense.branchId);

@@ -209,7 +209,14 @@ export class OwnerPayoutService {
   async get(principal: AuthenticatedPrincipal, payoutId: string) {
     const payout = await this.db.ownerPayout.findFirst({
       where: { id: payoutId, companyId: principal.companyId },
-      include: { lines: true },
+      include: {
+        owner: { select: { displayName: true } },
+        property: { select: { name: true, propertyCode: true } },
+        lines: {
+          include: { owner: { select: { displayName: true } } },
+          orderBy: { id: 'asc' },
+        },
+      },
     });
     if (!payout) throw new NotFoundException('Owner payout not found.');
     this.auth.assertBranchPermission(principal, 'payout.read', payout.branchId);

@@ -46,6 +46,10 @@ import type {
   TenantQueryDto,
   ViewingQueryDto,
 } from './phase5-operations.dto';
+import {
+  assertDistinctLeaseParties,
+  assertPartiesNotPropertyOwners,
+} from './leasing.policy';
 
 export const applicationTransitions: Record<ApplicationStatus, readonly ApplicationStatus[]> = {
   DRAFT: [ApplicationStatus.SUBMITTED, ApplicationStatus.WITHDRAWN],
@@ -116,6 +120,15 @@ export class LeasingService {
 
   private capabilities(engagement: { serviceModel: Parameters<typeof resolveCapabilitySet>[0][number]; rentableSpaceId: string | null }) {
     return resolveCapabilitySet(engagement.rentableSpaceId ? [] : [engagement.serviceModel], engagement.rentableSpaceId ? [engagement.serviceModel] : []);
+  }
+
+  private ownershipAsOf(principal: AuthenticatedPrincipal) {
+    return new Date(`${principal.businessDate}T00:00:00.000Z`);
+  }
+
+  private async assertApplicantNotSelfRenting(propertyId: string, applicantPartyId: string | null | undefined, principal: AuthenticatedPrincipal) {
+    if (!applicantPartyId) return;
+    await assertPartiesNotPropertyOwners(this.db.propertyOwnership, propertyId, [applicantPartyId], this.ownershipAsOf(principal));
   }
 
   async listViewings(principal: AuthenticatedPrincipal, query: ViewingQueryDto) {
@@ -206,6 +219,13 @@ export class LeasingService {
       const party = await this.db.party.findFirst({ where: { id: input.applicantPartyId, companyId: principal.companyId } });
       if (!party) throw new ConflictException('Applicant Party is unavailable.');
     }
+    const applicantPartyId = input.applicantPartyId ?? lead.partyId;
+    const space = await this.db.rentableSpace.findFirst({
+      where: { id: listing.rentableSpaceId, property: { companyId: principal.companyId } },
+      select: { propertyId: true },
+    });
+    if (!space) throw new ConflictException('Listing Rentable Space is unavailable.');
+    await this.assertApplicantNotSelfRenting(space.propertyId, applicantPartyId, principal);
     return this.db.$transaction(async (tx) => {
       const row = await tx.rentalApplication.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: listing.branchId, applicationNumber: await nextRecordNumber(tx, 'APPLICATION'), leadId: lead.id, rentalListingId: listing.id, rentableSpaceId: listing.rentableSpaceId, applicantPartyId: input.applicantPartyId ?? lead.partyId, createdByUserId: principal.userId } });
       await this.audit.write(tx, { actorUserId: principal.userId, action: 'application.created', entityType: 'RentalApplication', entityId: row.id, branchId: row.branchId, correlationId, after: { applicationNumber: row.applicationNumber, leadId: row.leadId, rentalListingId: row.rentalListingId } });
@@ -302,6 +322,12 @@ export class LeasingService {
     if (!partyId) throw new ConflictException('Convert or link the Applicant to a canonical Party first.');
     const party = await this.db.party.findFirst({ where: { id: partyId, companyId: principal.companyId }, select: { id: true } });
     if (!party) throw new ConflictException('Applicant Party is unavailable.');
+    const space = await this.db.rentableSpace.findFirst({
+      where: { id: application.rentableSpaceId, property: { companyId: principal.companyId } },
+      select: { propertyId: true },
+    });
+    if (!space) throw new ConflictException('Application Rentable Space is unavailable.');
+    await this.assertApplicantNotSelfRenting(space.propertyId, partyId, principal);
     try {
       return await this.db.$transaction(async (tx) => {
         const existing = await tx.tenantProfile.findUnique({ where: { partyId } });
@@ -330,6 +356,7 @@ export class LeasingService {
     const start = new Date(input.leaseStartDate); const end = new Date(input.leaseEndDate);
     if (end <= start) throw new BadRequestException('Lease End Date must be after Lease Start Date.');
     if (!input.parties.some((party) => party.role === LeasePartyRole.TENANT)) throw new BadRequestException('At least one Tenant party is required.');
+    assertDistinctLeaseParties(input.parties);
     const application = await this.db.rentalApplication.findFirst({ where: { id: input.applicationId, companyId: principal.companyId, status: ApplicationStatus.APPROVED }, include: { rentalListing: true } });
     if (!application) throw new ConflictException('An approved Application is required.');
     this.auth.assertBranchPermission(principal, 'lease.create', application.branchId);
@@ -341,6 +368,12 @@ export class LeasingService {
     const parties = await this.db.party.findMany({ where: { id: { in: partyIds }, companyId: principal.companyId }, select: { id: true, tenant: { select: { status: true } } } });
     if (parties.length !== partyIds.length) throw new ConflictException('One or more Lease parties are unavailable.');
     for (const party of input.parties.filter((item) => item.role === LeasePartyRole.TENANT)) if (parties.find((row) => row.id === party.partyId)?.tenant?.status !== TenantStatus.ACTIVE) throw new ConflictException('Every Tenant party must have an active Tenant profile.');
+    await assertPartiesNotPropertyOwners(
+      this.db.propertyOwnership,
+      space.propertyId,
+      input.parties.filter((party) => party.role === LeasePartyRole.TENANT).map((party) => party.partyId),
+      this.ownershipAsOf(principal),
+    );
     return this.db.$transaction(async (tx) => {
       const number = await nextRecordNumber(tx, 'LEASE');
       const id = uuidv7();

@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, CreditCard, FileText, Landmark, Receipt, Wallet } from 'lucide-react';
+import { ArrowRight, CreditCard, FileText, Landmark, Receipt, Wallet, CircleDollarSign } from 'lucide-react';
+import { BarChart } from '@/features/admin/dashboard-charts';
 import { DashboardSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
@@ -17,12 +18,31 @@ type FinanceOverview = {
     pendingOwnerPayouts?: number;
     openExpenses?: number;
     draftJournals?: number;
+    openCharges?: number;
+    receivablesTotal?: string;
+    paymentsReceivedTotal?: string;
+    managementFeesTotal?: string;
+    brokerageCommissionsTotal?: string;
+  };
+  charts?: {
+    monthlyCollections?: Array<{ label: string; value: number }>;
+    billedVsCollected?: Array<{ label: string; billed: number; collected: number }>;
+    expenseBreakdown?: Array<{ label: string; value: number }>;
+    revenueBySource?: Array<{ label: string; value: number }>;
   };
   recentInvoices?: Array<Record<string, unknown>>;
   recentPayments?: Array<Record<string, unknown>>;
 };
 
 const cards = [
+  {
+    key: 'charges',
+    label: 'Open Charges',
+    field: 'openCharges' as const,
+    href: '/finance/charges',
+    permission: 'billing.read',
+    icon: CircleDollarSign,
+  },
   {
     key: 'invoices',
     label: 'Open Invoices',
@@ -64,6 +84,15 @@ const cards = [
     icon: Landmark,
   },
 ];
+
+function MetricTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-[24px] font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
 
 function OverviewCard({
   label,
@@ -186,6 +215,45 @@ export function FinanceOverview() {
               No finance registers are available for your current permissions.
             </p>
           )}
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            {query.data?.charts?.monthlyCollections?.length ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-[15px] font-semibold text-slate-900">Monthly collections</h2>
+                <div className="mt-4">
+                  <BarChart items={query.data.charts.monthlyCollections} />
+                </div>
+              </section>
+            ) : null}
+            {query.data?.charts?.expenseBreakdown?.length ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-[15px] font-semibold text-slate-900">Expense breakdown</h2>
+                <div className="mt-4">
+                  <BarChart
+                    items={query.data.charts.expenseBreakdown.map((row) => ({
+                      label: humanize(row.label),
+                      value: row.value,
+                    }))}
+                  />
+                </div>
+              </section>
+            ) : null}
+          </div>
+
+          {query.data?.summary ? (
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricTile label="Receivables outstanding" value={query.data.summary.receivablesTotal ?? '0'} />
+              <MetricTile label="Payments received (6 mo.)" value={query.data.summary.paymentsReceivedTotal ?? '0'} />
+              <MetricTile label="Brokerage commissions" value={query.data.summary.brokerageCommissionsTotal ?? '0'} />
+              {principal && hasPermission(principal, 'billing.read') ? (
+                <Link href="/finance/charges" className="block">
+                  <MetricTile label="Open charges" value={String(query.data.summary.openCharges ?? 0)} />
+                </Link>
+              ) : (
+                <MetricTile label="Open charges" value={String(query.data.summary.openCharges ?? 0)} />
+              )}
+            </section>
+          ) : null}
 
           <div className="grid gap-6 xl:grid-cols-2">
             {principal && hasPermission(principal, 'invoice.read') ? (

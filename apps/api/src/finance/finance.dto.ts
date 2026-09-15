@@ -1,5 +1,6 @@
 import {
   BrokerageDealStatus,
+  ChargeStatus,
   ExpenseResponsibility,
   ExpenseStatus,
   InvoiceStatus,
@@ -69,6 +70,7 @@ export class RunBillingDto {
 }
 
 export class ChargeQueryDto extends FinanceBranchQueryDto {
+  @IsOptional() @IsEnum(ChargeStatus) status?: ChargeStatus;
   @IsOptional() @IsUUID() leaseId?: string;
   @IsOptional() @IsUUID() debtorPartyId?: string;
 }

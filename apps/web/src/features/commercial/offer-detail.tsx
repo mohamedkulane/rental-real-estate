@@ -2,12 +2,21 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
+import { TransitionPanel } from '@/features/finance/finance-forms';
 import { CommercialShell, useCommercialPrincipal } from './commercial-shell';
+
+const offerTransitions: Record<string, readonly string[]> = {
+  DRAFT: ['SUBMITTED', 'WITHDRAWN'],
+  SUBMITTED: ['COUNTERED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'EXPIRED'],
+  COUNTERED: ['ACCEPTED', 'REJECTED', 'WITHDRAWN', 'EXPIRED'],
+};
 
 type SaleOfferDetail = Record<string, unknown> & {
   id: string;
@@ -33,8 +42,11 @@ function DetailField({ label, value }: { label: string; value: string }) {
 export function OfferDetail() {
   const params = useParams<{ id: string }>();
   const offerId = params.id;
+  const queryClient = useQueryClient();
   const { principal } = useCommercialPrincipal();
   const allowed = Boolean(principal && hasPermission(principal, 'sale-offer.read'));
+  const canManage = Boolean(principal && hasPermission(principal, 'sale-offer.manage'));
+  const [counterAmount, setCounterAmount] = useState('');
 
   const query = useQuery({
     queryKey: ['sale-offer', offerId],
@@ -49,6 +61,23 @@ export function OfferDetail() {
       query.data ?? {},
     );
   const text = (value: unknown) => (typeof value === 'string' ? value : 'Not set');
+
+  const transition = useMutation({
+    mutationFn: ({ status, reason }: { status: string; reason: string }) =>
+      api(`/sale-offers/${offerId}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status,
+          reason,
+          counterAmount: status === 'COUNTERED' ? counterAmount : undefined,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success('Offer updated.');
+      void queryClient.invalidateQueries({ queryKey: ['sale-offer', offerId] });
+    },
+    onError: (error) => toast.error(userFacingError(error)),
+  });
 
   return (
     <CommercialShell principal={principal} activeItem="commercial:offers">
@@ -117,6 +146,27 @@ export function OfferDetail() {
                 </Link>
               ) : null}
             </section>
+
+            {canManage ? (
+              <>
+                {text(query.data?.status) === 'SUBMITTED' || text(query.data?.status) === 'COUNTERED' ? (
+                  <label className="block">
+                    <span className="mb-1 block text-[12px] font-semibold text-slate-500">Counter amount</span>
+                    <input
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                      value={counterAmount}
+                      onChange={(event) => setCounterAmount(event.target.value)}
+                    />
+                  </label>
+                ) : null}
+                <TransitionPanel
+                  currentStatus={text(query.data?.status)}
+                  transitions={offerTransitions[text(query.data?.status)] ?? []}
+                  busy={transition.isPending}
+                  onTransition={(nextStatus, reason) => transition.mutate({ status: nextStatus, reason })}
+                />
+              </>
+            ) : null}
 
             <FormSection title="Negotiation Timeline" description="Immutable offer events.">
               {query.data?.events?.length ? (

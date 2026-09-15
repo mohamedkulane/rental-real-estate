@@ -47,6 +47,8 @@ export class PaymentService {
       take: query.limit + 1,
       orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }],
       include: {
+        payer: { select: { displayName: true } },
+        method: { select: { name: true } },
         allocations: { include: { charge: { select: { chargeNumber: true } } } },
         receipt: true,
       },
@@ -276,7 +278,13 @@ export class PaymentService {
   async get(principal: AuthenticatedPrincipal, paymentId: string) {
     const payment = await this.db.payment.findFirst({
       where: { id: paymentId, companyId: principal.companyId },
-      include: { allocations: true, receipt: true },
+      include: {
+        payer: { select: { displayName: true, partyNumber: true } },
+        method: { select: { code: true, name: true } },
+        receivingAccount: { select: { code: true, name: true } },
+        allocations: { include: { charge: { select: { chargeNumber: true, outstandingAmount: true, currency: true } } } },
+        receipt: true,
+      },
     });
     if (!payment) throw new NotFoundException('Payment not found.');
     this.auth.assertBranchPermission(principal, 'payment.read', payment.branchId);

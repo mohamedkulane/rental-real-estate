@@ -181,7 +181,10 @@ export class SaleSettlementService {
   async get(principal: AuthenticatedPrincipal, settlementId: string) {
     const settlement = await this.db.saleSettlement.findFirst({
       where: { id: settlementId, companyId: principal.companyId },
-      include: { saleOffer: true, property: true },
+      include: {
+        saleOffer: { include: { engagement: { select: { serviceModel: true } } } },
+        property: { select: { name: true, propertyCode: true } },
+      },
     });
     if (!settlement) throw new NotFoundException('Sale settlement not found.');
     this.auth.assertBranchPermission(principal, 'sale-settlement.read', settlement.branchId);

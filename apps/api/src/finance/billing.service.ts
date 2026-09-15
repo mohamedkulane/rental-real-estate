@@ -260,6 +260,7 @@ export class BillingService {
     const where: Prisma.ChargeWhereInput = {
       companyId: principal.companyId,
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
+      ...(query.status ? { status: query.status } : {}),
       ...(query.leaseId ? { leaseId: query.leaseId } : {}),
       ...(query.debtorPartyId ? { debtorPartyId: query.debtorPartyId } : {}),
       ...(query.search
@@ -271,6 +272,12 @@ export class BillingService {
       where,
       take: query.limit + 1,
       orderBy: [{ dueDate: 'desc' }, { id: 'desc' }],
+      include: {
+        debtor: { select: { displayName: true } },
+        lease: { select: { leaseNumber: true } },
+        chargeType: { select: { name: true, code: true } },
+        property: { select: { name: true } },
+      },
     });
     return cursorPage(rows, query.limit, (row) => row.id);
   }
@@ -370,7 +377,10 @@ export class BillingService {
   async getInvoice(principal: AuthenticatedPrincipal, invoiceId: string) {
     const invoice = await this.db.invoice.findFirst({
       where: { id: invoiceId, companyId: principal.companyId },
-      include: { lines: { include: { charge: true } } },
+      include: {
+        debtor: { select: { displayName: true, partyNumber: true } },
+        lines: { include: { charge: { select: { chargeNumber: true, status: true, outstandingAmount: true } } } },
+      },
     });
     if (!invoice) throw new NotFoundException('Invoice not found.');
     this.auth.assertBranchPermission(principal, 'invoice.read', invoice.branchId);

@@ -237,7 +237,11 @@ export class AccountingService {
   async get(principal: AuthenticatedPrincipal, journalId: string) {
     const journal = await this.db.journalEntry.findFirst({
       where: { id: journalId, companyId: principal.companyId },
-      include: { lines: true, reversalOf: true, reversals: true },
+      include: {
+        lines: { include: { account: { select: { code: true, name: true } } }, orderBy: { lineNo: 'asc' } },
+        reversalOf: true,
+        reversals: true,
+      },
     });
     if (!journal) throw new NotFoundException('Journal entry not found.');
     this.assertJournalScope(principal, 'journal.read', journal.branchId);

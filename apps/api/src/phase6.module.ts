@@ -19,7 +19,9 @@ import {
   PaymentController,
   SaleOfferController,
   SaleSettlementController,
+  FinanceSelectorsController,
 } from './finance/finance.controller';
+import { FinanceSelectorsService } from './finance/finance-selectors.service';
 import { OwnerPayoutService } from './finance/owner-payout.service';
 import { OwnerStatementService } from './finance/owner-statement.service';
 import { PaymentService } from './finance/payment.service';
@@ -42,6 +44,7 @@ import { FinanceOverviewService } from './finance/finance-overview.service';
     BrokerageDealController,
     SaleOfferController,
     SaleSettlementController,
+    FinanceSelectorsController,
   ],
   providers: [
     FinancePolicyService,
@@ -55,6 +58,7 @@ import { FinanceOverviewService } from './finance/finance-overview.service';
     SaleOfferService,
     SaleSettlementService,
     FinanceOverviewService,
+    FinanceSelectorsService,
   ],
   exports: [
     FinancePolicyService,
@@ -68,6 +72,7 @@ import { FinanceOverviewService } from './finance/finance-overview.service';
     SaleOfferService,
     SaleSettlementService,
     FinanceOverviewService,
+    FinanceSelectorsService,
   ],
 })
 export class Phase6Module {}

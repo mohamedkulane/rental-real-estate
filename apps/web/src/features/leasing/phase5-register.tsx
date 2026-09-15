@@ -233,7 +233,8 @@ const config: Record<
           const parties = row.parties as Array<Record<string, unknown>> | undefined;
           return (
             parties
-              ?.map((party) => text(nested(party as Row, 'party', 'displayName')))
+              ?.filter((party) => party.role === 'TENANT')
+              .map((party) => text(nested(party as Row, 'party', 'displayName')))
               .filter(Boolean)
               .join(', ') || '—'
           );
@@ -289,7 +290,8 @@ const config: Record<
           const parties = nested(row, 'lease', 'parties') as Array<Record<string, unknown>> | undefined;
           return (
             parties
-              ?.map((party) => text(nested(party as Row, 'party', 'displayName')))
+              ?.filter((party) => party.role === 'TENANT')
+              .map((party) => text(nested(party as Row, 'party', 'displayName')))
               .filter(Boolean)
               .join(', ') || '—'
           );
