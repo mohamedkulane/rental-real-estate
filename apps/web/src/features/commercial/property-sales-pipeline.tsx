@@ -51,18 +51,18 @@ export function PropertySalesPipeline() {
   const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
   return (
-    <CommercialShell principal={principal} activeItem="commercial:property-sales">
+    <CommercialShell principal={principal} activeItem="commercial:property-sales-pipeline">
       <PageHeader
         eyebrow="Commercial"
         title="Property Sales Pipeline"
         description="Offer progression from submission through acceptance and settlement readiness."
         action={
-          <div className="flex flex-wrap gap-2">
-            <Link className="button secondary" href="/commercial/offers">
-              Offer Register
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2">
+            <Link className="button secondary shrink-0 whitespace-nowrap" href="/commercial/property-sales">
+              Property Sale
             </Link>
-            <Link className="button secondary" href="/marketing/sale-listings">
-              Sale Listings
+            <Link className="button secondary shrink-0 whitespace-nowrap" href="/commercial/offers">
+              Offer Register
             </Link>
           </div>
         }

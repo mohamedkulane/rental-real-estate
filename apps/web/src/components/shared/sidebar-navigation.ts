@@ -94,8 +94,10 @@ const ACTIVE_GROUP_ALIASES: Record<string, string> = {
   'finance:expenses': 'finance',
   'finance:accounting': 'finance',
   'commercial:rental-brokerage': 'rental',
+  'commercial:brokerage-deals': 'rental',
   'commercial:full-management': 'rental',
   'commercial:property-sales': 'sales',
+  'commercial:property-sales-pipeline': 'sales',
   'commercial:offers': 'sales',
   'commercial:settlements': 'sales',
 };

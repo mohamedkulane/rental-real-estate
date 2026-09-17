@@ -174,26 +174,20 @@ export const leasingDestinations = [
 export const rentalDestinations = [
   marketingDestinations[0],
   {
-    key: 'start:rental-brokerage',
+    key: 'commercial:rental-brokerage',
     label: 'Rental Brokerage',
-    href: '/workflows/new?type=RENTAL_BROKERAGE',
-    permission: 'workflow.draft.update',
+    href: '/commercial/rental-brokerage',
+    permission: 'service-engagement.read',
   },
   {
-    key: 'commercial:rental-brokerage',
+    key: 'commercial:brokerage-deals',
     label: 'Brokerage Deals',
-    href: '/commercial/rental-brokerage',
+    href: '/commercial/rental-brokerage/deals',
     permission: 'brokerage-deal.read',
   },
   {
-    key: 'start:full-management',
-    label: 'Full Management',
-    href: '/workflows/new?type=FULL_MANAGEMENT',
-    permission: 'workflow.draft.update',
-  },
-  {
     key: 'commercial:full-management',
-    label: 'Management Operations',
+    label: 'Full Management',
     href: '/commercial/full-management',
     permission: 'service-engagement.read',
   },
@@ -206,15 +200,15 @@ export const rentalOperationsDestinations = rentalDestinations;
 export const salesOperationsDestinations = [
   marketingDestinations[1],
   {
-    key: 'start:property-sale',
+    key: 'commercial:property-sales',
     label: 'Property Sale',
-    href: '/workflows/new?type=PROPERTY_SALE',
-    permission: 'workflow.draft.update',
+    href: '/commercial/property-sales',
+    permission: 'service-engagement.read',
   },
   {
-    key: 'commercial:property-sales',
+    key: 'commercial:property-sales-pipeline',
     label: 'Sales Pipeline',
-    href: '/commercial/property-sales',
+    href: '/commercial/property-sales/pipeline',
     permission: 'sale-offer.read',
   },
   {

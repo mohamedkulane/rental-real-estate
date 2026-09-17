@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { api, type Principal } from '@/lib/phase3-api';
 import { ErrorState, LoadingState, PageHeader } from '@/components/shared/ui';
 import { CrmShell, useCrmPrincipal } from './crm-shell';

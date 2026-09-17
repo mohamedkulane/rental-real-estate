@@ -109,7 +109,7 @@ export function PortalShell({
           </div>
         </div>
         <nav
-          className="mx-auto max-w-[1200px] overflow-x-auto px-4 sm:px-6"
+          className="mx-auto max-w-[1200px] overflow-x-auto px-3 sm:px-5 md:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Portal sections"
         >
           <div className="flex gap-1 border-t border-slate-100 pt-1">
@@ -118,7 +118,7 @@ export function PortalShell({
                 key={tab.key}
                 type="button"
                 className={
-                  'shrink-0 rounded-t-lg px-4 py-2.5 text-[13px] font-semibold transition ' +
+                  'shrink-0 rounded-t-lg px-3 py-2.5 text-[12px] font-semibold transition sm:px-4 sm:text-[13px] ' +
                   (activeTab === tab.key
                     ? 'border-b-2 border-emerald-600 text-emerald-800'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
@@ -132,7 +132,7 @@ export function PortalShell({
           </div>
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-[1200px] p-4 sm:p-6 lg:p-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1200px] p-3 sm:p-5 md:p-6 lg:p-8">{children}</main>
     </div>
   );
 }

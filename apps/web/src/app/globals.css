@@ -526,9 +526,16 @@ textarea:focus {
 }
 .page-actions {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: row;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.page-actions .button,
+.page-actions .primary {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .scope-badge,
 .status-badge {
@@ -940,6 +947,55 @@ textarea:focus {
   font-size: 13px !important;
 }
 
+.toast-viewport {
+  z-index: 9999;
+}
+
+.toast-hot-host {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+@keyframes toast-icon-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes toast-progress-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-progress-bar {
+  animation-name: toast-progress-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-progress-bar {
+    animation: none;
+    transform: scaleX(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .toast-shell {
+    width: min(100vw - 1rem, 420px);
+  }
+}
+
 @media (max-width: 1040px) {
   .content-grid {
     grid-template-columns: 1fr;
@@ -1000,8 +1056,17 @@ textarea:focus {
     padding: 22px 14px 40px;
   }
   .page-header {
-    display: grid;
+    flex-direction: column;
+    align-items: stretch;
     gap: 14px;
+  }
+  .page-header h1 {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  .page-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
   .form-grid {
     grid-template-columns: 1fr;
@@ -1011,6 +1076,15 @@ textarea:focus {
   }
   .auth-card {
     padding: 28px 22px;
+  }
+  .form-section,
+  .card,
+  .panel {
+    padding: 16px;
+  }
+  .state-card {
+    min-height: 160px;
+    padding: 22px 16px;
   }
   .table-wrap {
     overflow: visible;
@@ -2617,6 +2691,53 @@ details[open] > :not(summary) {
   }
   .app-header-search-kbd {
     display: none;
+  }
+}
+
+/* Responsive layout system — mobile, tablet, laptop, desktop */
+@media (max-width: 1023px) {
+  .app-header-inner {
+    padding-left: 3.5rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .app-header-inner {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    padding-right: 12px;
+  }
+  .app-header-left {
+    order: 2;
+    flex: 1 1 100%;
+  }
+  .app-header-actions {
+    order: 1;
+    margin-left: auto;
+  }
+  .app-header-search input {
+    padding-right: 14px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .page-header h1 {
+    font-size: 1.625rem;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .page-header h1 {
+    font-size: 1.875rem;
   }
 }
 

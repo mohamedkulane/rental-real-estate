@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast, { notify } from '@/lib/toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, pageItems, type CursorPage, userFacingError } from '@/lib/phase3-api';
@@ -71,7 +71,7 @@ export function InvoiceCreateWorkspace() {
         }),
       }),
     onSuccess: (invoice: { id: string }) => {
-      toast.success('Invoice issued.');
+      notify.payment({ title: 'Invoice issued', message: 'The invoice is ready for collection.' });
       router.push(`/finance/invoices/${invoice.id}`);
     },
     onError: (error) => toast.error(userFacingError(error)),

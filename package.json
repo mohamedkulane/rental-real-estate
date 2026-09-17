@@ -8,7 +8,8 @@
     "pnpm": "\u003e=11.0.0 \u003c12"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @rerms/api --filter @rerms/web dev",
+    "dev": "node scripts/dev-stop.mjs && pnpm --parallel --filter @rerms/api --filter @rerms/web dev",
+    "dev:stop": "node scripts/dev-stop.mjs",
     "dev:web": "pnpm --filter @rerms/web dev",
     "dev:api": "pnpm --filter @rerms/api dev",
     "build": "pnpm -r --if-present build",

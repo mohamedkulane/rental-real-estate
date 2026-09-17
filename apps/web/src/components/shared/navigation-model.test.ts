@@ -132,12 +132,19 @@ describe('mockup sidebar groups', () => {
 
   it('lists rental workspaces as a flat rental group', () => {
     const rental = rentalNavigation(
-      ['listing.read', 'workflow.draft.update', 'viewing.read', 'lease.read'],
+      [
+        'listing.read',
+        'service-engagement.read',
+        'brokerage-deal.read',
+        'viewing.read',
+        'lease.read',
+      ],
       () => undefined,
     );
     expect(rental.map((item) => item.label)).toEqual([
       'Rental Listings',
       'Rental Brokerage',
+      'Brokerage Deals',
       'Full Management',
       'Viewings',
       'Lease Contracts',
@@ -145,8 +152,16 @@ describe('mockup sidebar groups', () => {
   });
 
   it('lists sales workspaces separately', () => {
-    const sales = salesNavigation(['listing.read', 'workflow.draft.update'], () => undefined);
-    expect(sales.map((item) => item.label)).toEqual(['Sale Listings', 'Property Sale']);
+    const sales = salesNavigation(
+      ['listing.read', 'service-engagement.read', 'sale-offer.read'],
+      () => undefined,
+    );
+    expect(sales.map((item) => item.label)).toEqual([
+      'Sale Listings',
+      'Property Sale',
+      'Sales Pipeline',
+      'Sale Offers',
+    ]);
   });
 
   it('lists operations workspaces under OPERATIONS', () => {

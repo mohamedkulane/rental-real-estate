@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
@@ -70,7 +70,7 @@ export function BrokerageDealCreateWorkspace() {
         title="Create Rental Brokerage Deal"
         description="Tenant placement commission workflow. No recurring Full Management billing."
         action={
-          <Link className="button secondary" href="/commercial/rental-brokerage">
+          <Link className="button secondary" href="/commercial/rental-brokerage/deals">
             Back to deals
           </Link>
         }
@@ -200,7 +200,7 @@ export function BrokerageDealDetailWorkspace() {
         title={financeText(query.data?.dealNumber) || 'Brokerage Deal'}
         description="Placement commission lifecycle from draft through close."
         action={
-          <Link className="button secondary" href="/commercial/rental-brokerage">
+          <Link className="button secondary" href="/commercial/rental-brokerage/deals">
             Back to deals
           </Link>
         }

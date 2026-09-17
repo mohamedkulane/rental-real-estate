@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, pageItems, type CursorPage, userFacingError } from '@/lib/phase3-api';

@@ -10,6 +10,7 @@ import type { LeadDetail } from './crm-types';
 type MatchItem = {
   listingType: 'RENTAL' | 'SALE';
   score: number;
+  reasonKeys?: string[];
   reasons: string[];
   listing: {
     id: string;
@@ -33,6 +34,7 @@ export function LeadMatches({ lead, principal }: { lead: LeadDetail; principal: 
     retry: false,
     queryFn: () => api<CursorPage<MatchItem>>(`/listing-matches?leadId=${lead.id}&limit=25`),
   });
+
   if (lead.intent === 'CONSTRUCTION_SERVICE') {
     return (
       <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
@@ -56,13 +58,15 @@ export function LeadMatches({ lead, principal }: { lead: LeadDetail; principal: 
     );
   }
   if (query.isPending) return <LoadingState label="Loading listing matches" />;
-  if (query.isError) return <ErrorState message={crmError(query.error)} onRetry={() => void query.refetch()} />;
+  if (query.isError) {
+    return <ErrorState message={crmError(query.error)} onRetry={() => void query.refetch()} />;
+  }
   const items = query.data?.items ?? [];
   if (!items.length) {
     return (
       <EmptyState
         title="No published listings match this Lead"
-        description="Matching is deterministic against published listings in the Lead branch and current preferences. Publish an eligible listing, then refresh."
+        description="Matching shows only published listings in the Lead branch that are still available — occupied rented spaces and sold properties are excluded."
       />
     );
   }

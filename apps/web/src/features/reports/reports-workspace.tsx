@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Download } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import { PageSkeleton } from '@/components/shared/loading-system';
 import { EmptyState, ErrorState, PageHeader } from '@/components/shared/ui';

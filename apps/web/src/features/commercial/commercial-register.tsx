@@ -68,7 +68,7 @@ const config: Record<
   }
 > = {
   'brokerage-deals': {
-    activeItem: 'commercial:rental-brokerage',
+    activeItem: 'commercial:brokerage-deals',
     eyebrow: 'Commercial',
     title: 'Rental Brokerage Deals',
     description: 'Closed and in-progress placement deals under rental brokerage authority.',

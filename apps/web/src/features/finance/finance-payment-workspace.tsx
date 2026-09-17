@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast, { notify } from '@/lib/toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
@@ -61,7 +61,7 @@ export function PaymentCreateWorkspace() {
         }),
       }),
     onSuccess: (payment: { id: string }) => {
-      toast.success('Payment recorded.');
+      notify.payment({ title: 'Payment recorded', message: 'Manual payment captured successfully.' });
       router.push(`/finance/payments/${payment.id}`);
     },
     onError: (error) => toast.error(userFacingError(error)),
@@ -204,7 +204,7 @@ export function PaymentDetailWorkspace() {
         }),
       }),
     onSuccess: () => {
-      toast.success('Payment allocated.');
+      notify.payment({ title: 'Payment allocated', message: 'Funds were applied to the selected charges.' });
       setDrafts([]);
       void queryClient.invalidateQueries({ queryKey: ['payment', params.id] });
     },
@@ -214,7 +214,7 @@ export function PaymentDetailWorkspace() {
   const receipt = useMutation({
     mutationFn: () => api(`/payments/${params.id}/receipt`, { method: 'POST', body: '{}' }),
     onSuccess: () => {
-      toast.success('Receipt issued.');
+      notify.payment({ title: 'Receipt issued', message: 'Tenant receipt is ready to share.' });
       void queryClient.invalidateQueries({ queryKey: ['payment', params.id] });
     },
     onError: (error) => toast.error(userFacingError(error)),

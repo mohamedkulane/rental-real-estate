@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { CursorPaginationControls } from '@/components/shared/pagination';
 import { EmptyState, ErrorState, LoadingState } from '@/components/shared/ui';

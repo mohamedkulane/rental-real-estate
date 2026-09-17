@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import { PageSkeleton } from '@/components/shared/loading-system';
-import { PropertySaleDashboard } from '@/features/commercial/commercial-service-dashboard';
+import { PropertySalesPipeline } from '@/features/commercial/property-sales-pipeline';
 
-export default function PropertySalesPage() {
+export default function PropertySalesPipelinePage() {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <PropertySaleDashboard />
+      <PropertySalesPipeline />
     </Suspense>
   );
 }

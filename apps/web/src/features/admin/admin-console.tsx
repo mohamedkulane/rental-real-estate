@@ -10,7 +10,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import {
   EmptyState,

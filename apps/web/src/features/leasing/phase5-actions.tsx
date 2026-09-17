@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { X } from 'lucide-react';
 import { api, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
 import { requestPath } from '@/features/crm/crm-data';

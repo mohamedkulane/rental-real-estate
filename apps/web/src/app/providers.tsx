@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Toaster } from 'react-hot-toast';
+import { AppToaster } from '@/lib/toast';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -22,15 +22,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       {children}
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          className: 'product-toast',
-          success: { iconTheme: { primary: 'var(--success)', secondary: 'var(--surface)' } },
-          error: { iconTheme: { primary: 'var(--danger)', secondary: 'var(--surface)' } },
-        }}
-      />
+      <AppToaster />
     </QueryClientProvider>
   );
 }

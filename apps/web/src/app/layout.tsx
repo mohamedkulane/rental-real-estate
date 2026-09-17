@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: 'Real Estate Rental Management',
   description: 'Project foundation',
   other: { google: 'notranslate' },
+};
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (

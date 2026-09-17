@@ -7,7 +7,7 @@ import { DetailTabs } from '@/components/shared/detail-tabs';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import {
   api,
   canPerformAcrossBranches,

@@ -12,7 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { humanize } from '@/lib/presentation';
 import { api, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import {

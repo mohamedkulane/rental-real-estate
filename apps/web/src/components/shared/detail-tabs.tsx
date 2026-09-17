@@ -18,7 +18,7 @@ export function DetailTabs<Key extends string>({
 }) {
   return (
     <div
-      className="flex gap-1 overflow-x-auto border-b border-slate-200 scroll-smooth"
+      className="flex gap-1 overflow-x-auto border-b border-slate-200 scroll-smooth px-1 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="tablist"
       aria-label={label}
     >
@@ -31,7 +31,7 @@ export function DetailTabs<Key extends string>({
           tabIndex={active === tab.key ? 0 : -1}
           onClick={() => onChange(tab.key)}
           className={
-            'min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold transition-colors duration-200 ease-out ' +
+            'min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors duration-200 ease-out sm:px-4 sm:text-sm ' +
             (active === tab.key
               ? 'border-[#0D47A1] text-[#0D47A1]'
               : 'border-transparent text-slate-500 hover:text-slate-800')

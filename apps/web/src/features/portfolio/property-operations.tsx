@@ -3,7 +3,7 @@
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import {
   api,
   apiCached,

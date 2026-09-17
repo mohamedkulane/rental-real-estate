@@ -204,4 +204,21 @@ describe.skipIf(!url)('Phase 5 operational workflows', () => {
     const completed = await leasing.transitionMoveIn(principal, moveIn.id, { expectedVersion: moveIn.version, status: MoveInStatus.COMPLETED, reason: 'Handover complete', completedDate: '2026-09-05' });
     expect(completed.status).toBe(MoveInStatus.COMPLETED);
   }, 60_000);
+
+  it('excludes occupied rentable spaces from deterministic rental matching', async () => {
+    expect(activeLeaseId).toBeTruthy();
+    const occupiedListing = await database.rentalListing.findFirstOrThrow({
+      where: { id: publishedListingIds[0]! },
+      select: { id: true, rentableSpaceId: true },
+    });
+    const activeLease = await database.lease.findUniqueOrThrow({
+      where: { id: activeLeaseId },
+      select: { rentableSpaceId: true, status: true },
+    });
+    expect(activeLease.status).toBe(LeaseStatus.ACTIVE);
+    expect(activeLease.rentableSpaceId).toBe(occupiedListing.rentableSpaceId);
+    const matches = await listings.match(principal, { leadId, limit: 25 });
+    expect(matches.items.some((item) => item.listing.id === occupiedListing.id)).toBe(false);
+    expect(matches.items.length).toBeGreaterThan(0);
+  });
 });

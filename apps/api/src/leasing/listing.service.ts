@@ -1,5 +1,17 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { LeadIntent, ListingStatus, Prisma, PropertyStatus, RentableSpaceStatus, ServiceEngagementStatus } from '@prisma/client';
+import {
+  LeadIntent,
+  LeaseStatus,
+  ListingStatus,
+  Prisma,
+  PropertyStatus,
+  PropertyType,
+  RentableSpaceStatus,
+  ReservationStatus,
+  SaleOfferStatus,
+  SaleSettlementStatus,
+  ServiceEngagementStatus,
+} from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { nextRecordNumber } from '../common/record-number';
 import { DatabaseService } from '../database/database.service';
@@ -67,6 +79,198 @@ export class ListingService {
   private assertTransition(current: ListingStatus, target: ListingStatus) {
     if (!listingTransitions[current].includes(target))
       throw new BadRequestException(`Listing cannot transition from ${current} to ${target}.`);
+  }
+
+  private matchBusinessDate(principal: AuthenticatedPrincipal): Date {
+    return new Date(`${principal.businessDate}T00:00:00.000Z`);
+  }
+
+  private availableRentableSpaceWhere(at: Date): Prisma.RentableSpaceWhereInput {
+    return {
+      status: RentableSpaceStatus.ACTIVE,
+      leases: {
+        none: {
+          status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
+          leaseStartDate: { lte: at },
+          leaseEndDate: { gte: at },
+        },
+      },
+      reservations: {
+        none: {
+          status: ReservationStatus.ACTIVE,
+          startsAt: { lte: at },
+          expiresAt: { gt: at },
+        },
+      },
+    };
+  }
+
+  private availableSalePropertyWhere(): Prisma.PropertyWhereInput {
+    return {
+      status: PropertyStatus.ACTIVE,
+      saleSettlements: { none: { status: SaleSettlementStatus.SETTLED } },
+      saleOffers: { none: { status: SaleOfferStatus.ACCEPTED } },
+    };
+  }
+
+  private preferredAreaPropertyWhere(areas: string[]): Prisma.PropertyWhereInput | undefined {
+    const terms = areas.map((area) => area.trim()).filter(Boolean);
+    if (!terms.length) return undefined;
+    return {
+      OR: terms.flatMap((term) => [
+        { city: { contains: term, mode: 'insensitive' } },
+        { district: { contains: term, mode: 'insensitive' } },
+        { neighborhood: { contains: term, mode: 'insensitive' } },
+      ]),
+    };
+  }
+
+  private buildRentableSpaceMatchWhere(
+    at: Date,
+    rent: {
+      propertyTypeCodes?: string[];
+      rentableSpaceTypeCodes?: string[];
+      minBedrooms?: number | null;
+      maxBedrooms?: number | null;
+    } | null | undefined,
+    preferredAreas: string[],
+  ): Prisma.RentableSpaceWhereInput {
+    const parts: Prisma.RentableSpaceWhereInput[] = [this.availableRentableSpaceWhere(at)];
+    const propertyFilters: Prisma.PropertyWhereInput[] = [];
+    if (rent?.propertyTypeCodes?.length) {
+      propertyFilters.push({ propertyType: { in: rent.propertyTypeCodes as PropertyType[] } });
+    }
+    const areaFilter = this.preferredAreaPropertyWhere(preferredAreas);
+    if (areaFilter) propertyFilters.push(areaFilter);
+    if (propertyFilters.length) {
+      parts.push({
+        property: { is: propertyFilters.length === 1 ? propertyFilters[0]! : { AND: propertyFilters } },
+      });
+    }
+    if (rent?.rentableSpaceTypeCodes?.length) {
+      parts.push({ type: { code: { in: rent.rentableSpaceTypeCodes } } });
+    }
+    if (rent?.minBedrooms != null || rent?.maxBedrooms != null) {
+      parts.push({
+        residentialProfile: {
+          is: {
+            ...(rent.minBedrooms != null ? { bedrooms: { gte: rent.minBedrooms } } : {}),
+            ...(rent.maxBedrooms != null ? { bedrooms: { lte: rent.maxBedrooms } } : {}),
+          },
+        },
+      });
+    }
+    return parts.length === 1 ? parts[0]! : { AND: parts };
+  }
+
+  private buildSalePropertyMatchWhere(
+    buy: {
+      propertyTypeCodes?: string[];
+      minBedrooms?: number | null;
+      maxBedrooms?: number | null;
+    } | null | undefined,
+    preferredAreas: string[],
+  ): Prisma.PropertyWhereInput {
+    const parts: Prisma.PropertyWhereInput[] = [this.availableSalePropertyWhere()];
+    if (buy?.propertyTypeCodes?.length) {
+      parts.push({ propertyType: { in: buy.propertyTypeCodes as PropertyType[] } });
+    }
+    const areaFilter = this.preferredAreaPropertyWhere(preferredAreas);
+    if (areaFilter) parts.push(areaFilter);
+    if (buy?.minBedrooms != null || buy?.maxBedrooms != null) {
+      parts.push({
+        spaces: {
+          some: {
+            status: RentableSpaceStatus.ACTIVE,
+            residentialProfile: {
+              is: {
+                ...(buy.minBedrooms != null ? { bedrooms: { gte: buy.minBedrooms } } : {}),
+                ...(buy.maxBedrooms != null ? { bedrooms: { lte: buy.maxBedrooms } } : {}),
+              },
+            },
+          },
+        },
+      });
+    }
+    return parts.length === 1 ? parts[0]! : { AND: parts };
+  }
+
+  private rentMatchReasonKeys(
+    rent: {
+      minRent?: Prisma.Decimal | null;
+      maxRent?: Prisma.Decimal | null;
+      propertyTypeCodes?: string[];
+      minBedrooms?: number | null;
+      maxBedrooms?: number | null;
+    } | null | undefined,
+    preferredAreas: string[],
+  ): string[] {
+    const keys = ['intent_rent', 'published_branch', 'space_available'];
+    if (rent?.minRent || rent?.maxRent) keys.push('within_rent_budget');
+    if (rent?.propertyTypeCodes?.length) keys.push('property_type_match');
+    if (rent?.minBedrooms != null || rent?.maxBedrooms != null) keys.push('bedroom_match');
+    if (preferredAreas.some((area) => area.trim())) keys.push('preferred_area_match');
+    return keys;
+  }
+
+  private buyMatchReasonKeys(
+    buy: {
+      minBudget?: Prisma.Decimal | null;
+      maxBudget?: Prisma.Decimal | null;
+      propertyTypeCodes?: string[];
+      minBedrooms?: number | null;
+      maxBedrooms?: number | null;
+    } | null | undefined,
+    preferredAreas: string[],
+  ): string[] {
+    const keys = ['intent_buy', 'published_branch', 'property_available'];
+    if (buy?.minBudget || buy?.maxBudget) keys.push('within_buy_budget');
+    if (buy?.propertyTypeCodes?.length) keys.push('property_type_match');
+    if (buy?.minBedrooms != null || buy?.maxBedrooms != null) keys.push('bedroom_match');
+    if (preferredAreas.some((area) => area.trim())) keys.push('preferred_area_match');
+    return keys;
+  }
+
+  private async assertRentableSpaceLeasable(principal: AuthenticatedPrincipal, rentableSpaceId: string) {
+    const at = this.matchBusinessDate(principal);
+    const occupied = await this.db.lease.count({
+      where: {
+        rentableSpaceId,
+        status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
+        leaseStartDate: { lte: at },
+        leaseEndDate: { gte: at },
+      },
+    });
+    if (occupied > 0) {
+      throw new ConflictException(
+        'This Rentable Space already has a signed or active lease and cannot be listed for rent.',
+      );
+    }
+    const reserved = await this.db.reservation.count({
+      where: {
+        rentableSpaceId,
+        status: ReservationStatus.ACTIVE,
+        startsAt: { lte: at },
+        expiresAt: { gt: at },
+      },
+    });
+    if (reserved > 0) {
+      throw new ConflictException(
+        'This Rentable Space has an active reservation and cannot be listed for rent.',
+      );
+    }
+  }
+
+  private async assertPropertySaleable(principal: AuthenticatedPrincipal, propertyId: string) {
+    const property = await this.db.property.findFirst({
+      where: { id: propertyId, companyId: principal.companyId, ...this.availableSalePropertyWhere() },
+      select: { id: true },
+    });
+    if (!property) {
+      throw new ConflictException(
+        'This Property is not available for sale (inactive, sold, or under accepted offer).',
+      );
+    }
   }
 
   async listRental(principal: AuthenticatedPrincipal, query: ListingQueryDto) {
@@ -142,6 +346,7 @@ export class ListingService {
   async createRental(principal: AuthenticatedPrincipal, input: CreateRentalListingDto, correlationId?: string) {
     const space = await this.db.rentableSpace.findFirst({ where: { id: input.rentableSpaceId, property: { companyId: principal.companyId } }, include: { property: true } });
     if (!space || space.status !== RentableSpaceStatus.ACTIVE) throw new ConflictException('Only an active Rentable Space may be listed.');
+    await this.assertRentableSpaceLeasable(principal, space.id);
     const property = await this.propertyBranch(principal, space.propertyId, 'listing.create');
     const engagement = await this.db.serviceEngagement.findFirst({ where: { id: input.serviceEngagementId, companyId: principal.companyId, propertyId: space.propertyId, AND: [this.currentEngagementWhere(principal), { OR: [{ rentableSpaceId: null }, { rentableSpaceId: space.id }] }] } });
     if (!engagement) throw new ConflictException('An active compatible Service Engagement is required.');
@@ -163,6 +368,7 @@ export class ListingService {
   async createSale(principal: AuthenticatedPrincipal, input: CreateSaleListingDto, correlationId?: string) {
     const property = await this.propertyBranch(principal, input.propertyId, 'listing.create');
     if (property.status !== PropertyStatus.ACTIVE) throw new ConflictException('Only an active Property may be listed for sale.');
+    await this.assertPropertySaleable(principal, property.id);
     const engagement = await this.db.serviceEngagement.findFirst({ where: { id: input.serviceEngagementId, companyId: principal.companyId, propertyId: input.propertyId, rentableSpaceId: null, AND: [this.currentEngagementWhere(principal)] } });
     if (!engagement) throw new ConflictException('An active Property-scoped Service Engagement is required.');
     if (!resolveCapabilitySet([engagement.serviceModel]).canCreateSaleListing) throw new ConflictException('The Service Engagement does not permit Sale Listings.');
@@ -184,6 +390,21 @@ export class ListingService {
     if (!current) throw new NotFoundException('Listing not found.');
     this.auth.assertBranchPermission(principal, target === ListingStatus.PENDING_REVIEW ? 'listing.review' : 'listing.publish', current.branchId);
     this.assertTransition(current.status, target);
+    if (target === ListingStatus.PUBLISHED) {
+      if (kind === 'rental') {
+        const rental = await this.db.rentalListing.findFirst({
+          where: { id, companyId: principal.companyId },
+          select: { rentableSpaceId: true },
+        });
+        if (rental) await this.assertRentableSpaceLeasable(principal, rental.rentableSpaceId);
+      } else {
+        const sale = await this.db.saleListing.findFirst({
+          where: { id, companyId: principal.companyId },
+          select: { propertyId: true },
+        });
+        if (sale) await this.assertPropertySaleable(principal, sale.propertyId);
+      }
+    }
     const updateData = { status: target, version: { increment: 1 }, ...(target === ListingStatus.PUBLISHED ? { publishedAt: new Date() } : {}) };
     return this.db.$transaction(async (tx) => {
       const delegate = kind === 'rental' ? tx.rentalListing : tx.saleListing;
@@ -206,30 +427,65 @@ export class ListingService {
     if (!lead) throw new NotFoundException('Lead not found.');
     this.auth.assertBranchPermission(principal, 'listing.match', lead.responsibleBranchId);
     const preference = lead.preferenceVersions[0];
+    const preferredAreas = preference?.preferredAreaText ?? [];
+    const at = this.matchBusinessDate(principal);
+    const reasonLabels: Record<string, string> = {
+      intent_rent: 'Lead intent is Rent',
+      intent_buy: 'Lead intent is Buy',
+      published_branch: 'Published in the Lead branch',
+      space_available: 'Rentable space is available for a new lease',
+      property_available: 'Property is available for sale',
+      within_rent_budget: 'Rent is within the requested budget',
+      within_buy_budget: 'Price is within the requested budget',
+      property_type_match: 'Property type matches Lead preferences',
+      bedroom_match: 'Bedrooms match Lead preferences',
+      preferred_area_match: 'Location matches preferred areas',
+    };
     if (lead.intent === LeadIntent.RENT) {
       const where: Prisma.RentalListingWhereInput = {
         companyId: principal.companyId, branchId: lead.responsibleBranchId, status: ListingStatus.PUBLISHED,
         ...(query.cursor ? { id: { lt: query.cursor } } : {}),
-        ...(query.search ? { OR: [{ title: { contains: query.search, mode: 'insensitive' } }, { listingNumber: { contains: query.search, mode: 'insensitive' } }] } : {}),
         ...(preference?.rent?.currency ? { currency: preference.rent.currency } : {}),
         ...(preference?.rent?.minRent || preference?.rent?.maxRent ? { askingRent: { ...(preference.rent.minRent ? { gte: preference.rent.minRent } : {}), ...(preference.rent.maxRent ? { lte: preference.rent.maxRent } : {}) } } : {}),
+        rentableSpace: { is: this.buildRentableSpaceMatchWhere(at, preference?.rent, preferredAreas) },
+        AND: [
+          { OR: [{ availableFrom: null }, { availableFrom: { lte: at } }] },
+          ...(query.search
+            ? [{ OR: [{ title: { contains: query.search, mode: Prisma.QueryMode.insensitive } }, { listingNumber: { contains: query.search, mode: Prisma.QueryMode.insensitive } }] }]
+            : []),
+        ],
       };
       const rows = await this.db.rentalListing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { rentableSpace: { include: { property: true, type: true } } } });
       const hasNextPage = rows.length > query.limit;
-      const items = rows.slice(0, query.limit).map((row) => ({ listingType: 'RENTAL' as const, listing: row, score: 100, reasons: ['Published in the Lead branch', ...(preference?.rent?.minRent || preference?.rent?.maxRent ? ['Rent is within the requested budget'] : [])] }));
+      const reasonKeys = this.rentMatchReasonKeys(preference?.rent, preferredAreas);
+      const items = rows.slice(0, query.limit).map((row) => ({
+        listingType: 'RENTAL' as const,
+        listing: row,
+        score: 100,
+        reasonKeys,
+        reasons: reasonKeys.map((key) => reasonLabels[key] ?? key),
+      }));
       return { items, pageInfo: { hasNextPage, nextCursor: hasNextPage ? items.at(-1)?.listing.id ?? null : null } };
     }
     if (lead.intent === LeadIntent.BUY) {
       const where: Prisma.SaleListingWhereInput = {
         companyId: principal.companyId, branchId: lead.responsibleBranchId, status: ListingStatus.PUBLISHED,
         ...(query.cursor ? { id: { lt: query.cursor } } : {}),
-        ...(query.search ? { OR: [{ title: { contains: query.search, mode: 'insensitive' } }, { listingNumber: { contains: query.search, mode: 'insensitive' } }] } : {}),
+        ...(query.search ? { OR: [{ title: { contains: query.search, mode: Prisma.QueryMode.insensitive } }, { listingNumber: { contains: query.search, mode: Prisma.QueryMode.insensitive } }] } : {}),
         ...(preference?.buy?.currency ? { currency: preference.buy.currency } : {}),
         ...(preference?.buy?.minBudget || preference?.buy?.maxBudget ? { askingPrice: { ...(preference.buy.minBudget ? { gte: preference.buy.minBudget } : {}), ...(preference.buy.maxBudget ? { lte: preference.buy.maxBudget } : {}) } } : {}),
+        property: { is: this.buildSalePropertyMatchWhere(preference?.buy, preferredAreas) },
       };
       const rows = await this.db.saleListing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { property: true } });
       const hasNextPage = rows.length > query.limit;
-      const items = rows.slice(0, query.limit).map((row) => ({ listingType: 'SALE' as const, listing: row, score: 100, reasons: ['Published in the Lead branch', ...(preference?.buy?.minBudget || preference?.buy?.maxBudget ? ['Price is within the requested budget'] : [])] }));
+      const reasonKeys = this.buyMatchReasonKeys(preference?.buy, preferredAreas);
+      const items = rows.slice(0, query.limit).map((row) => ({
+        listingType: 'SALE' as const,
+        listing: row,
+        score: 100,
+        reasonKeys,
+        reasons: reasonKeys.map((key) => reasonLabels[key] ?? key),
+      }));
       return { items, pageInfo: { hasNextPage, nextCursor: hasNextPage ? items.at(-1)?.listing.id ?? null : null } };
     }
     return { items: [], pageInfo: { hasNextPage: false, nextCursor: null }, message: 'Matching is available only for Rent and Buy Leads.' };

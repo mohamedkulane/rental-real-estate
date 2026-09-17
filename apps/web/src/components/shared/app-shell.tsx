@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Home, Landmark, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { humanize } from '@/lib/presentation';
 import { AppHeader } from './app-header';
 import {
@@ -24,16 +24,18 @@ export type ShellSection =
 
 export type ShellSubItem = NavigationItem;
 
+function subscribeDesktop(onStoreChange: () => void) {
+  const media = window.matchMedia('(min-width: 1024px)');
+  media.addEventListener('change', onStoreChange);
+  return () => media.removeEventListener('change', onStoreChange);
+}
+
+function readDesktop() {
+  return window.matchMedia('(min-width: 1024px)').matches;
+}
+
 function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 1024px)');
-    const update = () => setIsDesktop(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-  return isDesktop;
+  return useSyncExternalStore(subscribeDesktop, readDesktop, () => false);
 }
 
 function branchLabel(
@@ -278,7 +280,7 @@ export function AppShell({
           onLogout={onLogout}
         />
 
-        <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1600px] p-3 sm:p-5 md:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

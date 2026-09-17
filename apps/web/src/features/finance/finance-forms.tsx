@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import toast from '@/lib/toast';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { FormSection } from '@/components/shared/ui';
 import { api, pageItems, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';

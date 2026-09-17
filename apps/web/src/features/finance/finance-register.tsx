@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast, { notify } from '@/lib/toast';
 import {
   DataTable,
   DataTableActions,
@@ -502,7 +502,7 @@ function OwnerStatementGenerateForm({
         }),
       }),
     onSuccess: () => {
-      toast.success('Owner statement issued.');
+      notify.payment({ title: 'Owner statement issued', message: 'The statement is ready for review.' });
       onIssued();
     },
     onError: (err) => toast.error(userFacingError(err)),

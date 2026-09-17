@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronRight } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   SIDEBAR_COLLAPSED_STORAGE_KEY,
   SIDEBAR_EXPANDED_STORAGE_KEY,
@@ -12,12 +12,19 @@ import {
 } from './sidebar-navigation';
 
 function readCollapsed(): boolean {
-  if (typeof window === 'undefined') return false;
   try {
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1';
   } catch {
     return false;
   }
+}
+
+function subscribeSidebarCollapsed(onStoreChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === SIDEBAR_COLLAPSED_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
 }
 
 export function SidebarAccordion({
@@ -177,11 +184,16 @@ export function SidebarAccordion({
 
 export function useSidebarLayoutState(activeItem?: string, groups: SidebarAccordionGroup[] = []) {
   const activeGroupId = useMemo(() => expandedGroupForActive(groups, activeItem), [groups, activeItem]);
-  const [collapsed, setCollapsed] = useState(false);
+  const storedCollapsed = useSyncExternalStore(
+    subscribeSidebarCollapsed,
+    readCollapsed,
+    () => false,
+  );
+  const [collapsed, setCollapsed] = useState(storedCollapsed);
 
   useEffect(() => {
-    setCollapsed(readCollapsed());
-  }, []);
+    setCollapsed(storedCollapsed);
+  }, [storedCollapsed]);
 
   return { collapsed, setCollapsed, activeGroupId };
 }

@@ -31,7 +31,7 @@ export function DataTableToolbar({
 }) {
   return (
     <div className="border-b border-slate-200 bg-white">
-      <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-end lg:justify-between">{children}</div>
+      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-end md:justify-between">{children}</div>
       {footer ? <div className="border-t border-slate-100 px-4 py-2">{footer}</div> : null}
     </div>
   );
@@ -65,7 +65,7 @@ export function DataTableFilter({
   value,
   onChange,
   options,
-  className = 'sm:w-44',
+  className = 'w-full sm:w-44',
 }: {
   label: string;
   value: string;
@@ -92,7 +92,7 @@ export function DataTableFilter({
 }
 
 export function DataTableActions({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2 lg:justify-end">{children}</div>;
+  return <div className="flex flex-wrap items-center gap-2 md:justify-end">{children}</div>;
 }
 
 export function DataTableResetButton({ onClick }: { onClick: () => void }) {
@@ -360,7 +360,7 @@ export function RowActionsMenu({ actions }: { actions: RowAction[] }) {
 }
 
 export function DataTableMobileCards({ children }: { children: ReactNode }) {
-  return <div className="space-y-3 p-4 lg:hidden">{children}</div>;
+  return <div className="space-y-3 p-3 sm:p-4 md:hidden">{children}</div>;
 }
 
 export function DataTableMobileCard({
@@ -382,7 +382,7 @@ export function DataTableMobileCard({
       </div>
       <dl className="grid gap-2">
         {rows.map((row) => (
-          <div key={row.label} className="grid grid-cols-[110px_1fr] gap-2 text-[13px]">
+          <div key={row.label} className="flex flex-col gap-0.5 text-[13px] sm:grid sm:grid-cols-[110px_1fr] sm:gap-2">
             <dt className="font-medium text-slate-500">{row.label}</dt>
             <dd className="text-slate-800">{row.value}</dd>
           </div>
@@ -394,5 +394,5 @@ export function DataTableMobileCard({
 }
 
 export function DataTableDesktopOnly({ children }: { children: ReactNode }) {
-  return <div className="hidden lg:block">{children}</div>;
+  return <div className="hidden md:block">{children}</div>;
 }
