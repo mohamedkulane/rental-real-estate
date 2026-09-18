@@ -1126,7 +1126,9 @@ export function AdminConsole() {
         onSelect: () => void choose(section),
       })),
     administration: visible
-      .filter((section) => ['employees', 'roles', 'permissions', 'users', 'audit'].includes(section.key))
+      .filter((section) =>
+        ['employees', 'roles', 'permissions', 'users', 'audit'].includes(section.key),
+      )
       .map((section) => ({
         key: section.key,
         label: section.label,
