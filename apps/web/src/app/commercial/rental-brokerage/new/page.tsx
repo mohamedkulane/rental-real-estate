@@ -1,5 +1,6 @@
-import { BrokerageDealCreateWorkspace, BrokerageDealDetailWorkspace } from '@/features/commercial/commercial-brokerage-workspace';
+import { redirect } from 'next/navigation';
 
+/** Create Deal is not a primary staff task — deals follow placement/lease. */
 export default function BrokerageDealCreatePage() {
-  return <BrokerageDealCreateWorkspace />;
+  redirect('/commercial/rental-brokerage/deals');
 }

@@ -301,6 +301,7 @@ export enum EmployeeSelectorPurpose {
   CREATE_FOLLOW_UP = 'CREATE_FOLLOW_UP',
   INITIAL_ASSIGNMENT = 'INITIAL_ASSIGNMENT',
   TRANSFER_REPLACEMENT = 'TRANSFER_REPLACEMENT',
+  VIEWING_ASSIGN = 'VIEWING_ASSIGN',
 }
 export class EmployeeSelectorQueryDto extends CrmPageQueryDto {
   @IsEnum(EmployeeSelectorPurpose) purpose!: EmployeeSelectorPurpose;

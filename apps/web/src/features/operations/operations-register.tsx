@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import toast from '@/lib/toast';
 import {
   DataTable,
@@ -26,9 +26,15 @@ import {
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { CursorPaginationControls } from '@/components/shared/pagination';
-import { FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
-import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
+import { PageHeader, StatusBadge } from '@/components/shared/ui';
+import { useCreateDrawerState } from '@/components/shared/use-create-drawer-state';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
+import { api, hasPermission, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
+import { BranchSelect } from '@/features/finance/finance-forms';
 import { OperationsShell, useOperationsPrincipal } from './operations-shell';
 
 export type OperationsRegisterMode = 'maintenance' | 'work-orders' | 'inspections' | 'vendors';
@@ -142,6 +148,40 @@ const config: Record<
   },
 };
 
+const drawerCopy: Record<
+  OperationsRegisterMode,
+  { actionLabel: string; title: string; description: string; submitLabel: string; formId: string }
+> = {
+  maintenance: {
+    actionLabel: 'Add request',
+    title: 'Add maintenance request',
+    description: 'Log a property or tenant maintenance request for the selected branch.',
+    submitLabel: 'Add request',
+    formId: 'create-maintenance-form',
+  },
+  'work-orders': {
+    actionLabel: 'Add work order',
+    title: 'Add work order',
+    description: 'Schedule maintenance work for the selected property.',
+    submitLabel: 'Add work order',
+    formId: 'create-work-order-form',
+  },
+  inspections: {
+    actionLabel: 'Add inspection',
+    title: 'Add inspection',
+    description: 'Schedule a periodic inspection for the selected property.',
+    submitLabel: 'Add inspection',
+    formId: 'create-inspection-form',
+  },
+  vendors: {
+    actionLabel: 'Add vendor',
+    title: 'Add vendor',
+    description: 'Register a service provider for the selected branch.',
+    submitLabel: 'Add vendor',
+    formId: 'create-vendor-form',
+  },
+};
+
 function AccessDenied() {
   return (
     <DataTableEmpty
@@ -153,8 +193,10 @@ function AccessDenied() {
 
 export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
   const definition = config[mode];
+  const copy = drawerCopy[mode];
   const { principal } = useOperationsPrincipal();
   const queryClient = useQueryClient();
+  const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [status, setStatus] = useState('');
@@ -199,12 +241,29 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
         eyebrow="Operations"
         title={definition.title}
         description={definition.description}
+        action={
+          canManage ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
+              onClick={openCreate}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {copy.actionLabel}
+            </button>
+          ) : undefined
+        }
       />
       {principal && canManage ? (
         <CreateOperationsRecord
           mode={mode}
-          {...(principal.branches[0]?.id ? { principalBranchId: principal.branches[0].id } : {})}
-          onCreated={() => void queryClient.invalidateQueries({ queryKey: ['operations-register', mode] })}
+          principal={principal}
+          open={createOpen}
+          onClose={closeCreate}
+          onCreated={() => {
+            closeCreate();
+            void queryClient.invalidateQueries({ queryKey: ['operations-register', mode] });
+          }}
         />
       ) : null}
       {principal && !allowed ? (
@@ -244,7 +303,18 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
           ) : query.isError ? (
             <DataTableError message={userFacingError(query.error)} onRetry={() => void query.refetch()} />
           ) : !query.data?.items.length ? (
-            <DataTableEmpty title={emptyTitle} description={definition.empty} />
+            <DataTableEmpty
+              title={emptyTitle}
+              description={definition.empty}
+              action={
+                canManage && !debounced && !status ? (
+                  <button type="button" className="button primary" onClick={openCreate}>
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    {copy.actionLabel}
+                  </button>
+                ) : undefined
+              }
+            />
           ) : (
             <>
               <DataTableMobileCards>
@@ -327,30 +397,49 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
 
 function CreateOperationsRecord({
   mode,
-  principalBranchId,
+  principal,
+  open,
+  onClose,
   onCreated,
 }: {
   mode: OperationsRegisterMode;
-  principalBranchId?: string;
+  principal: Principal;
+  open: boolean;
+  onClose: () => void;
   onCreated: () => void;
 }) {
+  const copy = drawerCopy[mode];
   const [propertyId, setPropertyId] = useState('');
+  const [branchId, setBranchId] = useState(principal.branches[0]?.id ?? '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [displayName, setDisplayName] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setPropertyId('');
+    setBranchId(principal.branches[0]?.id ?? '');
+    setTitle('');
+    setDescription('');
+    setDisplayName('');
+  }, [open, principal.branches]);
+
   const properties = useQuery({
     queryKey: ['operations-properties'],
+    enabled: open && mode !== 'vendors',
     queryFn: () => api<CursorPage<{ id: string; name: string; propertyCode: string }>>('/properties?limit=50'),
   });
+
   const mutation = useMutation({
     mutationFn: async () => {
+      if (!branchId) throw new Error('Choose a branch before creating this record.');
       if (mode === 'vendors') {
         return api('/vendors', {
           method: 'POST',
           body: JSON.stringify({
             kind: 'ORGANIZATION',
             displayName,
-            branchIds: principalBranchId ? [principalBranchId] : [],
+            branchIds: [branchId],
             services: [{ categoryCode: 'GENERAL', name: 'General services' }],
           }),
         });
@@ -359,7 +448,7 @@ function CreateOperationsRecord({
         return api('/inspections', {
           method: 'POST',
           body: JSON.stringify({
-            branchId: principalBranchId,
+            branchId,
             type: 'PERIODIC',
             propertyId,
             scheduledAt: new Date().toISOString(),
@@ -372,7 +461,7 @@ function CreateOperationsRecord({
         return api('/work-orders', {
           method: 'POST',
           body: JSON.stringify({
-            branchId: principalBranchId,
+            branchId,
             propertyId,
             currency: 'USD',
             laborNotes: description || undefined,
@@ -382,7 +471,7 @@ function CreateOperationsRecord({
       return api('/maintenance-requests', {
         method: 'POST',
         body: JSON.stringify({
-          branchId: principalBranchId,
+          branchId,
           propertyId,
           title,
           description,
@@ -393,31 +482,66 @@ function CreateOperationsRecord({
     },
     onSuccess: () => {
       toast.success('Record created.');
-      setTitle('');
-      setDescription('');
-      setDisplayName('');
       onCreated();
     },
     onError: (cause) => toast.error(userFacingError(cause)),
   });
 
+  const ready =
+    Boolean(branchId) &&
+    (mode === 'vendors'
+      ? Boolean(displayName.trim())
+      : mode === 'maintenance'
+        ? Boolean(propertyId && title.trim() && description.trim())
+        : Boolean(propertyId));
+
   return (
-    <FormSection title="Create" description="Open a new operations record in the current branch.">
+    <WorkspaceFormDrawer
+      open={open}
+      eyebrow="Operations"
+      title={copy.title}
+      description={copy.description}
+      onClose={() => {
+        if (!mutation.isPending) onClose();
+      }}
+      size="md"
+      footer={
+        <WorkspaceFormDrawerFooter
+          formId={copy.formId}
+          onCancel={onClose}
+          submitLabel={copy.submitLabel}
+          isPending={mutation.isPending}
+          disabled={!ready}
+        />
+      }
+    >
       <form
-        className="mt-4 grid gap-3 md:grid-cols-2"
+        id={copy.formId}
+        className="grid gap-4"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!ready) {
+            toast.error('Complete the required fields before saving.');
+            return;
+          }
           mutation.mutate();
         }}
       >
+        <BranchSelect
+          branches={principal.branches}
+          value={branchId}
+          onChange={setBranchId}
+          label="Branch"
+        />
         {mode === 'vendors' ? (
-          <label className="block md:col-span-2">
+          <label className="block">
             <span className="mb-1 block text-[12px] font-semibold text-slate-500">Vendor name</span>
             <input
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               required
+              autoFocus
             />
           </label>
         ) : (
@@ -429,6 +553,7 @@ function CreateOperationsRecord({
                 value={propertyId}
                 onChange={(event) => setPropertyId(event.target.value)}
                 required
+                autoFocus
               >
                 <option value="">Select property</option>
                 {(properties.data?.items ?? []).map((property) => (
@@ -449,10 +574,12 @@ function CreateOperationsRecord({
                 />
               </label>
             ) : null}
-            <label className="block md:col-span-2">
-              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Notes</span>
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">
+                {mode === 'maintenance' ? 'Description' : 'Notes'}
+              </span>
               <textarea
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                className="min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 required={mode === 'maintenance'}
@@ -460,12 +587,7 @@ function CreateOperationsRecord({
             </label>
           </>
         )}
-        <div className="md:col-span-2">
-          <button className="button" type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Saving...' : 'Create'}
-          </button>
-        </div>
       </form>
-    </FormSection>
+    </WorkspaceFormDrawer>
   );
 }

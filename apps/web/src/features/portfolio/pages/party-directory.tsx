@@ -2,10 +2,11 @@
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
-import { Edit3, Eye, MoreHorizontal, Plus, Search, UserRound, X } from 'lucide-react';
+import { Plus, Search, UserRound, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { humanize } from '@/lib/presentation';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { StatusBadge } from '@/components/shared/ui';
 
 export type PartyRecord = {
@@ -33,6 +34,7 @@ export type PartyRecord = {
     type: 'PHONE' | 'WHATSAPP' | 'EMAIL';
     value?: string;
     primary: boolean;
+    masked?: boolean;
   }[];
   addresses?: {
     id?: string;
@@ -314,38 +316,24 @@ export function PartyDirectory({
                       <StatusBadge value={party.active} />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <details className="relative inline-block">
-                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:text-[#0D47A1]">
-                          <MoreHorizontal className="h-5 w-5" />
-                        </summary>
-                        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                          <button
-                            type="button"
-                            onClick={() => void openView(party)}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                          >
-                            <Eye className="h-4 w-4" /> View details
-                          </button>
-                          {canUpdate(party) ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void openEdit(party)}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                              >
-                                <Edit3 className="h-4 w-4" /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => open('status', party)}
-                                className="flex w-full rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                              >
-                                {party.active ? 'Deactivate' : 'Activate'}
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
-                      </details>
+                      <TableActionGroup>
+                        <TableActionButton tone="view" onClick={() => void openView(party)}>
+                          View
+                        </TableActionButton>
+                        {canUpdate(party) ? (
+                          <>
+                            <TableActionButton tone="edit" onClick={() => void openEdit(party)}>
+                              Edit
+                            </TableActionButton>
+                            <TableActionButton
+                              tone={party.active ? 'danger' : 'create'}
+                              onClick={() => open('status', party)}
+                            >
+                              {party.active ? 'Deactivate' : 'Activate'}
+                            </TableActionButton>
+                          </>
+                        ) : null}
+                      </TableActionGroup>
                     </td>
                   </tr>
                 );

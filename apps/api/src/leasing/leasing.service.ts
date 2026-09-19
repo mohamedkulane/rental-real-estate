@@ -7,7 +7,9 @@ import {
   ListingStatus,
   MoveInStatus,
   Prisma,
+  PropertyStatus,
   RenewalStatus,
+  RentableSpaceStatus,
   ReservationStatus,
   ScreeningStatus,
   ServiceEngagementStatus,
@@ -22,6 +24,7 @@ import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import { WorkflowPayloadCipher } from '../workflow/workflow-payload-cipher';
+import { assertHierarchyOccupancyAvailable } from './space-hierarchy-occupancy';
 import type {
   ApplicationQueryDto,
   ApplicationTransitionDto,
@@ -144,28 +147,132 @@ export class LeasingService {
         { saleListing: { is: { title: { contains: query.search, mode: 'insensitive' } } } },
       ] } : {}),
     };
-    const rows = await this.db.viewing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { lead: { select: { id: true, leadNumber: true, displayName: true, intent: true } }, rentalListing: { select: { id: true, listingNumber: true, title: true } }, saleListing: { select: { id: true, listingNumber: true, title: true } }, assignedEmployee: { select: { id: true, employeeNumber: true, party: { select: { displayName: true } } } } } });
+    const rows = await this.db.viewing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { lead: { select: { id: true, leadNumber: true, displayName: true, intent: true } }, rentalListing: { select: { id: true, listingNumber: true, title: true, rentableSpaceId: true } }, saleListing: { select: { id: true, listingNumber: true, title: true } }, rentableSpace: { select: { id: true, spaceCode: true, name: true, propertyId: true } }, assignedEmployee: { select: { id: true, employeeNumber: true, party: { select: { displayName: true } } } } } });
     return this.page(rows, query.limit);
   }
 
   async createViewing(principal: AuthenticatedPrincipal, input: CreateViewingDto, correlationId?: string) {
-    if (Boolean(input.rentalListingId) === Boolean(input.saleListingId)) throw new BadRequestException('Choose exactly one Rental or Sale Listing.');
+    const targetCount = [input.rentalListingId, input.saleListingId, input.rentableSpaceId].filter(Boolean).length;
+    if (targetCount !== 1) {
+      throw new BadRequestException('Choose exactly one rental listing, sale listing, or rentable space.');
+    }
     const lead = await this.db.lead.findFirst({ where: { id: input.leadId, companyId: principal.companyId } });
     if (!lead) throw new NotFoundException('Lead not found.');
     this.auth.assertBranchPermission(principal, 'viewing.create', lead.responsibleBranchId);
-    const listing = input.rentalListingId
-      ? await this.db.rentalListing.findFirst({ where: { id: input.rentalListingId, companyId: principal.companyId, branchId: lead.responsibleBranchId, status: ListingStatus.PUBLISHED }, include: { serviceEngagement: true } })
-      : await this.db.saleListing.findFirst({ where: { id: input.saleListingId!, companyId: principal.companyId, branchId: lead.responsibleBranchId, status: ListingStatus.PUBLISHED }, include: { serviceEngagement: true } });
-    if (!listing) throw new ConflictException('The selected published Listing is unavailable in the Lead branch.');
-    if (!this.capabilities(listing.serviceEngagement).canCreateViewing) throw new ConflictException('The Service Engagement does not permit Viewings.');
+
+    let rentalListingId: string | null = input.rentalListingId ?? null;
+    let saleListingId: string | null = input.saleListingId ?? null;
+    let rentableSpaceId: string | null = input.rentableSpaceId ?? null;
+
+    if (input.rentableSpaceId) {
+      const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
+      const space = await this.db.rentableSpace.findFirst({
+        where: {
+          id: input.rentableSpaceId,
+          status: RentableSpaceStatus.ACTIVE,
+          property: {
+            companyId: principal.companyId,
+            status: PropertyStatus.ACTIVE,
+            branchAssignments: {
+              some: {
+                branchId: lead.responsibleBranchId,
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+      if (!space) {
+        throw new ConflictException('The selected rentable space is unavailable in the customer branch.');
+      }
+      rentableSpaceId = space.id;
+    } else if (input.rentalListingId) {
+      const listing = await this.db.rentalListing.findFirst({
+        where: {
+          id: input.rentalListingId,
+          companyId: principal.companyId,
+          branchId: lead.responsibleBranchId,
+          status: ListingStatus.PUBLISHED,
+        },
+        include: { serviceEngagement: true },
+      });
+      if (!listing) throw new ConflictException('The selected published Listing is unavailable in the Lead branch.');
+      if (!this.capabilities(listing.serviceEngagement).canCreateViewing) {
+        throw new ConflictException('The Service Engagement does not permit Viewings.');
+      }
+      rentalListingId = listing.id;
+      rentableSpaceId = listing.rentableSpaceId;
+    } else {
+      const listing = await this.db.saleListing.findFirst({
+        where: {
+          id: input.saleListingId!,
+          companyId: principal.companyId,
+          branchId: lead.responsibleBranchId,
+          status: ListingStatus.PUBLISHED,
+        },
+        include: { serviceEngagement: true },
+      });
+      if (!listing) throw new ConflictException('The selected published Listing is unavailable in the Lead branch.');
+      if (!this.capabilities(listing.serviceEngagement).canCreateViewing) {
+        throw new ConflictException('The Service Engagement does not permit Viewings.');
+      }
+      saleListingId = listing.id;
+    }
+
     const scheduledAt = new Date(input.scheduledAt);
     const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
     if (scheduledAt <= at) throw new BadRequestException('Viewing time must be after the current Business Date.');
-    const employee = await this.db.employee.findFirst({ where: { id: input.assignedEmployeeId, companyId: principal.companyId, active: true, branchAssignments: { some: { branchId: lead.responsibleBranchId, effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] } } }, select: { id: true } });
-    if (!employee) throw new ConflictException('The assigned Employee is unavailable in this Branch.');
+    const employee = await this.db.employee.findFirst({
+      where: {
+        id: input.assignedEmployeeId,
+        companyId: principal.companyId,
+        active: true,
+        branchAssignments: {
+          some: {
+            branchId: lead.responsibleBranchId,
+            effectiveFrom: { lte: at },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+          },
+        },
+      },
+      select: { id: true },
+    });
+    if (!employee) {
+      throw new ConflictException(
+        'The assigned agent is not available in this customer branch. Choose an agent assigned to the branch.',
+      );
+    }
     const row = await this.db.$transaction(async (tx) => {
-      const created = await tx.viewing.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: lead.responsibleBranchId, leadId: lead.id, rentalListingId: input.rentalListingId ?? null, saleListingId: input.saleListingId ?? null, assignedEmployeeId: employee.id, scheduledAt, notes: input.notes?.trim() || null, createdByUserId: principal.userId } });
-      await this.audit.write(tx, { actorUserId: principal.userId, action: 'viewing.scheduled', entityType: 'Viewing', entityId: created.id, branchId: created.branchId, correlationId, after: { leadId: created.leadId, scheduledAt: created.scheduledAt } });
+      const created = await tx.viewing.create({
+        data: {
+          id: uuidv7(),
+          companyId: principal.companyId,
+          branchId: lead.responsibleBranchId,
+          leadId: lead.id,
+          rentalListingId,
+          saleListingId,
+          rentableSpaceId,
+          assignedEmployeeId: employee.id,
+          scheduledAt,
+          notes: input.notes?.trim() || null,
+          createdByUserId: principal.userId,
+        },
+      });
+      await this.audit.write(tx, {
+        actorUserId: principal.userId,
+        action: 'viewing.scheduled',
+        entityType: 'Viewing',
+        entityId: created.id,
+        branchId: created.branchId,
+        correlationId,
+        after: {
+          leadId: created.leadId,
+          scheduledAt: created.scheduledAt,
+          rentableSpaceId: created.rentableSpaceId,
+        },
+      });
       return created;
     });
     return row;
@@ -209,8 +316,22 @@ export class LeasingService {
   }
 
   async createApplication(principal: AuthenticatedPrincipal, input: CreateApplicationDto, correlationId?: string) {
-    const listing = await this.db.rentalListing.findFirst({ where: { id: input.rentalListingId, companyId: principal.companyId, status: ListingStatus.PUBLISHED }, include: { serviceEngagement: true } });
-    if (!listing) throw new NotFoundException('Published Rental Listing not found.');
+    const listing = await this.db.rentalListing.findFirst({
+      where: {
+        id: input.rentalListingId,
+        companyId: principal.companyId,
+        status: {
+          in: [
+            ListingStatus.DRAFT,
+            ListingStatus.PENDING_REVIEW,
+            ListingStatus.PUBLISHED,
+            ListingStatus.PAUSED,
+          ],
+        },
+      },
+      include: { serviceEngagement: true },
+    });
+    if (!listing) throw new NotFoundException('Rental listing for this unit was not found.');
     this.auth.assertBranchPermission(principal, 'application.create', listing.branchId);
     if (!this.capabilities(listing.serviceEngagement).canAcceptApplication) throw new ConflictException('The Service Engagement does not permit Applications.');
     const lead = await this.db.lead.findFirst({ where: { id: input.leadId, companyId: principal.companyId, responsibleBranchId: listing.branchId, intent: 'RENT' } });
@@ -283,6 +404,11 @@ export class LeasingService {
     if (!application) throw new ConflictException('An approved Application is required.');
     this.auth.assertBranchPermission(principal, 'reservation.create', application.branchId);
     if (!this.capabilities(application.rentalListing.serviceEngagement).canReserveSpace) throw new ConflictException('The Service Engagement does not permit Reservations.');
+    await assertHierarchyOccupancyAvailable(this.db, {
+      companyId: principal.companyId,
+      rentableSpaceId: application.rentableSpaceId,
+      businessDate: principal.businessDate,
+    });
     return this.db.$transaction(async (tx) => {
       const row = await tx.reservation.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: application.branchId, reservationNumber: await nextRecordNumber(tx, 'RESERVATION'), applicationId: application.id, rentalListingId: application.rentalListingId, rentableSpaceId: application.rentableSpaceId, startsAt, expiresAt, createdByUserId: principal.userId } });
       await this.audit.write(tx, { actorUserId: principal.userId, action: 'reservation.created', entityType: 'Reservation', entityId: row.id, branchId: row.branchId, correlationId, after: { reservationNumber: row.reservationNumber, applicationId: row.applicationId, startsAt, expiresAt } });
@@ -352,6 +478,43 @@ export class LeasingService {
     return this.page(rows, query.limit);
   }
 
+  async getLease(principal: AuthenticatedPrincipal, id: string) {
+    const row = await this.db.lease.findFirst({
+      where: { id, companyId: principal.companyId },
+      include: {
+        rentableSpace: {
+          select: {
+            id: true,
+            spaceCode: true,
+            name: true,
+            property: { select: { id: true, propertyCode: true, name: true, city: true } },
+          },
+        },
+        parties: { include: { party: { select: { id: true, displayName: true } } } },
+        moveIn: true,
+        application: {
+          select: {
+            id: true,
+            applicationNumber: true,
+            lead: { select: { id: true, displayName: true, leadNumber: true } },
+          },
+        },
+        serviceEngagement: {
+          select: { id: true, engagementNumber: true, serviceModel: true, status: true },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException('Lease not found.');
+    this.auth.assertBranchPermission(principal, 'lease.read', row.branchId);
+    const renewals = await this.db.leaseRenewal.findMany({
+      where: { originalLeaseId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, status: true, proposedRent: true, currency: true },
+    });
+    return { ...row, renewals };
+  }
+
   async createLease(principal: AuthenticatedPrincipal, input: CreateLeaseDto, correlationId?: string) {
     const start = new Date(input.leaseStartDate); const end = new Date(input.leaseEndDate);
     if (end <= start) throw new BadRequestException('Lease End Date must be after Lease Start Date.');
@@ -395,6 +558,14 @@ export class LeasingService {
     this.auth.assertBranchPermission(principal, permission, current.branchId);
     if (!leaseTransitions[current.status].includes(input.status)) throw new ConflictException(`Lease cannot transition from ${current.status} to ${input.status}.`);
     if (input.status === LeaseStatus.SIGNED && !input.signatureHash) throw new BadRequestException('Signature evidence hash is required.');
+    if (input.status === LeaseStatus.ACTIVE) {
+      await assertHierarchyOccupancyAvailable(this.db, {
+        companyId: principal.companyId,
+        rentableSpaceId: current.rentableSpaceId,
+        businessDate: principal.businessDate,
+        excludeLeaseId: current.id,
+      });
+    }
     try {
       return await this.db.$transaction(async (tx) => {
         const changed = await tx.lease.updateMany({ where: { id, version: input.expectedVersion, status: current.status }, data: { status: input.status, agreementDate: input.status === LeaseStatus.SIGNED ? new Date(principal.businessDate) : current.agreementDate, version: { increment: 1 } } });

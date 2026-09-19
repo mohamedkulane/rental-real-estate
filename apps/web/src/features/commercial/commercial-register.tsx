@@ -22,6 +22,7 @@ import {
   DataTableScroll,
   DataTableSurface,
   DataTableToolbar,
+  TableActionButton,
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { CursorPaginationControls } from '@/components/shared/pagination';
@@ -77,7 +78,7 @@ const config: Record<
     empty: 'No Brokerage Deals match the current filters.',
     detailPath: (id) => `/commercial/rental-brokerage/${id}`,
     createHref: '/commercial/rental-brokerage/new',
-    createLabel: 'Create Deal',
+    createLabel: 'Create Placement Deal',
     createPermission: 'brokerage-deal.manage',
     statuses: ['DRAFT', 'NEGOTIATING', 'CONFIRMED', 'CLOSED', 'CANCELLED'],
     columns: [
@@ -319,12 +320,12 @@ export function CommercialRegister({ mode }: { mode: CommercialRegisterMode }) {
                           </DataTableCell>
                           {definition.detailPath ? (
                             <DataTableCell align="right">
-                              <Link
-                                className="button ghost text-[13px]"
+                              <TableActionButton
+                                tone="open"
                                 href={definition.detailPath(row.id)}
                               >
                                 Open
-                              </Link>
+                              </TableActionButton>
                             </DataTableCell>
                           ) : null}
                         </DataTableRow>

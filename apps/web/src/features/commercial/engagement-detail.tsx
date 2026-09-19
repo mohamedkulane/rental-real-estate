@@ -165,9 +165,15 @@ export function EngagementDetail({ engagementId }: { engagementId: string }) {
         <div className="space-y-5">
           <Link
             className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#0D47A1] hover:underline"
-            href="/commercial/service-engagements"
+            href={
+              record.serviceModel === 'FULL_MANAGEMENT'
+                ? '/commercial/full-management'
+                : record.serviceModel === 'SALE_BROKERAGE'
+                  ? '/commercial/property-sales'
+                  : '/commercial/rental-brokerage'
+            }
           >
-            <ArrowLeft className="h-4 w-4" /> Service Engagement Register
+            <ArrowLeft className="h-4 w-4" /> Back to operations
           </Link>
           <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

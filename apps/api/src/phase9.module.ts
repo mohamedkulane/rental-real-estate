@@ -6,6 +6,8 @@ import {
   PortalOwnerController,
   PortalTenantController,
 } from './portals/portal.controller';
+import { PortalAdminController } from './portals/portal-admin.controller';
+import { PortalAdminService } from './portals/portal-admin.service';
 import { PortalAuthorizationService } from './portals/portal-authorization.service';
 import { PortalOwnerService } from './portals/portal-owner.service';
 import { PortalTenantService } from './portals/portal-tenant.service';
@@ -25,6 +27,7 @@ import { SearchService } from './reporting/search.service';
   controllers: [
     PortalOwnerController,
     PortalTenantController,
+    PortalAdminController,
     ReportingController,
     DashboardController,
     SearchController,
@@ -34,6 +37,7 @@ import { SearchService } from './reporting/search.service';
     PortalAuthorizationService,
     PortalOwnerService,
     PortalTenantService,
+    PortalAdminService,
     ReportingService,
     DashboardReadModelService,
     SearchService,
@@ -43,6 +47,7 @@ import { SearchService } from './reporting/search.service';
     PortalAuthorizationService,
     PortalOwnerService,
     PortalTenantService,
+    PortalAdminService,
     ReportingService,
     DashboardReadModelService,
     SearchService,

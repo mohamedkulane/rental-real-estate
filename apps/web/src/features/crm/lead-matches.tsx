@@ -93,7 +93,7 @@ export function LeadMatches({ lead, principal }: { lead: LeadDetail; principal: 
                 ? item.listing.askingRent
                 : item.listing.askingPrice;
             const href =
-              item.listingType === 'RENTAL' ? '/marketing/rental-listings' : '/marketing/sale-listings';
+              item.listingType === 'RENTAL' ? '/rental/properties' : '/marketing/sale-listings';
             return (
               <tr key={item.listing.id} className="border-b border-slate-100 text-sm last:border-0">
                 <td className="px-3 py-3">

@@ -22,6 +22,7 @@ import {
   DataTableScroll,
   DataTableSurface,
   DataTableToolbar,
+  TableActionButton,
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { CursorPaginationControls } from '@/components/shared/pagination';
@@ -68,7 +69,7 @@ const config: Record<
     permission: 'listing.read',
     endpoint: '/rental-listings',
     empty: 'No Rental Listings are available in your authorized branches.',
-    action: { label: 'Start Rental Brokerage', href: '/workflows/new?type=RENTAL_BROKERAGE' },
+    action: { label: 'Start Rental Brokerage', href: '/rental/brokerage/new' },
     statuses: [
       'DRAFT',
       'PENDING_REVIEW',
@@ -204,8 +205,8 @@ const config: Record<
   },
   leases: {
     eyebrow: 'Leasing',
-    title: 'Lease Contracts',
-    description: 'Manage versioned Lease Contracts for canonical Rentable Spaces.',
+    title: 'Leases',
+    description: 'Active and historical rental leases. Create a lease from a customer and a property.',
     permission: 'lease.read',
     endpoint: '/leases',
     empty: 'No Lease Contracts match the current filters.',
@@ -221,7 +222,7 @@ const config: Record<
       'ARCHIVED',
     ],
     columns: [
-      { label: 'Lease', value: (row) => row.leaseNumber as string },
+      { label: 'Lease', value: (row) => text(row.leaseNumber) },
       {
         label: 'Rentable Space',
         value: (row) =>
@@ -355,12 +356,17 @@ export function Phase5Register({ mode }: { mode: Mode }) {
         description={definition.description}
         action={
           <div className="flex flex-wrap gap-2">
-            {definition.action ? (
+            {mode === 'leases' ? (
+              <Link className="button primary" href="/rental/leases/new">
+                Create Lease
+              </Link>
+            ) : null}
+            {definition.action && mode !== 'leases' ? (
               <Link className="button secondary" href={definition.action.href}>
                 {definition.action.label}
               </Link>
             ) : null}
-            {principal ? (
+            {principal && mode !== 'leases' ? (
               <Phase5CreateAction mode={mode} principal={principal} onSuccess={() => void query.refetch()} />
             ) : null}
           </div>
@@ -427,7 +433,14 @@ export function Phase5Register({ mode }: { mode: Mode }) {
                     { label: 'Status', value: <StatusBadge value={row.status ?? 'ACTIVE'} /> },
                   ]}
                   actions={
-                    <Phase5RowAction mode={mode} row={row} onSuccess={() => void query.refetch()} />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {mode === 'leases' ? (
+                        <TableActionButton tone="open" href={`/leasing/leases/${row.id}`}>
+                          Open
+                        </TableActionButton>
+                      ) : null}
+                      <Phase5RowAction mode={mode} row={row} onSuccess={() => void query.refetch()} />
+                    </div>
                   }
                 />
               ))}
@@ -455,11 +468,18 @@ export function Phase5Register({ mode }: { mode: Mode }) {
                           <StatusBadge value={row.status ?? 'ACTIVE'} />
                         </DataTableCell>
                         <DataTableCell align="right">
-                          <Phase5RowAction
-                            mode={mode}
-                            row={row}
-                            onSuccess={() => void query.refetch()}
-                          />
+                          <div className="flex justify-end gap-2">
+                            {mode === 'leases' ? (
+                              <TableActionButton tone="open" href={`/leasing/leases/${row.id}`}>
+                                Open
+                              </TableActionButton>
+                            ) : null}
+                            <Phase5RowAction
+                              mode={mode}
+                              row={row}
+                              onSuccess={() => void query.refetch()}
+                            />
+                          </div>
                         </DataTableCell>
                       </DataTableRow>
                     ))}

@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BrokerageDealStatus, Prisma, ServiceModel } from '@prisma/client';
+import { BrokerageDealStatus, LeaseStatus, Prisma, ServiceModel } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { cursorPage } from '../common/cursor-pagination';
 import { nextRecordNumber } from '../common/record-number';
@@ -17,6 +17,7 @@ import type {
   BrokerageDealQueryDto,
   BrokerageDealTransitionDto,
   CreateBrokerageDealDto,
+  LinkBrokerageDealLeaseDto,
 } from './finance.dto';
 
 @Injectable()
@@ -162,6 +163,65 @@ export class BrokerageDealService {
         reason: input.reason,
         before: { status: current.status },
         after: { status: row.status },
+      });
+      return row;
+    });
+  }
+
+  async linkLease(
+    principal: AuthenticatedPrincipal,
+    dealId: string,
+    input: LinkBrokerageDealLeaseDto,
+    correlationId?: string,
+  ) {
+    const current = await this.db.brokerageDeal.findFirst({
+      where: { id: dealId, companyId: principal.companyId },
+    });
+    if (!current) throw new NotFoundException('Brokerage deal not found.');
+    this.auth.assertBranchPermission(principal, 'brokerage-deal.manage', current.branchId);
+    if (
+      current.status === BrokerageDealStatus.CLOSED ||
+      current.status === BrokerageDealStatus.CANCELLED
+    ) {
+      throw new ConflictException('Closed or cancelled deals cannot be changed.');
+    }
+    if (current.leaseId) {
+      throw new ConflictException('This deal already has a linked lease.');
+    }
+
+    const lease = await this.db.lease.findFirst({
+      where: { id: input.leaseId, companyId: principal.companyId },
+      select: { id: true, leaseNumber: true, rentableSpaceId: true, status: true },
+    });
+    if (!lease) throw new NotFoundException('Lease not found.');
+    if (lease.rentableSpaceId !== current.rentableSpaceId) {
+      throw new ConflictException('Lease must target the same rentable space as this deal.');
+    }
+    const linkableStatuses: readonly LeaseStatus[] = [
+      LeaseStatus.SIGNED,
+      LeaseStatus.ACTIVE,
+      LeaseStatus.APPROVED,
+      LeaseStatus.PENDING_SIGNATURE,
+    ];
+    if (!linkableStatuses.includes(lease.status)) {
+      throw new ConflictException('Lease must be signed or active before linking to a brokerage deal.');
+    }
+
+    return this.db.$transaction(async (tx) => {
+      const row = await tx.brokerageDeal.update({
+        where: { id: dealId },
+        data: { leaseId: lease.id },
+        include: { lease: true, rentableSpace: true },
+      });
+      await this.audit.write(tx, {
+        actorUserId: principal.userId,
+        action: 'brokerage-deal.lease-linked',
+        entityType: 'BrokerageDeal',
+        entityId: dealId,
+        branchId: current.branchId,
+        correlationId,
+        reason: input.reason,
+        after: { leaseId: lease.id, leaseNumber: lease.leaseNumber },
       });
       return row;
     });

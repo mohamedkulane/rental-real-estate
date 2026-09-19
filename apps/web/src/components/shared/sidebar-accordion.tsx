@@ -92,16 +92,16 @@ export function SidebarAccordion({
                 title={collapsed ? group.label : undefined}
                 onClick={() => toggleGroup(group.id)}
                 className={
-                  'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 ' +
+                  'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#215E61]/30 ' +
                   (groupActive
-                    ? 'bg-emerald-50/80 text-emerald-900'
+                    ? 'bg-[#E8F3F3] text-[#215E61]'
                     : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900')
                 }
               >
                 <Icon
                   className={
                     'h-[18px] w-[18px] shrink-0 ' +
-                    (groupActive ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600')
+                    (groupActive ? 'text-[#215E61]' : 'text-slate-400 group-hover:text-slate-600')
                   }
                   aria-hidden="true"
                 />
@@ -132,9 +132,9 @@ export function SidebarAccordion({
                             onNavigate();
                           }}
                           className={
-                            'relative flex min-h-9 w-full items-center rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 ' +
+                            'relative flex min-h-9 w-full items-center rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#215E61]/30 ' +
                             (selected
-                              ? 'bg-emerald-50 text-emerald-900 before:absolute before:-left-2 before:top-1/2 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-emerald-600'
+                              ? 'bg-[#E8F3F3] font-semibold text-[#215E61] before:absolute before:-left-2 before:top-1/2 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-[#FF9E20]/80'
                               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
                           }
                         >
@@ -164,7 +164,7 @@ export function SidebarAccordion({
                         className={
                           'flex w-full rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors ' +
                           (selected
-                            ? 'bg-emerald-50 text-emerald-900'
+                            ? 'bg-[#E8F3F3] font-semibold text-[#215E61]'
                             : 'text-slate-700 hover:bg-slate-50')
                         }
                       >

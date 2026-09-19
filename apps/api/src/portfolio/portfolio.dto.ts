@@ -142,6 +142,7 @@ export class ListOwnersQueryDto extends CursorPageQueryDto {
 
 export class ListPropertiesQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsUUID() ownerPartyId?: string;
   @IsOptional() @IsEnum(PropertyType) propertyType?: PropertyType;
   @IsOptional() @IsEnum(PropertyStatus) status?: PropertyStatus;
   @IsOptional() @IsIn(['NEWEST', 'NAME', 'CODE']) sort?: 'NEWEST' | 'NAME' | 'CODE';

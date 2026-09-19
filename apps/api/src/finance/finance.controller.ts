@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -16,6 +16,7 @@ import {
   CreateBrokerageDealDto,
   CreateExpenseDto,
   CreateJournalDto,
+  LinkBrokerageDealLeaseDto,
   CreateOwnerPayoutDto,
   CreatePaymentDto,
   CreateSaleOfferDto,
@@ -322,6 +323,16 @@ export class BrokerageDealController {
     @Body() input: BrokerageDealTransitionDto,
   ) {
     return this.deals.transition(req.principal, id, input, req.correlationId);
+  }
+
+  @Patch(':id/lease')
+  @RequirePermissions('brokerage-deal.manage')
+  linkLease(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: LinkBrokerageDealLeaseDto,
+  ) {
+    return this.deals.linkLease(req.principal, id, input, req.correlationId);
   }
 }
 

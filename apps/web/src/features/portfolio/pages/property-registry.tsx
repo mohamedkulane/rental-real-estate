@@ -9,19 +9,17 @@ import {
   ChevronRight,
   CircleAlert,
   Edit3,
-  Eye,
   ImageIcon,
   MapPin,
-  MoreHorizontal,
   Plus,
   Search,
-  Trash2,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import type { Principal } from '@/lib/phase3-api';
 import type { PROPERTY_DETAIL_TABS } from '../portfolio-ia';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { StatusBadge } from '@/components/shared/ui';
 import { OwnershipEditor } from '../ownership-workflow';
 import type {
@@ -59,18 +57,31 @@ export type PropertyRecord = {
     name: string;
     spaceCode: string;
     status: string;
-    type?: { name: string };
+    type?: { name: string; code?: string };
     building?: { name: string } | null;
     versions?: {
       usableArea: string | null;
       totalArea: string | null;
       areaUnit: string | null;
       floorNumber: number | null;
+      attributes?: Record<string, unknown> | null;
     }[];
     childRelations?: {
-      parent?: { name: string; spaceCode: string };
+      parent?: { id?: string; name: string; spaceCode: string };
       effectiveTo: string | null;
     }[];
+    parentRelations?: {
+      child?: {
+        id: string;
+        name: string;
+        spaceCode: string;
+        status: string;
+        versions?: { attributes?: Record<string, unknown> | null }[];
+      };
+      effectiveTo: string | null;
+    }[];
+    leases?: { id: string; status: string; rentAmount?: string | null; currency?: string }[];
+    rentalListings?: { askingRent?: string | null; currency?: string; status: string }[];
   }[];
   amenities?: { amenity: { id: string; name: string } }[];
   _count?: { spaces: number; buildings: number };
@@ -490,59 +501,47 @@ export function PropertyRegistry({
                         <StatusBadge value={property.status} />
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <details className="relative inline-block text-left">
-                          <summary
-                            className="flex cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-[#0D47A1] hover:shadow-sm"
-                            aria-label={'Actions for ' + property.name}
+                        <TableActionGroup>
+                          <TableActionButton
+                            tone="view"
+                            onClick={() => void openDetails(property)}
                           >
-                            <MoreHorizontal className="h-5 w-5" />
-                          </summary>
-                          <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                            <button
-                              type="button"
-                              onClick={() => void openDetails(property)}
-                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            View
+                          </TableActionButton>
+                          {canUpdate(property) ? (
+                            <TableActionButton
+                              tone="edit"
+                              onClick={() => {
+                                setSelected(property);
+                                setPanel('edit');
+                              }}
                             >
-                              <Eye className="h-4 w-4" /> View details
-                            </button>
-                            {canUpdate(property) ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelected(property);
-                                  setPanel('edit');
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                              >
-                                <Edit3 className="h-4 w-4" /> Edit property
-                              </button>
-                            ) : null}
-                            {canUpdate(property) ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelected(property);
-                                  setPanel('status');
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                              >
-                                <Archive className="h-4 w-4" /> Change status
-                              </button>
-                            ) : null}
-                            {canUpdate(property) && property.status === 'DRAFT' ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelected(property);
-                                  setPanel('discard');
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" /> Discard draft
-                              </button>
-                            ) : null}
-                          </div>
-                        </details>
+                              Edit
+                            </TableActionButton>
+                          ) : null}
+                          {canUpdate(property) ? (
+                            <TableActionButton
+                              tone="manage"
+                              onClick={() => {
+                                setSelected(property);
+                                setPanel('status');
+                              }}
+                            >
+                              Status
+                            </TableActionButton>
+                          ) : null}
+                          {canUpdate(property) && property.status === 'DRAFT' ? (
+                            <TableActionButton
+                              tone="danger"
+                              onClick={() => {
+                                setSelected(property);
+                                setPanel('discard');
+                              }}
+                            >
+                              Discard
+                            </TableActionButton>
+                          ) : null}
+                        </TableActionGroup>
                       </td>
                     </tr>
                   );
@@ -744,14 +743,14 @@ export function PropertyRegistry({
             <div className="flex gap-3 border-t border-slate-200 pt-5">
               <button
                 disabled={busy}
-                className="flex-1 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+                className="button primary flex-1"
               >
                 {busy ? 'Saving...' : 'Save changes'}
               </button>
               <button
                 type="button"
                 onClick={closePanel}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold"
+                className="button secondary"
               >
                 Cancel
               </button>

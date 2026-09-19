@@ -15,6 +15,7 @@ import {
 import { DashboardSkeleton } from '@/components/shared/loading-system';
 import { EmptyState, StatusBadge } from '@/components/shared/ui';
 import { formatDate, humanize } from '@/lib/presentation';
+import { groupBy } from '@/lib/group-by';
 import { BarChart, DonutChart, TrendChart } from './dashboard-charts';
 
 const DASHBOARD_HERO_IMAGE = '/images/dashboard/hero-house.jpg';
@@ -181,7 +182,7 @@ export function StaffDashboard({
     totalBilled > 0 ? Math.round((monthlyRevenue / totalBilled) * 100) : monthlyRevenue > 0 ? 100 : 0;
 
   const propertyGroups = Object.entries(
-    Object.groupBy(dashboard.properties, (property) => humanize(text(property.propertyType))),
+    groupBy(dashboard.properties, (property) => humanize(text(property.propertyType))),
   )
     .map(([label, items]) => ({ label, value: items?.length ?? 0 }))
     .sort((left, right) => right.value - left.value);
@@ -401,7 +402,10 @@ export function StaffDashboard({
                     <strong>{text(nested(renewal, 'originalLease', 'leaseNumber'), 'Lease renewal')}</strong>
                     <small>{humanize(text(renewal.status, 'PROPOSED'))}</small>
                   </div>
-                  <Link className="button ghost staff-renewal-action" href="/leasing/renewals">
+                  <Link
+                    className="button ghost staff-renewal-action"
+                    href={`/leasing/leases/${text(nested(renewal, 'originalLease', 'id'), '')}`}
+                  >
                     Renewal
                   </Link>
                 </article>

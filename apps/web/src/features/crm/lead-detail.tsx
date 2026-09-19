@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, api, type Principal } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
@@ -222,6 +223,7 @@ function History({ leadId }: { leadId: string }) {
   );
 }
 export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
+  const router = useRouter();
   const { principal, error } = useCrmPrincipal();
   const [tab, setTab] = useState('summary');
   const [action, setAction] = useState<string | null>(null);
@@ -232,6 +234,14 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
     queryFn: () => api<LeadDetail>(`/crm/leads/${leadId}`),
   });
   const lead = query.data;
+  useEffect(() => {
+    if (!lead) return;
+    if (lead.intent === 'RENT') router.replace(`/rental/customers/${lead.id}`);
+    if (lead.intent === 'BUY') router.replace(`/sales/buyers/${lead.id}`);
+  }, [lead, router]);
+  if (lead?.intent === 'RENT' || lead?.intent === 'BUY') {
+    return <LoadingState label="Opening simplified workspace" />;
+  }
   const branch = lead?.responsibleBranch.id;
   const tabs =
     principal && lead
@@ -259,8 +269,8 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
             title="Lead not found"
             description="This Lead is missing or outside your authorized Company scope."
             action={
-              <Link href="/crm/leads" className="button secondary">
-                Lead Register
+              <Link href="/crm/pipeline" className="button secondary">
+                Pipeline
               </Link>
             }
           />
@@ -269,8 +279,11 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
         )
       ) : principal && lead ? (
         <>
-          <Link href="/crm/leads" className="mb-4 inline-block text-sm font-bold text-blue-700">
-            ← Lead Register
+          <Link
+            href={lead.intent === 'RENT' ? '/rental/customers' : `/crm/leads?intent=${lead.intent}`}
+            className="mb-4 inline-block text-sm font-bold text-blue-700"
+          >
+            {lead.intent === 'RENT' ? '← Rental Customers' : '← Lead Register'}
           </Link>
           <PageHeader
             eyebrow={lead.leadNumber}

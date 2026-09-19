@@ -5,6 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { CursorPaginationControls } from '@/components/shared/pagination';
+import {
+  TableActionButton,
+  TableActionGroup,
+  type TableActionTone,
+} from '@/components/shared/data-table';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import { api, apiUrl, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
@@ -453,9 +458,17 @@ function workspaceHeaders(workspace: FocusedWorkspace): string[] {
 
 function recordLink(href: string, label: string) {
   return (
-    <a href={href} className="font-bold text-[#0D47A1] hover:underline">
+    <a href={href} className="font-semibold text-[#215E61] hover:underline">
       {label}
     </a>
+  );
+}
+
+function actionLink(href: string, label: string, tone: TableActionTone = 'open') {
+  return (
+    <TableActionButton tone={tone} href={href}>
+      {label}
+    </TableActionButton>
   );
 }
 
@@ -484,16 +497,17 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
       typeof row.numberOfFloors === 'number' ? String(row.numberOfFloors) : 'Not recorded',
       count ? String(count) : <span className="text-slate-500">None created</span>,
       <StatusBadge value={text(row.status, '')} />,
-      <span className="flex flex-wrap justify-end gap-3">
-        {recordLink('/portfolio/buildings/' + id, 'Open Building')}
-        {recordLink(
+      <TableActionGroup>
+        {actionLink('/portfolio/buildings/' + id, 'Open Building')}
+        {actionLink(
           '/portfolio?section=spaces&view=overview&create=1&propertyId=' +
             encodeURIComponent(propertyId) +
             '&buildingId=' +
             encodeURIComponent(id),
           'Add Rentable Space',
+          'create',
         )}
-      </span>,
+      </TableActionGroup>,
     ];
   }
   if (workspace === 'property-ownership' || workspace === 'owner-properties') {
@@ -504,15 +518,16 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
       text(row.ownershipPercent, '0') + '%',
       date(row.effectiveFrom) + ' - ' + date(row.effectiveTo),
       <StatusBadge value={period} />,
-      <span className="flex flex-wrap justify-end gap-3">
-        {propertyId ? recordLink('/portfolio/properties/' + propertyId, 'Open Property') : null}
+      <TableActionGroup>
+        {propertyId ? actionLink('/portfolio/properties/' + propertyId, 'Open Property') : null}
         {propertyId
-          ? recordLink(
+          ? actionLink(
               '/portfolio/properties/' + encodeURIComponent(propertyId) + '?tab=ownership&manage=1',
               'Manage Ownership',
+              'manage',
             )
           : null}
-      </span>,
+      </TableActionGroup>,
     ];
   }
   if (workspace.includes('document')) {
@@ -538,9 +553,9 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
       humanize(text(row.accessClass, 'Internal')),
       <StatusBadge value={text(row.status, '')} />,
       date(row.updatedAt ?? row.createdAt),
-      <span className="flex flex-wrap justify-end gap-3">
+      <TableActionGroup>
         {versionId
-          ? recordLink(
+          ? actionLink(
               apiUrl(
                 '/portfolio-documents/' +
                   documentId +
@@ -549,10 +564,11 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
                   '/content?disposition=inline',
               ),
               'View',
+              'view',
             )
           : null}
         {versionId
-          ? recordLink(
+          ? actionLink(
               apiUrl(
                 '/portfolio-documents/' +
                   documentId +
@@ -561,9 +577,10 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
                   '/content?disposition=attachment',
               ),
               'Download',
+              'neutral',
             )
           : null}
-      </span>,
+      </TableActionGroup>,
     ];
   }
   if (workspace === 'property-amenities')
@@ -575,7 +592,7 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
       text(amenity.code, ''),
       <StatusBadge value={typeof amenity.active === 'boolean' ? amenity.active : true} />,
       propertyId
-        ? recordLink('/portfolio/properties/' + propertyId + '?tab=amenities', 'Manage')
+        ? actionLink('/portfolio/properties/' + propertyId + '?tab=amenities', 'Manage', 'manage')
         : null,
     ];
   if (workspace === 'property-branches')
@@ -585,7 +602,11 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
       date(row.effectiveFrom) + ' - ' + date(row.effectiveTo),
       <StatusBadge value={text(row.period, row.effectiveTo ? 'HISTORICAL' : 'CURRENT')} />,
       propertyId
-        ? recordLink('/portfolio/properties/' + propertyId + '?tab=branch-history', 'Open History')
+        ? actionLink(
+            '/portfolio/properties/' + propertyId + '?tab=branch-history',
+            'Open History',
+            'view',
+          )
         : null,
     ];
   if (workspace === 'property-activity')
@@ -598,7 +619,9 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
     ];
 
   const spaceLabel = spaceCode ? spaceCode + ' - ' + spaceName : spaceName;
-  const action = spaceId ? recordLink('/portfolio/rentable-spaces/' + spaceId, 'Open Space') : null;
+  const action = spaceId
+    ? actionLink('/portfolio/rentable-spaces/' + spaceId, 'Open Space')
+    : null;
   if (workspace === 'space-hierarchy') {
     const relation = record(list(row.childRelations)[0]);
     return [

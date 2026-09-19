@@ -161,11 +161,14 @@ export function BranchSelect({
   value,
   onChange,
   label = 'Branch',
+  optional = false,
 }: {
   branches: Array<{ id: string; code: string; name: string }>;
   value: string;
   onChange: (branchId: string) => void;
   label?: string;
+  /** When true, do not auto-select or require a branch (company-wide allowed). */
+  optional?: boolean;
 }) {
   const catalog = useQuery({
     queryKey: ['finance-branch-catalog'],
@@ -181,8 +184,9 @@ export function BranchSelect({
       }));
 
   useEffect(() => {
+    if (optional) return;
     if (!value && options[0]?.id) onChange(options[0].id);
-  }, [onChange, options, value]);
+  }, [onChange, options, optional, value]);
 
   if (catalog.isError) {
     return (
@@ -206,12 +210,12 @@ export function BranchSelect({
     );
   }
 
-  const selected = value || options[0].id;
+  const selected = optional ? value : value || options[0]!.id;
   return (
     <label className="grid min-w-0 gap-1">
       <span className="text-[13px] font-semibold text-slate-600">
         {label}
-        <span className="text-red-600"> *</span>
+        {optional ? null : <span className="text-red-600"> *</span>}
       </span>
       <SearchableSelect
         searchable
@@ -219,9 +223,10 @@ export function BranchSelect({
         className={inputClass}
         aria-label={label}
         value={selected}
-        required
+        required={!optional}
         onChange={(event) => onChange(event.target.value)}
       >
+        {optional ? <option value="">Company-wide (no branch)</option> : null}
         {options.map((branch) => (
           <option key={branch.id} value={branch.id}>
             {branch.name}

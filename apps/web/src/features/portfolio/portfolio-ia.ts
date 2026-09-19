@@ -46,13 +46,10 @@ export function rentableSpaceDetailHref(spaceId: string): string {
   return '/portfolio/rentable-spaces/' + encodeURIComponent(spaceId);
 }
 export const PROPERTY_DETAIL_TABS = [
-  { key: 'overview', label: 'Property Details' },
-  { key: 'buildings', label: 'Buildings' },
-  { key: 'spaces', label: 'Rentable Spaces' },
-  { key: 'ownership', label: 'Ownership' },
-  { key: 'amenities', label: 'Amenities' },
+  { key: 'overview', label: 'Overview' },
+  { key: 'ownership', label: 'Owner' },
+  { key: 'spaces', label: 'Units' },
   { key: 'documents', label: 'Documents' },
-  { key: 'branch-history', label: 'Branch Assignments' },
   { key: 'activity', label: 'Activity' },
 ] as const;
 

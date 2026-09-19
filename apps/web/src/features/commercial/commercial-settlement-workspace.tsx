@@ -173,7 +173,7 @@ export function SaleSettlementDetailWorkspace() {
               <FinanceField label="Gross sale price" value={financeMoney(query.data?.currency, query.data?.salePrice)} />
               <FinanceField
                 label="Brokerage commission"
-                value={financeMoney(query.data?.currency, query.data?.brokerageCommission)}
+                value={financeMoney(query.data?.currency, query.data?.grossCommission)}
               />
               <FinanceField
                 label="Approved deductions"
@@ -184,8 +184,8 @@ export function SaleSettlementDetailWorkspace() {
                 value={financeMoney(
                   query.data?.currency,
                   serviceModel === 'COMPANY_OWNED'
-                    ? query.data?.companyNetProceeds
-                    : query.data?.sellerNetProceeds,
+                    ? query.data?.companyProceeds
+                    : query.data?.sellerProceeds,
                 )}
               />
               <FinanceField label="Closing date" value={formatDate(query.data?.closingDate)} />

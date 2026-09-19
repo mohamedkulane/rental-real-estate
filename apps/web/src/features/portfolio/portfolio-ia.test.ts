@@ -49,16 +49,14 @@ describe('Phase 4 Portfolio information architecture', () => {
 
   it('keeps every major Property workflow in a dedicated tab', () => {
     expect(PROPERTY_DETAIL_TABS.map((tab) => tab.label)).toEqual([
-      'Property Details',
-      'Buildings',
-      'Rentable Spaces',
-      'Ownership',
-      'Amenities',
+      'Overview',
+      'Owner',
+      'Units',
       'Documents',
-      'Branch Assignments',
       'Activity',
     ]);
     expect(PROPERTY_DETAIL_TABS.some((tab) => String(tab.label) === 'Operations')).toBe(false);
+    expect(PROPERTY_DETAIL_TABS.some((tab) => String(tab.label) === 'Rentable Spaces')).toBe(false);
   });
 
   it('separates current Owner properties, documents, and ownership history', () => {

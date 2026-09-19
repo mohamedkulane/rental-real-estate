@@ -28,9 +28,9 @@ export const workflowPresentation: Record<GuidedServiceWorkflow, WorkflowPresent
     title: workflowLabels.PROPERTY_ONBOARDING,
     subtitle: 'Register the owner, property and services together with our guided workflow.',
     breadcrumbs: [
-      { label: 'Portfolio', href: '/portfolio/properties' },
+      { label: 'Portfolio', href: '/rental/properties' },
       { label: 'Property Onboarding', href: '/workflows/new?type=PROPERTY_ONBOARDING' },
-      { label: 'Start New' },
+      { label: 'Incomplete Work' },
     ],
     steps: [
       { label: 'Owner', sidebarHint: 'Select or create the owner' },
@@ -47,9 +47,9 @@ export const workflowPresentation: Record<GuidedServiceWorkflow, WorkflowPresent
     title: workflowLabels.RENTAL_BROKERAGE,
     subtitle: 'List and lease properties quickly with our guided workflow.',
     breadcrumbs: [
-      { label: 'Rental', href: '/marketing/rental-listings' },
-      { label: 'Rental Brokerage', href: '/workflows/new?type=RENTAL_BROKERAGE' },
-      { label: 'Start New' },
+      { label: 'Rental', href: '/commercial/rental-brokerage' },
+      { label: 'Rental Brokerage', href: '/commercial/rental-brokerage?create=1' },
+      { label: 'Incomplete Work' },
     ],
     steps: [
       { label: 'Owner', sidebarHint: 'Select the property owner' },
@@ -66,9 +66,9 @@ export const workflowPresentation: Record<GuidedServiceWorkflow, WorkflowPresent
     title: workflowLabels.FULL_MANAGEMENT,
     subtitle: 'Set up full property management with our guided workflow.',
     breadcrumbs: [
-      { label: 'Commercial', href: '/commercial/service-engagements' },
-      { label: 'Full Management', href: '/workflows/new?type=FULL_MANAGEMENT' },
-      { label: 'Start New' },
+      { label: 'Rental', href: '/commercial/full-management' },
+      { label: 'Full Management', href: '/commercial/full-management?create=1' },
+      { label: 'Incomplete Work' },
     ],
     steps: [
       { label: 'Owner', sidebarHint: 'Select the property owner' },
@@ -85,9 +85,9 @@ export const workflowPresentation: Record<GuidedServiceWorkflow, WorkflowPresent
     title: workflowLabels.PROPERTY_SALE,
     subtitle: 'Prepare a property sale with our guided workflow.',
     breadcrumbs: [
-      { label: 'Sales', href: '/marketing/sale-listings' },
-      { label: 'Property Sale', href: '/workflows/new?type=PROPERTY_SALE' },
-      { label: 'Start New' },
+      { label: 'Sales', href: '/sales/deals' },
+      { label: 'Property Sale', href: '/sales/deals/new' },
+      { label: 'Incomplete Work' },
     ],
     steps: [
       { label: 'Seller', sidebarHint: 'Select seller when external' },

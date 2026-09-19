@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BuildingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
+import { BuildingStatus, LeaseStatus, ListingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
 import { cursorPage } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
@@ -237,6 +237,17 @@ export class PortfolioService {
               ],
             }
           : {}),
+        ...(query.ownerPartyId
+          ? {
+              ownerships: {
+                some: {
+                  ownerPartyId: query.ownerPartyId,
+                  effectiveFrom: { lte: at },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                },
+              },
+            }
+          : {}),
         ...(branchIds === null
           ? {}
           : {
@@ -281,8 +292,46 @@ export class PortfolioService {
           include: {
             type: true,
             building: true,
-            childRelations: { include: { parent: { select: { name: true, spaceCode: true } } } },
+            childRelations: {
+              include: {
+                parent: { select: { id: true, name: true, spaceCode: true } },
+              },
+            },
+            parentRelations: {
+              where: { effectiveTo: null },
+              include: {
+                child: {
+                  select: {
+                    id: true,
+                    name: true,
+                    spaceCode: true,
+                    status: true,
+                    versions: { orderBy: { effectiveFrom: 'desc' }, take: 1 },
+                  },
+                },
+              },
+            },
             versions: { orderBy: { effectiveFrom: 'desc' } },
+            leases: {
+              where: { status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] } },
+              select: { id: true, status: true, rentAmount: true, currency: true },
+              take: 5,
+            },
+            rentalListings: {
+              where: {
+                status: {
+                  in: [
+                    ListingStatus.DRAFT,
+                    ListingStatus.PUBLISHED,
+                    ListingStatus.PAUSED,
+                    ListingStatus.PENDING_REVIEW,
+                  ],
+                },
+              },
+              select: { askingRent: true, currency: true, status: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
             landProfile: true,
             residentialProfile: true,
             commercialProfile: true,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import toast from '@/lib/toast';
 import { X } from 'lucide-react';
+import { TableActionButton } from '@/components/shared/data-table';
 import { api, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
 import { requestPath } from '@/features/crm/crm-data';
 import { RecordPicker, type PickRecord } from '@/features/workflow/record-picker';
@@ -23,7 +24,7 @@ const dateInput = (days: number) => new Date(Date.now() + days * 86_400_000).toI
 const dateTimeInput = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 16);
 
 const createPermissions: Partial<Record<OperationsMode, string>> = {
-  'rental-listings': 'listing.create', 'sale-listings': 'listing.create', viewings: 'viewing.create', applications: 'application.create', reservations: 'reservation.create', tenants: 'tenant.create', leases: 'lease.create', renewals: 'renewal.manage', 'move-ins': 'move-in.manage',
+  'sale-listings': 'listing.create',
 };
 const createLabels: Record<OperationsMode, string> = {
   'rental-listings': 'Create Rental Listing', 'sale-listings': 'Create Sale Listing', viewings: 'Schedule Viewing', applications: 'Start Application', reservations: 'Create Reservation', tenants: 'Convert Approved Applicant', leases: 'Create Lease Contract', renewals: 'Start Renewal', 'move-ins': 'Schedule Move-In',
@@ -205,13 +206,50 @@ export function Phase5RowAction({ mode, row, onSuccess }: { mode: OperationsMode
       setOpen(false);
     },
   });
-  if (!states.length && !canScreen) return <span className="text-xs text-slate-500">No action due</span>;
-  return <>{<button className="button secondary" onClick={() => { setScreen(false); setTarget(states[0] ?? ''); setOpen(true); }}>Manage</button>}{open ? <Modal title={`Manage ${mode.replaceAll('-',' ')}`} onClose={() => setOpen(false)}><form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }}>
+  if (!states.length && !canScreen && mode !== 'leases') {
+    return <span className="text-xs text-slate-500">No action due</span>;
+  }
+  return (
+    <>
+      {mode === 'leases' ? (
+        <TableActionButton tone="open" href={`/leasing/leases/${row.id}`}>
+          Open
+        </TableActionButton>
+      ) : null}
+      {states.length || canScreen ? (
+        <TableActionButton
+          tone="manage"
+          onClick={() => {
+            setScreen(false);
+            setTarget(states[0] ?? '');
+            setOpen(true);
+          }}
+        >
+          Manage
+        </TableActionButton>
+      ) : null}
+      {open ? (
+        <Modal title={`Manage ${mode.replaceAll('-', ' ')}`} onClose={() => setOpen(false)}>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              mutation.mutate();
+            }}
+          >
     {canScreen ? <label className="flex items-center gap-2"><input className="!h-4 !w-4" type="checkbox" checked={screen} onChange={(event) => { setScreen(event.target.checked); setTarget(event.target.checked ? (row.screeningStatus === 'NOT_STARTED' ? 'IN_PROGRESS' : 'PASSED') : states[0] ?? ''); }} />Record screening outcome</label> : null}
-    <label>{screen ? 'Screening outcome' : 'Next stage'}<select required value={target} onChange={(event) => setTarget(event.target.value)}>{(screen ? row.screeningStatus === 'NOT_STARTED' ? ['IN_PROGRESS','WAIVED'] : ['PASSED','FAILED','WAIVED'] : states).map((state) => <option key={state}>{state}</option>)}</select></label>
-    {mode === 'leases' && target === 'SIGNED' ? <label>Signature evidence hash<input required minLength={3} maxLength={128} value={signature} onChange={(event) => setSignature(event.target.value)} /></label> : null}
-    {screen ? <label>Restricted screening summary<textarea rows={3} maxLength={2000} value={summary} onChange={(event) => setSummary(event.target.value)} /></label> : null}
-    <label>Reason<textarea required minLength={3} maxLength={500} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
-    {mutation.isError ? <div className="feedback feedback-error" role="alert">{userFacingError(mutation.error)}</div> : null}<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className="button secondary" onClick={() => setOpen(false)}>Cancel</button><button className="button primary" disabled={mutation.isPending}>{mutation.isPending ? 'Updating…' : 'Confirm change'}</button></div>
-  </form></Modal> : null}</>;
+            <label>{screen ? 'Screening outcome' : 'Next stage'}<select required value={target} onChange={(event) => setTarget(event.target.value)}>{(screen ? row.screeningStatus === 'NOT_STARTED' ? ['IN_PROGRESS','WAIVED'] : ['PASSED','FAILED','WAIVED'] : states).map((state) => <option key={state}>{state}</option>)}</select></label>
+            {mode === 'leases' && target === 'SIGNED' ? <label>Signature evidence hash<input required minLength={3} maxLength={128} value={signature} onChange={(event) => setSignature(event.target.value)} /></label> : null}
+            {screen ? <label>Restricted screening summary<textarea rows={3} maxLength={2000} value={summary} onChange={(event) => setSummary(event.target.value)} /></label> : null}
+            <label>Reason<textarea required minLength={3} maxLength={500} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+            {mutation.isError ? <div className="feedback feedback-error" role="alert">{userFacingError(mutation.error)}</div> : null}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" className="button secondary" onClick={() => setOpen(false)}>Cancel</button>
+              <button className="button primary" disabled={mutation.isPending}>{mutation.isPending ? 'Updating…' : 'Confirm change'}</button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+    </>
+  );
 }

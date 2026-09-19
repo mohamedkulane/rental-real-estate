@@ -644,6 +644,7 @@ model RentableSpace {
   maintenanceRequests                                                   MaintenanceRequest[]
   workOrders                                                            WorkOrder[]
   inspections                                                           Inspection[]
+  viewings                                                              Viewing[]
   defectIssues                                                          DefectIssue[]
 
   @@unique([propertyId, spaceCode], map: "uq_rentable_space_property_code")
@@ -1123,6 +1124,7 @@ model Viewing {
   leadId             String         @db.Uuid
   rentalListingId    String?        @db.Uuid
   saleListingId      String?        @db.Uuid
+  rentableSpaceId    String?        @db.Uuid
   assignedEmployeeId String         @db.Uuid
   scheduledAt        DateTime       @db.Timestamptz(6)
   status             ViewingStatus  @default(SCHEDULED)
@@ -1137,12 +1139,14 @@ model Viewing {
   lead               Lead           @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   rentalListing      RentalListing? @relation(fields: [rentalListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   saleListing        SaleListing?   @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace      RentableSpace? @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   assignedEmployee   Employee       @relation("ViewingAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdBy          User           @relation("ViewingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   brokerageDeals     BrokerageDeal[]
 
   @@index([companyId, branchId, status, scheduledAt, id], map: "viewing_register_idx")
   @@index([leadId, scheduledAt(sort: Desc), id(sort: Desc)], map: "viewing_lead_timeline_idx")
+  @@index([rentableSpaceId, scheduledAt(sort: Desc)], map: "viewing_space_timeline_idx")
   @@map("viewings")
 }
 

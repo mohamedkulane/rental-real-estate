@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import toast, { notify } from '@/lib/toast';
+import { useCreateDrawerState } from '@/components/shared/use-create-drawer-state';
 import {
   DataTable,
   DataTableActions,
@@ -41,6 +42,7 @@ import {
 } from './finance-forms';
 import { FinanceAccessDenied } from './finance-shared';
 import { FinanceShell, useFinancePrincipal } from './finance-shell';
+import { RecordPaymentDrawer } from './record-payment-drawer';
 
 export type FinanceRegisterMode =
   | 'charges'
@@ -138,7 +140,6 @@ const config: Record<
     permission: 'payment.read',
     endpoint: '/payments',
     empty: 'No Payments match the current filters.',
-    createHref: '/finance/payments/new',
     createLabel: 'Record Payment',
     createPermission: 'payment.create',
     detailPath: (id) => `/finance/payments/${id}`,
@@ -281,6 +282,13 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
   const [status, setStatus] = useState('');
   const [cursors, setCursors] = useState<Array<string | undefined>>([undefined]);
   const [page, setPage] = useState(0);
+  const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
+  const usesPaymentDrawer = mode === 'payments';
+  const canCreate = Boolean(
+    principal &&
+      definition.createPermission &&
+      hasPermission(principal, definition.createPermission),
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(search.trim()), 250);
@@ -314,6 +322,17 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
 
   const emptyTitle = debounced || status ? 'No matching records' : `No ${definition.title} yet`;
 
+  const createAction =
+    canCreate && usesPaymentDrawer ? (
+      <button type="button" className="button primary" onClick={openCreate}>
+        {definition.createLabel}
+      </button>
+    ) : canCreate && definition.createHref ? (
+      <Link className="button primary" href={definition.createHref}>
+        {definition.createLabel}
+      </Link>
+    ) : null;
+
   return (
     <FinanceShell
       principal={principal}
@@ -324,16 +343,7 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
         eyebrow={definition.eyebrow}
         title={definition.title}
         description={definition.description}
-        action={
-          definition.createHref &&
-          principal &&
-          definition.createPermission &&
-          hasPermission(principal, definition.createPermission) ? (
-            <Link className="button primary" href={definition.createHref}>
-              {definition.createLabel}
-            </Link>
-          ) : null
-        }
+        action={createAction}
       />
 
       {principal && !allowed ? (
@@ -389,7 +399,17 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
               onRetry={() => void query.refetch()}
             />
           ) : !query.data?.items.length ? (
-            <DataTableEmpty title={emptyTitle} description={definition.empty} />
+            <DataTableEmpty
+              title={emptyTitle}
+              description={definition.empty}
+              action={
+                usesPaymentDrawer && canCreate ? (
+                  <button type="button" className="button primary" onClick={openCreate}>
+                    {definition.createLabel}
+                  </button>
+                ) : undefined
+              }
+            />
           ) : (
             <>
               <DataTableMobileCards>
@@ -469,6 +489,9 @@ export function FinanceRegister({ mode }: { mode: FinanceRegisterMode }) {
             }}
           />
         </DataTableSurface>
+        {usesPaymentDrawer && principal && createOpen ? (
+          <RecordPaymentDrawer open={createOpen} onClose={closeCreate} principal={principal} />
+        ) : null}
         </>
       )}
     </FinanceShell>

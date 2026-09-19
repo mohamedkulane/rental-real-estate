@@ -569,7 +569,11 @@ export class PartyService {
     const scopeBranchIds = await this.assertPartyReadable(principal, partyId, 'owner.read');
     const owner = await this.database.ownerProfile.findFirstOrThrow({
       where: { partyId, party: { companyId: principal.companyId } },
-      include: { party: { include: { person: true, organization: true } } },
+      include: {
+        party: {
+          include: { person: true, organization: true, contacts: true, addresses: true },
+        },
+      },
     });
     const at = await this.businessDate.today(principal.companyId);
     const ownerships = await this.database.propertyOwnership.findMany({
@@ -592,7 +596,30 @@ export class PartyService {
           this.authorization.canPerformInBranch(principal, 'owner.read', assignment.branchId),
       ),
     );
-    return { ...owner, scopeBranchIds, ownerships: allowed };
+    const canReadContacts =
+      this.authorization.canPerformCompanyWide(principal, 'party.contact.read') ||
+      scopeBranchIds.some((branchId) =>
+        this.authorization.canPerformInBranch(principal, 'party.contact.read', branchId),
+      );
+    const { party, ...ownerRecord } = owner;
+    return {
+      ...ownerRecord,
+      scopeBranchIds,
+      ownerships: allowed,
+      party: {
+        ...party,
+        contacts: party.contacts.map(({ valueEncrypted, normalizedHash, ...contact }) => {
+          void normalizedHash;
+          return {
+            ...contact,
+            value: canReadContacts
+              ? this.crypto.decrypt(valueEncrypted)
+              : this.maskContact(this.crypto.decrypt(valueEncrypted), contact.type),
+            masked: !canReadContacts,
+          };
+        }),
+      },
+    };
   }
 
   async createOwner(

@@ -216,6 +216,15 @@ export class BrokerageDealTransitionDto {
   @IsString() @Length(3, 500) reason!: string;
 }
 
+export class LinkBrokerageDealLeaseDto {
+  @IsUUID()
+  leaseId!: string;
+
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+}
+
 export class SaleOfferQueryDto extends FinanceBranchQueryDto {
   @IsOptional() @IsEnum(SaleOfferStatus) status?: SaleOfferStatus;
   @IsOptional() @IsUUID() propertyId?: string;

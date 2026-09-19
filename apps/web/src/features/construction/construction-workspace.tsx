@@ -1,19 +1,22 @@
 'use client';
 
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import { PageSkeleton } from '@/components/shared/loading-system';
-import { EmptyState, ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { EmptyState, ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { useCreateDrawerState } from '@/components/shared/use-create-drawer-state';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
 import { useClientReady } from '@/lib/client-ready';
 import { api, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
 
-const formValue = (form: FormData, key: string) => {
-  const value = form.get(key);
-  return typeof value === 'string' ? value.trim() : '';
-};
+const FORM_ID = 'create-construction-project-form';
 
 type WidgetData = {
   widgets: {
@@ -74,6 +77,7 @@ function Bar({ label, value, max, suffix = '' }: { label: string; value: number;
 export function ConstructionWorkspace() {
   const router = useRouter();
   const ready = useClientReady();
+  const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [error, setError] = useState('');
   const [overview, setOverview] = useState<WidgetData | null>(null);
@@ -81,6 +85,9 @@ export function ConstructionWorkspace() {
   const [parties, setParties] = useState<Array<{ id: string; displayName: string }>>([]);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [name, setName] = useState('');
+  const [clientPartyId, setClientPartyId] = useState('');
+  const [scope, setScope] = useState('');
 
   useEffect(() => {
     void api<Principal>('/auth/me')
@@ -116,22 +123,36 @@ export function ConstructionWorkspace() {
       .catch((cause) => setError(userFacingError(cause)));
   }, [principal]);
 
-  async function createProject(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  useEffect(() => {
+    if (!createOpen) return;
+    setName('');
+    setClientPartyId('');
+    setScope('');
+  }, [createOpen]);
+
+  const canManage = Boolean(principal && hasPermission(principal, 'construction.manage'));
+  const branchId = branches[0]?.id ?? '';
+  const readyToSubmit = Boolean(branchId && name.trim() && clientPartyId);
+
+  async function createProject() {
+    if (!readyToSubmit) {
+      toast.error('Complete the required fields before saving.');
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await api<Project>('/construction/projects', {
         method: 'POST',
         body: JSON.stringify({
-          branchId: branches[0]?.id,
-          name: formValue(form, 'name'),
+          branchId,
+          name: name.trim(),
           economicModel: 'CONSTRUCTION_FOR_CLIENT',
-          clientPartyId: formValue(form, 'clientPartyId'),
-          scope: formValue(form, 'scope'),
+          clientPartyId,
+          scope: scope.trim() || undefined,
         }),
       });
       toast.success('Construction project created.');
+      closeCreate();
       router.push(`/construction/projects/${created.id}`);
     } catch (cause) {
       toast.error(userFacingError(cause));
@@ -160,6 +181,18 @@ export function ConstructionWorkspace() {
         eyebrow="Projects"
         title="Construction Overview"
         description="Client construction projects, progress, budget, and billing."
+        action={
+          canManage ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
+              onClick={openCreate}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Start project
+            </button>
+          ) : undefined
+        }
       />
       {error ? <ErrorState message={error} /> : null}
       {overview ? (
@@ -183,16 +216,52 @@ export function ConstructionWorkspace() {
           </div>
         </>
       ) : null}
-      {hasPermission(principal, 'construction.manage') ? (
-        <FormSection title="Start client construction">
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => void createProject(event)}>
-            <label className="grid gap-1 text-sm">
-              Project name
-              <input name="name" required className="rounded-lg border border-slate-200 px-3 py-2" />
+      {canManage ? (
+        <WorkspaceFormDrawer
+          open={createOpen}
+          eyebrow="Projects"
+          title="Start client construction"
+          description="Create a client construction project for the selected branch."
+          onClose={() => {
+            if (!submitting) closeCreate();
+          }}
+          size="md"
+          footer={
+            <WorkspaceFormDrawerFooter
+              formId={FORM_ID}
+              onCancel={closeCreate}
+              submitLabel="Create project"
+              isPending={submitting}
+              disabled={!readyToSubmit}
+            />
+          }
+        >
+          <form
+            id={FORM_ID}
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createProject();
+            }}
+          >
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Project name</span>
+              <input
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                autoFocus
+              />
             </label>
-            <label className="grid gap-1 text-sm">
-              Client
-              <select name="clientPartyId" required className="rounded-lg border border-slate-200 px-3 py-2">
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Client</span>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                value={clientPartyId}
+                onChange={(event) => setClientPartyId(event.target.value)}
+                required
+              >
                 <option value="">Select client</option>
                 {parties.map((party) => (
                   <option key={party.id} value={party.id}>
@@ -201,19 +270,17 @@ export function ConstructionWorkspace() {
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-sm md:col-span-2">
-              Scope
-              <textarea name="scope" className="rounded-lg border border-slate-200 px-3 py-2" rows={3} />
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Scope</span>
+              <textarea
+                className="min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                value={scope}
+                onChange={(event) => setScope(event.target.value)}
+                rows={3}
+              />
             </label>
-            <button
-              type="submit"
-              disabled={submitting || !branches[0]?.id}
-              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
-            >
-              {submitting ? 'Creating...' : 'Create project'}
-            </button>
           </form>
-        </FormSection>
+        </WorkspaceFormDrawer>
       ) : null}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
@@ -232,7 +299,18 @@ export function ConstructionWorkspace() {
             ))}
           </ul>
         ) : (
-          <EmptyState title="No construction projects" description="Create a client construction project to begin." />
+          <EmptyState
+            title="No construction projects"
+            description="Create a client construction project to begin."
+            action={
+              canManage ? (
+                <button type="button" className="button primary" onClick={openCreate}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Start project
+                </button>
+              ) : undefined
+            }
+          />
         )}
       </div>
     </AppShell>

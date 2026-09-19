@@ -23,9 +23,15 @@ import {
   AppLoadingScreen,
 } from '@/components/shared/ui';
 import { formatDate, humanize, permissionDomain, permissionLabel } from '@/lib/presentation';
+import { groupBy } from '@/lib/group-by';
 import { EmployeeDirectory, type EmployeeRecord } from './pages/employee-directory';
 import { BranchDirectory, type BranchRecord } from './pages/branch-directory';
-import { SettingsPanel, type CompanySettings } from './pages/settings-panel';
+import {
+  SettingsPanel,
+  isSettingsSectionKey,
+  type CompanySettings,
+  type SettingsSectionKey,
+} from './pages/settings-panel';
 import { RoleManager, type PermissionRecord, type RoleRecord } from './pages/role-manager';
 import {
   StaffDashboard,
@@ -63,7 +69,6 @@ type Catalog = {
 };
 type SectionKey =
   | 'profile'
-  | 'company'
   | 'branches'
   | 'employees'
   | 'roles'
@@ -78,6 +83,19 @@ type Section = {
   permission?: string;
   path?: string;
 };
+
+const SETTINGS_COMPANY_HREF = '/admin?section=settings&settingsSection=company';
+
+function syncAdminUrl(section: SectionKey, settingsSection?: SettingsSectionKey) {
+  const params = new URLSearchParams();
+  if (section !== 'profile') params.set('section', section);
+  if (section === 'settings') {
+    params.set('settingsSection', settingsSection ?? 'company');
+  }
+  const query = params.toString();
+  const href = query ? `/admin?${query}` : '/admin';
+  window.history.replaceState(null, '', href);
+}
 const emptyDashboard: DashboardSnapshot = {
   summary: null,
   branches: [],
@@ -109,13 +127,6 @@ const sections: Section[] = [
     key: 'profile',
     label: 'My workspace',
     description: 'Your account, access scope, and authorized capabilities.',
-  },
-  {
-    key: 'company',
-    label: 'Company Profile',
-    description: 'Core company identity and operating preferences.',
-    permission: 'organization.company.read',
-    path: '/company',
   },
   {
     key: 'settings',
@@ -222,7 +233,9 @@ function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }
 export function AdminConsole() {
   const router = useRouter();
   const [principal, setPrincipal] = useState<Principal | null>(null);
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [active, setActive] = useState<SectionKey>('profile');
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionKey>('company');
   const [data, setData] = useState<unknown>(null);
   const [catalogs, setCatalogs] = useState<{
     branches: Catalog[];
@@ -251,6 +264,7 @@ export function AdminConsole() {
     async (section: Section, current: Principal, cursor: string | null = null) => {
       setLoading(true);
       setError('');
+      setData(null);
       try {
         const isCursorSection = cursorSections.has(section.key);
         const parameters = new URLSearchParams();
@@ -289,7 +303,7 @@ export function AdminConsole() {
 
   const loadCatalogs = useCallback(async (section: SectionKey, current: Principal) => {
     const needsBranches = section === 'employees';
-    const needsRoles = section === 'employees' || section === 'permissions';
+    const needsRoles = section === 'employees' || section === 'permissions' || section === 'roles';
     const needsPermissions = section === 'roles' || section === 'permissions';
     const requests = await Promise.all([
       needsBranches && hasPermission(current, 'organization.branch.read')
@@ -364,14 +378,31 @@ export function AdminConsole() {
     apiCached<Principal>('/auth/me')
       .then(async (current) => {
         setPrincipal(current);
-        const requestedKey = new URLSearchParams(window.location.search).get('section');
+        const params = new URLSearchParams(window.location.search);
+        const requestedKey = params.get('section');
+        // Legacy Company Profile bookmarks → Settings → Company
+        if (requestedKey === 'company') {
+          window.history.replaceState(null, '', SETTINGS_COMPANY_HREF);
+        }
+        const normalizedKey = requestedKey === 'company' ? 'settings' : requestedKey;
+        const requestedSettings = params.get('settingsSection');
+        const initialSettingsSection = isSettingsSectionKey(
+          requestedKey === 'company' ? 'company' : requestedSettings,
+        )
+          ? ((requestedKey === 'company' ? 'company' : requestedSettings) as SettingsSectionKey)
+          : 'company';
+        setSettingsSection(initialSettingsSection);
         const requested = sections.find(
           (section) =>
-            section.key === requestedKey &&
+            section.key === normalizedKey &&
             (!section.permission || hasPermission(current, section.permission)),
         );
         if (requested) {
           setActive(requested.key);
+          syncAdminUrl(
+            requested.key,
+            requested.key === 'settings' ? initialSettingsSection : undefined,
+          );
           await Promise.all([load(requested, current), loadCatalogs(requested.key, current)]);
         } else {
           setData(current);
@@ -384,7 +415,10 @@ export function AdminConsole() {
         clearApiCache();
         router.replace('/login');
       })
-      .finally(() => setDashboardLoading(false));
+      .finally(() => {
+        setDashboardLoading(false);
+        setBootstrapped(true);
+      });
   }, [load, loadCatalogs, loadDashboardData, router]);
 
   const visible = useMemo(
@@ -440,11 +474,22 @@ export function AdminConsole() {
     setStatusFilter('all');
     setShowForm(false);
     resetCursor();
+    if (section.key === 'settings') {
+      setSettingsSection('company');
+      syncAdminUrl('settings', 'company');
+    } else {
+      syncAdminUrl(section.key);
+    }
     await Promise.all([
       load(section, principal),
       loadCatalogs(section.key, principal),
       section.key === 'profile' ? loadDashboardData(principal) : Promise.resolve(),
     ]);
+  }
+
+  function chooseSettingsSection(next: SettingsSectionKey) {
+    setSettingsSection(next);
+    syncAdminUrl('settings', next);
   }
   async function logout() {
     try {
@@ -510,42 +555,6 @@ export function AdminConsole() {
 
   function renderForm() {
     if (!principal) return null;
-    if (active === 'company' && hasPermission(principal, 'organization.company.update'))
-      return (
-        <FormSection
-          title="Update company"
-          description="Keep the business name and reporting timezone current."
-        >
-          <form
-            className="form-grid"
-            onSubmit={(event) => {
-              const form = new FormData(event.currentTarget);
-              void mutate(
-                event,
-                '/company',
-                'PATCH',
-                {
-                  displayName: stringValue(form, 'displayName'),
-                  timezone: stringValue(form, 'timezone'),
-                },
-                'Company details updated.',
-              );
-            }}
-          >
-            <label>
-              Company display name
-              <input name="displayName" required />
-            </label>
-            <label>
-              Reporting timezone
-              <input name="timezone" defaultValue="Africa/Nairobi" required />
-            </label>
-            <button className="button primary full" disabled={busy}>
-              {busy ? 'Saving...' : 'Save company'}
-            </button>
-          </form>
-        </FormSection>
-      );
     if (active === 'branches' && hasPermission(principal, 'organization.branch.create'))
       return (
         <FormSection
@@ -908,27 +917,6 @@ export function AdminConsole() {
         />
       );
     }
-    if (active === 'company') {
-      const company = records[0]!;
-      return (
-        <div className="card">
-          <div className="summary-grid">
-            <div className="summary-item">
-              <small>Company</small>
-              <strong>{text(company.displayName, text(company.legalName, 'Company'))}</strong>
-            </div>
-            <div className="summary-item">
-              <small>Timezone</small>
-              <strong>{text(company.timezone)}</strong>
-            </div>
-            <div className="summary-item">
-              <small>Status</small>
-              <StatusBadge value={company.active as boolean} />
-            </div>
-          </div>
-        </div>
-      );
-    }
     if (active === 'branches')
       return (
         <DataTable
@@ -1001,7 +989,7 @@ export function AdminConsole() {
                   <summary>{permissions.length} Permissions</summary>
                   <div className="permission-groups">
                     {Object.entries(
-                      Object.groupBy(permissions, (assignment) =>
+                      groupBy(permissions, (assignment) =>
                         permissionDomain(text(object(assignment.permission).code)),
                       ),
                     ).map(([domain, items]) => (
@@ -1025,9 +1013,7 @@ export function AdminConsole() {
         />
       );
     if (active === 'permissions') {
-      const groups = Object.groupBy(listPagination.pageItems, (row) =>
-        permissionDomain(text(row.code)),
-      );
+      const groups = groupBy(listPagination.pageItems, (row) => permissionDomain(text(row.code)));
       return (
         <div className="permission-groups">
           {Object.entries(groups).map(([domain, items]) => (
@@ -1098,18 +1084,15 @@ export function AdminConsole() {
     );
   }
 
-  if (!principal) return <AppLoadingScreen title="Setting things up..." />;
+  if (!bootstrapped || !principal) return <AppLoadingScreen title="Setting things up..." />;
   const shellActive =
-    active === 'profile'
-      ? 'overview'
-      : ['company', 'branches', 'settings'].includes(active)
-        ? 'organization'
-        : 'administration';
+    active === 'profile' ? 'overview' : 'administration';
   const primaryRole = principal.roles[0];
   const workspaceTitle = primaryRole ? `${primaryRole.name} workspace` : 'Staff workspace';
   const workspaceDescription = primaryRole
     ? (roleWorkspaceDescriptions[primaryRole.code] ?? sections[0]!.description)
     : sections[0]!.description;
+  const adminNavKeys = new Set(['branches', 'employees', 'roles', 'settings']);
   const subNavigation = {
     overview: visible
       .filter((section) => section.key === 'profile')
@@ -1118,15 +1101,8 @@ export function AdminConsole() {
         label: section.label,
         onSelect: () => void choose(section),
       })),
-    organization: visible
-      .filter((section) => ['company', 'branches', 'settings'].includes(section.key))
-      .map((section) => ({
-        key: section.key,
-        label: section.label,
-        onSelect: () => void choose(section),
-      })),
     administration: visible
-      .filter((section) => ['employees', 'roles', 'permissions', 'users', 'audit'].includes(section.key))
+      .filter((section) => adminNavKeys.has(section.key))
       .map((section) => ({
         key: section.key,
         label: section.label,
@@ -1148,18 +1124,16 @@ export function AdminConsole() {
       ? hasCompanyPermission(principal, permission)
       : canPerformAcrossBranches(principal, permission, targetBranchIds(record));
   const activeForm = renderForm();
-  const supportsSearch = !['profile', 'company', 'permissions', 'settings'].includes(active);
+  const supportsSearch = !['profile', 'permissions', 'settings'].includes(active);
   const supportsStatusFilter = ['branches', 'employees', 'roles', 'users'].includes(active);
   const actionLabel =
-    active === 'company'
-      ? 'Edit company'
-      : active === 'users'
-        ? 'Manage access'
-        : active === 'permissions'
-          ? 'Assign permissions'
-          : active === 'branches'
-            ? 'Add branch'
-            : `Add ${selected.label.replace(/s$/, '').toLowerCase()}`;
+    active === 'users'
+      ? 'Manage access'
+      : active === 'permissions'
+        ? 'Assign permissions'
+        : active === 'branches'
+          ? 'Add branch'
+          : `Add ${selected.label.replace(/s$/, '').toLowerCase()}`;
   return (
     <AppShell
       active={shellActive}
@@ -1373,7 +1347,13 @@ export function AdminConsole() {
               company={(rawRecords[0] ?? {}) as CompanySettings}
               busy={busy}
               canUpdate={hasCompanyPermission(principal, 'organization.company.update')}
-              onSave={(input) => mutateAction('/company', 'PATCH', input, 'Settings saved.')}
+              activeSection={settingsSection}
+              onSectionChange={chooseSettingsSection}
+              onNavigateAdmin={(section) => {
+                const target = visible.find((item) => item.key === section);
+                if (target) void choose(target);
+              }}
+              onSave={(input) => mutateAction('/company', 'PATCH', input, 'Company settings saved.')}
             />
           )}
         </>

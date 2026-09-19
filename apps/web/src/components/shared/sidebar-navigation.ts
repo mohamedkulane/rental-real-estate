@@ -2,8 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BriefcaseBusiness,
   Building2,
-  ClipboardList,
-  ContactRound,
   FileBarChart,
   HardHat,
   KeyRound,
@@ -15,18 +13,19 @@ import {
 import {
   buildSidebarGroups,
   companyNavigation,
-  customersNavigation,
   financeNavigation,
   operationsNavigation,
+  portfolioNavigation,
   projectsNavigation,
   normalizeActiveItem,
-  propertiesNavigation,
   rentalNavigation,
   reportingNavigation,
   salesNavigation,
-  workflowsNavigation,
   type NavigationItem,
 } from './navigation-model';
+
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'rerms.sidebar.collapsed';
+export const SIDEBAR_EXPANDED_STORAGE_KEY = 'rerms.sidebar.expandedGroup';
 
 export type SidebarAccordionGroup = {
   id: string;
@@ -36,11 +35,9 @@ export type SidebarAccordionGroup = {
 };
 
 const GROUP_ICONS: Record<string, LucideIcon> = {
-  customers: ContactRound,
-  portfolio: Building2,
   rental: KeyRound,
+  portfolio: Building2,
   sales: ShoppingBag,
-  workflows: ClipboardList,
   operations: Wrench,
   projects: HardHat,
   finance: BriefcaseBusiness,
@@ -50,13 +47,18 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
 
 const ACTIVE_GROUP_ALIASES: Record<string, string> = {
   viewings: 'rental',
-  'service-engagements': 'portfolio',
-  'engagement-register': 'portfolio',
-  'workflow-new': 'workflows',
-  'incomplete-work': 'workflows',
+  'service-engagements': 'rental',
+  'engagement-register': 'rental',
   'start:rental-brokerage': 'rental',
   'start:full-management': 'rental',
+  'start:add-rental-customer': 'rental',
+  'start:add-property': 'portfolio',
+  'start:add-buyer': 'sales',
   'start:property-sale': 'sales',
+  'start:record-payment': 'finance',
+  'rental:overview': 'rental',
+  'rental:customers': 'rental',
+  'rental:properties': 'portfolio',
   applications: 'rental',
   reservations: 'rental',
   tenants: 'rental',
@@ -65,34 +67,42 @@ const ACTIVE_GROUP_ALIASES: Record<string, string> = {
   'move-ins': 'rental',
   'rental-listings': 'rental',
   'sale-listings': 'sales',
+  'sales:overview': 'sales',
+  'sales:buyers': 'sales',
+  'sales:properties': 'sales',
+  'sales:deals': 'sales',
   company: 'administration',
   branches: 'administration',
   employees: 'administration',
-  users: 'administration',
+  settings: 'administration',
   roles: 'administration',
-  audit: 'reporting',
+  users: 'administration',
+  audit: 'administration',
+  permissions: 'administration',
+  reports: 'reporting',
   parties: 'portfolio',
   owners: 'portfolio',
   properties: 'portfolio',
+  'properties:overview': 'portfolio',
+  'properties:buildings': 'portfolio',
   spaces: 'portfolio',
+  'spaces:overview': 'portfolio',
   amenities: 'portfolio',
-  'crm:leads': 'customers',
-  'crm:pipeline': 'customers',
-  'crm:follow-ups': 'customers',
-  'crm:sources': 'customers',
+  'crm:leads': 'sales',
+  'crm:pipeline': 'sales',
+  'crm:follow-ups': 'sales',
+  'crm:sources': 'administration',
+  'crm:buyer-leads': 'sales',
   'projects:construction': 'projects',
   'projects:development': 'projects',
+  'operations:overview': 'operations',
   'operations:maintenance': 'operations',
-  'operations:work-orders': 'operations',
   'operations:inspections': 'operations',
-  'operations:vendors': 'operations',
   'finance:overview': 'finance',
-  'finance:invoices': 'finance',
   'finance:payments': 'finance',
   'finance:owner-statements': 'finance',
   'finance:owner-payouts': 'finance',
   'finance:expenses': 'finance',
-  'finance:accounting': 'finance',
   'commercial:rental-brokerage': 'rental',
   'commercial:brokerage-deals': 'rental',
   'commercial:full-management': 'rental',
@@ -106,11 +116,15 @@ export function resolveSidebarGroupId(activeItem: string | undefined): string | 
   const normalized = normalizeActiveItem(activeItem);
   if (!normalized) return undefined;
   if (ACTIVE_GROUP_ALIASES[normalized]) return ACTIVE_GROUP_ALIASES[normalized];
-  if (normalized.startsWith('crm:')) return 'customers';
+  if (normalized.startsWith('crm:')) return 'sales';
   if (normalized.startsWith('start:')) {
-    if (normalized.includes('rental') || normalized.includes('management')) return 'rental';
-    if (normalized.includes('sale')) return 'sales';
-    if (normalized.includes('onboarding')) return 'workflows';
+    if (normalized.includes('rental') || normalized.includes('management') || normalized.includes('property')) {
+      if (normalized.includes('sale') || normalized.includes('buyer')) return 'sales';
+      if (normalized.includes('payment')) return 'finance';
+      return 'rental';
+    }
+    if (normalized.includes('sale') || normalized.includes('buyer')) return 'sales';
+    if (normalized.includes('payment')) return 'finance';
   }
   return undefined;
 }
@@ -139,7 +153,10 @@ export function expandedGroupForActive(
 export function childIsActive(childKey: string, activeItem: string | undefined): boolean {
   const normalized = normalizeActiveItem(activeItem);
   if (!normalized) return false;
-  return childKey === normalized;
+  if (childKey === normalized) return true;
+  // Portfolio sections use keys like properties:overview / owners:directory
+  if (normalized.startsWith(`${childKey}:`)) return true;
+  return false;
 }
 
 export function buildSidebarAccordion(options: {
@@ -155,14 +172,9 @@ export function buildSidebarAccordion(options: {
 
   const groups: Array<Omit<SidebarAccordionGroup, 'icon'> & { icon?: LucideIcon }> = [
     {
-      id: 'customers',
-      label: 'Customers',
-      children: customersNavigation(permissions, navigate),
-    },
-    {
       id: 'portfolio',
       label: 'Portfolio',
-      children: propertiesNavigation(permissions, navigate, subNavigation?.portfolio),
+      children: portfolioNavigation(permissions, navigate, subNavigation?.portfolio),
     },
     {
       id: 'rental',
@@ -173,11 +185,6 @@ export function buildSidebarAccordion(options: {
       id: 'sales',
       label: 'Sales',
       children: salesNavigation(permissions, navigate),
-    },
-    {
-      id: 'workflows',
-      label: 'Workflows',
-      children: workflowsNavigation(permissions, navigate),
     },
     {
       id: 'operations',
@@ -196,7 +203,7 @@ export function buildSidebarAccordion(options: {
     },
     {
       id: 'reporting',
-      label: 'Reporting',
+      label: 'Reports',
       children: reportingNavigation(permissions, navigate, subNavigation?.administration),
     },
     {
@@ -214,8 +221,4 @@ export function buildSidebarAccordion(options: {
     }));
 }
 
-/** @deprecated Use buildSidebarAccordion for sidebar rendering. */
-export { buildSidebarGroups };
-
-export const SIDEBAR_EXPANDED_STORAGE_KEY = 'horizon.sidebar.expanded-group';
-export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'horizon.sidebar.collapsed';
+export { buildSidebarGroups, normalizeActiveItem };

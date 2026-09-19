@@ -4,17 +4,15 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 
 import {
   Clock3,
-  Eye,
   KeyRound,
-  MoreHorizontal,
   Search,
-  ShieldAlert,
   UserRound,
   X,
 } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { AccessScopeBadge, StatusBadge } from '@/components/shared/ui';
 
@@ -270,29 +268,16 @@ export function UserAccountDirectory({
                     <StatusBadge value={account.status} />
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <details className="relative inline-block">
-                      <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400">
-                        <MoreHorizontal className="h-5 w-5" />
-                      </summary>
-                      <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                        <button
-                          type="button"
-                          onClick={() => open(account, 'view')}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                        >
-                          <Eye className="h-4 w-4" /> View account
-                        </button>
-                        {canChangeStatus(account) ? (
-                          <button
-                            type="button"
-                            onClick={() => open(account, 'status')}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                          >
-                            <ShieldAlert className="h-4 w-4" /> Change status
-                          </button>
-                        ) : null}
-                      </div>
-                    </details>
+                    <TableActionGroup>
+                      <TableActionButton tone="view" onClick={() => open(account, 'view')}>
+                        View
+                      </TableActionButton>
+                      {canChangeStatus(account) ? (
+                        <TableActionButton tone="manage" onClick={() => open(account, 'status')}>
+                          Status
+                        </TableActionButton>
+                      ) : null}
+                    </TableActionGroup>
                   </td>
                 </tr>
               ))}
