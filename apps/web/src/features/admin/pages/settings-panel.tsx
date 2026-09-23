@@ -1,6 +1,6 @@
 'use client';
 
-import type { FormEvent, ReactNode } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   Bell,
   Building2,
@@ -26,6 +26,8 @@ export type CompanySettings = {
   displayName?: string | null;
   phone?: string | null;
   email?: string | null;
+  address?: Record<string, unknown> | null;
+  logoMetadata?: Record<string, unknown> | null;
   defaultCurrency?: string | null;
   timezone?: string | null;
   active?: boolean;
@@ -49,19 +51,9 @@ export const SETTINGS_SECTIONS: Array<{
   description: string;
 }> = [
   {
-    key: 'general',
-    label: 'General',
-    description: 'Workspace defaults that apply across the company.',
-  },
-  {
     key: 'company',
-    label: 'Company',
-    description: 'Legal identity, contact details, and reporting defaults.',
-  },
-  {
-    key: 'branding',
-    label: 'Branding',
-    description: 'Product theme and presentation used in the workspace.',
+    label: 'Organization & branding',
+    description: 'Company identity, logo, colors, and reporting defaults.',
   },
   {
     key: 'security',
@@ -69,34 +61,9 @@ export const SETTINGS_SECTIONS: Array<{
     description: 'Account protection and session controls.',
   },
   {
-    key: 'users',
-    label: 'Users & Access',
-    description: 'Login accounts, suspension, and session revocation.',
-  },
-  {
-    key: 'branches',
-    label: 'Branches',
-    description: 'Operating locations and branch directory.',
-  },
-  {
     key: 'notifications',
     label: 'Notifications',
     description: 'Alert delivery preferences.',
-  },
-  {
-    key: 'finance',
-    label: 'Finance Preferences',
-    description: 'Finance defaults used by billing and reporting.',
-  },
-  {
-    key: 'system',
-    label: 'System Preferences',
-    description: 'Platform-level operating preferences.',
-  },
-  {
-    key: 'audit',
-    label: 'Audit',
-    description: 'Sensitive and administrative activity history.',
   },
 ];
 
@@ -105,12 +72,16 @@ export function isSettingsSectionKey(value: string | null | undefined): value is
 }
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD] disabled:bg-slate-100';
+  'w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#0F766E] focus:ring-2 focus:ring-[#E6F4F1] disabled:bg-slate-50';
 
-const value = (form: FormData, key: string) => {
-  const item = form.get(key);
-  return typeof item === 'string' ? item.trim() : '';
-};
+const colorValue = (value: unknown, fallback: string) =>
+  typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value) ? value : fallback;
+
+const metadataValue = (metadata: Record<string, unknown> | null | undefined, key: string) =>
+  typeof metadata?.[key] === 'string' ? String(metadata[key]) : '';
+
+const addressValue = (address: Record<string, unknown> | null | undefined) =>
+  typeof address?.line1 === 'string' ? address.line1 : '';
 
 function Field({
   label,
@@ -211,7 +182,22 @@ export function SettingsPanel({
   onSave: (input: Record<string, unknown>) => Promise<void>;
 }) {
   const selected =
-    SETTINGS_SECTIONS.find((section) => section.key === activeSection) ?? SETTINGS_SECTIONS[1]!;
+    SETTINGS_SECTIONS.find((section) => section.key === activeSection) ?? SETTINGS_SECTIONS[0]!;
+  const metadata = company.logoMetadata ?? {};
+  const [formState, setFormState] = useState(() => ({
+    legalName: company.legalName ?? '',
+    displayName: company.displayName ?? '',
+    phone: company.phone ?? '',
+    email: company.email ?? '',
+    address: addressValue(company.address),
+    defaultCurrency: company.defaultCurrency ?? 'USD',
+    timezone: company.timezone ?? 'Africa/Nairobi',
+    logoUrl: metadataValue(metadata, 'url'),
+    primaryColor: colorValue(metadata['primaryColor'], '#0F766E'),
+    accentColor: colorValue(metadata['accentColor'], '#2563EB'),
+  }));
+  const setFormValue = (key: keyof typeof formState, next: string) =>
+    setFormState((current) => ({ ...current, [key]: next }));
 
   return (
     <div className="space-y-6">
@@ -229,7 +215,14 @@ export function SettingsPanel({
         </p>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
+      <div
+        className={
+          'grid gap-6 ' +
+          (selected.key === 'company'
+            ? 'xl:grid-cols-[220px_minmax(0,1fr)_260px]'
+            : 'xl:grid-cols-[240px_minmax(0,1fr)]')
+        }
+      >
         <nav
           className="h-fit rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
           aria-label="Settings sections"
@@ -269,114 +262,194 @@ export function SettingsPanel({
               className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               onSubmit={(event: FormEvent<HTMLFormElement>) => {
                 event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const phone = value(form, 'phone');
-                const email = value(form, 'email');
+                const nextMetadata = {
+                  ...metadata,
+                  url: formState.logoUrl.trim() || undefined,
+                  primaryColor: formState.primaryColor,
+                  accentColor: formState.accentColor,
+                };
                 void onSave({
-                  legalName: value(form, 'legalName'),
-                  displayName: value(form, 'displayName'),
-                  ...(phone ? { phone } : {}),
-                  ...(email ? { email } : {}),
-                  defaultCurrency: value(form, 'defaultCurrency').toUpperCase(),
-                  timezone: value(form, 'timezone'),
+                  legalName: formState.legalName.trim(),
+                  displayName: formState.displayName.trim(),
+                  ...(formState.phone.trim() ? { phone: formState.phone.trim() } : {}),
+                  ...(formState.email.trim() ? { email: formState.email.trim() } : {}),
+                  ...(formState.address.trim()
+                    ? { address: { ...(company.address ?? {}), line1: formState.address.trim() } }
+                    : {}),
+                  logoMetadata: nextMetadata,
+                  defaultCurrency: formState.defaultCurrency.trim().toUpperCase(),
+                  timezone: formState.timezone.trim(),
                 }).catch(() => undefined);
               }}
             >
               <div className="border-b border-slate-200 px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="rounded-lg bg-[#E3F2FD] p-2 text-[#0D47A1]">
+                    <span className="rounded-lg bg-[#E6F4F1] p-2 text-[#0F766E]">
                       <Building2 className="h-5 w-5" />
                     </span>
                     <div>
-                      <h3 className="font-bold">Company profile</h3>
+                      <h3 className="font-bold text-slate-900">Company profile</h3>
                       <p className="text-sm text-slate-500">
-                        Business identity and reporting defaults used across the system.
+                        Identity, branding, and reporting defaults.
                       </p>
                     </div>
                   </div>
                   <StatusBadge value={company.active} />
                 </div>
               </div>
-              <div className="space-y-5 p-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Legal name">
-                    <input
-                      name="legalName"
-                      defaultValue={company.legalName ?? ''}
-                      required
-                      disabled={!canUpdate}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Display name">
-                    <input
-                      name="displayName"
-                      defaultValue={company.displayName ?? ''}
-                      required
-                      disabled={!canUpdate}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Phone" icon={<Phone className="h-4 w-4 text-slate-400" />}>
-                    <input
-                      name="phone"
-                      defaultValue={company.phone ?? ''}
-                      disabled={!canUpdate}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Email" icon={<Mail className="h-4 w-4 text-slate-400" />}>
-                    <input
-                      name="email"
-                      type="email"
-                      defaultValue={company.email ?? ''}
-                      disabled={!canUpdate}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-6 p-5">
+                <section className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Basic information</h4>
+                    <p className="mt-1 text-xs text-slate-500">The identity shown across the workspace.</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Legal name">
+                      <input
+                        value={formState.legalName}
+                        onChange={(event) => setFormValue('legalName', event.target.value)}
+                        required
+                        disabled={!canUpdate}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Display name">
+                      <input
+                        value={formState.displayName}
+                        onChange={(event) => setFormValue('displayName', event.target.value)}
+                        required
+                        disabled={!canUpdate}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </section>
+
+                <section className="space-y-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Brand identity</h4>
+                    <p className="mt-1 text-xs text-slate-500">Used by the shell and company-facing surfaces.</p>
+                  </div>
                   <Field
-                    label="Default currency"
-                    icon={<Globe2 className="h-4 w-4 text-slate-400" />}
-                    hint="Three-letter ISO code used by financial workflows."
+                    label="Logo URL"
+                    icon={<Palette className="h-4 w-4 text-slate-400" />}
+                    hint="Use a public PNG, JPG, SVG, WebP, or CDN image URL."
                   >
                     <input
-                      name="defaultCurrency"
-                      minLength={3}
-                      maxLength={3}
-                      defaultValue={company.defaultCurrency ?? 'USD'}
-                      required
+                      type="url"
+                      value={formState.logoUrl}
+                      onChange={(event) => setFormValue('logoUrl', event.target.value)}
+                      placeholder="https://example.com/logo.svg"
                       disabled={!canUpdate}
                       className={inputClass}
                     />
                   </Field>
-                  <Field
-                    label="Reporting timezone"
-                    icon={<Globe2 className="h-4 w-4 text-slate-400" />}
-                    hint="Example: Africa/Nairobi"
-                  >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {(['primaryColor', 'accentColor'] as const).map((key) => (
+                      <Field key={key} label={key === 'primaryColor' ? 'Primary brand color' : 'Accent brand color'}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formState[key]}
+                            onChange={(event) => setFormValue(key, event.target.value)}
+                            disabled={!canUpdate}
+                            className="h-11 w-14 cursor-pointer rounded-md border border-slate-200 bg-white p-1"
+                            aria-label={key === 'primaryColor' ? 'Primary brand color' : 'Accent brand color'}
+                          />
+                          <input
+                            value={formState[key]}
+                            onChange={(event) => setFormValue(key, event.target.value)}
+                            disabled={!canUpdate}
+                            className={inputClass}
+                            aria-label={`${key} hex value`}
+                          />
+                        </div>
+                      </Field>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Contact information</h4>
+                    <p className="mt-1 text-xs text-slate-500">Shown in operational and financial records where available.</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Phone" icon={<Phone className="h-4 w-4 text-slate-400" />}>
+                      <input
+                        value={formState.phone}
+                        onChange={(event) => setFormValue('phone', event.target.value)}
+                        disabled={!canUpdate}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Email" icon={<Mail className="h-4 w-4 text-slate-400" />}>
+                      <input
+                        type="email"
+                        value={formState.email}
+                        onChange={(event) => setFormValue('email', event.target.value)}
+                        disabled={!canUpdate}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Address">
                     <input
-                      name="timezone"
-                      defaultValue={company.timezone ?? 'Africa/Nairobi'}
-                      required
+                      value={formState.address}
+                      onChange={(event) => setFormValue('address', event.target.value)}
                       disabled={!canUpdate}
                       className={inputClass}
                     />
                   </Field>
-                </div>
+                </section>
+
+                <section className="space-y-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Defaults</h4>
+                    <p className="mt-1 text-xs text-slate-500">Applied to reporting and financial workflows.</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      label="Default currency"
+                      icon={<Globe2 className="h-4 w-4 text-slate-400" />}
+                      hint="Three-letter ISO code."
+                    >
+                      <input
+                        value={formState.defaultCurrency}
+                        onChange={(event) => setFormValue('defaultCurrency', event.target.value)}
+                        minLength={3}
+                        maxLength={3}
+                        required
+                        disabled={!canUpdate}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field
+                      label="Reporting timezone"
+                      icon={<Globe2 className="h-4 w-4 text-slate-400" />}
+                      hint="Example: Africa/Nairobi"
+                    >
+                      <input
+                        value={formState.timezone}
+                        onChange={(event) => setFormValue('timezone', event.target.value)}
+                        required
+                        disabled={!canUpdate}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </section>
               </div>
               {canUpdate ? (
                 <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
                   <button
+                    type="submit"
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0D47A1] disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-md bg-[#0F766E] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0B5F59] disabled:opacity-60"
                   >
                     <Save className="h-4 w-4" />
-                    {busy ? 'Saving…' : 'Save company'}
+                    {busy ? 'Saving...' : 'Save workspace'}
                   </button>
                 </div>
               ) : null}
@@ -501,6 +574,68 @@ export function SettingsPanel({
             </p>
           </aside>
         </div>
+
+        {selected.key === 'company' ? (
+          <aside className="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-24">
+            <div
+              className="relative flex aspect-[4/3] items-end overflow-hidden rounded-lg p-4"
+              style={{ backgroundColor: `${formState.primaryColor}12` }}
+            >
+              <div
+                className="absolute inset-x-0 top-0 h-1"
+                style={{ backgroundColor: formState.accentColor }}
+              />
+              {formState.logoUrl ? (
+                <img
+                  src={formState.logoUrl}
+                  alt={`${formState.displayName || 'Company'} logo`}
+                  className="absolute inset-0 h-full w-full object-contain p-8"
+                />
+              ) : (
+                <span
+                  className="relative flex h-14 w-14 items-center justify-center rounded-xl text-white shadow-sm"
+                  style={{ backgroundColor: formState.primaryColor }}
+                >
+                  <Building2 className="h-7 w-7" aria-hidden="true" />
+                </span>
+              )}
+            </div>
+            <div className="mt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Brand preview
+              </p>
+              <h3 className="mt-2 text-lg font-bold text-slate-900">
+                {formState.displayName || 'Company name'}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">Your workspace identity at a glance.</p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="rounded-md border border-slate-200 p-2">
+                <span className="mb-2 block h-5 rounded" style={{ backgroundColor: formState.primaryColor }} />
+                <span className="text-[11px] font-semibold text-slate-500">Primary</span>
+              </div>
+              <div className="rounded-md border border-slate-200 p-2">
+                <span className="mb-2 block h-5 rounded" style={{ backgroundColor: formState.accentColor }} />
+                <span className="text-[11px] font-semibold text-slate-500">Accent</span>
+              </div>
+            </div>
+            <ul className="mt-5 space-y-2 text-xs text-slate-600">
+              {['Custom logo and colors', 'Consistent workspace identity', 'Clear operational surfaces'].map(
+                (item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                      style={{ backgroundColor: formState.primaryColor }}
+                    >
+                      ✓
+                    </span>
+                    {item}
+                  </li>
+                ),
+              )}
+            </ul>
+          </aside>
+        ) : null}
       </div>
     </div>
   );
