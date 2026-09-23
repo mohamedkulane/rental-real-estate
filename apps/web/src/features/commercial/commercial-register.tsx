@@ -77,9 +77,6 @@ const config: Record<
     endpoint: '/brokerage-deals',
     empty: 'No Brokerage Deals match the current filters.',
     detailPath: (id) => `/commercial/rental-brokerage/${id}`,
-    createHref: '/commercial/rental-brokerage/new',
-    createLabel: 'Create Placement Deal',
-    createPermission: 'brokerage-deal.manage',
     statuses: ['DRAFT', 'NEGOTIATING', 'CONFIRMED', 'CLOSED', 'CANCELLED'],
     columns: [
       { label: 'Deal', value: (row) => row.dealNumber as string },

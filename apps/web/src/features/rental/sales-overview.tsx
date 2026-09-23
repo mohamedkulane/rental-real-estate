@@ -93,9 +93,6 @@ export function SalesOverview() {
             <Link className="button primary" href="/sales/buyers?create=1">
               Add Buyer
             </Link>
-            <Link className="button secondary" href="/sales/deals/new">
-              Start Property Sale
-            </Link>
           </div>
         }
       />

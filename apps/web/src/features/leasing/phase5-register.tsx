@@ -69,7 +69,6 @@ const config: Record<
     permission: 'listing.read',
     endpoint: '/rental-listings',
     empty: 'No Rental Listings are available in your authorized branches.',
-    action: { label: 'Start Rental Brokerage', href: '/commercial/rental-brokerage?create=1' },
     statuses: [
       'DRAFT',
       'PENDING_REVIEW',
@@ -105,7 +104,6 @@ const config: Record<
     permission: 'listing.read',
     endpoint: '/sale-listings',
     empty: 'No Sale Listings are available in your authorized branches.',
-    action: { label: 'Start Property Sale', href: '/sales/deals/new' },
     statuses: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'PAUSED', 'UNPUBLISHED', 'CLOSED', 'ARCHIVED'],
     columns: [
       { label: 'Listing', value: (row) => row.listingNumber as string },

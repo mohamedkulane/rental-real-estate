@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { Building2, Handshake, KeyRound, Receipt, ShoppingBag, Wallet } from 'lucide-react';
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   DataTable,
   DataTableBody,
@@ -22,13 +22,8 @@ import {
 } from '@/components/shared/data-table';
 import { DashboardSkeleton, TableSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
-import { useCreateDrawerState } from '@/components/shared/use-create-drawer-state';
 import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { formatDate } from '@/lib/presentation';
-import {
-  StartFullManagementDrawer,
-  StartRentalBrokerageDrawer,
-} from '@/features/rental/rental-service-start-drawers';
 import type { EngagementRecord, ServiceModel } from './service-engagement-types';
 import { CommercialShell, useCommercialPrincipal } from './commercial-shell';
 
@@ -42,16 +37,10 @@ type MetricDefinition = {
   queryFn: () => Promise<number>;
 };
 
-type StartMode = 'brokerage-drawer' | 'management-drawer' | 'workflow-link';
-
 type ServiceDashboardConfig = {
   activeItem: string;
   serviceModel: ServiceModel;
   readPermission: string;
-  startPermission: string;
-  startMode: StartMode;
-  workflowHref: string;
-  startLabel: string;
   secondaryLabel: string;
   secondaryHref: string;
   title: string;
@@ -104,39 +93,14 @@ function spaceLabel(row: EngagementRecord) {
 }
 
 function CommercialHeaderActions({
-  canStart,
-  startMode,
-  workflowHref,
-  startLabel,
-  onOpenStart,
   secondaryHref,
   secondaryLabel,
 }: {
-  canStart: boolean;
-  startMode: StartMode;
-  workflowHref: string;
-  startLabel: string;
-  onOpenStart: () => void;
   secondaryHref: string;
   secondaryLabel: string;
 }) {
   return (
     <div className="flex flex-row flex-wrap items-center justify-end gap-2">
-      {canStart ? (
-        startMode === 'workflow-link' ? (
-          <Link className="button primary shrink-0 whitespace-nowrap" href={workflowHref}>
-            {startLabel}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            className="button primary shrink-0 whitespace-nowrap"
-            onClick={onOpenStart}
-          >
-            {startLabel}
-          </button>
-        )
-      ) : null}
       <Link className="button secondary shrink-0 whitespace-nowrap" href={secondaryHref}>
         {secondaryLabel}
       </Link>
@@ -152,10 +116,7 @@ async function countItems(path: string, predicate?: (row: Record<string, unknown
 
 function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig }) {
   const { principal } = useCommercialPrincipal();
-  const queryClient = useQueryClient();
-  const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
   const allowed = Boolean(principal && hasPermission(principal, config.readPermission));
-  const canStart = Boolean(principal && hasPermission(principal, config.startPermission));
 
   const engagementsQuery = useQuery({
     queryKey: ['commercial-service-engagements', config.serviceModel],
@@ -182,11 +143,6 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
 
   const headerActions = (
     <CommercialHeaderActions
-      canStart={canStart}
-      startMode={config.startMode}
-      workflowHref={config.workflowHref}
-      startLabel={config.startLabel}
-      onOpenStart={openCreate}
       secondaryHref={config.secondaryHref}
       secondaryLabel={config.secondaryLabel}
     />
@@ -258,19 +214,6 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
               <DataTableEmpty
                 title={config.emptyTitle}
                 description={config.emptyDescription}
-                action={
-                  canStart ? (
-                    config.startMode === 'workflow-link' ? (
-                      <Link className="button primary" href={config.workflowHref}>
-                        {config.startLabel}
-                      </Link>
-                    ) : (
-                      <button type="button" className="button primary" onClick={openCreate}>
-                        {config.startLabel}
-                      </button>
-                    )
-                  ) : undefined
-                }
               />
             ) : (
               <>
@@ -374,30 +317,6 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
         </div>
       )}
 
-      {config.startMode === 'brokerage-drawer' ? (
-        <StartRentalBrokerageDrawer
-          open={createOpen}
-          onClose={closeCreate}
-          principal={principal}
-          onStarted={() => {
-            void queryClient.invalidateQueries({
-              queryKey: ['commercial-service-engagements', config.serviceModel],
-            });
-          }}
-        />
-      ) : null}
-      {config.startMode === 'management-drawer' ? (
-        <StartFullManagementDrawer
-          open={createOpen}
-          onClose={closeCreate}
-          principal={principal}
-          onStarted={() => {
-            void queryClient.invalidateQueries({
-              queryKey: ['commercial-service-engagements', config.serviceModel],
-            });
-          }}
-        />
-      ) : null}
     </CommercialShell>
   );
 }
@@ -406,10 +325,6 @@ const fullManagementConfig: ServiceDashboardConfig = {
   activeItem: 'commercial:full-management',
   serviceModel: 'FULL_MANAGEMENT',
   readPermission: 'service-engagement.read',
-  startPermission: 'service-engagement.create',
-  startMode: 'management-drawer',
-  workflowHref: '/commercial/full-management?create=1',
-  startLabel: 'Start Full Management',
   secondaryLabel: 'Managed Properties',
   secondaryHref: '/commercial/full-management',
   title: 'Full Management Operations',
@@ -481,10 +396,6 @@ const rentalBrokerageConfig: ServiceDashboardConfig = {
   activeItem: 'commercial:rental-brokerage',
   serviceModel: 'RENTAL_BROKERAGE',
   readPermission: 'service-engagement.read',
-  startPermission: 'service-engagement.create',
-  startMode: 'brokerage-drawer',
-  workflowHref: '/commercial/rental-brokerage?create=1',
-  startLabel: 'Start Rental Brokerage',
   secondaryLabel: 'Brokerage Deals',
   secondaryHref: '/commercial/rental-brokerage/deals',
   title: 'Rental Brokerage Operations',
@@ -546,10 +457,6 @@ const propertySaleConfig: ServiceDashboardConfig = {
   activeItem: 'commercial:property-sales',
   serviceModel: 'SALE_BROKERAGE',
   readPermission: 'service-engagement.read',
-  startPermission: 'service-engagement.create',
-  startMode: 'workflow-link',
-  workflowHref: '/sales/deals/new',
-  startLabel: 'Start Property Sale',
   secondaryLabel: 'Sales Pipeline',
   secondaryHref: '/commercial/property-sales/pipeline',
   title: 'Property Sale Operations',
