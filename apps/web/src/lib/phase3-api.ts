@@ -96,6 +96,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
       credentials: 'include',
+      ...(init.method?.toUpperCase() === 'GET' || !init.method ? { cache: 'no-store' as const } : {}),
       headers,
     });
   } catch (cause) {

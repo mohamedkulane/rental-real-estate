@@ -6,6 +6,7 @@ export type RecordNumberKind =
   | 'RESERVATION' | 'TENANT' | 'LEASE'
   | 'CHARGE' | 'INVOICE' | 'PAYMENT' | 'RECEIPT' | 'EXPENSE' | 'PAYOUT'
   | 'STATEMENT' | 'JOURNAL' | 'BROKERAGE_DEAL' | 'SALE_OFFER' | 'SALE_SETTLEMENT'
+  | 'RENTAL_AGREEMENT' | 'SALE_AGREEMENT'
   | 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'INSPECTION' | 'DEFECT'
   | 'CONSTRUCTION_PROJECT' | 'CONSTRUCTION_CONTRACT' | 'DEVELOPMENT_PROJECT';
 
@@ -39,6 +40,8 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   BROKERAGE_DEAL: { prefix: 'BD', sequence: 'public.brokerage_deal_record_number_seq', width: 6 },
   SALE_OFFER: { prefix: 'SO', sequence: 'public.sale_offer_record_number_seq', width: 6 },
   SALE_SETTLEMENT: { prefix: 'SS', sequence: 'public.sale_settlement_record_number_seq', width: 6 },
+  RENTAL_AGREEMENT: { prefix: 'RA', sequence: 'public.rental_agreement_record_number_seq', width: 6 },
+  SALE_AGREEMENT: { prefix: 'SA', sequence: 'public.sale_agreement_record_number_seq', width: 6 },
   MAINTENANCE_REQUEST: { prefix: 'MR', sequence: 'public.maintenance_request_record_number_seq', width: 6 },
   WORK_ORDER: { prefix: 'WO', sequence: 'public.work_order_record_number_seq', width: 6 },
   INSPECTION: { prefix: 'INSP', sequence: 'public.inspection_record_number_seq', width: 6 },

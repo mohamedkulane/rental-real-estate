@@ -59,20 +59,27 @@ export class SaleSettlementService {
   ) {
     const offer = await this.db.saleOffer.findFirst({
       where: { id: input.saleOfferId, companyId: principal.companyId, status: SaleOfferStatus.ACCEPTED },
-      include: { engagement: { select: { serviceModel: true } }, settlement: { select: { id: true } } },
+      include: { engagement: { select: { serviceModel: true } }, settlement: { select: { id: true } }, saleAgreement: true },
     });
     if (!offer) throw new ConflictException('An accepted sale offer is required.');
     this.auth.assertBranchPermission(principal, 'sale-settlement.manage', offer.branchId);
     if (offer.settlement) throw new ConflictException('This sale offer already has a settlement.');
     const terms = await this.policy.commercialTermsAt(offer.serviceEngagementId, offer.offerDate);
-    const salePrice = new Prisma.Decimal(input.salePrice);
+    const salePrice = offer.saleAgreement?.finalSalePrice ?? new Prisma.Decimal(input.salePrice);
     const approvedDeductions = new Prisma.Decimal(input.approvedDeductions ?? 0);
-    const amounts = computeSaleSettlementAmounts({
-      serviceModel: offer.engagement.serviceModel,
-      salePrice,
-      commissionPercent: terms?.commissionPercent ?? null,
-      approvedDeductions,
-    });
+    const commissionFromAgreement = (method: 'FIXED' | 'PERCENT' | null | undefined, value: Prisma.Decimal | null | undefined) =>
+      !method || !value ? new Prisma.Decimal(0) : method === 'PERCENT' ? salePrice.mul(value).div(100) : value;
+    const sellerCommission = offer.saleAgreement
+      ? commissionFromAgreement(offer.saleAgreement.sellerCommissionMethod, offer.saleAgreement.sellerCommissionValue)
+      : null;
+    const buyerCommission = offer.saleAgreement
+      ? commissionFromAgreement(offer.saleAgreement.buyerCommissionMethod, offer.saleAgreement.buyerCommissionValue)
+      : null;
+    const amounts = offer.saleAgreement
+      ? offer.saleAgreement.companyOwned
+        ? { grossCommission: new Prisma.Decimal(0), sellerProceeds: new Prisma.Decimal(0), companyProceeds: salePrice.minus(approvedDeductions) }
+        : { grossCommission: sellerCommission!.plus(buyerCommission!), sellerProceeds: salePrice.minus(sellerCommission!).minus(approvedDeductions), companyProceeds: sellerCommission!.plus(buyerCommission!) }
+      : computeSaleSettlementAmounts({ serviceModel: offer.engagement.serviceModel, salePrice, commissionPercent: terms?.commissionPercent ?? null, approvedDeductions });
     try {
       return await this.db.$transaction(async (tx) => {
         if (input.idempotencyKey) {
@@ -163,6 +170,9 @@ export class SaleSettlementService {
           settledAt: input.status === SaleSettlementStatus.SETTLED ? new Date() : current.settledAt,
         },
       });
+      if (input.status === SaleSettlementStatus.SETTLED) {
+        await tx.property.update({ where: { id: current.propertyId }, data: { status: 'SOLD' } });
+      }
       await this.audit.write(tx, {
         actorUserId: principal.userId,
         action: 'sale-settlement.transitioned',

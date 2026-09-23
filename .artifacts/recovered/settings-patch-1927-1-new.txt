@@ -1,0 +1,70 @@
+  return (
+    <div className="-m-3 min-h-[calc(100vh-64px)] space-y-5 bg-[#F3F9F6] p-3 sm:-m-5 sm:p-5 lg:-m-8 lg:p-8">
+      <header>
+        <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+          <span>Administration</span>
+          <ChevronRight className="h-3 w-3" />
+          <span>Settings</span>
+          <ChevronRight className="h-3 w-3" />
+          <span className="text-slate-700">{selected.label}</span>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+          {selected.label}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">{selected.description}</p>
+      </header>
+
+      <nav
+        className="overflow-x-auto rounded-lg border border-white/70 bg-white/85 p-1.5 shadow-sm"
+        aria-label="Settings sections"
+      >
+        <ul className="flex min-w-max gap-1 sm:min-w-0 sm:flex-wrap">
+          {SETTINGS_SECTIONS.map((section) => {
+            const isActive = section.key === selected.key;
+            return (
+              <li key={section.key} className="shrink-0">
+                <button
+                  type="button"
+                  className={
+                    'rounded-lg px-3 py-2.5 text-xs font-bold transition sm:px-4 ' +
+                    (isActive
+                      ? 'bg-[#E7F5EF] text-[#0B6B53] shadow-sm ring-1 ring-[#0B6B53]/25'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
+                  }
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => onSectionChange(section.key)}
+                >
+                  {section.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="min-w-0">
+          {selected.key === 'company' ? (
+            <form
+              className="overflow-hidden rounded-lg border border-slate-200/80 bg-white shadow-sm"
+              onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const phone = value(form, 'phone');
+                const email = value(form, 'email');
+                void onSave({
+                  legalName: value(form, 'legalName'),
+                  displayName: value(form, 'displayName'),
+                  ...(phone ? { phone } : {}),
+                  ...(email ? { email } : {}),
+                  defaultCurrency: value(form, 'defaultCurrency').toUpperCase(),
+                  timezone: value(form, 'timezone'),
+                  logoMetadata: {
+                    url: value(form, 'logoUrl') || null,
+                    primaryColor: value(form, 'primaryColor') || null,
+                    accentColor: value(form, 'accentColor') || null,
+                  },
+                })
+                  .then(() => window.dispatchEvent(new Event('company-brand-updated')))
+                  .catch(() => undefined);
+              }}
+            >

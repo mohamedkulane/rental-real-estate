@@ -998,11 +998,17 @@ export class RentalOrchestrationService {
 
     const ownerFee = input.fees?.find((fee) => fee.party === 'OWNER');
     const tenantFee = input.fees?.find((fee) => fee.party === 'TENANT');
+    const primaryFee = ownerFee ?? tenantFee;
+    const commissionMethod =
+      primaryFee?.method === 'FIXED'
+        ? CommissionMethod.FIXED_AMOUNT
+        : CommissionMethod.PERCENT_OF_RENT;
     const commissionPercent =
-      ownerFee?.method === 'PERCENT'
-        ? ownerFee.amount
-        : (input.commissionPercent ??
-          (tenantFee?.method === 'PERCENT' ? tenantFee.amount : '10'));
+      primaryFee?.method === 'PERCENT'
+        ? primaryFee.amount
+        : primaryFee?.method === 'FIXED'
+          ? primaryFee.amount
+          : (input.commissionPercent ?? '10');
     const feeNotes = JSON.stringify({
       source: 'simplified-rental-brokerage',
       fees: input.fees ?? [
@@ -1025,7 +1031,7 @@ export class RentalOrchestrationService {
     await this.db.$transaction(async (tx) => {
       await this.writeCommercialTerms(tx, engagement.id, new Date(effectiveFrom), {
         commissionPercent,
-        commissionMethod: CommissionMethod.PERCENT_OF_RENT,
+        commissionMethod,
       });
     });
 

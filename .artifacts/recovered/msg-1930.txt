@@ -1,0 +1,3 @@
+ROLE=assistant
+TOOL StrReplace C:\Users\maxam\real-estate-rental-system\apps\web\src\features\admin\pages\settings-panel.tsx newLen=288 oldLen=370
+TOOL StrReplace C:\Users\maxam\real-estate-rental-system\apps\web\src\features\admin\pages\settings-panel.tsx newLen=145 oldLen=173

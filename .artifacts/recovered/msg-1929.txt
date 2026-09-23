@@ -1,0 +1,2 @@
+ROLE=assistant
+TOOL Read C:\Users\maxam\real-estate-rental-system\apps\web\src\features\admin\pages\settings-panel.tsx newLen=0 oldLen=0

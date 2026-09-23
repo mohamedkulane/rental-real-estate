@@ -273,6 +273,13 @@ export class CreateSpaceDto {
   commercial?: CommercialProfileDto;
 }
 
+/** Identity fields only. Measurements use POST /measurements; retirement uses POST /retire. */
+export class UpdateSpaceDto {
+  @IsOptional() @IsString() @Length(2, 160) name?: string;
+  @IsOptional() @IsString() @Length(1, 50) typeCode?: string;
+  @IsOptional() @IsUUID() buildingId?: string;
+}
+
 export class PartitionChildDto {
   @IsString() @Length(1, 50) typeCode!: string;
   @IsOptional() @IsString() @Length(1, 50) spaceCode?: string;

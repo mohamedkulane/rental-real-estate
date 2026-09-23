@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ReportExportQueryDto } from '../portals/portal.dto';
 import { RequirePermissions } from '../security/security.decorators';
 import { PermissionGuard } from '../security/permission.guard';
@@ -63,6 +63,7 @@ export class NotificationController {
   constructor(private readonly notifications: NotificationService) {}
 
   @Get()
+  @Header('Cache-Control', 'no-store')
   inbox(@Req() request: AuthenticatedRequest) {
     return this.notifications.inbox(request.principal);
   }

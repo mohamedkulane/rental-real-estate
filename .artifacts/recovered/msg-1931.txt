@@ -1,0 +1,6 @@
+ROLE=assistant
+Waa la beddelay:
+
+1. **Navigation** — Organization / Security / Notifications waa **horizontal tabs** kore  
+2. **Content** — form-ku wuxuu ka hooseeyaa tabs-ka  
+3. **Box-ka midig** (“A strong brand builds trust” + image) waa la remove-gareeyay

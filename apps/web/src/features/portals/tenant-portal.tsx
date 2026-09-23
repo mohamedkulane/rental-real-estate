@@ -233,7 +233,8 @@ function renderTab(
             <div>
               <p className="text-[12px] font-semibold text-slate-500">Term</p>
               <p>
-                {formatDate(lease.leaseStartDate)} — {formatDate(lease.leaseEndDate)}
+                {formatDate(lease.leaseStartDate)} —{' '}
+                {lease.leaseEndDate ? formatDate(lease.leaseEndDate) : 'Open-ended'}
               </p>
             </div>
             <div>

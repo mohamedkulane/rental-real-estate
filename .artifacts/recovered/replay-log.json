@@ -1,0 +1,109 @@
+[
+  {
+    "lineNo": 237,
+    "file": "app-header.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 112,
+    "newLen": 100
+  },
+  {
+    "lineNo": 237,
+    "file": "app-header.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 455,
+    "newLen": 70
+  },
+  {
+    "lineNo": 679,
+    "file": "app-header.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 112,
+    "newLen": 100
+  },
+  {
+    "lineNo": 679,
+    "file": "app-header.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 455,
+    "newLen": 70
+  },
+  {
+    "lineNo": 1927,
+    "file": "settings-panel.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 3282,
+    "newLen": 3077
+  },
+  {
+    "lineNo": 1928,
+    "file": "settings-panel.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 2931,
+    "newLen": 411
+  },
+  {
+    "lineNo": 1930,
+    "file": "settings-panel.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 370,
+    "newLen": 288
+  },
+  {
+    "lineNo": 1930,
+    "file": "settings-panel.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "old missing",
+    "oldLen": 173,
+    "newLen": 145
+  },
+  {
+    "lineNo": 1939,
+    "file": "app-shell.tsx",
+    "op": "StrReplace",
+    "ok": false,
+    "reason": "no old"
+  },
+  {
+    "lineNo": 1942,
+    "file": "app-shell.tsx",
+    "op": "Write",
+    "ok": true,
+    "len": 14107
+  },
+  {
+    "lineNo": 1949,
+    "file": "app-shell.tsx",
+    "op": "StrReplace",
+    "ok": true,
+    "newLen": 103
+  },
+  {
+    "lineNo": 1950,
+    "file": "app-shell.tsx",
+    "op": "StrReplace",
+    "ok": true,
+    "newLen": 1055
+  },
+  {
+    "lineNo": 1950,
+    "file": "app-shell.tsx",
+    "op": "StrReplace",
+    "ok": true,
+    "newLen": 1104
+  }
+]

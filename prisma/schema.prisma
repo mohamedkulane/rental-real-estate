@@ -1240,7 +1240,7 @@ model Lease {
   status              LeaseStatus       @default(DRAFT)
   agreementDate       DateTime?         @db.Date
   leaseStartDate      DateTime          @db.Date
-  leaseEndDate        DateTime          @db.Date
+  leaseEndDate        DateTime?         @db.Date
   rentAmount          Decimal           @db.Decimal(20, 4)
   currency            String            @db.Char(3)
   predecessorLeaseId  String?           @db.Uuid

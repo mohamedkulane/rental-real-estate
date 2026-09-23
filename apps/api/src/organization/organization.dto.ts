@@ -10,6 +10,7 @@ import {
   IsUUID,
   Length,
   MaxLength,
+  Allow,
 } from 'class-validator';
 
 export class UpdateCompanyDto {
@@ -18,6 +19,7 @@ export class UpdateCompanyDto {
   @IsOptional() @IsString() @MaxLength(40) phone?: string;
   @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsObject() address?: Record<string, unknown>;
+  @IsOptional() @IsObject() @Allow() logoMetadata?: Record<string, unknown>;
   @IsOptional() @IsString() @Length(3, 3) defaultCurrency?: string;
   @IsOptional() @IsString() @MaxLength(64) timezone?: string;
   @IsOptional() @IsBoolean() active?: boolean;

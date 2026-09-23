@@ -1,0 +1,10 @@
+          {selected.key === 'security' ? (
+            <SectionCard
+              icon={<LockKeyhole className="h-5 w-5" />}
+              title="Security"
+              className="xl:col-start-1"
+            >
+              <p>
+                Change your password here. Other active sessions are signed out after a successful
+                change.
+              </p>

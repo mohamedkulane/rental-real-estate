@@ -33,6 +33,10 @@ export function PaymentCreateWorkspace() {
   const { principal, error: principalError } = useFinancePrincipal();
   const allowed = Boolean(principal && hasPermission(principal, 'payment.create'));
   const [branchId, setBranchId] = useState('');
+  const [payerKind, setPayerKind] = useState<'tenant' | 'owner'>('tenant');
+  const [purpose, setPurpose] = useState<'GENERAL' | 'OWNER_COMMISSION' | 'TENANT_COMMISSION'>(
+    'GENERAL',
+  );
   const [payer, setPayer] = useState<PickRecord | null>(null);
   const [methodId, setMethodId] = useState('');
   const [receivingAccountId, setReceivingAccountId] = useState('');
@@ -56,12 +60,19 @@ export function PaymentCreateWorkspace() {
           currency,
           amount,
           receivedAt,
+          purpose,
           externalRef: externalRef || undefined,
           notes: notes || undefined,
         }),
       }),
     onSuccess: (payment: { id: string }) => {
-      notify.payment({ title: 'Payment recorded', message: 'Manual payment captured successfully.' });
+      notify.payment({
+        title: 'Payment recorded',
+        message:
+          purpose === 'GENERAL'
+            ? 'Manual payment captured successfully.'
+            : 'Commission payment recorded and allocated.',
+      });
       router.push(`/finance/payments/${payment.id}`);
     },
     onError: (error) => toast.error(userFacingError(error)),
@@ -72,7 +83,7 @@ export function PaymentCreateWorkspace() {
       <PageHeader
         eyebrow="Finance"
         title="Record Payment"
-        description="Capture a manual payment, then allocate it to open charges on the next screen."
+        description="Capture cash from a tenant or owner. Commission payments create and settle the receivable automatically."
         action={
           <Link className="button secondary" href="/finance/payments">
             Back to payments
@@ -84,7 +95,7 @@ export function PaymentCreateWorkspace() {
       ) : (
         <FinanceFormPanel
           title="Payment details"
-          description="Choose the payer, method, and receiving account. Allocation happens after the payment is saved."
+          description="Choose who paid, how they paid, and where the money landed."
           submitLabel="Record payment"
           busy={create.isPending}
           disabled={!ready}
@@ -99,11 +110,48 @@ export function PaymentCreateWorkspace() {
           {principal ? (
             <BranchSelect branches={principal.branches} value={branchId} onChange={setBranchId} />
           ) : null}
+          <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+            Payment for
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+              value={purpose}
+              onChange={(event) => {
+                const next = event.target.value as typeof purpose;
+                setPurpose(next);
+                if (next === 'OWNER_COMMISSION') {
+                  setPayerKind('owner');
+                  setPayer(null);
+                } else if (next === 'TENANT_COMMISSION') {
+                  setPayerKind('tenant');
+                  setPayer(null);
+                }
+              }}
+            >
+              <option value="GENERAL">Rent / general payment</option>
+              <option value="OWNER_COMMISSION">Owner brokerage commission</option>
+              <option value="TENANT_COMMISSION">Tenant brokerage commission</option>
+            </select>
+          </label>
+          <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+            Payer type
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+              value={payerKind}
+              disabled={purpose !== 'GENERAL'}
+              onChange={(event) => {
+                setPayerKind(event.target.value as 'tenant' | 'owner');
+                setPayer(null);
+              }}
+            >
+              <option value="tenant">Tenant</option>
+              <option value="owner">Owner</option>
+            </select>
+          </label>
           <FinanceRecordSelect
             label="Payer"
-            path="/tenants"
+            path={payerKind === 'owner' ? '/owners' : '/tenants'}
             value={payer?.id ?? ''}
-            map={financePickerMap.tenant}
+            map={payerKind === 'owner' ? financePickerMap.owner : financePickerMap.tenant}
             onChange={setPayer}
             required
           />
@@ -114,13 +162,18 @@ export function PaymentCreateWorkspace() {
             onChange={(record) => setMethodId(record?.id ?? '')}
             required
           />
-          <FinanceReferencePicker
-            label="Receiving account"
-            path="/finance/selectors/receiving-accounts"
-            value={receivingAccountId}
-            onChange={(record) => setReceivingAccountId(record?.id ?? '')}
-            required
-          />
+          <div className="space-y-1.5">
+            <FinanceReferencePicker
+              label="Receiving account"
+              path="/finance/selectors/receiving-accounts"
+              value={receivingAccountId}
+              onChange={(record) => setReceivingAccountId(record?.id ?? '')}
+              required
+            />
+            <p className="text-[12px] text-slate-500">
+              Lacagtu xagee ku dhacday? Cash, Bank, or Mobile Money only.
+            </p>
+          </div>
           <FinanceTextField
             label="Amount"
             type="number"

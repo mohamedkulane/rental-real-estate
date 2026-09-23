@@ -26,13 +26,78 @@ export class NotificationService {
         createdAt: true,
       },
     });
+    const now = new Date();
+    const end = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const viewings = principal.employeeId
+      ? await this.db.viewing.findMany({
+          where: {
+            companyId: principal.companyId,
+            ...(principal.accessMode === 'COMPANY_WIDE'
+              ? {}
+              : { assignedEmployeeId: principal.employeeId }),
+            scheduledAt: { gte: now, lt: end },
+            status: { in: ['SCHEDULED', 'CONFIRMED'] },
+          },
+          orderBy: { scheduledAt: 'asc' },
+          take: 10,
+          select: {
+            id: true,
+            scheduledAt: true,
+            lead: { select: { displayName: true } },
+            rentableSpace: { select: { name: true, property: { select: { name: true } } } },
+            saleListing: { select: { property: { select: { name: true } } } },
+          },
+        })
+      : [];
+    const company = await this.db.company.findUnique({
+      where: { id: principal.companyId },
+      select: { timezone: true },
+    });
+    const timezone = company?.timezone ?? 'Africa/Nairobi';
+    const scheduleItems = viewings.map((viewing) => {
+      const minutesUntil = Math.max(0, Math.round((viewing.scheduledAt.getTime() - now.getTime()) / 60000));
+      const localParts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(viewing.scheduledAt);
+      const part = (type: Intl.DateTimeFormatPartTypes) => localParts.find((item) => item.type === type)?.value ?? '';
+      const localDate = `${part('year')}-${part('month')}-${part('day')}`;
+      const localTime = `${part('hour')}:${part('minute')}`;
+      const dayLabel = localDate === principal.businessDate ? 'Today' : 'Tomorrow';
+      const propertyName = viewing.rentableSpace?.property.name ?? viewing.saleListing?.property.name ?? 'Property';
+      const reminder = minutesUntil <= 60;
+      return {
+        id: `viewing-schedule:${viewing.id}`,
+        category: 'VIEWING',
+        title: reminder
+          ? minutesUntil === 0
+            ? 'Viewing starts now'
+            : `Viewing starts in ${minutesUntil} minute${minutesUntil === 1 ? '' : 's'}`
+          : `${dayLabel}'s viewing scheduled`,
+        body: `${viewing.lead.displayName} · ${propertyName} · ${localTime}`,
+        linkPath: '/viewings',
+        entityType: 'Viewing',
+        entityId: viewing.id,
+        status: reminder ? 'UNREAD' : 'READ',
+        readAt: null,
+        createdAt: viewing.scheduledAt,
+      };
+    });
+    const combined = [...scheduleItems, ...items].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    const reminderCount = scheduleItems.filter((item) => item.status === 'UNREAD').length;
     const unreadCount = await this.db.notification.count({
       where: { userId: principal.userId, companyId: principal.companyId, status: NotificationStatus.UNREAD },
     });
-    return { items, unreadCount };
+    return { items: combined, unreadCount: unreadCount + reminderCount };
   }
 
   async markRead(principal: AuthenticatedPrincipal, notificationId?: string) {
+    if (notificationId?.startsWith('viewing-schedule:')) return { success: true as const };
     await this.db.notification.updateMany({
       where: notificationId
         ? { id: notificationId, userId: principal.userId, companyId: principal.companyId }

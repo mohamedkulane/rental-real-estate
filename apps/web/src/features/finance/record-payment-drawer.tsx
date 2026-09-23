@@ -21,6 +21,9 @@ import {
 
 const FORM_ID = 'record-payment-drawer-form';
 
+type PayerKind = 'tenant' | 'owner';
+type PaymentPurpose = 'GENERAL' | 'OWNER_COMMISSION' | 'TENANT_COMMISSION';
+
 export function RecordPaymentDrawer({
   open,
   onClose,
@@ -33,6 +36,8 @@ export function RecordPaymentDrawer({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [branchId, setBranchId] = useState(principal.branches[0]?.id ?? '');
+  const [payerKind, setPayerKind] = useState<PayerKind>('tenant');
+  const [purpose, setPurpose] = useState<PaymentPurpose>('GENERAL');
   const [payer, setPayer] = useState<PickRecord | null>(null);
   const [methodId, setMethodId] = useState('');
   const [receivingAccountId, setReceivingAccountId] = useState('');
@@ -59,6 +64,7 @@ export function RecordPaymentDrawer({
           currency,
           amount,
           receivedAt,
+          purpose,
           externalRef: externalRef || undefined,
           notes: notes || undefined,
         }),
@@ -66,7 +72,10 @@ export function RecordPaymentDrawer({
     onSuccess: (payment) => {
       notify.payment({
         title: 'Payment recorded',
-        message: 'Manual payment captured successfully.',
+        message:
+          purpose === 'GENERAL'
+            ? 'Manual payment captured successfully.'
+            : 'Commission payment recorded and allocated.',
       });
       void queryClient.invalidateQueries({ queryKey: ['finance-register', 'payments'] });
       onClose();
@@ -80,7 +89,7 @@ export function RecordPaymentDrawer({
       open={open}
       eyebrow="Finance"
       title="Record Payment"
-      description="Capture a manual payment. Allocate it to open charges on the next screen."
+      description="Capture cash received from a tenant or owner. Commission payments create and settle the receivable automatically."
       onClose={onClose}
       size="lg"
       footer={
@@ -106,14 +115,53 @@ export function RecordPaymentDrawer({
         }}
       >
         <BranchSelect branches={principal.branches} value={branchId} onChange={setBranchId} />
-        <FinanceRecordSelect
-          label="Payer"
-          path="/tenants"
-          value={payer?.id ?? ''}
-          map={financePickerMap.tenant}
-          onChange={setPayer}
-          required
-        />
+        <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+          Payment for
+          <select
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15"
+            value={purpose}
+            onChange={(event) => {
+              const next = event.target.value as PaymentPurpose;
+              setPurpose(next);
+              if (next === 'OWNER_COMMISSION') {
+                setPayerKind('owner');
+                setPayer(null);
+              } else if (next === 'TENANT_COMMISSION') {
+                setPayerKind('tenant');
+                setPayer(null);
+              }
+            }}
+          >
+            <option value="GENERAL">Rent / general payment</option>
+            <option value="OWNER_COMMISSION">Owner brokerage commission</option>
+            <option value="TENANT_COMMISSION">Tenant brokerage commission</option>
+          </select>
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+            Payer type
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15"
+              value={payerKind}
+              disabled={purpose !== 'GENERAL'}
+              onChange={(event) => {
+                setPayerKind(event.target.value as PayerKind);
+                setPayer(null);
+              }}
+            >
+              <option value="tenant">Tenant</option>
+              <option value="owner">Owner</option>
+            </select>
+          </label>
+          <FinanceRecordSelect
+            label="Payer"
+            path={payerKind === 'owner' ? '/owners' : '/tenants'}
+            value={payer?.id ?? ''}
+            map={payerKind === 'owner' ? financePickerMap.owner : financePickerMap.tenant}
+            onChange={setPayer}
+            required
+          />
+        </div>
         <FinanceReferencePicker
           label="Payment method"
           path="/finance/selectors/payment-methods"
@@ -121,13 +169,18 @@ export function RecordPaymentDrawer({
           onChange={(record) => setMethodId(record?.id ?? '')}
           required
         />
-        <FinanceReferencePicker
-          label="Receiving account"
-          path="/finance/selectors/receiving-accounts"
-          value={receivingAccountId}
-          onChange={(record) => setReceivingAccountId(record?.id ?? '')}
-          required
-        />
+        <div className="space-y-1.5">
+          <FinanceReferencePicker
+            label="Receiving account"
+            path="/finance/selectors/receiving-accounts"
+            value={receivingAccountId}
+            onChange={(record) => setReceivingAccountId(record?.id ?? '')}
+            required
+          />
+          <p className="text-[12px] text-slate-500">
+            Lacagtu xagee ku dhacday? Choose Cash, Bank, or Mobile Money — not an income line.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <FinanceTextField
             label="Amount"

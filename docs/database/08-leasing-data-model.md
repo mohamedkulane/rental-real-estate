@@ -16,4 +16,4 @@ MoveIn/MoveOut capture completion and inspection references. KeyAssignment and M
 
 ## Dates
 
-Agreement, lease start, possession, and lease end are separate `date` fields. Holdover is a Lease state/recorded event after contractual end while possession remains active; no silent renewal occurs.
+Agreement and lease start are required separate `date` fields. Lease end is nullable for open-ended tenancies and is recorded when the tenancy is explicitly ended. Holdover is a Lease state/recorded event after a contractual end while possession remains active; no silent renewal occurs.

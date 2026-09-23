@@ -147,9 +147,18 @@ const nextStates: Partial<Record<OperationsMode, Record<string, string[]>>> = {
   viewings: { SCHEDULED: ['CONFIRMED','CANCELLED','NO_SHOW'], CONFIRMED: ['COMPLETED','CANCELLED','NO_SHOW'] },
   applications: { DRAFT: ['SUBMITTED','WITHDRAWN'], SUBMITTED: ['UNDER_REVIEW','WITHDRAWN'], UNDER_REVIEW: ['APPROVED','REJECTED','WITHDRAWN'] },
   reservations: { ACTIVE: ['EXPIRED','CANCELLED'] },
-  leases: { DRAFT: ['PENDING_APPROVAL'], PENDING_APPROVAL: ['APPROVED','DRAFT'], APPROVED: ['PENDING_SIGNATURE'], PENDING_SIGNATURE: ['SIGNED'], SIGNED: ['ACTIVE','TERMINATED'], ACTIVE: ['ENDED','TERMINATED'], ENDED: ['ARCHIVED'], TERMINATED: ['ARCHIVED'] },
+  leases: { DRAFT: ['PENDING_APPROVAL'], PENDING_APPROVAL: ['ACTIVE', 'DRAFT'], APPROVED: ['ACTIVE'], PENDING_SIGNATURE: ['ACTIVE'], SIGNED: ['ACTIVE', 'TERMINATED'], ACTIVE: ['ENDED', 'TERMINATED'], ENDED: ['ARCHIVED'], TERMINATED: ['ARCHIVED'] },
   renewals: { DRAFT: ['PROPOSED','CANCELLED'], PROPOSED: ['APPROVED','REJECTED','CANCELLED'], APPROVED: ['SIGNED','REJECTED'], SIGNED: ['ACTIVATED'] },
   'move-ins': { SCHEDULED: ['COMPLETED','CANCELLED'] },
+};
+
+const leaseActionLabel: Record<string, string> = {
+  PENDING_APPROVAL: 'Submit for approval',
+  ACTIVE: 'Approve — becomes Active',
+  DRAFT: 'Return to draft',
+  ENDED: 'End lease',
+  TERMINATED: 'Terminate lease',
+  ARCHIVED: 'Archive',
 };
 
 export function Phase5RowAction({ mode, row, onSuccess }: { mode: OperationsMode; row: Row; onSuccess: () => void }) {
@@ -238,7 +247,12 @@ export function Phase5RowAction({ mode, row, onSuccess }: { mode: OperationsMode
             }}
           >
     {canScreen ? <label className="flex items-center gap-2"><input className="!h-4 !w-4" type="checkbox" checked={screen} onChange={(event) => { setScreen(event.target.checked); setTarget(event.target.checked ? (row.screeningStatus === 'NOT_STARTED' ? 'IN_PROGRESS' : 'PASSED') : states[0] ?? ''); }} />Record screening outcome</label> : null}
-            <label>{screen ? 'Screening outcome' : 'Next stage'}<select required value={target} onChange={(event) => setTarget(event.target.value)}>{(screen ? row.screeningStatus === 'NOT_STARTED' ? ['IN_PROGRESS','WAIVED'] : ['PASSED','FAILED','WAIVED'] : states).map((state) => <option key={state}>{state}</option>)}</select></label>
+            <label>{screen ? 'Screening outcome' : 'Next stage'}<select required value={target} onChange={(event) => setTarget(event.target.value)}>{(screen ? row.screeningStatus === 'NOT_STARTED' ? ['IN_PROGRESS','WAIVED'] : ['PASSED','FAILED','WAIVED'] : states).map((state) => <option key={state} value={state}>{mode === 'leases' ? (leaseActionLabel[state] ?? state) : state}</option>)}</select></label>
+            {mode === 'leases' && target === 'ACTIVE' && row.status === 'PENDING_APPROVAL' ? (
+              <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                Approval activates the lease immediately. Separate Signed steps are no longer required.
+              </p>
+            ) : null}
             {mode === 'leases' && target === 'SIGNED' ? <label>Signature evidence hash<input required minLength={3} maxLength={128} value={signature} onChange={(event) => setSignature(event.target.value)} /></label> : null}
             {screen ? <label>Restricted screening summary<textarea rows={3} maxLength={2000} value={summary} onChange={(event) => setSummary(event.target.value)} /></label> : null}
             <label>Reason<textarea required minLength={3} maxLength={500} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>

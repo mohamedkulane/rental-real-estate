@@ -68,7 +68,29 @@ export class FinanceSelectorsService {
 
   async receivingAccounts(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {
     this.auth.assertCompanyPermission(principal, 'payment.read');
-    return this.listPostingAccounts(principal, query);
+    const where: Prisma.AccountWhereInput = {
+      companyId: principal.companyId,
+      active: true,
+      postingAllowed: true,
+      accountType: 'ASSET',
+      code: { in: ['1010', '1020', '1030'] },
+      ...(query.search
+        ? {
+            OR: [
+              { code: { contains: query.search, mode: 'insensitive' } },
+              { name: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+    };
+    const rows = await this.db.account.findMany({
+      where,
+      take: query.limit + 1,
+      orderBy: [{ code: 'asc' }, { id: 'asc' }],
+      select: { id: true, code: true, name: true, accountType: true, normalBalance: true },
+    });
+    return cursorPage(rows, query.limit, (row) => row.id);
   }
 
   private async listPostingAccounts(principal: AuthenticatedPrincipal, query: CursorPageQueryDto) {

@@ -62,12 +62,15 @@ export const applicationTransitions: Record<ApplicationStatus, readonly Applicat
 };
 export const leaseTransitions: Record<LeaseStatus, readonly LeaseStatus[]> = {
   DRAFT: [LeaseStatus.PENDING_APPROVAL],
-  PENDING_APPROVAL: [LeaseStatus.APPROVED, LeaseStatus.DRAFT],
-  APPROVED: [LeaseStatus.PENDING_SIGNATURE],
-  PENDING_SIGNATURE: [LeaseStatus.SIGNED],
+  PENDING_APPROVAL: [LeaseStatus.ACTIVE, LeaseStatus.DRAFT],
+  // Legacy escape paths for in-flight leases created before the simplified workflow.
+  APPROVED: [LeaseStatus.ACTIVE],
+  PENDING_SIGNATURE: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE],
   SIGNED: [LeaseStatus.ACTIVE, LeaseStatus.TERMINATED],
   ACTIVE: [LeaseStatus.ENDED, LeaseStatus.TERMINATED],
-  ENDED: [LeaseStatus.ARCHIVED], TERMINATED: [LeaseStatus.ARCHIVED], ARCHIVED: [],
+  ENDED: [LeaseStatus.ARCHIVED],
+  TERMINATED: [LeaseStatus.ARCHIVED],
+  ARCHIVED: [],
 };
 export const renewalTransitions: Record<RenewalStatus, readonly RenewalStatus[]> = {
   DRAFT: [RenewalStatus.PROPOSED, RenewalStatus.CANCELLED],
@@ -316,22 +319,8 @@ export class LeasingService {
   }
 
   async createApplication(principal: AuthenticatedPrincipal, input: CreateApplicationDto, correlationId?: string) {
-    const listing = await this.db.rentalListing.findFirst({
-      where: {
-        id: input.rentalListingId,
-        companyId: principal.companyId,
-        status: {
-          in: [
-            ListingStatus.DRAFT,
-            ListingStatus.PENDING_REVIEW,
-            ListingStatus.PUBLISHED,
-            ListingStatus.PAUSED,
-          ],
-        },
-      },
-      include: { serviceEngagement: true },
-    });
-    if (!listing) throw new NotFoundException('Rental listing for this unit was not found.');
+    const listing = await this.db.rentalListing.findFirst({ where: { id: input.rentalListingId, companyId: principal.companyId, status: ListingStatus.PUBLISHED }, include: { serviceEngagement: true } });
+    if (!listing) throw new NotFoundException('Published Rental Listing not found.');
     this.auth.assertBranchPermission(principal, 'application.create', listing.branchId);
     if (!this.capabilities(listing.serviceEngagement).canAcceptApplication) throw new ConflictException('The Service Engagement does not permit Applications.');
     const lead = await this.db.lead.findFirst({ where: { id: input.leadId, companyId: principal.companyId, responsibleBranchId: listing.branchId, intent: 'RENT' } });
@@ -554,11 +543,25 @@ export class LeasingService {
   async transitionLease(principal: AuthenticatedPrincipal, id: string, input: LeaseTransitionDto, correlationId?: string) {
     const current = await this.db.lease.findFirst({ where: { id, companyId: principal.companyId }, include: { parties: true } });
     if (!current) throw new NotFoundException('Lease not found.');
-    const permission = input.status === LeaseStatus.APPROVED ? 'lease.approve' : input.status === LeaseStatus.SIGNED ? 'lease.sign' : input.status === LeaseStatus.ACTIVE ? 'lease.activate' : 'lease.manage';
+    const permission =
+      input.status === LeaseStatus.ACTIVE && current.status === LeaseStatus.PENDING_APPROVAL
+        ? 'lease.approve'
+        : input.status === LeaseStatus.APPROVED
+          ? 'lease.approve'
+          : input.status === LeaseStatus.SIGNED
+            ? 'lease.sign'
+            : input.status === LeaseStatus.ACTIVE
+              ? 'lease.activate'
+              : 'lease.manage';
     this.auth.assertBranchPermission(principal, permission, current.branchId);
     if (!leaseTransitions[current.status].includes(input.status)) throw new ConflictException(`Lease cannot transition from ${current.status} to ${input.status}.`);
     if (input.status === LeaseStatus.SIGNED && !input.signatureHash) throw new BadRequestException('Signature evidence hash is required.');
-    if (input.status === LeaseStatus.ACTIVE) {
+    const activating = input.status === LeaseStatus.ACTIVE;
+    const captureAgreement =
+      activating ||
+      input.status === LeaseStatus.SIGNED ||
+      (current.status === LeaseStatus.PENDING_APPROVAL && input.status === LeaseStatus.ACTIVE);
+    if (activating) {
       await assertHierarchyOccupancyAvailable(this.db, {
         companyId: principal.companyId,
         rentableSpaceId: current.rentableSpaceId,
@@ -568,13 +571,58 @@ export class LeasingService {
     }
     try {
       return await this.db.$transaction(async (tx) => {
-        const changed = await tx.lease.updateMany({ where: { id, version: input.expectedVersion, status: current.status }, data: { status: input.status, agreementDate: input.status === LeaseStatus.SIGNED ? new Date(principal.businessDate) : current.agreementDate, version: { increment: 1 } } });
+        const changed = await tx.lease.updateMany({
+          where: { id, version: input.expectedVersion, status: current.status },
+          data: {
+            status: input.status,
+            agreementDate:
+              captureAgreement && !current.agreementDate
+                ? new Date(principal.businessDate)
+                : current.agreementDate,
+            version: { increment: 1 },
+          },
+        });
         if (changed.count !== 1) throw new ConflictException('Lease is stale or has already changed.');
-        if (input.status === LeaseStatus.SIGNED) {
+        if (input.status === LeaseStatus.SIGNED || (activating && !current.agreementDate)) {
           const latest = await tx.leaseVersion.aggregate({ where: { leaseId: id }, _max: { sequence: true } });
-          await tx.leaseVersion.create({ data: { id: uuidv7(), leaseId: id, sequence: (latest._max.sequence ?? 0) + 1, termsSnapshot: { leaseStartDate: current.leaseStartDate.toISOString().slice(0, 10), leaseEndDate: current.leaseEndDate.toISOString().slice(0, 10), rentAmount: current.rentAmount.toString(), currency: current.currency, partyIds: current.parties.map((party) => party.partyId) }, documentId: input.documentId ?? null, signatureHash: input.signatureHash ?? null, signedAt: new Date(), createdByUserId: principal.userId } });
+          await tx.leaseVersion.create({
+            data: {
+              id: uuidv7(),
+              leaseId: id,
+              sequence: (latest._max.sequence ?? 0) + 1,
+              termsSnapshot: {
+                leaseStartDate: current.leaseStartDate.toISOString().slice(0, 10),
+                leaseEndDate: current.leaseEndDate
+                  ? current.leaseEndDate.toISOString().slice(0, 10)
+                  : null,
+                rentAmount: current.rentAmount.toString(),
+                currency: current.currency,
+                partyIds: current.parties.map((party) => party.partyId),
+                activatedOnApprove: activating && current.status === LeaseStatus.PENDING_APPROVAL,
+              },
+              documentId: input.documentId ?? null,
+              signatureHash:
+                input.signatureHash ??
+                (activating ? `approved:${principal.businessDate}:${id}` : null),
+              signedAt: new Date(),
+              createdByUserId: principal.userId,
+            },
+          });
         }
-        if (input.status === LeaseStatus.ACTIVE) await tx.leasePossession.create({ data: { id: uuidv7(), leaseId: id, rentableSpaceId: current.rentableSpaceId, possessionFrom: new Date(`${current.leaseStartDate.toISOString().slice(0, 10)}T00:00:00.000Z`), possessionTo: new Date(`${current.leaseEndDate.toISOString().slice(0, 10)}T00:00:00.000Z`), status: LeasePossessionStatus.ACTIVE } });
+        if (activating) {
+          await tx.leasePossession.create({
+            data: {
+              id: uuidv7(),
+              leaseId: id,
+              rentableSpaceId: current.rentableSpaceId,
+              possessionFrom: new Date(`${current.leaseStartDate.toISOString().slice(0, 10)}T00:00:00.000Z`),
+              possessionTo: current.leaseEndDate
+                ? new Date(`${current.leaseEndDate.toISOString().slice(0, 10)}T00:00:00.000Z`)
+                : null,
+              status: LeasePossessionStatus.ACTIVE,
+            },
+          });
+        }
         if (oneOf(input.status, [LeaseStatus.ENDED, LeaseStatus.TERMINATED])) await tx.leasePossession.updateMany({ where: { leaseId: id, status: LeasePossessionStatus.ACTIVE }, data: { status: LeasePossessionStatus.ENDED, possessionTo: new Date() } });
         const row = await tx.lease.findUniqueOrThrow({ where: { id } });
         await this.audit.write(tx, { actorUserId: principal.userId, action: 'lease.transitioned', entityType: 'Lease', entityId: id, branchId: current.branchId, correlationId, reason: input.reason, before: { status: current.status, version: current.version }, after: { status: row.status, version: row.version } });

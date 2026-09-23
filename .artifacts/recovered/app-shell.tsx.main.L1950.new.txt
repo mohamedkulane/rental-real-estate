@@ -1,0 +1,30 @@
+            </div>
+          </div>
+        </div>
+
+        <nav
+          className="sidebar-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3"
+          aria-label="Main navigation"
+        >
+          <div className="mb-1">
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              title="Dashboard"
+              className={
+                'flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/20 ' +
+                (dashboardSelected
+                  ? 'bg-[#E6F4F1]/70 text-[#0F172A]'
+                  : 'text-[#0F172A]/80 hover:bg-slate-50/80')
+              }
+            >
+              <Home
+                className={
+                  'h-[18px] w-[18px] shrink-0 ' +
+                  (dashboardSelected ? 'text-[#0F766E]' : 'text-[#0F172A]/55')
+                }
+                aria-hidden="true"
+              />
+              {!accordionCollapsed ? <span>Dashboard</span> : null}
+            </Link>
+          </div>

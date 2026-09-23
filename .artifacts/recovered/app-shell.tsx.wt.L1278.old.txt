@@ -1,0 +1,36 @@
+        <div className={'border-b border-slate-200 py-5 ' + (sidebarCollapsed ? 'px-2' : 'px-5')}>
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+              <Landmark className="h-5 w-5" aria-hidden="true" />
+            </span>
+            {!accordionCollapsed ? (
+              <div className="min-w-0 flex-1 leading-tight">
+                <strong className="block truncate text-sm font-bold text-slate-900">Horizon</strong>
+                <span className="block text-[11px] text-slate-500">Real Estate Operations</span>
+              </div>
+            ) : null}
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                className="hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 lg:inline-flex"
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                ref={closeNavRef}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+                aria-label="Close navigation"
+                onClick={() => setOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>

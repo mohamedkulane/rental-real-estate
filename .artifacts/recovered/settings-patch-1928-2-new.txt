@@ -1,0 +1,14 @@
+          ) : null}
+
+          {selected.key === 'notifications' ? (
+            <SectionCard icon={<Bell className="h-5 w-5" />} title="Notifications">
+              <p>
+                Notification alerts include today and tomorrow's viewing schedules, follow-ups,
+                maintenance, and finance tasks.
+              </p>
+            </SectionCard>
+          ) : null}
+      </div>
+    </div>
+  );
+}

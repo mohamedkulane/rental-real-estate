@@ -1,0 +1,490 @@
+{
+  "writes": [
+    {
+      "lineNo": 1942,
+      "file": "app-shell.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "len": 14107
+    }
+  ],
+  "patches": [
+    {
+      "lineNo": 207,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 74,
+      "oldLen": 52,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 207,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 423,
+      "oldLen": 366,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 234,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 100,
+      "oldLen": 112,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 234,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 70,
+      "oldLen": 455,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 237,
+      "file": "app-header.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 100,
+      "oldLen": 112,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 237,
+      "file": "app-header.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 70,
+      "oldLen": 455,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 444,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 75,
+      "oldLen": 60,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 444,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 98,
+      "oldLen": 91,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 455,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 60,
+      "oldLen": 75,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 137,
+      "oldLen": 86,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 536,
+      "oldLen": 352,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 85,
+      "oldLen": 39,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 307,
+      "oldLen": 236,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 63,
+      "oldLen": 78,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 136,
+      "oldLen": 125,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 97,
+      "oldLen": 100,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 80,
+      "oldLen": 69,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 1322,
+      "oldLen": 169,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 54,
+      "oldLen": 42,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 461,
+      "oldLen": 435,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 101,
+      "oldLen": 93,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 2343,
+      "oldLen": 872,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 511,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 419,
+      "oldLen": 443,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 513,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 231,
+      "oldLen": 121,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 513,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 72,
+      "oldLen": 45,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 513,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 274,
+      "oldLen": 125,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 515,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 40,
+      "oldLen": 31,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 515,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 78,
+      "oldLen": 67,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 556,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 163,
+      "oldLen": 273,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 556,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 45,
+      "oldLen": 72,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 556,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 125,
+      "oldLen": 274,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 556,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 31,
+      "oldLen": 40,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 556,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 67,
+      "oldLen": 78,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 561,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 125,
+      "oldLen": 274,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 562,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 31,
+      "oldLen": 40,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 562,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 67,
+      "oldLen": 78,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 679,
+      "file": "app-header.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 100,
+      "oldLen": 112,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 679,
+      "file": "app-header.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 70,
+      "oldLen": 455,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1278,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 133,
+      "oldLen": 518,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1278,
+      "file": "app-header.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-header.tsx",
+      "newLen": 101,
+      "oldLen": 113,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1278,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 1309,
+      "oldLen": 1816,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1278,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 30,
+      "oldLen": 781,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1289,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 77,
+      "oldLen": 100,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1289,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 381,
+      "oldLen": 656,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1289,
+      "file": "app-shell.tsx",
+      "scope": "wt",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\.worktrees\\workflow-ux-wave1\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 156,
+      "oldLen": 202,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1927,
+      "file": "settings-panel.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\features\\admin\\pages\\settings-panel.tsx",
+      "newLen": 3077,
+      "oldLen": 3282,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1928,
+      "file": "settings-panel.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\features\\admin\\pages\\settings-panel.tsx",
+      "newLen": 411,
+      "oldLen": 2931,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1930,
+      "file": "settings-panel.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\features\\admin\\pages\\settings-panel.tsx",
+      "newLen": 288,
+      "oldLen": 370,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1930,
+      "file": "settings-panel.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\features\\admin\\pages\\settings-panel.tsx",
+      "newLen": 145,
+      "oldLen": 173,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1939,
+      "file": "app-shell.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 14164,
+      "oldLen": 0,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1949,
+      "file": "app-shell.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 103,
+      "oldLen": 113,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1950,
+      "file": "app-shell.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 1055,
+      "oldLen": 1285,
+      "replaceAll": false
+    },
+    {
+      "lineNo": 1950,
+      "file": "app-shell.tsx",
+      "scope": "main",
+      "path": "C:\\Users\\maxam\\real-estate-rental-system\\apps\\web\\src\\components\\shared\\app-shell.tsx",
+      "newLen": 1104,
+      "oldLen": 2492,
+      "replaceAll": false
+    }
+  ]
+}

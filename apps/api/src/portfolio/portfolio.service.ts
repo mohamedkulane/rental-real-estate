@@ -48,6 +48,7 @@ import type {
   UpdateBuildingDto,
   UpdateDocumentMetadataDto,
   UpdatePropertyDto,
+  UpdateSpaceDto,
   UploadDocumentDto,
 } from './portfolio.dto';
 
@@ -2072,6 +2073,71 @@ export class PortfolioService {
     });
   }
 
+  async updateSpace(
+    principal: AuthenticatedPrincipal,
+    spaceId: string,
+    input: UpdateSpaceDto,
+    correlationId?: string,
+  ) {
+    if (input.name === undefined && input.typeCode === undefined && input.buildingId === undefined) {
+      throw new BadRequestException('Provide at least one field to update.');
+    }
+    const space = await this.database.rentableSpace.findUniqueOrThrow({
+      where: { id: spaceId },
+      include: { type: true },
+    });
+    if (space.status === RentableSpaceStatus.RETIRED) {
+      throw new BadRequestException('Retired units cannot be edited.');
+    }
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      space.propertyId,
+      'portfolio.space.update',
+    );
+    return this.database.$transaction(async (transaction) => {
+      let typeId = space.typeId;
+      if (input.typeCode !== undefined) {
+        const type = await transaction.rentableSpaceType.findFirstOrThrow({
+          where: { code: input.typeCode, active: true },
+        });
+        typeId = type.id;
+      }
+      if (input.buildingId !== undefined) {
+        await transaction.building.findFirstOrThrow({
+          where: { id: input.buildingId, propertyId: space.propertyId },
+        });
+      }
+      const after = await transaction.rentableSpace.update({
+        where: { id: spaceId },
+        data: {
+          ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+          ...(input.typeCode !== undefined ? { typeId } : {}),
+          ...(input.buildingId !== undefined ? { buildingId: input.buildingId } : {}),
+        },
+        include: { type: true },
+      });
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: 'portfolio.space.updated',
+        entityType: 'RentableSpace',
+        entityId: spaceId,
+        branchId,
+        correlationId,
+        before: {
+          name: space.name,
+          typeCode: space.type.code,
+          buildingId: space.buildingId,
+        },
+        after: {
+          name: after.name,
+          typeCode: after.type.code,
+          buildingId: after.buildingId,
+        },
+      });
+      return after;
+    });
+  }
+
   async correctMeasurement(
     principal: AuthenticatedPrincipal,
     spaceId: string,
@@ -2273,6 +2339,22 @@ export class PortfolioService {
       });
       if (activeChildren)
         throw new BadRequestException('Retire active child spaces before retiring their parent.');
+      const openLeases = await transaction.lease.count({
+        where: {
+          rentableSpaceId: spaceId,
+          status: {
+            notIn: [LeaseStatus.ENDED, LeaseStatus.TERMINATED, LeaseStatus.ARCHIVED],
+          },
+        },
+      });
+      if (openLeases) {
+        throw new BadRequestException(
+          'End or terminate open leases on this unit before retiring it.',
+        );
+      }
+      if (space.status === RentableSpaceStatus.RETIRED) {
+        throw new BadRequestException('This unit is already retired.');
+      }
       await transaction.rentableSpaceVersion.updateMany({
         where: {
           rentableSpaceId: spaceId,

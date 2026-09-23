@@ -1,0 +1,73 @@
+          ) : null}
+
+          {selected.key === 'company' ? (
+            <aside className="rounded-lg border border-white/80 bg-white/80 p-4 xl:hidden">
+              <p className="text-sm font-bold text-slate-900">A strong brand builds trust</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Your company identity is visible across reports, documents, and client
+                communications.
+              </p>
+            </aside>
+          ) : null}
+
+          {selected.key === 'notifications' ? (
+            <SectionCard
+              icon={<Bell className="h-5 w-5" />}
+              title="Notifications"
+              className="xl:col-start-1"
+            >
+              <p>
+                Notification alerts include today and tomorrow's viewing schedules, follow-ups,
+                maintenance, and finance tasks.
+              </p>
+            </SectionCard>
+          ) : null}
+
+          <aside className="rounded-lg border border-white/80 bg-white/80 p-3 shadow-sm xl:col-start-2 xl:row-start-1">
+            {selected.key === 'company' ? (
+              <>
+                <img
+                  src="/images/dashboard/property-building.jpg"
+                  alt="Modern property"
+                  className="h-40 w-full rounded-md object-cover"
+                />
+                <h2 className="mt-3 text-base font-bold leading-tight text-slate-900">
+                  A strong brand builds trust
+                </h2>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Your company identity is visible across reports, documents, and client
+                  communications.
+                </p>
+                <ul className="mt-3 space-y-2 text-xs text-slate-600">
+                  {[
+                    'Custom logo and colors',
+                    'Consistent branding',
+                    'Professional reports',
+                    'Better client experience',
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0B6B53]" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {selected.key !== 'company' ? (
+              <>
+                <div className="flex items-center gap-3 text-[#0D47A1]">
+                  <Settings className="h-5 w-5" />
+                  <strong className="text-sm">Settings are company-wide</strong>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[#0D47A1]">
+                  Only authorized company administrators can save company changes. Every update is
+                  recorded in the Audit log.
+                </p>
+              </>
+            ) : null}
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
