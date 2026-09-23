@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import { PageSkeleton } from '@/components/shared/loading-system';
-import { ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
 import { useClientReady } from '@/lib/client-ready';
 import { api, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
-
-const formValue = (form: FormData, key: string) => {
-  const value = form.get(key);
-  return typeof value === 'string' ? value.trim() : '';
-};
 
 type Detail = {
   id: string;
@@ -26,12 +26,45 @@ type Detail = {
   outputAssets: Array<{ id: string; property?: { propertyCode?: string; name?: string } }>;
 };
 
+type DrawerKind = 'block' | 'plot' | 'convert' | null;
+
+const drawerCopy: Record<
+  Exclude<DrawerKind, null>,
+  { title: string; description: string; submitLabel: string; formId: string }
+> = {
+  block: {
+    title: 'Add block',
+    description: 'Create a block within this company development.',
+    submitLabel: 'Add block',
+    formId: 'development-block-form',
+  },
+  plot: {
+    title: 'Add plot',
+    description: 'Add a plot under the first development block.',
+    submitLabel: 'Add plot',
+    formId: 'development-plot-form',
+  },
+  convert: {
+    title: 'Convert saleable plot',
+    description: 'Create a canonical Property record from a development plot.',
+    submitLabel: 'Convert to Property',
+    formId: 'development-convert-form',
+  },
+};
+
 export function DevelopmentDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
   const ready = useClientReady();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [project, setProject] = useState<Detail | null>(null);
   const [error, setError] = useState('');
+  const [drawer, setDrawer] = useState<DrawerKind>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [blockCode, setBlockCode] = useState('');
+  const [blockName, setBlockName] = useState('');
+  const [plotNumber, setPlotNumber] = useState('');
+  const [plotId, setPlotId] = useState('');
+  const [propertyName, setPropertyName] = useState('');
 
   async function reload() {
     setProject(await api<Detail>(`/development/projects/${projectId}`));
@@ -48,18 +81,80 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
     void reload().catch((cause) => setError(userFacingError(cause)));
   }, [principal, projectId]);
 
+  useEffect(() => {
+    if (!drawer) return;
+    setBlockCode('');
+    setBlockName('');
+    setPlotNumber('');
+    setPlotId('');
+    setPropertyName('');
+  }, [drawer]);
+
   async function post(path: string, body: Record<string, unknown>, success: string) {
     try {
       await api(path, { method: 'POST', body: JSON.stringify(body) });
       toast.success(success);
       await reload();
+      return true;
     } catch (cause) {
       toast.error(userFacingError(cause));
+      return false;
+    }
+  }
+
+  async function submitDrawer() {
+    if (!project || !drawer) return;
+    setSubmitting(true);
+    try {
+      let ok = false;
+      if (drawer === 'block') {
+        ok = await post(
+          '/development/blocks',
+          {
+            developmentProjectId: project.id,
+            code: blockCode.trim(),
+            name: blockName.trim(),
+          },
+          'Block created',
+        );
+      } else if (drawer === 'plot') {
+        ok = await post(
+          '/development/plots',
+          {
+            developmentProjectId: project.id,
+            blockId: project.blocks[0]?.id,
+            plotNumber: plotNumber.trim(),
+          },
+          'Plot created',
+        );
+      } else if (drawer === 'convert') {
+        ok = await post(
+          '/development/convert-plot',
+          {
+            plotId,
+            propertyName: propertyName.trim(),
+            createSaleListing: true,
+          },
+          'Canonical Property created',
+        );
+      }
+      if (ok) setDrawer(null);
+    } finally {
+      setSubmitting(false);
     }
   }
 
   if (!ready || !principal || !project) return <PageSkeleton />;
   const canManage = hasPermission(principal, 'development.manage');
+  const copy = drawer ? drawerCopy[drawer] : null;
+  const drawerReady =
+    drawer === 'block'
+      ? Boolean(blockCode.trim() && blockName.trim())
+      : drawer === 'plot'
+        ? Boolean(plotNumber.trim() && project.blocks[0]?.id)
+        : drawer === 'convert'
+          ? Boolean(plotId && propertyName.trim())
+          : false;
 
   return (
     <AppShell
@@ -82,111 +177,192 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
         action={<StatusBadge value={project.status} />}
       />
       {error ? <ErrorState message={error} /> : null}
+
       {canManage ? (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <FormSection title="Block">
-            <form
-              className="grid gap-3"
-              onSubmit={(event: FormEvent<HTMLFormElement>) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                void post(
-                  '/development/blocks',
-                  {
-                    developmentProjectId: project.id,
-                    code: formValue(form, 'code'),
-                    name: formValue(form, 'name'),
-                  },
-                  'Block created',
-                );
-              }}
-            >
-              <input name="code" required placeholder="A" className="rounded-lg border border-slate-200 px-3 py-2" />
-              <input name="name" required placeholder="Block A" className="rounded-lg border border-slate-200 px-3 py-2" />
-              <button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" type="submit">
-                Add block
-              </button>
-            </form>
-          </FormSection>
-          <FormSection title="Plot">
-            <form
-              className="grid gap-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                void post(
-                  '/development/plots',
-                  {
-                    developmentProjectId: project.id,
-                    blockId: project.blocks[0]?.id,
-                    plotNumber: formValue(form, 'plotNumber'),
-                  },
-                  'Plot created',
-                );
-              }}
-            >
-              <input name="plotNumber" required placeholder="P-01" className="rounded-lg border border-slate-200 px-3 py-2" />
-              <button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" type="submit">
-                Add plot
-              </button>
-            </form>
-          </FormSection>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button type="button" className="button secondary" onClick={() => setDrawer('block')}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add block
+          </button>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => {
+              if (!project.blocks[0]?.id) {
+                toast.error('Add a block before creating plots.');
+                return;
+              }
+              setDrawer('plot');
+            }}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add plot
+          </button>
+          <button type="button" className="button secondary" onClick={() => setDrawer('convert')}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Convert plot
+          </button>
           {!project.constructionProject ? (
-            <FormSection title="Development construction">
-              <button
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
-                type="button"
-                onClick={() =>
-                  void post(
-                    '/development/construction',
-                    { developmentProjectId: project.id, name: `${project.name} construction` },
-                    'Construction attached',
-                  )
-                }
-              >
-                Start construction
-              </button>
-            </FormSection>
-          ) : (
-            <p className="text-sm text-slate-600">Linked construction {project.constructionProject.projectNumber}</p>
-          )}
-          <FormSection title="Convert saleable plot">
-            <form
-              className="grid gap-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
+            <button
+              type="button"
+              className="button primary"
+              onClick={() =>
                 void post(
-                  '/development/convert-plot',
-                  {
-                    plotId: formValue(form, 'plotId'),
-                    propertyName: formValue(form, 'propertyName'),
-                    createSaleListing: true,
-                  },
-                  'Canonical Property created',
-                );
-              }}
+                  '/development/construction',
+                  { developmentProjectId: project.id, name: `${project.name} construction` },
+                  'Construction attached',
+                )
+              }
             >
-              <select name="plotId" required className="rounded-lg border border-slate-200 px-3 py-2">
-                <option value="">Select plot</option>
-                {project.plots.map((plot) => (
-                  <option key={plot.id} value={plot.id}>
-                    {plot.plotNumber}
-                  </option>
-                ))}
-              </select>
-              <input name="propertyName" required placeholder="Villa 01" className="rounded-lg border border-slate-200 px-3 py-2" />
-              <button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" type="submit">
-                Convert to Property
-              </button>
-            </form>
-          </FormSection>
+              Start construction
+            </button>
+          ) : null}
         </div>
       ) : null}
+
+      {project.constructionProject ? (
+        <p className="mt-4 text-sm text-slate-600">
+          Linked construction {project.constructionProject.projectNumber}
+        </p>
+      ) : null}
+
+      {canManage && copy ? (
+        <WorkspaceFormDrawer
+          open={Boolean(drawer)}
+          eyebrow="Company development"
+          title={copy.title}
+          description={copy.description}
+          onClose={() => {
+            if (!submitting) setDrawer(null);
+          }}
+          size="md"
+          footer={
+            <WorkspaceFormDrawerFooter
+              formId={copy.formId}
+              onCancel={() => setDrawer(null)}
+              submitLabel={copy.submitLabel}
+              isPending={submitting}
+              disabled={!drawerReady}
+            />
+          }
+        >
+          <form
+            id={copy.formId}
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!drawerReady) {
+                toast.error('Complete the required fields before saving.');
+                return;
+              }
+              void submitDrawer();
+            }}
+          >
+            {drawer === 'block' ? (
+              <>
+                <label className="block">
+                  <span className="mb-1 block text-[12px] font-semibold text-slate-500">Code</span>
+                  <input
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                    value={blockCode}
+                    onChange={(event) => setBlockCode(event.target.value)}
+                    placeholder="A"
+                    required
+                    autoFocus
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[12px] font-semibold text-slate-500">Name</span>
+                  <input
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                    value={blockName}
+                    onChange={(event) => setBlockName(event.target.value)}
+                    placeholder="Block A"
+                    required
+                  />
+                </label>
+              </>
+            ) : null}
+            {drawer === 'plot' ? (
+              <label className="block">
+                <span className="mb-1 block text-[12px] font-semibold text-slate-500">Plot number</span>
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                  value={plotNumber}
+                  onChange={(event) => setPlotNumber(event.target.value)}
+                  placeholder="P-01"
+                  required
+                  autoFocus
+                />
+              </label>
+            ) : null}
+            {drawer === 'convert' ? (
+              <>
+                <label className="block">
+                  <span className="mb-1 block text-[12px] font-semibold text-slate-500">Plot</span>
+                  <select
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                    value={plotId}
+                    onChange={(event) => setPlotId(event.target.value)}
+                    required
+                    autoFocus
+                  >
+                    <option value="">Select plot</option>
+                    {project.plots.map((plot) => (
+                      <option key={plot.id} value={plot.id}>
+                        {plot.plotNumber}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[12px] font-semibold text-slate-500">Property name</span>
+                  <input
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                    value={propertyName}
+                    onChange={(event) => setPropertyName(event.target.value)}
+                    placeholder="Villa 01"
+                    required
+                  />
+                </label>
+              </>
+            ) : null}
+          </form>
+        </WorkspaceFormDrawer>
+      ) : null}
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="font-semibold text-slate-900">Blocks</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {project.blocks.map((block) => (
+              <li key={block.id} className="flex justify-between">
+                <span>
+                  {block.code} — {block.name}
+                </span>
+              </li>
+            ))}
+            {!project.blocks.length ? <li className="text-slate-500">No blocks yet.</li> : null}
+          </ul>
+        </section>
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="font-semibold text-slate-900">Plots</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {project.plots.map((plot) => (
+              <li key={plot.id} className="flex justify-between">
+                <span>{plot.plotNumber}</span>
+                <StatusBadge value={plot.status} />
+              </li>
+            ))}
+            {!project.plots.length ? <li className="text-slate-500">No plots yet.</li> : null}
+          </ul>
+        </section>
+      </div>
+
       {project.outputAssets.length ? (
-        <div className="mt-6">
-          <h2 className="font-semibold">Output properties</h2>
-          <ul className="mt-2 text-sm">
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="font-semibold text-slate-900">Output properties</h2>
+          <ul className="mt-3 space-y-2 text-sm">
             {project.outputAssets.map((asset) => (
               <li key={asset.id}>
                 {asset.property?.propertyCode} — {asset.property?.name}

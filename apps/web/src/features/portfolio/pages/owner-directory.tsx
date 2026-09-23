@@ -4,16 +4,18 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 import { DetailTabs } from '@/components/shared/detail-tabs';
 import { OWNER_DETAIL_TABS } from '../portfolio-ia';
 
-import { Building2, Edit3, Eye, MoreHorizontal, Plus, Search, X } from 'lucide-react';
+import { Building2, Plus, Search, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import type { PartyRecord } from './party-directory';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { StatusBadge } from '@/components/shared/ui';
 import { OwnerPropertyPortfolio } from '../ownership-workflow';
 import { EntityDocuments } from '../entity-documents';
 import type { PropertyOwnershipRecord } from '../ownership-model';
-import { api, type CursorPage } from '@/lib/phase3-api';
+import type { Principal } from '@/lib/phase3-api';
+import { AddOwnerDrawer } from '../add-owner-drawer';
 
 export type OwnerRecord = {
   partyId: string;
@@ -40,10 +42,25 @@ export type OwnerRecord = {
   })[];
 };
 
-type Panel = 'create' | 'view' | 'edit' | null;
+type Panel = 'view' | 'edit' | null;
 export type OwnerDetailTab = (typeof OWNER_DETAIL_TABS)[number]['key'];
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
+  'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#215E61] focus:ring-2 focus:ring-[#215E61]/15';
+
+function splitDisplayName(name: string): { givenName: string; familyName: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { givenName: '', familyName: '' };
+  if (parts.length === 1) return { givenName: parts[0]!, familyName: parts[0]! };
+  return { givenName: parts[0]!, familyName: parts.slice(1).join(' ') };
+}
+
+function primaryContact(
+  contacts: PartyRecord['contacts'] | undefined,
+  type: 'PHONE' | 'EMAIL',
+): string {
+  const match = contacts?.find((contact) => contact.type === type && contact.value);
+  return match?.value?.trim() ?? '';
+}
 const value = (form: FormData, key: string) => {
   const entry = form.get(key);
   return typeof entry === 'string' ? entry.trim() : '';
@@ -62,7 +79,7 @@ function Drawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/40"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -73,22 +90,24 @@ function Drawer({
         aria-label="Close panel"
         onClick={onClose}
       />
-      <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl scroll-smooth">
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
+      <aside className="relative flex max-h-[min(90vh,820px)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
           <div>
-            <h2 className="text-lg font-bold">{title}</h2>
+            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
             <p className="mt-1 text-sm text-slate-500">{description}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 p-2 text-slate-500"
+            className="rounded-md border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </header>
-        <div className="p-6">{children}</div>
+        <div className="form-panel-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+          {children}
+        </div>
       </aside>
     </div>
   );
@@ -96,42 +115,50 @@ function Drawer({
 
 export function OwnerDirectory({
   records,
-  parties,
+  principal,
   businessDate,
   busy,
-  canCreate,
+  canCreateOwner,
   canUpdate,
   canReadDocuments,
   canManageDocuments,
-  onCreate,
+  onOwnerCreated,
   onUpdate,
   onLoadDetails,
   onQueryChange,
   initialDetailTab = 'overview',
+  initialCreateOpen = false,
+  onCreateClose,
 }: {
   records: OwnerRecord[];
-  parties: PartyRecord[];
+  principal: Principal;
   businessDate: string;
   busy: boolean;
-  canCreate: (party: PartyRecord) => boolean;
+  canCreateOwner: boolean;
   canUpdate: (record: OwnerRecord) => boolean;
   canReadDocuments: (record: OwnerRecord) => boolean;
   canManageDocuments: (record: OwnerRecord) => boolean;
-  onCreate: (input: Record<string, unknown>) => Promise<void>;
+  onOwnerCreated: () => Promise<void> | void;
   onUpdate: (partyId: string, input: Record<string, unknown>) => Promise<void>;
   onLoadDetails: (partyId: string) => Promise<OwnerRecord>;
   onQueryChange?: (filters: Record<string, string>) => void;
   initialDetailTab?: OwnerDetailTab;
+  initialCreateOpen?: boolean;
+  onCreateClose?: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [panel, setPanel] = useState<Panel>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [selected, setSelected] = useState<OwnerRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<OwnerDetailTab>(initialDetailTab);
   useEffect(() => {
     setDetailTab(initialDetailTab);
   }, [initialDetailTab]);
+  useEffect(() => {
+    if (initialCreateOpen && canCreateOwner) setCreateOpen(true);
+  }, [initialCreateOpen, canCreateOwner]);
   useEffect(() => {
     const timer = window.setTimeout(
       () =>
@@ -145,26 +172,6 @@ export function OwnerDirectory({
   }, [onQueryChange, query, status]);
 
   const filtered = records;
-  const [partyOptions, setPartyOptions] = useState(parties);
-  const [partyLookupLoading, setPartyLookupLoading] = useState(false);
-  useEffect(() => setPartyOptions(parties), [parties]);
-  const searchParties = (search: string) => {
-    setPartyLookupLoading(true);
-    const parameters = new URLSearchParams({ limit: '20', active: 'true' });
-    if (search.trim()) parameters.set('search', search.trim());
-    void api<CursorPage<PartyRecord>>('/parties?' + parameters.toString())
-      .then((page) => setPartyOptions(page.items))
-      .catch(() => setPartyOptions([]))
-      .finally(() => setPartyLookupLoading(false));
-  };
-  const eligibleParties = partyOptions.filter(
-    (party) =>
-      party.active && canCreate(party) && !records.some((owner) => owner.partyId === party.id),
-  );
-  const open = (next: Exclude<Panel, null>, record?: OwnerRecord) => {
-    setSelected(record ?? null);
-    setPanel(next);
-  };
   const openView = async (record: OwnerRecord) => {
     setSelected(record);
     setDetailTab(initialDetailTab);
@@ -176,10 +183,27 @@ export function OwnerDirectory({
       setDetailLoading(false);
     }
   };
+  const openEdit = async (record: OwnerRecord) => {
+    setSelected(record);
+    setPanel('edit');
+    setDetailLoading(true);
+    try {
+      setSelected(await onLoadDetails(record.partyId));
+    } catch {
+      setPanel(null);
+      setSelected(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
   const close = () => {
     setPanel(null);
     setDetailTab(initialDetailTab);
     setSelected(null);
+  };
+  const closeCreate = () => {
+    setCreateOpen(false);
+    onCreateClose?.();
   };
   return (
     <div className="space-y-6">
@@ -193,10 +217,10 @@ export function OwnerDirectory({
             Owner profiles connected to readable people and organization records.
           </p>
         </div>
-        {eligibleParties.length ? (
+        {canCreateOwner ? (
           <button
             type="button"
-            onClick={() => open('create')}
+            onClick={() => setCreateOpen(true)}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0D47A1]"
           >
             <Plus className="h-4 w-4" /> Add owner
@@ -288,29 +312,16 @@ export function OwnerDirectory({
                     <StatusBadge value={owner.status} />
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <details className="relative inline-block">
-                      <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:text-[#0D47A1]">
-                        <MoreHorizontal className="h-5 w-5" />
-                      </summary>
-                      <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                        <button
-                          type="button"
-                          onClick={() => void openView(owner)}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                        >
-                          <Eye className="h-4 w-4" /> View owner
-                        </button>
-                        {canUpdate(owner) ? (
-                          <button
-                            type="button"
-                            onClick={() => open('edit', owner)}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                          >
-                            <Edit3 className="h-4 w-4" /> Edit owner
-                          </button>
-                        ) : null}
-                      </div>
-                    </details>
+                    <TableActionGroup>
+                      <TableActionButton tone="view" onClick={() => void openView(owner)}>
+                        View
+                      </TableActionButton>
+                      {canUpdate(owner) ? (
+                        <TableActionButton tone="edit" onClick={() => void openEdit(owner)}>
+                          Edit
+                        </TableActionButton>
+                      ) : null}
+                    </TableActionGroup>
                   </td>
                 </tr>
               ))}
@@ -321,80 +332,15 @@ export function OwnerDirectory({
           <div className="p-10 text-center text-sm text-slate-500">No matching owners.</div>
         ) : null}
       </section>
-      {panel === 'create' ? (
-        <Drawer
-          title="Add owner"
-          description="Choose a person or organization by name. The owner number is generated automatically."
-          onClose={close}
-        >
-          <form
-            className="space-y-5"
-            onSubmit={(event: FormEvent<HTMLFormElement>) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              void onCreate({
-                partyId: value(form, 'partyId'),
-                status: value(form, 'status'),
-                communicationPreference: value(form, 'communicationPreference') || undefined,
-              })
-                .then(close)
-                .catch(() => undefined);
-            }}
-          >
-            <label className="space-y-1.5 text-sm font-semibold">
-              Person or organization
-              <SearchableSelect
-                searchable
-                searchThreshold={0}
-                loading={partyLookupLoading}
-                onSearchChange={searchParties}
-                name="partyId"
-                required
-                className={inputClass}
-                searchPlaceholder="Search person or organization..."
-              >
-                <option value="">Choose by name</option>
-                {eligibleParties.map((party) => (
-                  <option key={party.id} value={party.id}>
-                    {party.displayName} — {party.partyNumber} ({humanize(party.kind)})
-                  </option>
-                ))}
-              </SearchableSelect>
-              <span className="block text-xs font-normal text-slate-500">
-                Only active records without an existing owner profile are shown.
-              </span>
-            </label>
-            <label className="space-y-1.5 text-sm font-semibold">
-              Status
-              <SearchableSelect searchable={false} name="status" className={inputClass}>
-                <option value="PROSPECTIVE">Prospective</option>
-                <option value="ACTIVE">Active</option>
-              </SearchableSelect>
-            </label>
-            <label className="space-y-1.5 text-sm font-semibold">
-              Preferred communication
-              <SearchableSelect name="communicationPreference" className={inputClass}>
-                <option value="">Not specified</option>
-                <option value="PHONE">Phone</option>
-                <option value="EMAIL">Email</option>
-                <option value="WHATSAPP">WhatsApp</option>
-              </SearchableSelect>
-            </label>
-            <button
-              disabled={busy || !eligibleParties.length}
-              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
-            >
-              {busy ? 'Saving…' : 'Create owner profile'}
-            </button>
-            {!eligibleParties.length ? (
-              <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-                Create an active person or organization first, or all available records already have
-                owner profiles.
-              </p>
-            ) : null}
-          </form>
-        </Drawer>
-      ) : null}
+      <AddOwnerDrawer
+        open={createOpen}
+        principal={principal}
+        onClose={closeCreate}
+        onCreated={() => {
+          closeCreate();
+          void onOwnerCreated();
+        }}
+      />
       {panel === 'view' && selected ? (
         <Drawer
           title={selected.party.displayName}
@@ -503,15 +449,61 @@ export function OwnerDirectory({
       {panel === 'edit' && selected ? (
         <Drawer
           title="Edit owner"
-          description="Update owner status and communication preferences without losing history."
+          description="Update the owner name, contacts, status, and preferences."
           onClose={close}
         >
+          {detailLoading ? (
+            <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">
+              Loading owner details…
+            </p>
+          ) : (
           <form
-            className="space-y-5"
+            key={selected.partyId + ':' + (selected.party.displayName ?? '')}
+            className="space-y-4"
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
+              const displayName = value(form, 'displayName');
+              const phone = value(form, 'phone');
+              const email = value(form, 'email');
+              const names = splitDisplayName(displayName);
+              const existingContacts = selected.party.contacts ?? [];
+              const contactsMasked = existingContacts.some((contact) => contact.masked);
+              const preserved = existingContacts
+                .filter((contact) => contact.type !== 'PHONE' && contact.type !== 'EMAIL')
+                .filter((contact) => contact.value?.trim())
+                .map((contact) => ({
+                  type: contact.type,
+                  value: contact.value!.trim(),
+                  primary: contact.primary,
+                }));
+              const contacts = [
+                ...preserved,
+                ...(phone ? [{ type: 'PHONE' as const, value: phone, primary: true }] : []),
+                ...(email
+                  ? [{ type: 'EMAIL' as const, value: email, primary: !phone }]
+                  : []),
+              ];
               void onUpdate(selected.partyId, {
+                displayName,
+                ...(selected.party.kind === 'PERSON'
+                  ? {
+                      person: {
+                        givenName: names.givenName || displayName,
+                        familyName: names.familyName || displayName,
+                      },
+                    }
+                  : {
+                      organization: {
+                        legalName: displayName,
+                        tradingName: displayName,
+                      },
+                    }),
+                ...(!contactsMasked && (phone || email || preserved.length)
+                  ? { contacts }
+                  : !contactsMasked && existingContacts.length
+                    ? { contacts: preserved }
+                    : {}),
                 status: value(form, 'status'),
                 communicationPreference: value(form, 'communicationPreference') || undefined,
                 notes: value(form, 'notes') || undefined,
@@ -520,11 +512,47 @@ export function OwnerDirectory({
                 .catch(() => undefined);
             }}
           >
-            <div className="rounded-xl bg-slate-50 p-4">
-              <strong>{selected.party.displayName}</strong>
-              <p className="text-xs text-slate-500">{selected.ownerNumber}</p>
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+              Owner number
+              <input
+                value={selected.ownerNumber}
+                disabled
+                className={inputClass + ' bg-slate-50 text-slate-500'}
+              />
+            </label>
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+              Display name
+              <input
+                name="displayName"
+                required
+                minLength={2}
+                defaultValue={selected.party.displayName}
+                className={inputClass}
+                autoFocus
+              />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Phone
+                <input
+                  name="phone"
+                  defaultValue={primaryContact(selected.party.contacts, 'PHONE')}
+                  className={inputClass}
+                  placeholder="+25261..."
+                />
+              </label>
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  defaultValue={primaryContact(selected.party.contacts, 'EMAIL')}
+                  className={inputClass}
+                  placeholder="name@example.com"
+                />
+              </label>
             </div>
-            <label className="space-y-1.5 text-sm font-semibold">
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Status
               <SearchableSelect
                 searchable={false}
@@ -539,7 +567,7 @@ export function OwnerDirectory({
                 ))}
               </SearchableSelect>
             </label>
-            <label className="space-y-1.5 text-sm font-semibold">
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Preferred communication
               <SearchableSelect
                 name="communicationPreference"
@@ -552,22 +580,24 @@ export function OwnerDirectory({
                 <option value="WHATSAPP">WhatsApp</option>
               </SearchableSelect>
             </label>
-            <label className="space-y-1.5 text-sm font-semibold">
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Notes
               <textarea
                 name="notes"
                 defaultValue={selected.notes ?? ''}
-                rows={4}
+                rows={3}
                 className={inputClass}
               />
             </label>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
+              className="button primary w-full"
+              type="submit"
             >
               {busy ? 'Saving…' : 'Save owner'}
             </button>
           </form>
+          )}
         </Drawer>
       ) : null}
     </div>

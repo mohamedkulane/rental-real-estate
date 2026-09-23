@@ -1,5 +1,5 @@
-import { PaymentCreateWorkspace } from '@/features/finance/finance-payment-workspace';
+import { redirect } from 'next/navigation';
 
 export default function PaymentCreatePage() {
-  return <PaymentCreateWorkspace />;
+  redirect('/finance/payments?create=1');
 }

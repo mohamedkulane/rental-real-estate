@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Building2, Edit3, MoreHorizontal, Plus, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DetailTabs } from '@/components/shared/detail-tabs';
+import { TableActionButton } from '@/components/shared/data-table';
 import { CursorPaginationControls } from '@/components/shared/pagination';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import {
@@ -401,12 +402,12 @@ export function BuildingDetailWorkspace() {
                             <StatusBadge value={space.status} />
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <a
-                              className="font-bold text-[#0D47A1] hover:underline"
+                            <TableActionButton
+                              tone="open"
                               href={'/portfolio/rentable-spaces/' + space.id}
                             >
                               Open Space
-                            </a>
+                            </TableActionButton>
                           </td>
                         </tr>
                       ))}

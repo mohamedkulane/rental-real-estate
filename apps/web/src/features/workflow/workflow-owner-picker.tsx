@@ -112,7 +112,7 @@ export function WorkflowOwnerPicker({
       <div className="guided-workflow__info-banner">
         <strong>Can&apos;t find the owner?</strong>
         <p>Register the owner in the portfolio workspace first, then return to this workflow.</p>
-        <Link href="/portfolio/owners">Go to Owners</Link>
+        <Link href="/portfolio?section=owners">Go to Owners</Link>
       </div>
     </div>
   );

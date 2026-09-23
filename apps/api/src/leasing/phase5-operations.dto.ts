@@ -71,6 +71,7 @@ export class CreateViewingDto {
   @IsUUID() leadId!: string;
   @IsOptional() @IsUUID() rentalListingId?: string;
   @IsOptional() @IsUUID() saleListingId?: string;
+  @IsOptional() @IsUUID() rentableSpaceId?: string;
   @IsUUID() assignedEmployeeId!: string;
   @IsDateString() scheduledAt!: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;

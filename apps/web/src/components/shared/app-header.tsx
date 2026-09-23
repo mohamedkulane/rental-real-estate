@@ -5,7 +5,6 @@ import {
   Bell,
   Building2,
   ChevronDown,
-  Landmark,
   LogOut,
   Plus,
   Search,
@@ -225,15 +224,6 @@ export function AppHeader({
       <header className="app-header sticky top-0 z-30 border-b border-slate-200 bg-white">
         <div className="app-header-inner">
           <div className="app-header-left">
-            <div className="app-header-brand hidden xl:flex" aria-hidden="true">
-              <span className="app-header-brand-mark">
-                <Landmark className="h-4 w-4" />
-              </span>
-              <span className="app-header-brand-copy">
-                <strong>Horizon</strong>
-                <span>Real Estate</span>
-              </span>
-            </div>
             {canSearch ? (
               <div className="relative" ref={searchPanelRef}>
                 <label className="app-header-search">

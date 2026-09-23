@@ -5,18 +5,17 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 import type { FormEvent, ReactNode } from 'react';
 import {
   ChevronRight,
-  Edit3,
   KeyRound,
-  MoreHorizontal,
   Plus,
   Search,
-  ShieldCheck,
   Trash2,
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { humanize, permissionDomain, permissionLabel } from '@/lib/presentation';
+import { groupBy } from '@/lib/group-by';
 import { userFacingError } from '@/lib/phase3-api';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 
@@ -107,6 +106,16 @@ export function RoleManager({
   onGrant: (id: string, permissionId: string) => Promise<void>;
   onRevoke: (id: string, permissionId: string, reason: string) => Promise<void>;
 }) {
+  const normalizedRecords = useMemo(
+    () =>
+      records.map((role) => ({
+        ...role,
+        permissions: (role.permissions ?? []).filter(
+          (item) => item?.permission?.code,
+        ) as RoleRecord['permissions'],
+      })),
+    [records],
+  );
   const [query, setQuery] = useState('');
   const [panel, setPanel] = useState<
     'create' | 'edit' | 'status' | 'permissions' | 'revoke' | null
@@ -116,14 +125,14 @@ export function RoleManager({
   const [formError, setFormError] = useState('');
   const filtered = useMemo(
     () =>
-      records.filter(
+      normalizedRecords.filter(
         (role) =>
           !query.trim() ||
           [role.name, role.code, ...role.permissions.map((item) => item.permission.code)].some(
             (item) => item.toLowerCase().includes(query.trim().toLowerCase()),
           ),
       ),
-    [query, records],
+    [normalizedRecords, query],
   );
   const pagination = usePagination(filtered);
   const close = () => {
@@ -221,52 +230,39 @@ export function RoleManager({
                     <StatusBadge value={role.active} />
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <details className="relative inline-block">
-                      <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:text-[#0D47A1]">
-                        <MoreHorizontal className="h-5 w-5" />
-                      </summary>
-                      <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                        <button
-                          type="button"
+                    <TableActionGroup>
+                      <TableActionButton
+                        tone="manage"
+                        onClick={() => {
+                          setSelected(role);
+                          setPanel('permissions');
+                        }}
+                      >
+                        Capabilities
+                      </TableActionButton>
+                      {canManage ? (
+                        <TableActionButton
+                          tone="edit"
                           onClick={() => {
                             setSelected(role);
-                            setPanel('permissions');
+                            setPanel('edit');
                           }}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
                         >
-                          <ShieldCheck className="h-4 w-4" /> Manage capabilities
-                        </button>
-                        {canManage ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelected(role);
-                              setPanel('edit');
-                            }}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                          >
-                            <Edit3 className="h-4 w-4" /> Rename role
-                          </button>
-                        ) : null}
-                        {canManage ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelected(role);
-                              setPanel('status');
-                            }}
-                            className={
-                              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ' +
-                              (role.active
-                                ? 'text-red-700 hover:bg-red-50'
-                                : 'text-[#0D47A1] hover:bg-[#E3F2FD]')
-                            }
-                          >
-                            {role.active ? 'Deactivate role' : 'Activate role'}
-                          </button>
-                        ) : null}
-                      </div>
-                    </details>
+                          Rename
+                        </TableActionButton>
+                      ) : null}
+                      {canManage ? (
+                        <TableActionButton
+                          tone={role.active ? 'danger' : 'create'}
+                          onClick={() => {
+                            setSelected(role);
+                            setPanel('status');
+                          }}
+                        >
+                          {role.active ? 'Deactivate' : 'Activate'}
+                        </TableActionButton>
+                      ) : null}
+                    </TableActionGroup>
                   </td>
                 </tr>
               ))}
@@ -449,9 +445,7 @@ export function RoleManager({
             ) : null}
             <div className="space-y-4">
               {Object.entries(
-                Object.groupBy(selected.permissions, (item) =>
-                  permissionDomain(item.permission.code),
-                ),
+                groupBy(selected.permissions, (item) => permissionDomain(item.permission.code)),
               ).map(([domain, items]) => (
                 <section key={domain}>
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">

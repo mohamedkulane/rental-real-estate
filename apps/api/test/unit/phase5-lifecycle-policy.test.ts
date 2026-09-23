@@ -15,10 +15,14 @@ describe('Phase 5 lifecycle policies', () => {
     expect(applicationTransitions[ApplicationStatus.UNDER_REVIEW]).toContain(ApplicationStatus.APPROVED);
   });
 
-  it('does not skip approval or signature in the Lease lifecycle', () => {
+  it('approves a lease straight into Active without Signed steps', () => {
     expect(leaseTransitions[LeaseStatus.DRAFT]).toEqual([LeaseStatus.PENDING_APPROVAL]);
-    expect(leaseTransitions[LeaseStatus.APPROVED]).toEqual([LeaseStatus.PENDING_SIGNATURE]);
-    expect(leaseTransitions[LeaseStatus.SIGNED]).toContain(LeaseStatus.ACTIVE);
+    expect(leaseTransitions[LeaseStatus.PENDING_APPROVAL]).toContain(LeaseStatus.ACTIVE);
+    expect(leaseTransitions[LeaseStatus.PENDING_APPROVAL]).not.toContain(LeaseStatus.APPROVED);
+    expect(leaseTransitions[LeaseStatus.ACTIVE]).toEqual([
+      LeaseStatus.ENDED,
+      LeaseStatus.TERMINATED,
+    ]);
   });
 
   it('creates a successor only after a signed Renewal', () => {

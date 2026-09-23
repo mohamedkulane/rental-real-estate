@@ -2,8 +2,9 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Edit3, Plus } from 'lucide-react';
+import { Building2, Plus } from 'lucide-react';
 import { DetailTabs } from '@/components/shared/detail-tabs';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import { api, apiCached, pageItems, userFacingError, type CursorPage } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
@@ -14,11 +15,152 @@ import type { BranchOption, PropertyDetailTab, PropertyRecord } from './pages/pr
 import { OwnershipEditor, OwnershipWorkspace } from './ownership-workflow';
 import type { OwnerOption, ReplaceOwnershipInput } from './ownership-model';
 import { PortfolioDetailShell, usePortfolioPrincipal } from './detail-shell';
+import { AddUnitDrawer } from './add-unit-drawer';
+import { useCreateDrawerState } from '@/components/shared/use-create-drawer-state';
 
 const formValue = (form: FormData, key: string) => {
   const value = form.get(key);
   return typeof value === 'string' ? value.trim() : '';
 };
+
+type SpaceNode = NonNullable<PropertyRecord['spaces']>[number];
+
+function spaceAskingRent(space: SpaceNode): string | null {
+  const listingRent = space.rentalListings?.[0]?.askingRent;
+  if (listingRent != null && listingRent !== '') return String(listingRent);
+  const attrs = space.versions?.[0]?.attributes;
+  const asking = attrs && typeof attrs === 'object' ? attrs.askingRent : null;
+  return asking != null && asking !== '' ? String(asking) : null;
+}
+
+function spaceCurrency(space: SpaceNode): string {
+  return space.rentalListings?.[0]?.currency ?? 'USD';
+}
+
+function isRented(space: SpaceNode): boolean {
+  return Boolean(space.leases?.length);
+}
+
+function UnitsHierarchyPanel({
+  spaces,
+  onAddUnit,
+  canAdd,
+}: {
+  spaces: SpaceNode[];
+  onAddUnit: () => void;
+  canAdd: boolean;
+}) {
+  const roots = spaces.filter((space) => {
+    const activeParent = (space.childRelations ?? []).find((relation) => !relation.effectiveTo);
+    return !activeParent?.parent?.id;
+  });
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+        <div>
+          <h2 className="font-bold text-slate-950">Units</h2>
+          <p className="text-sm text-slate-500">Rental units under this property.</p>
+        </div>
+        {canAdd ? (
+          <button
+            type="button"
+            onClick={onAddUnit}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#215E61] px-4 text-sm font-bold text-white hover:bg-[#1a4c4f]"
+          >
+            <Plus className="h-4 w-4" /> Add Unit
+          </button>
+        ) : null}
+      </div>
+      {roots.length ? (
+        <div className="divide-y divide-slate-100">
+          {roots.map((space) => {
+            const rooms = (space.parentRelations ?? [])
+              .filter((relation) => !relation.effectiveTo && relation.child)
+              .map((relation) => relation.child!)
+              .map((child) => spaces.find((item) => item.id === child.id) ?? child);
+            const rentedRooms = rooms.filter((room) => isRented(room as SpaceNode)).length;
+            const rent = spaceAskingRent(space);
+            const rented = isRented(space);
+            return (
+              <div key={space.id} className="p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{space.name}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {rooms.length
+                        ? `${rooms.length} rooms · ${rentedRooms} rented / ${rooms.length - rentedRooms} available`
+                        : rented
+                          ? 'Rented'
+                          : 'Available'}
+                      {rent ? ` · ${spaceCurrency(space)} ${rent}/month` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge value={rented ? 'RENTED' : space.status} />
+                    <TableActionButton
+                      tone="open"
+                      href={'/portfolio/rentable-spaces/' + space.id}
+                    >
+                      Open Unit
+                    </TableActionButton>
+                  </div>
+                </div>
+                {rooms.length ? (
+                  <ul className="mt-3 space-y-2 border-l-2 border-slate-200 pl-4">
+                    {rooms.map((room) => {
+                      const roomNode = room as SpaceNode;
+                      const roomRent = spaceAskingRent(roomNode);
+                      const roomRented = isRented(roomNode);
+                      return (
+                        <li
+                          key={roomNode.id}
+                          className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                        >
+                          <div>
+                            <span className="font-medium text-slate-800">{roomNode.name}</span>
+                            <span className="ml-2 text-slate-500">
+                              {roomRented ? 'Rented' : 'Available'}
+                              {roomRent ? ` · ${spaceCurrency(roomNode)} ${roomRent}/month` : ''}
+                            </span>
+                          </div>
+                          <TableActionButton
+                            tone="open"
+                            href={'/portfolio/rentable-spaces/' + roomNode.id}
+                          >
+                            Open
+                          </TableActionButton>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-5">
+          <EmptyState
+            title="No units have been added to this property."
+            description="Add a unit so this property can be rented."
+            action={
+              canAdd ? (
+                <button
+                  type="button"
+                  onClick={onAddUnit}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#215E61] px-4 text-sm font-bold text-white"
+                >
+                  <Plus className="h-4 w-4" /> Add Unit
+                </button>
+              ) : undefined
+            }
+          />
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function PropertyDetailWorkspace() {
   const params = useParams<{ propertyId: string }>();
@@ -142,11 +284,13 @@ export function PropertyDetailWorkspace() {
   const createSpaceHref = record
     ? '/portfolio?section=spaces&view=overview&create=1&propertyId=' + encodeURIComponent(record.id)
     : '#';
+  const { createOpen, openCreate, closeCreate } = useCreateDrawerState('addUnit');
+  const canAddUnit = Boolean(principal?.permissions.includes('portfolio.space.create'));
 
   return (
     <PortfolioDetailShell
       principal={principal}
-      activeItem="properties:overview"
+      activeItem="properties"
       breadcrumbs={['Portfolio', 'Properties', record?.name ?? 'Property']}
     >
       {sessionError ? <ErrorState message={sessionError} /> : null}
@@ -154,31 +298,38 @@ export function PropertyDetailWorkspace() {
       {!loading && error && !record ? <ErrorState message={error} /> : null}
       {record && principal ? (
         <div className="space-y-5">
-          <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <header className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#E3F2FD] text-[#0D47A1]">
-                  <Building2 className="h-6 w-6" />
+              <div className="flex min-w-0 items-start gap-4">
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-[#E8F3F3] text-[#215E61]">
+                  <Building2 className="h-7 w-7" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#215E61]">
                     {record.propertyCode}
                   </p>
-                  <h1 className="truncate text-2xl font-bold text-slate-950">{record.name}</h1>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {humanize(record.propertyType)} ·{' '}
-                    {currentBranch?.branch?.name ?? 'No current operating branch'}
+                  <h1 className="mt-1 text-[28px] font-bold leading-tight text-[#1D2128]">
+                    {record.name}
+                  </h1>
+                  <p className="mt-2 text-[15px] font-medium text-slate-600">
+                    {humanize(record.propertyType)}
+                    {' · '}
+                    {[record.city, record.district].filter(Boolean).join(', ') || 'Location not set'}
+                    {' · '}
+                    {currentBranch?.branch?.name ?? 'Company-wide'}
                   </p>
+                  {currentOwners[0]?.owner?.displayName ? (
+                    <p className="mt-1 text-sm text-slate-500">
+                      Owner:{' '}
+                      <span className="font-semibold text-[#1D2128]">
+                        {currentOwners[0].owner.displayName}
+                      </span>
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge value={record.status} />
-                <a
-                  href={'/portfolio?section=properties&edit=' + record.id}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700"
-                >
-                  <Edit3 className="h-4 w-4" /> Edit Property
-                </a>
               </div>
             </div>
           </header>
@@ -196,26 +347,131 @@ export function PropertyDetailWorkspace() {
           />
 
           {tab === 'overview' ? (
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {[
-                  ['Property type', humanize(record.propertyType)],
-                  ['Operating branch', currentBranch?.branch?.name ?? 'Not assigned'],
-                  ['Buildings', String(record.buildings?.length ?? 0)],
-                  ['Rentable Spaces', String(record.spaces?.length ?? 0)],
-                  ['Current Owners', String(currentOwners.length)],
-                  ['City', record.city],
-                  ['District', record.district ?? 'Not recorded'],
-                  ['Address', record.addressLine1 ?? 'Not recorded'],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-slate-200 p-4">
-                    <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                      {label}
-                    </dt>
-                    <dd className="mt-1 text-sm font-semibold text-slate-900">{value}</dd>
+            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
+              <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <h2 className="text-[18px] font-semibold text-[#1D2128]">Property details</h2>
+                <dl className="mt-4 divide-y divide-slate-100">
+                  {[
+                    ['Property type', humanize(record.propertyType)],
+                    ['Status', humanize(record.status)],
+                    ['Operating branch', currentBranch?.branch?.name ?? 'Company-wide'],
+                    ['City', record.city || '—'],
+                    ['District', record.district || 'Not recorded'],
+                    ['Neighborhood', record.neighborhood || 'Not recorded'],
+                    ['Address', record.addressLine1 || 'Not recorded'],
+                    ['Landmark', record.landmark || 'Not recorded'],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="grid gap-1 py-3 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-baseline sm:gap-4"
+                    >
+                      <dt className="text-[13px] font-semibold text-slate-500">{label}</dt>
+                      <dd className="text-[15px] font-semibold text-[#1D2128]">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {record.description ? (
+                  <div className="mt-4 rounded-lg border border-slate-100 bg-[#F4F2F2] p-4">
+                    <p className="text-[13px] font-semibold text-slate-500">Description</p>
+                    <p className="mt-2 whitespace-pre-wrap text-[14px] leading-relaxed text-[#1D2128]">
+                      {record.description}
+                    </p>
                   </div>
-                ))}
-              </dl>
+                ) : null}
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="text-[18px] font-semibold text-[#1D2128]">At a glance</h2>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    {[
+                      ['Units', String(record.spaces?.length ?? 0)],
+                      ['Owners', String(currentOwners.length)],
+                      ['Buildings', String(record.buildings?.length ?? 0)],
+                      ['City', record.city || '—'],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-lg border border-slate-200 bg-[#F4F2F2] p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                          {label}
+                        </p>
+                        <p className="mt-1 text-[22px] font-bold leading-none text-[#215E61]">
+                          {value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-[18px] font-semibold text-[#1D2128]">Owner</h2>
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[#215E61] hover:underline"
+                      onClick={() => {
+                        setTab('ownership');
+                        router.replace('/portfolio/properties/' + record.id + '?tab=ownership', {
+                          scroll: false,
+                        });
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                  {currentOwners.length ? (
+                    <ul className="mt-3 space-y-2">
+                      {currentOwners.map((ownership) => (
+                        <li
+                          key={ownership.id}
+                          className="rounded-lg border border-slate-100 px-3 py-2 text-sm font-semibold text-[#1D2128]"
+                        >
+                          {ownership.owner?.displayName ?? 'Owner'}
+                          {ownership.ownershipPercent ? (
+                            <span className="ml-2 font-medium text-slate-500">
+                              {ownership.ownershipPercent}%
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">No current owner on record.</p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-[18px] font-semibold text-[#1D2128]">Units</h2>
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[#215E61] hover:underline"
+                      onClick={() => {
+                        setTab('spaces');
+                        router.replace('/portfolio/properties/' + record.id + '?tab=spaces', {
+                          scroll: false,
+                        });
+                      }}
+                    >
+                      View all
+                    </button>
+                  </div>
+                  {record.spaces?.length ? (
+                    <ul className="mt-3 space-y-2">
+                      {record.spaces.slice(0, 4).map((space) => (
+                        <li
+                          key={space.id}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm"
+                        >
+                          <span className="font-semibold text-[#1D2128]">{space.name}</span>
+                          <StatusBadge value={space.status} />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">No rental units yet.</p>
+                  )}
+                </div>
+              </div>
             </section>
           ) : null}
 
@@ -266,20 +522,17 @@ export function PropertyDetailWorkspace() {
                               {spaceCount || 'None created'}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-3">
-                                <a
-                                  className="font-bold text-[#0D47A1] hover:underline"
+                              <TableActionGroup>
+                                <TableActionButton
+                                  tone="open"
                                   href={'/portfolio/buildings/' + building.id}
                                 >
                                   Open Building
-                                </a>
-                                <a
-                                  className="font-bold text-[#0D47A1] hover:underline"
-                                  href={addHref}
-                                >
+                                </TableActionButton>
+                                <TableActionButton tone="create" href={addHref}>
                                   Add Rentable Space
-                                </a>
-                              </div>
+                                </TableActionButton>
+                              </TableActionGroup>
                             </td>
                           </tr>
                         );
@@ -299,78 +552,28 @@ export function PropertyDetailWorkspace() {
           ) : null}
 
           {tab === 'spaces' ? (
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
-                <div>
-                  <h2 className="font-bold text-slate-950">Rentable Spaces</h2>
-                  <p className="text-sm text-slate-500">
-                    All leasing and occupancy targets under this Property.
-                  </p>
-                </div>
-                <a
-                  href={createSpaceHref}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0D47A1] px-4 text-sm font-bold text-white"
-                >
-                  <Plus className="h-4 w-4" /> Add Rentable Space
-                </a>
-              </div>
-              {record.spaces?.length ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[820px] text-left text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Rentable Space</th>
-                        <th className="px-4 py-3">Code</th>
-                        <th className="px-4 py-3">Building</th>
-                        <th className="px-4 py-3">Type</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {record.spaces.map((space) => (
-                        <tr key={space.id} className="border-t border-slate-100">
-                          <td className="px-4 py-3 font-semibold text-slate-900">{space.name}</td>
-                          <td className="px-4 py-3 text-slate-600">{space.spaceCode}</td>
-                          <td className="px-4 py-3 text-slate-600">
-                            {space.building?.name ?? 'Property-level'}
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">
-                            {space.type?.name ?? 'Rentable Space'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <StatusBadge value={space.status} />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <a
-                              className="font-bold text-[#0D47A1] hover:underline"
-                              href={'/portfolio/rentable-spaces/' + space.id}
-                            >
-                              Open Space
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-5">
-                  <EmptyState
-                    title="No Rentable Spaces have been added to this Property."
-                    description="Create the first leasing or occupancy target."
-                    action={
-                      <a
-                        href={createSpaceHref}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0D47A1] px-4 text-sm font-bold text-white"
-                      >
-                        <Plus className="h-4 w-4" /> Add Rentable Space
-                      </a>
-                    }
-                  />
-                </div>
-              )}
-            </section>
+            <>
+              <UnitsHierarchyPanel
+                spaces={record.spaces ?? []}
+                canAdd={canAddUnit}
+                onAddUnit={openCreate}
+              />
+              {createOpen && principal ? (
+                <AddUnitDrawer
+                  open={createOpen}
+                  onClose={closeCreate}
+                  onCreated={() => void load()}
+                  principal={principal}
+                  propertyId={record.id}
+                  buildings={record.buildings ?? []}
+                  spaces={(record.spaces ?? []).map((space) => ({
+                    id: space.id,
+                    name: space.name,
+                    spaceCode: space.spaceCode,
+                  }))}
+                />
+              ) : null}
+            </>
           ) : null}
 
           {tab === 'ownership' ? (

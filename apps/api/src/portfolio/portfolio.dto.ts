@@ -142,6 +142,7 @@ export class ListOwnersQueryDto extends CursorPageQueryDto {
 
 export class ListPropertiesQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsUUID() ownerPartyId?: string;
   @IsOptional() @IsEnum(PropertyType) propertyType?: PropertyType;
   @IsOptional() @IsEnum(PropertyStatus) status?: PropertyStatus;
   @IsOptional() @IsIn(['NEWEST', 'NAME', 'CODE']) sort?: 'NEWEST' | 'NAME' | 'CODE';
@@ -270,6 +271,13 @@ export class CreateSpaceDto {
   @ValidateNested()
   @Type(() => CommercialProfileDto)
   commercial?: CommercialProfileDto;
+}
+
+/** Identity fields only. Measurements use POST /measurements; retirement uses POST /retire. */
+export class UpdateSpaceDto {
+  @IsOptional() @IsString() @Length(2, 160) name?: string;
+  @IsOptional() @IsString() @Length(1, 50) typeCode?: string;
+  @IsOptional() @IsUUID() buildingId?: string;
 }
 
 export class PartitionChildDto {

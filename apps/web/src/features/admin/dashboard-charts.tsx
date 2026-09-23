@@ -120,11 +120,11 @@ export function TrendChart({
           />
         );
       })}
-      <polygon points={area} fill="rgba(5, 150, 105, 0.16)" />
+      <polygon points={area} fill="rgba(33, 94, 97, 0.16)" />
       <polyline
         points={points.join(' ')}
         fill="none"
-        stroke="#059669"
+        stroke="#215E61"
         strokeWidth="3"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -132,7 +132,7 @@ export function TrendChart({
       <polyline
         points={occupancyPoints.join(' ')}
         fill="none"
-        stroke="#14b8a6"
+        stroke="#FF9E20"
         strokeWidth="2.5"
         strokeLinejoin="round"
         strokeLinecap="round"

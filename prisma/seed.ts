@@ -832,6 +832,8 @@ async function seed(): Promise<void> {
     ['PARKING', 'Parking'],
     ['CLEANING', 'Cleaning'],
     ['DAMAGE', 'Damage'],
+    ['OWNER_COMMISSION', 'Owner brokerage commission'],
+    ['TENANT_COMMISSION', 'Tenant brokerage commission'],
     ['OTHER', 'Other'],
     ['CONSTRUCTION', 'Construction contract billing'],
   ] as const;
@@ -844,6 +846,10 @@ async function seed(): Promise<void> {
   }
   const paymentMethods = [
     ['CASH', 'Cash'],
+    ['EVC', 'EVC'],
+    ['EDAHAB', 'E-Dahab'],
+    ['SOMNET', 'Somnet'],
+    ['SALAAM_BANK', 'Salaam Bank'],
     ['BANK_TRANSFER', 'Bank transfer'],
     ['MOBILE_MONEY', 'Mobile money'],
     ['CHEQUE', 'Cheque'],

@@ -7,17 +7,14 @@ import {
   BriefcaseBusiness,
   ChevronRight,
   Edit3,
-  MoreHorizontal,
   Plus,
   Search,
-  ShieldCheck,
-  UserRoundCheck,
-  UserRoundX,
   Users,
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 
@@ -367,66 +364,44 @@ export function EmployeeDirectory({
                         <StatusBadge value={employee.active} />
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <details className="relative inline-block">
-                          <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-[#0D47A1] hover:shadow-sm">
-                            <MoreHorizontal className="h-5 w-5" />
-                          </summary>
-                          <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                            <button
-                              type="button"
-                              onClick={() => void detail(employee)}
-                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
+                        <TableActionGroup>
+                          <TableActionButton tone="view" onClick={() => void detail(employee)}>
+                            View
+                          </TableActionButton>
+                          {canUpdate(employee) ? (
+                            <TableActionButton
+                              tone="edit"
+                              onClick={() => {
+                                setSelected(employee);
+                                setPanel('edit');
+                              }}
                             >
-                              <Users className="h-4 w-4" /> View employee
-                            </button>
-                            {canUpdate(employee) ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelected(employee);
-                                  setPanel('edit');
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                              >
-                                <Edit3 className="h-4 w-4" /> Edit employee
-                              </button>
-                            ) : null}
-                            {canManageRoles(employee) ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelected(employee);
-                                  setPanel('role');
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                              >
-                                <ShieldCheck className="h-4 w-4" /> Assign role
-                              </button>
-                            ) : null}
-                            {canUpdate(employee) ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelected(employee);
-                                  setPanel('status');
-                                }}
-                                className={
-                                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ' +
-                                  (employee.active
-                                    ? 'text-red-700 hover:bg-red-50'
-                                    : 'text-[#0D47A1] hover:bg-[#E3F2FD]')
-                                }
-                              >
-                                {employee.active ? (
-                                  <UserRoundX className="h-4 w-4" />
-                                ) : (
-                                  <UserRoundCheck className="h-4 w-4" />
-                                )}
-                                {employee.active ? 'Deactivate employee' : 'Activate employee'}
-                              </button>
-                            ) : null}
-                          </div>
-                        </details>
+                              Edit
+                            </TableActionButton>
+                          ) : null}
+                          {canManageRoles(employee) ? (
+                            <TableActionButton
+                              tone="manage"
+                              onClick={() => {
+                                setSelected(employee);
+                                setPanel('role');
+                              }}
+                            >
+                              Role
+                            </TableActionButton>
+                          ) : null}
+                          {canUpdate(employee) ? (
+                            <TableActionButton
+                              tone={employee.active ? 'danger' : 'create'}
+                              onClick={() => {
+                                setSelected(employee);
+                                setPanel('status');
+                              }}
+                            >
+                              {employee.active ? 'Deactivate' : 'Activate'}
+                            </TableActionButton>
+                          ) : null}
+                        </TableActionGroup>
                       </td>
                     </tr>
                   );

@@ -240,7 +240,7 @@ export function InvoiceDetailWorkspace() {
             <p className="mt-3 text-[13px] text-slate-600">
               Record a payment and allocate to the underlying charges from the payment workspace.
             </p>
-            <Link className="button primary mt-4 w-full" href="/finance/payments/new">
+            <Link className="button primary mt-4 w-full" href="/finance/payments?create=1">
               Record payment
             </Link>
           </aside>

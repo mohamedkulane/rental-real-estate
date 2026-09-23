@@ -12,6 +12,12 @@ import { AsyncSelect, can, crmError, formText, ReasonField, requestPath } from '
 import { PreferenceFields, preferenceValidation, readPreference } from './crm-preferences';
 import { leadIntents, type LeadDetail, type LeadIntent, type MutationAck } from './crm-types';
 
+function leadWorkspaceHref(intent: LeadIntent, leadId?: string) {
+  if (intent === 'RENT') return leadId ? `/rental/customers/${leadId}` : '/rental/customers';
+  if (leadId) return `/crm/leads/${leadId}`;
+  return `/crm/leads?intent=${intent}`;
+}
+
 function LeadEditor({ principal, lead }: { principal: Principal; lead?: LeadDetail }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,7 +47,9 @@ function LeadEditor({ principal, lead }: { principal: Principal; lead?: LeadDeta
       void client.invalidateQueries({ queryKey: ['crm'] });
       toast.success(lead ? 'Lead changes saved.' : 'Lead created.');
       router.push(
-        can(principal, 'crm.lead.read', branchId) ? `/crm/leads/${ack.id}` : '/crm/leads',
+        can(principal, 'crm.lead.read', branchId)
+          ? leadWorkspaceHref(intent, ack.id)
+          : leadWorkspaceHref(intent),
       );
     },
     onError: (cause) => setError(crmError(cause)),
@@ -312,7 +320,7 @@ function LeadEditor({ principal, lead }: { principal: Principal; lead?: LeadDeta
         ) : null}
       </fieldset>
       <footer className="flex justify-end gap-2">
-        <Link className="button secondary" href={lead ? `/crm/leads/${lead.id}` : '/crm/leads'}>
+        <Link className="button secondary" href={leadWorkspaceHref(intent, lead?.id)}>
           Cancel
         </Link>
         <button

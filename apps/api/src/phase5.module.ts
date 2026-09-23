@@ -21,6 +21,10 @@ import { WorkflowService } from './workflow/workflow.service';
 import { WorkflowCommandService } from './workflow/workflow-command.service';
 import { LeasingService } from './leasing/leasing.service';
 import { ListingService } from './leasing/listing.service';
+import { RentalCommandController } from './rental/rental.controller';
+import { RentalReadController } from './rental/rental-read.controller';
+import { RentalOrchestrationService } from './rental/rental-orchestration.service';
+import { RentalPresentationService } from './rental/rental-presentation.service';
 import {
   ApplicationController,
   LeaseController,
@@ -51,6 +55,8 @@ import {
     LeaseController,
     RenewalController,
     MoveInController,
+    RentalCommandController,
+    RentalReadController,
   ],
   providers: [
     ServiceEngagementService,
@@ -67,7 +73,9 @@ import {
     WorkflowCommandService,
     ListingService,
     LeasingService,
+    RentalPresentationService,
+    RentalOrchestrationService,
   ],
-  exports: [ServiceEngagementService],
+  exports: [ServiceEngagementService, RentalOrchestrationService, RentalPresentationService],
 })
 export class Phase5Module {}

@@ -33,7 +33,7 @@ export function WorkflowRegister() {
         description="Resume or safely cancel authorized guided workflows without losing completed canonical records."
         action={
           <Link className="button primary" href="/workflows/new">
-            Start New
+            Start Guided Workflow
           </Link>
         }
       />
@@ -55,7 +55,7 @@ export function WorkflowRegister() {
             description="New guided workflows will appear here when saved for later."
             action={
               <Link className="button primary" href="/workflows/new">
-                Start New
+                Start Guided Workflow
               </Link>
             }
           />

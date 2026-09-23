@@ -17,6 +17,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumberString,
   IsOptional,
@@ -105,6 +106,10 @@ export class CreatePaymentDto {
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
   @IsOptional() @IsString() @MaxLength(160) idempotencyKey?: string;
   @IsOptional() @IsBoolean() autoCapture?: boolean;
+  /** When set, creates a matching commission charge and allocates this payment to it. */
+  @IsOptional()
+  @IsIn(['GENERAL', 'OWNER_COMMISSION', 'TENANT_COMMISSION'])
+  purpose?: 'GENERAL' | 'OWNER_COMMISSION' | 'TENANT_COMMISSION';
 }
 
 export class PaymentAllocationLineDto {

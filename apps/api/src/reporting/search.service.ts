@@ -100,6 +100,7 @@ export class SearchService {
               id: true,
               displayName: true,
               leadNumber: true,
+              intent: true,
               responsibleBranch: { select: { name: true } },
             },
           })
@@ -159,7 +160,7 @@ export class SearchService {
         id: row.id,
         label: row.displayName,
         context: row.partyNumber,
-        href: `/leasing/tenants`,
+        href: `/rental/customers`,
       })),
       ...leads.map((row) => ({
         type: 'Lead',
@@ -167,7 +168,12 @@ export class SearchService {
         label: `${row.leadNumber} — ${row.displayName}`,
         context: 'CRM',
         branch: row.responsibleBranch.name,
-        href: `/crm/leads/${row.id}`,
+        href:
+          row.intent === 'RENT'
+            ? `/rental/customers/${row.id}`
+            : row.intent === 'BUY'
+              ? `/sales/buyers/${row.id}`
+              : `/crm/leads/${row.id}`,
       })),
       ...leases.map((row) => ({
         type: 'Lease',
@@ -175,7 +181,7 @@ export class SearchService {
         label: row.leaseNumber,
         context: 'Leasing',
         branch: row.branch.name,
-        href: `/leasing/leases`,
+        href: `/leasing/leases/${row.id}`,
       })),
       ...listings.map((row) => ({
         type: 'Listing',
@@ -183,7 +189,7 @@ export class SearchService {
         label: row.title,
         context: 'Marketing',
         branch: row.branch.name,
-        href: `/marketing/rental-listings`,
+        href: `/rental/properties`,
       })),
       ...invoices.map((row) => ({
         type: 'Invoice',

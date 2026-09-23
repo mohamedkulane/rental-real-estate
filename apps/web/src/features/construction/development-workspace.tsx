@@ -1,19 +1,22 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import { PageSkeleton } from '@/components/shared/loading-system';
-import { EmptyState, ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { EmptyState, ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { useCreateDrawerState } from '@/components/shared/use-create-drawer-state';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
 import { useClientReady } from '@/lib/client-ready';
 import { api, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
 
-const formValue = (form: FormData, key: string) => {
-  const value = form.get(key);
-  return typeof value === 'string' ? value.trim() : '';
-};
+const FORM_ID = 'create-development-project-form';
 
 type WidgetData = {
   widgets: {
@@ -35,15 +38,28 @@ type Project = {
   sourceProperty?: { name?: string };
 };
 
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-[28px] font-bold leading-none text-slate-900">{value}</p>
+      <p className="mt-2 text-[13px] font-medium text-slate-500">{label}</p>
+    </div>
+  );
+}
+
 export function DevelopmentWorkspace() {
   const router = useRouter();
   const ready = useClientReady();
+  const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [error, setError] = useState('');
   const [overview, setOverview] = useState<WidgetData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [properties, setProperties] = useState<Array<{ id: string; name: string }>>([]);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [name, setName] = useState('');
+  const [sourcePropertyId, setSourcePropertyId] = useState('');
 
   useEffect(() => {
     void api<Principal>('/auth/me')
@@ -74,23 +90,39 @@ export function DevelopmentWorkspace() {
       .catch((cause) => setError(userFacingError(cause)));
   }, [principal]);
 
-  async function createProject(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  useEffect(() => {
+    if (!createOpen) return;
+    setName('');
+    setSourcePropertyId('');
+  }, [createOpen]);
+
+  const canManage = Boolean(principal && hasPermission(principal, 'development.manage'));
+  const branchId = branches[0]?.id ?? '';
+  const readyToSubmit = Boolean(branchId && name.trim() && sourcePropertyId);
+
+  async function createProject() {
+    if (!readyToSubmit) {
+      toast.error('Complete the required fields before saving.');
+      return;
+    }
+    setSubmitting(true);
     try {
       const created = await api<Project>('/development/projects', {
         method: 'POST',
         body: JSON.stringify({
-          branchId: branches[0]?.id,
-          sourcePropertyId: formValue(form, 'sourcePropertyId'),
-          name: formValue(form, 'name'),
+          branchId,
+          sourcePropertyId,
+          name: name.trim(),
           developmentType: 'RESIDENTIAL',
         }),
       });
       toast.success('Development project created.');
+      closeCreate();
       router.push(`/development/projects/${created.id}`);
     } catch (cause) {
       toast.error(userFacingError(cause));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -114,6 +146,18 @@ export function DevelopmentWorkspace() {
         eyebrow="Projects"
         title="Development Overview"
         description="Company-owned land, blocks, plots, construction, and sale-ready assets."
+        action={
+          canManage ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
+              onClick={openCreate}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Start development
+            </button>
+          ) : undefined
+        }
       />
       {error ? <ErrorState message={error} /> : null}
       {overview ? (
@@ -149,16 +193,52 @@ export function DevelopmentWorkspace() {
           </div>
         </>
       ) : null}
-      {hasPermission(principal, 'development.manage') ? (
-        <FormSection title="Start company development">
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => void createProject(event)}>
-            <label className="grid gap-1 text-sm">
-              Project name
-              <input name="name" required className="rounded-lg border border-slate-200 px-3 py-2" />
+      {canManage ? (
+        <WorkspaceFormDrawer
+          open={createOpen}
+          eyebrow="Projects"
+          title="Start company development"
+          description="Create a company development from owned land."
+          onClose={() => {
+            if (!submitting) closeCreate();
+          }}
+          size="md"
+          footer={
+            <WorkspaceFormDrawerFooter
+              formId={FORM_ID}
+              onCancel={closeCreate}
+              submitLabel="Create development"
+              isPending={submitting}
+              disabled={!readyToSubmit}
+            />
+          }
+        >
+          <form
+            id={FORM_ID}
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createProject();
+            }}
+          >
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Project name</span>
+              <input
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                autoFocus
+              />
             </label>
-            <label className="grid gap-1 text-sm">
-              Company-owned land
-              <select name="sourcePropertyId" required className="rounded-lg border border-slate-200 px-3 py-2">
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Company-owned land</span>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
+                value={sourcePropertyId}
+                onChange={(event) => setSourcePropertyId(event.target.value)}
+                required
+              >
                 <option value="">Select property</option>
                 {properties.map((property) => (
                   <option key={property.id} value={property.id}>
@@ -167,11 +247,8 @@ export function DevelopmentWorkspace() {
                 ))}
               </select>
             </label>
-            <button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" type="submit">
-              Create development
-            </button>
           </form>
-        </FormSection>
+        </WorkspaceFormDrawer>
       ) : null}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-slate-900">Development projects</h2>
@@ -187,18 +264,20 @@ export function DevelopmentWorkspace() {
             ))}
           </ul>
         ) : (
-          <EmptyState title="No developments" description="Create a company development from owned land." />
+          <EmptyState
+            title="No developments"
+            description="Create a company development from owned land."
+            action={
+              canManage ? (
+                <button type="button" className="button primary" onClick={openCreate}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Start development
+                </button>
+              ) : undefined
+            }
+          />
         )}
       </div>
     </AppShell>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-[28px] font-bold leading-none text-slate-900">{value}</p>
-      <p className="mt-2 text-[13px] font-medium text-slate-500">{label}</p>
-    </div>
   );
 }

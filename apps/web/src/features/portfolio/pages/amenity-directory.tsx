@@ -2,9 +2,10 @@
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
-import { Edit3, MoreHorizontal, Plus, Search, Sparkles, X } from 'lucide-react';
+import { Plus, Search, Sparkles, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 
@@ -192,27 +193,17 @@ export function AmenityDirectory({
                   </td>
                   <td className="px-5 py-4 text-right">
                     {canManage ? (
-                      <details className="relative inline-block">
-                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400">
-                          <MoreHorizontal className="h-5 w-5" />
-                        </summary>
-                        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                          <button
-                            type="button"
-                            onClick={() => open('edit', item)}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                          >
-                            <Edit3 className="h-4 w-4" /> Edit amenity
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => open('status', item)}
-                            className="flex w-full rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                          >
-                            {item.active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </div>
-                      </details>
+                      <TableActionGroup>
+                        <TableActionButton tone="edit" onClick={() => open('edit', item)}>
+                          Edit
+                        </TableActionButton>
+                        <TableActionButton
+                          tone={item.active ? 'danger' : 'create'}
+                          onClick={() => open('status', item)}
+                        >
+                          {item.active ? 'Deactivate' : 'Activate'}
+                        </TableActionButton>
+                      </TableActionGroup>
                     ) : null}
                   </td>
                 </tr>

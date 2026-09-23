@@ -63,6 +63,7 @@ import {
   UpdateOwnerDto,
   UpdatePartyDto,
   UpdatePropertyDto,
+  UpdateSpaceDto,
   UploadDocumentDto,
 } from './portfolio.dto';
 
@@ -395,6 +396,18 @@ export class RentableSpaceController {
     @Body() input: CreateSpaceDto,
   ) {
     return this.portfolio.createSpace(request.principal, input, request.correlationId);
+  }
+  @Patch(':spaceId') @RequirePermissions('portfolio.space.update') update(
+    @Req() request: AuthenticatedRequest,
+    @Param('spaceId', ParseUUIDPipe) spaceId: string,
+    @Body() input: UpdateSpaceDto,
+  ) {
+    return this.portfolio.updateSpace(
+      request.principal,
+      spaceId,
+      input,
+      request.correlationId,
+    );
   }
   @Post(':spaceId/partition') @RequirePermissions('portfolio.space.partition') partition(
     @Req() request: AuthenticatedRequest,

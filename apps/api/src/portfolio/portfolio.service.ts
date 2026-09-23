@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BuildingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
+import { BuildingStatus, LeaseStatus, ListingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
 import { cursorPage } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
@@ -48,6 +48,7 @@ import type {
   UpdateBuildingDto,
   UpdateDocumentMetadataDto,
   UpdatePropertyDto,
+  UpdateSpaceDto,
   UploadDocumentDto,
 } from './portfolio.dto';
 
@@ -237,6 +238,17 @@ export class PortfolioService {
               ],
             }
           : {}),
+        ...(query.ownerPartyId
+          ? {
+              ownerships: {
+                some: {
+                  ownerPartyId: query.ownerPartyId,
+                  effectiveFrom: { lte: at },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                },
+              },
+            }
+          : {}),
         ...(branchIds === null
           ? {}
           : {
@@ -281,8 +293,46 @@ export class PortfolioService {
           include: {
             type: true,
             building: true,
-            childRelations: { include: { parent: { select: { name: true, spaceCode: true } } } },
+            childRelations: {
+              include: {
+                parent: { select: { id: true, name: true, spaceCode: true } },
+              },
+            },
+            parentRelations: {
+              where: { effectiveTo: null },
+              include: {
+                child: {
+                  select: {
+                    id: true,
+                    name: true,
+                    spaceCode: true,
+                    status: true,
+                    versions: { orderBy: { effectiveFrom: 'desc' }, take: 1 },
+                  },
+                },
+              },
+            },
             versions: { orderBy: { effectiveFrom: 'desc' } },
+            leases: {
+              where: { status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] } },
+              select: { id: true, status: true, rentAmount: true, currency: true },
+              take: 5,
+            },
+            rentalListings: {
+              where: {
+                status: {
+                  in: [
+                    ListingStatus.DRAFT,
+                    ListingStatus.PUBLISHED,
+                    ListingStatus.PAUSED,
+                    ListingStatus.PENDING_REVIEW,
+                  ],
+                },
+              },
+              select: { askingRent: true, currency: true, status: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
             landProfile: true,
             residentialProfile: true,
             commercialProfile: true,
@@ -2023,6 +2073,71 @@ export class PortfolioService {
     });
   }
 
+  async updateSpace(
+    principal: AuthenticatedPrincipal,
+    spaceId: string,
+    input: UpdateSpaceDto,
+    correlationId?: string,
+  ) {
+    if (input.name === undefined && input.typeCode === undefined && input.buildingId === undefined) {
+      throw new BadRequestException('Provide at least one field to update.');
+    }
+    const space = await this.database.rentableSpace.findUniqueOrThrow({
+      where: { id: spaceId },
+      include: { type: true },
+    });
+    if (space.status === RentableSpaceStatus.RETIRED) {
+      throw new BadRequestException('Retired units cannot be edited.');
+    }
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      space.propertyId,
+      'portfolio.space.update',
+    );
+    return this.database.$transaction(async (transaction) => {
+      let typeId = space.typeId;
+      if (input.typeCode !== undefined) {
+        const type = await transaction.rentableSpaceType.findFirstOrThrow({
+          where: { code: input.typeCode, active: true },
+        });
+        typeId = type.id;
+      }
+      if (input.buildingId !== undefined) {
+        await transaction.building.findFirstOrThrow({
+          where: { id: input.buildingId, propertyId: space.propertyId },
+        });
+      }
+      const after = await transaction.rentableSpace.update({
+        where: { id: spaceId },
+        data: {
+          ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+          ...(input.typeCode !== undefined ? { typeId } : {}),
+          ...(input.buildingId !== undefined ? { buildingId: input.buildingId } : {}),
+        },
+        include: { type: true },
+      });
+      await this.audit.write(transaction, {
+        actorUserId: principal.userId,
+        action: 'portfolio.space.updated',
+        entityType: 'RentableSpace',
+        entityId: spaceId,
+        branchId,
+        correlationId,
+        before: {
+          name: space.name,
+          typeCode: space.type.code,
+          buildingId: space.buildingId,
+        },
+        after: {
+          name: after.name,
+          typeCode: after.type.code,
+          buildingId: after.buildingId,
+        },
+      });
+      return after;
+    });
+  }
+
   async correctMeasurement(
     principal: AuthenticatedPrincipal,
     spaceId: string,
@@ -2224,6 +2339,22 @@ export class PortfolioService {
       });
       if (activeChildren)
         throw new BadRequestException('Retire active child spaces before retiring their parent.');
+      const openLeases = await transaction.lease.count({
+        where: {
+          rentableSpaceId: spaceId,
+          status: {
+            notIn: [LeaseStatus.ENDED, LeaseStatus.TERMINATED, LeaseStatus.ARCHIVED],
+          },
+        },
+      });
+      if (openLeases) {
+        throw new BadRequestException(
+          'End or terminate open leases on this unit before retiring it.',
+        );
+      }
+      if (space.status === RentableSpaceStatus.RETIRED) {
+        throw new BadRequestException('This unit is already retired.');
+      }
       await transaction.rentableSpaceVersion.updateMany({
         where: {
           rentableSpaceId: spaceId,

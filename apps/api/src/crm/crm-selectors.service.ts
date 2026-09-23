@@ -74,6 +74,13 @@ export class CrmSelectorsService {
       target = query.leadId
         ? (await this.support.lead(principal, query.leadId, permissions)).responsibleBranchId
         : (await this.support.branch(principal, query.branchId!)).id;
+    } else if (query.purpose === EmployeeSelectorPurpose.VIEWING_ASSIGN) {
+      if (Boolean(query.branchId) === Boolean(query.leadId) || query.destinationBranchId)
+        this.invalid();
+      permissions = ['viewing.create'];
+      target = query.leadId
+        ? (await this.support.lead(principal, query.leadId, permissions)).responsibleBranchId
+        : (await this.support.branch(principal, query.branchId!)).id;
     } else {
       const map: Record<string, string[]> = {
         ASSIGN_LEAD: ['crm.assignment.manage'],

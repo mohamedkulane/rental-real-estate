@@ -1,2 +1,5 @@
-import { Phase5Register } from '@/features/leasing/phase5-register';
-export default function Page() { return <Phase5Register mode="rental-listings" />; }
+import { redirect } from 'next/navigation';
+
+export default function Page() {
+  redirect('/rental/properties');
+}

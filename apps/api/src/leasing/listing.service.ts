@@ -11,6 +11,7 @@ import {
   SaleOfferStatus,
   SaleSettlementStatus,
   ServiceEngagementStatus,
+  ServiceModel,
 } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { nextRecordNumber } from '../common/record-number';
@@ -20,6 +21,7 @@ import { resolveCapabilitySet } from '../commercial/service-engagement.policy';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import type { CreateRentalListingDto, CreateSaleListingDto, ListingQueryDto, MatchListingsDto, VersionedTransitionDto } from './phase5-operations.dto';
+import { assertHierarchyOccupancyAvailable } from './space-hierarchy-occupancy';
 
 export const listingTransitions: Record<ListingStatus, readonly ListingStatus[]> = {
   DRAFT: [ListingStatus.PENDING_REVIEW],
@@ -259,6 +261,11 @@ export class ListingService {
         'This Rentable Space has an active reservation and cannot be listed for rent.',
       );
     }
+    await assertHierarchyOccupancyAvailable(this.db, {
+      companyId: principal.companyId,
+      rentableSpaceId,
+      businessDate: principal.businessDate,
+    });
   }
 
   private async assertPropertySaleable(principal: AuthenticatedPrincipal, propertyId: string) {
@@ -419,75 +426,539 @@ export class ListingService {
   transitionRental(principal: AuthenticatedPrincipal, id: string, target: ListingStatus, input: VersionedTransitionDto, correlationId?: string) { return this.transitionRentalOrSale('rental', principal, id, target, input, correlationId); }
   transitionSale(principal: AuthenticatedPrincipal, id: string, target: ListingStatus, input: VersionedTransitionDto, correlationId?: string) { return this.transitionRentalOrSale('sale', principal, id, target, input, correlationId); }
 
+  private locationMatchScore(
+    property: { city?: string | null; district?: string | null; neighborhood?: string | null },
+    preferredAreas: string[],
+  ): { points: number; matched: boolean } {
+    const terms = preferredAreas.map((area) => area.trim().toLowerCase()).filter(Boolean);
+    if (!terms.length) return { points: 15, matched: true };
+    const haystack = [property.city, property.district, property.neighborhood]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    if (!haystack) return { points: 4, matched: false };
+    const hits = terms.filter((term) => haystack.includes(term));
+    if (!hits.length) return { points: 0, matched: false };
+    return {
+      points: Math.min(25, Math.round(12 + (hits.length / terms.length) * 13)),
+      matched: true,
+    };
+  }
+
+  private budgetMatchScore(
+    asking: Prisma.Decimal | null | undefined,
+    min: Prisma.Decimal | null | undefined,
+    max: Prisma.Decimal | null | undefined,
+  ): { points: number; matched: boolean } {
+    if (!asking) return { points: 8, matched: false };
+    const value = Number(asking);
+    const minValue = min != null ? Number(min) : null;
+    const maxValue = max != null ? Number(max) : null;
+    if (minValue == null && maxValue == null) return { points: 15, matched: true };
+    const within =
+      (minValue == null || value >= minValue) && (maxValue == null || value <= maxValue);
+    if (within) {
+      if (minValue != null && maxValue != null && maxValue > minValue) {
+        const mid = (minValue + maxValue) / 2;
+        const span = (maxValue - minValue) / 2 || 1;
+        const closeness = 1 - Math.min(1, Math.abs(value - mid) / span);
+        return { points: Math.round(18 + closeness * 7), matched: true };
+      }
+      return { points: 22, matched: true };
+    }
+    const lower = minValue ?? 0;
+    const upper = maxValue ?? Number.POSITIVE_INFINITY;
+    const distance =
+      value < lower ? lower - value : value > upper ? value - upper : 0;
+    const reference = Math.max(lower || value, upper === Number.POSITIVE_INFINITY ? value : upper, 1);
+    const ratio = distance / reference;
+    if (ratio <= 0.15) return { points: 14, matched: false };
+    if (ratio <= 0.3) return { points: 8, matched: false };
+    return { points: 2, matched: false };
+  }
+
+  private typeMatchScore(
+    propertyType: PropertyType | string | null | undefined,
+    codes: string[] | undefined,
+  ): { points: number; matched: boolean } {
+    if (!codes?.length) return { points: 12, matched: true };
+    if (!propertyType) return { points: 4, matched: false };
+    const matched = codes.includes(String(propertyType));
+    return { points: matched ? 20 : 3, matched };
+  }
+
+  private bedroomMatchScore(
+    bedrooms: number | null | undefined,
+    minBedrooms?: number | null,
+    maxBedrooms?: number | null,
+  ): { points: number; matched: boolean } {
+    if (minBedrooms == null && maxBedrooms == null) return { points: 8, matched: true };
+    if (bedrooms == null) return { points: 3, matched: false };
+    const matched =
+      (minBedrooms == null || bedrooms >= minBedrooms) &&
+      (maxBedrooms == null || bedrooms <= maxBedrooms);
+    return { points: matched ? 10 : 2, matched };
+  }
+
+  private matchBranchFilter(
+    principal: AuthenticatedPrincipal,
+    permission: string,
+  ): string[] | null {
+    return this.branchIds(principal, permission);
+  }
+
+  private askingRentFromAttributes(attributes: Prisma.JsonValue | null | undefined): {
+    askingRent: Prisma.Decimal | null;
+    currency: string;
+  } {
+    if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+      return { askingRent: null, currency: 'USD' };
+    }
+    const record = attributes as Record<string, unknown>;
+    const raw = record.askingRent ?? record.monthlyRent ?? record.rent;
+    const currency =
+      typeof record.currency === 'string' && record.currency.trim()
+        ? record.currency.trim().toUpperCase()
+        : 'USD';
+    if (raw == null || raw === '') return { askingRent: null, currency };
+    try {
+      return { askingRent: new Prisma.Decimal(String(raw)), currency };
+    } catch {
+      return { askingRent: null, currency };
+    }
+  }
+
+  private openListingStatuses(): ListingStatus[] {
+    return [
+      ListingStatus.PUBLISHED,
+      ListingStatus.DRAFT,
+      ListingStatus.PENDING_REVIEW,
+      ListingStatus.PAUSED,
+    ];
+  }
+
+  private marketPurposeFromAttributes(
+    attributes: Prisma.JsonValue | null | undefined,
+  ): 'RENTAL' | 'SALE' | null {
+    if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) return null;
+    const purpose = (attributes as Record<string, unknown>).marketPurpose;
+    if (purpose === 'RENTAL' || purpose === 'SALE') return purpose;
+    if ((attributes as Record<string, unknown>).askingPrice != null) return 'SALE';
+    if ((attributes as Record<string, unknown>).askingRent != null) return 'RENTAL';
+    return null;
+  }
+
+  private isSaleOnlyProperty(property: {
+    saleListings?: { id: string }[];
+    serviceEngagements?: { serviceModel: ServiceModel }[];
+  }): boolean {
+    if (property.saleListings?.length) return true;
+    return (property.serviceEngagements ?? []).some(
+      (engagement) => engagement.serviceModel === ServiceModel.SALE_BROKERAGE,
+    );
+  }
+
+  private isRentalRegisteredInventory(input: {
+    openListing: { id: string } | null;
+    askingRent: Prisma.Decimal | null;
+    marketPurpose: 'RENTAL' | 'SALE' | null;
+    serviceEngagements?: { serviceModel: ServiceModel }[];
+  }): boolean {
+    // Active registered units are matchable without brokerage or published listing.
+    if (input.marketPurpose === 'SALE') return false;
+    return true;
+  }
+
+  private compositeMatchScore(parts: {
+    location: { points: number; matched: boolean };
+    budget: { points: number; matched: boolean };
+    type: { points: number; matched: boolean };
+    bedrooms: { points: number; matched: boolean };
+  }): number {
+    // Location, rent closeness, and preferred type dominate ranking.
+    const weighted =
+      parts.location.points * 1.35 +
+      parts.budget.points * 1.45 +
+      parts.type.points * 1.25 +
+      parts.bedrooms.points;
+    return Math.min(99, Math.max(35, Math.round(32 + weighted - 18)));
+  }
+
   async match(principal: AuthenticatedPrincipal, query: MatchListingsDto) {
     const lead = await this.db.lead.findFirst({
       where: { id: query.leadId, companyId: principal.companyId },
-      include: { preferenceVersions: { where: { effectiveTo: null }, orderBy: { versionNo: 'desc' }, take: 1, include: { rent: true, buy: true } } },
+      include: {
+        preferenceVersions: {
+          where: { effectiveTo: null },
+          orderBy: { versionNo: 'desc' },
+          take: 1,
+          include: { rent: true, buy: true },
+        },
+      },
     });
     if (!lead) throw new NotFoundException('Lead not found.');
     this.auth.assertBranchPermission(principal, 'listing.match', lead.responsibleBranchId);
     const preference = lead.preferenceVersions[0];
     const preferredAreas = preference?.preferredAreaText ?? [];
     const at = this.matchBusinessDate(principal);
+    const authorizedBranches = this.matchBranchFilter(principal, 'listing.match');
     const reasonLabels: Record<string, string> = {
-      intent_rent: 'Lead intent is Rent',
-      intent_buy: 'Lead intent is Buy',
-      published_branch: 'Published in the Lead branch',
-      space_available: 'Rentable space is available for a new lease',
-      property_available: 'Property is available for sale',
-      within_rent_budget: 'Rent is within the requested budget',
-      within_buy_budget: 'Price is within the requested budget',
-      property_type_match: 'Property type matches Lead preferences',
-      bedroom_match: 'Bedrooms match Lead preferences',
+      intent_rent: 'Looking to rent',
+      intent_buy: 'Looking to buy',
+      published_listing: 'Has a published rental listing',
+      registered_inventory: 'Registered available rental unit',
+      space_available: 'Available to rent',
+      property_available: 'Available for sale',
+      within_rent_budget: 'Within rent budget',
+      within_buy_budget: 'Within purchase budget',
+      property_type_match: 'Property type matches',
+      bedroom_match: 'Bedrooms match',
       preferred_area_match: 'Location matches preferred areas',
     };
+
     if (lead.intent === LeadIntent.RENT) {
-      const where: Prisma.RentalListingWhereInput = {
-        companyId: principal.companyId, branchId: lead.responsibleBranchId, status: ListingStatus.PUBLISHED,
-        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
-        ...(preference?.rent?.currency ? { currency: preference.rent.currency } : {}),
-        ...(preference?.rent?.minRent || preference?.rent?.maxRent ? { askingRent: { ...(preference.rent.minRent ? { gte: preference.rent.minRent } : {}), ...(preference.rent.maxRent ? { lte: preference.rent.maxRent } : {}) } } : {}),
-        rentableSpace: { is: this.buildRentableSpaceMatchWhere(at, preference?.rent, preferredAreas) },
+      const rentPrefs = preference?.rent ?? null;
+      const branchPropertyFilter: Prisma.PropertyWhereInput | undefined =
+        authorizedBranches === null
+          ? undefined
+          : {
+              branchAssignments: {
+                some: {
+                  branchId: { in: authorizedBranches },
+                  effectiveFrom: { lte: at },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                },
+              },
+            };
+      // Availability only in SQL. Preferences (area, budget, type, bedrooms) are scored in memory
+      // so registered inventory can still surface when location spelling is close but not exact.
+      const spaceWhere: Prisma.RentableSpaceWhereInput = {
         AND: [
-          { OR: [{ availableFrom: null }, { availableFrom: { lte: at } }] },
+          this.buildRentableSpaceMatchWhere(at, null, []),
+          {
+            property: {
+              is: {
+                companyId: principal.companyId,
+                status: PropertyStatus.ACTIVE,
+                ...(branchPropertyFilter ?? {}),
+              },
+            },
+          },
+          ...(query.cursor ? [{ id: { lt: query.cursor } }] : []),
           ...(query.search
-            ? [{ OR: [{ title: { contains: query.search, mode: Prisma.QueryMode.insensitive } }, { listingNumber: { contains: query.search, mode: Prisma.QueryMode.insensitive } }] }]
+            ? [
+                {
+                  OR: [
+                    { name: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
+                    { spaceCode: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
+                    {
+                      property: {
+                        is: {
+                          OR: [
+                            {
+                              name: {
+                                contains: query.search,
+                                mode: Prisma.QueryMode.insensitive,
+                              },
+                            },
+                            {
+                              propertyCode: {
+                                contains: query.search,
+                                mode: Prisma.QueryMode.insensitive,
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                } satisfies Prisma.RentableSpaceWhereInput,
+              ]
             : []),
         ],
       };
-      const rows = await this.db.rentalListing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { rentableSpace: { include: { property: true, type: true } } } });
-      const hasNextPage = rows.length > query.limit;
-      const reasonKeys = this.rentMatchReasonKeys(preference?.rent, preferredAreas);
-      const items = rows.slice(0, query.limit).map((row) => ({
-        listingType: 'RENTAL' as const,
-        listing: row,
-        score: 100,
-        reasonKeys,
-        reasons: reasonKeys.map((key) => reasonLabels[key] ?? key),
-      }));
-      return { items, pageInfo: { hasNextPage, nextCursor: hasNextPage ? items.at(-1)?.listing.id ?? null : null } };
-    }
-    if (lead.intent === LeadIntent.BUY) {
-      const where: Prisma.SaleListingWhereInput = {
-        companyId: principal.companyId, branchId: lead.responsibleBranchId, status: ListingStatus.PUBLISHED,
-        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
-        ...(query.search ? { OR: [{ title: { contains: query.search, mode: Prisma.QueryMode.insensitive } }, { listingNumber: { contains: query.search, mode: Prisma.QueryMode.insensitive } }] } : {}),
-        ...(preference?.buy?.currency ? { currency: preference.buy.currency } : {}),
-        ...(preference?.buy?.minBudget || preference?.buy?.maxBudget ? { askingPrice: { ...(preference.buy.minBudget ? { gte: preference.buy.minBudget } : {}), ...(preference.buy.maxBudget ? { lte: preference.buy.maxBudget } : {}) } } : {}),
-        property: { is: this.buildSalePropertyMatchWhere(preference?.buy, preferredAreas) },
+
+      const spaces = await this.db.rentableSpace.findMany({
+        where: spaceWhere,
+        orderBy: { id: 'desc' },
+        take: Math.min(query.limit * 8, 200),
+        include: {
+          property: {
+            include: {
+              saleListings: {
+                where: {
+                  companyId: principal.companyId,
+                  status: {
+                    in: [
+                      ListingStatus.PUBLISHED,
+                      ListingStatus.DRAFT,
+                      ListingStatus.PENDING_REVIEW,
+                      ListingStatus.PAUSED,
+                    ],
+                  },
+                },
+                select: { id: true },
+                take: 1,
+              },
+              serviceEngagements: {
+                where: { status: ServiceEngagementStatus.ACTIVE },
+                select: { serviceModel: true },
+                take: 8,
+              },
+            },
+          },
+          type: true,
+          residentialProfile: true,
+          versions: {
+            where: {
+              effectiveFrom: { lte: at },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+            },
+            orderBy: [{ versionNo: 'desc' }],
+            take: 1,
+            select: { attributes: true },
+          },
+          rentalListings: {
+            where: {
+              companyId: principal.companyId,
+              status: {
+                in: [
+                  ListingStatus.PUBLISHED,
+                  ListingStatus.DRAFT,
+                  ListingStatus.PENDING_REVIEW,
+                  ListingStatus.PAUSED,
+                ],
+              },
+              ...(authorizedBranches === null ? {} : { branchId: { in: authorizedBranches } }),
+            },
+            orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
+            take: 5,
+          },
+        },
+      });
+
+      const scored = spaces
+        .map((space) => {
+          const property = space.property;
+          const published = space.rentalListings.find(
+            (row) => row.status === ListingStatus.PUBLISHED,
+          );
+          const openListing = published ?? space.rentalListings[0] ?? null;
+          const fromAttributes = this.askingRentFromAttributes(space.versions[0]?.attributes);
+          const marketPurpose = this.marketPurposeFromAttributes(space.versions[0]?.attributes);
+          if (this.isSaleOnlyProperty(property) || marketPurpose === 'SALE') {
+            return null;
+          }
+          const askingRent = openListing?.askingRent ?? fromAttributes.askingRent;
+          const currency = openListing?.currency ?? fromAttributes.currency;
+          // Registered Active units match even when monthly rent is not set yet.
+          // Budget score soft-fails when asking rent is unknown (portfolio units often lack it).
+          const location = this.locationMatchScore(property, preferredAreas);
+          const budget = this.budgetMatchScore(
+            askingRent,
+            rentPrefs?.minRent,
+            rentPrefs?.maxRent,
+          );
+          const type = this.typeMatchScore(property.propertyType, rentPrefs?.propertyTypeCodes);
+          const bedrooms = this.bedroomMatchScore(
+            space.residentialProfile?.bedrooms ?? null,
+            rentPrefs?.minBedrooms,
+            rentPrefs?.maxBedrooms,
+          );
+          // Prefer units that hit at least one strong preference signal.
+          if (
+            preferredAreas.some((area) => area.trim()) &&
+            !location.matched &&
+            rentPrefs?.propertyTypeCodes?.length &&
+            !type.matched
+          ) {
+            return null;
+          }
+          const score = this.compositeMatchScore({ location, budget, type, bedrooms });
+          const reasonKeys = [
+            'intent_rent',
+            published ? 'published_listing' : 'registered_inventory',
+            'space_available',
+            ...(budget.matched ? ['within_rent_budget'] : []),
+            ...(type.matched && rentPrefs?.propertyTypeCodes?.length
+              ? ['property_type_match']
+              : []),
+            ...(bedrooms.matched &&
+            (rentPrefs?.minBedrooms != null || rentPrefs?.maxBedrooms != null)
+              ? ['bedroom_match']
+              : []),
+            ...(location.matched && preferredAreas.some((area) => area.trim())
+              ? ['preferred_area_match']
+              : []),
+            ...(!askingRent ? ['rent_not_set'] : []),
+          ];
+          const {
+            saleListings: _saleListings,
+            serviceEngagements: _serviceEngagements,
+            ...propertyPublic
+          } = property;
+          const listing = openListing
+            ? {
+                ...openListing,
+                askingRent,
+                currency,
+                rentableSpace: {
+                  id: space.id,
+                  spaceCode: space.spaceCode,
+                  name: space.name,
+                  type: space.type,
+                  residentialProfile: space.residentialProfile,
+                  property: propertyPublic,
+                },
+              }
+            : {
+                id: space.id,
+                listingNumber: space.spaceCode,
+                title: `${property.name} · ${space.name}`,
+                status: 'INVENTORY',
+                askingRent,
+                currency,
+                availableFrom: null,
+                rentableSpace: {
+                  id: space.id,
+                  spaceCode: space.spaceCode,
+                  name: space.name,
+                  type: space.type,
+                  residentialProfile: space.residentialProfile,
+                  property: propertyPublic,
+                },
+              };
+          return {
+            listingType: 'RENTAL' as const,
+            matchSource: published ? ('PUBLISHED_LISTING' as const) : ('INVENTORY' as const),
+            // Inventory units schedule via rentableSpaceId — no brokerage/listing required.
+            canScheduleViewing: true,
+            listing,
+            score,
+            reasonKeys,
+            reasons: reasonKeys
+              .filter((key) => key !== 'rent_not_set')
+              .map((key) => reasonLabels[key] ?? key)
+              .concat(!askingRent ? ['Monthly rent not set on unit'] : []),
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item != null)
+        .filter((item) => {
+          if (preferredAreas.length === 0) return item.score >= 45;
+          return item.score >= 50 || item.reasonKeys.includes('preferred_area_match');
+        })
+        .sort((a, b) => b.score - a.score || b.listing.id.localeCompare(a.listing.id));
+
+      const page = scored.slice(0, query.limit);
+      const hasNextPage = scored.length > query.limit;
+      return {
+        items: page,
+        pageInfo: {
+          hasNextPage,
+          nextCursor: hasNextPage ? page.at(-1)?.listing.id ?? null : null,
+        },
       };
-      const rows = await this.db.saleListing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { property: true } });
-      const hasNextPage = rows.length > query.limit;
-      const reasonKeys = this.buyMatchReasonKeys(preference?.buy, preferredAreas);
-      const items = rows.slice(0, query.limit).map((row) => ({
-        listingType: 'SALE' as const,
-        listing: row,
-        score: 100,
-        reasonKeys,
-        reasons: reasonKeys.map((key) => reasonLabels[key] ?? key),
-      }));
-      return { items, pageInfo: { hasNextPage, nextCursor: hasNextPage ? items.at(-1)?.listing.id ?? null : null } };
     }
-    return { items: [], pageInfo: { hasNextPage: false, nextCursor: null }, message: 'Matching is available only for Rent and Buy Leads.' };
+
+    if (lead.intent === LeadIntent.BUY) {
+      const buyPrefs = preference?.buy ?? null;
+      const where: Prisma.SaleListingWhereInput = {
+        companyId: principal.companyId,
+        ...(authorizedBranches === null
+          ? {}
+          : { branchId: { in: authorizedBranches } }),
+        status: ListingStatus.PUBLISHED,
+        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { title: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
+                { listingNumber: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
+              ],
+            }
+          : {}),
+        ...(buyPrefs?.currency ? { currency: buyPrefs.currency } : {}),
+        property: {
+          is: this.buildSalePropertyMatchWhere(buyPrefs, preferredAreas),
+        },
+      };
+      const rows = await this.db.saleListing.findMany({
+        where,
+        orderBy: { id: 'desc' },
+        take: Math.min(query.limit * 4, 100),
+        include: {
+          property: {
+            include: {
+              spaces: {
+                where: { status: RentableSpaceStatus.ACTIVE },
+                take: 1,
+                include: { residentialProfile: true },
+              },
+            },
+          },
+        },
+      });
+      const scored = rows
+        .map((row) => {
+          const location = this.locationMatchScore(row.property, preferredAreas);
+          const budget = this.budgetMatchScore(
+            row.askingPrice,
+            buyPrefs?.minBudget,
+            buyPrefs?.maxBudget,
+          );
+          const type = this.typeMatchScore(row.property.propertyType, buyPrefs?.propertyTypeCodes);
+          const bedrooms = this.bedroomMatchScore(
+            row.property.spaces[0]?.residentialProfile?.bedrooms ?? null,
+            buyPrefs?.minBedrooms,
+            buyPrefs?.maxBedrooms,
+          );
+          const score = this.compositeMatchScore({ location, budget, type, bedrooms });
+          const reasonKeys = [
+            'intent_buy',
+            'published_listing',
+            'property_available',
+            ...(budget.matched ? ['within_buy_budget'] : []),
+            ...(type.matched && buyPrefs?.propertyTypeCodes?.length
+              ? ['property_type_match']
+              : []),
+            ...(bedrooms.matched &&
+            (buyPrefs?.minBedrooms != null || buyPrefs?.maxBedrooms != null)
+              ? ['bedroom_match']
+              : []),
+            ...(location.matched && preferredAreas.some((area) => area.trim())
+              ? ['preferred_area_match']
+              : []),
+          ];
+          return {
+            listingType: 'SALE' as const,
+            matchSource: 'PUBLISHED_LISTING' as const,
+            canScheduleViewing: true,
+            listing: row,
+            score,
+            reasonKeys,
+            reasons: reasonKeys.map((key) => reasonLabels[key] ?? key),
+          };
+        })
+        .filter((item) => {
+          if (preferredAreas.length === 0) return item.score >= 45;
+          return item.score >= 50 || item.reasonKeys.includes('preferred_area_match');
+        })
+        .sort((a, b) => b.score - a.score || b.listing.id.localeCompare(a.listing.id));
+      const page = scored.slice(0, query.limit);
+      const hasNextPage = scored.length > query.limit;
+      return {
+        items: page,
+        pageInfo: {
+          hasNextPage,
+          nextCursor: hasNextPage ? page.at(-1)?.listing.id ?? null : null,
+        },
+      };
+    }
+
+    return {
+      items: [],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+      message: 'Matching is available only for Rent and Buy Leads.',
+    };
   }
 }

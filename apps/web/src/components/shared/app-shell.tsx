@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Home, Landmark, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { Home, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { humanize } from '@/lib/presentation';
 import { AppHeader } from './app-header';
@@ -46,13 +46,6 @@ function branchLabel(
   if (branches.length === 1) return branches[0]?.name ?? 'Assigned Branch';
   if (branches.length > 1) return `${branches.length} Branches`;
   return humanize(accessMode);
-}
-
-function userInitials(label: string): string {
-  const parts = label.split(/\s+/).filter(Boolean);
-  if (!parts.length) return 'ST';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
 }
 
 export function AppShell({
@@ -118,7 +111,6 @@ export function AppShell({
 
   const displayName = userDisplayName ?? branchLabel(accessMode, branches);
   const roleLabel = userRoleLabel ?? humanize(accessMode);
-  const initials = userInitials(displayName);
 
   useEffect(() => {
     if (!open) {
@@ -182,18 +174,9 @@ export function AppShell({
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
-        <div className={'border-b border-slate-200 py-5 ' + (sidebarCollapsed ? 'px-2' : 'px-5')}>
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-              <Landmark className="h-5 w-5" aria-hidden="true" />
-            </span>
-            {!accordionCollapsed ? (
-              <div className="min-w-0 flex-1 leading-tight">
-                <strong className="block truncate text-sm font-bold text-slate-900">Horizon</strong>
-                <span className="block text-[11px] text-slate-500">Real Estate Operations</span>
-              </div>
-            ) : null}
-            <div className="ml-auto flex items-center gap-1">
+        <div className={'border-b border-slate-200 py-3 ' + (sidebarCollapsed ? 'px-2' : 'px-3')}>
+          <div className={'flex items-center ' + (accordionCollapsed ? 'justify-center' : 'justify-end')}>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 className="hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 lg:inline-flex"
@@ -253,21 +236,6 @@ export function AppShell({
             onNavigate={() => setOpen(false)}
           />
         </nav>
-
-        {!accordionCollapsed ? (
-          <div className="border-t border-slate-200 px-4 py-4">
-            <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                {initials}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
-                <p className="truncate text-xs text-slate-500">{roleLabel}</p>
-              </div>
-              <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
-            </div>
-          </div>
-        ) : null}
       </aside>
 
       <div className={'min-h-screen ' + contentOffsetClass}>

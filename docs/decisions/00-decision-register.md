@@ -74,6 +74,9 @@ Status meanings:
 - `05-authorization-and-approvals.md`
 - `06-rentable-space-and-partitioning.md`
 - `07-unresolved-business-decisions.md`
+- `22-rental-simplification-wave1.md`
+- `24-rental-placement-order.md`
+- `25-listing-for-public-marketing.md`
 
 ## Governance rule
 

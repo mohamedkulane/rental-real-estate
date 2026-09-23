@@ -137,9 +137,53 @@ Ka hor inta listing la daabaco, waa in **Service Engagement** firfircoon jiraa:
 
 ## 4. Kirada (Rental)
 
-### 4.1 Liiska Kirada (Rental Listings)
+Module-ka **Kirada** wuxuu hadda ku saleysan yahay hawsha aad qabanayso — ma aha inaad gacanta ku abuurto Party, Ownership, ama Rentable Space.
 
-1. **Kirada** → **Liiska Kirada**
+### 4.1 Dhinaca Bidix (Sidebar)
+
+| Hawl | Sharaxaad |
+|------|-----------|
+| **Overview** | Hawlo degdeg ah: macmiil, milkiile, hanti, brokerage, maamul |
+| **Rental Customers** | Macaamiisha kirada raadinaya |
+| **Properties** | Hantida la kireeyo |
+| **Brokerage** | Dillaalinta kirada |
+| **Full Management** | Maamul buuxa |
+| **Leases** | Heshiisyada kirada |
+| **Payments** | Lacag bixinta |
+
+### 4.2 Hawlo Caadi ah
+
+#### Ku dar Milkiile (Add Owner)
+
+1. **Kirada** → **Overview** → **Add Owner** (ama `/rental/owners/new`)
+2. Geli **magaca** iyo **telefoonka** kaliya.
+3. System-ku wuxuu abuuraa Party + Owner si toos ah.
+
+#### Ku dar Hanti (Add Property)
+
+1. **Kirada** → **Properties** → **Add Property**
+2. Dooro milkiile, magac, nooc, goob, kirada.
+3. System-ku wuxuu abuuraa ownership, rentable space, wuxuuna ka dhigaa **Available**.
+
+#### Ku dar Macmiil Kirada (Add Rental Customer)
+
+1. **Kirada** → **Rental Customers** → **Add Customer**
+2. Geli magac, nooca hanti la doonayo, aagga, iyo miisaaniyadda.
+3. Telefoon/email maaha shuruud marka hore; waxaad ku dari kartaa bogga macmiilka marka dambe.
+
+#### Bilow Dillaalinta ama Maamul Buuxa
+
+1. **Overview** → **Start Rental Brokerage** ama **Start Full Management**
+2. Dooro milkiile, hanti, kirada, iyo boqolkiiba komishanka / khidmada maamulka.
+3. System-ku wuxuu abuuraa Service Engagement + shuruudaha ganacsiga si toos ah.
+
+### 4.3 Hawlaha Kale
+
+Codsiyada, ballanqaadyada, geliista guriga, dib-u-cusboonaysiinta, iyo liisaska farsamo waxay weli jiraan laakiin kuma jiraan sidebar-ka ugu weyn. Ka hel bogga heshiiska ama module-yada hore haddii loo baahdo.
+
+### 4.4 Liiska Kirada (Rental Listings)
+
+1. **Suuq-geynta** → **Liiska Kirada** (haddii aad u baahato listing rasmi ah)
 2. Abuur listing cusub:
    - Dooro **Rentable Space** bannaan
    - Ku xir Service Engagement
@@ -147,23 +191,6 @@ Ka hor inta listing la daabaco, waa in **Service Engagement** firfircoon jiraa:
 3. Dhibic nolosha: **Draft** → **Review** → **Published**
 
 **System-ku wuu diidaa** in listing la abuuro ama la daabaco haddii goobtu hore u kireysan tahay ama ballan firfircoon leedahay.
-
-### 4.2 Hawlaha Kirada
-
-| Hawl | Goob |
-|------|------|
-| Booqashooyin (Viewings) | CRM / Kirada |
-| Codsiyada (Applications) | Kirada |
-| Ballanqaadyada (Reservations) | Kirada |
-| Heshiisyada Kirada (Leases) | Kirada |
-| Kireystayaasha (Tenants) | Kirada |
-| Geliista Guriga (Move-In) | Kirada |
-| Dib-u-cusboonaysiinta (Renewals) | Kirada |
-
-### 4.3 Dillaalinta Kirada & Maamul Buuxa
-
-- **Dillaalinta Kirada**: heshiisyada dillaalinta
-- **Maamul Buuxa**: hantida shirkaddu si buuxda u maamusho
 
 ---
 

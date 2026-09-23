@@ -1,8 +1,137 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import Link from 'next/link';
+import {
+  Building2,
+  CalendarDays,
+  CircleOff,
+  Eye,
+  FileText,
+  FolderOpen,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Settings2,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+
+export type TableActionTone =
+  | 'open'
+  | 'view'
+  | 'edit'
+  | 'manage'
+  | 'create'
+  | 'schedule'
+  | 'property'
+  | 'agreement'
+  | 'danger'
+  | 'neutral';
+
+const TABLE_ACTION_STYLES: Record<TableActionTone, string> = {
+  open: 'border-[#215E61]/20 bg-[#E8F3F3] text-[#215E61] hover:bg-[#d7eaea]',
+  view: 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100',
+  edit: 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100',
+  manage: 'border-[#FF9E20]/35 bg-[#FFF4E5] text-[#9A5B00] hover:bg-[#ffe8c7]',
+  create: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
+  schedule: 'border-indigo-200 bg-indigo-50 text-indigo-800 hover:bg-indigo-100',
+  property: 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
+  agreement: 'border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100',
+  danger: 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100',
+  neutral: 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+};
+
+const TABLE_ACTION_ICONS: Record<TableActionTone, LucideIcon> = {
+  open: FolderOpen,
+  view: Eye,
+  edit: Pencil,
+  manage: Settings2,
+  create: Plus,
+  schedule: CalendarDays,
+  property: Building2,
+  agreement: FileText,
+  danger: CircleOff,
+  neutral: Eye,
+};
+
+type TableActionButtonProps = {
+  tone?: TableActionTone;
+  href?: string;
+  onClick?: () => void;
+  children: ReactNode;
+  icon?: LucideIcon | false;
+  disabled?: boolean;
+  className?: string;
+  type?: 'button' | 'submit';
+  title?: string;
+  'aria-label'?: string;
+};
+
+export function TableActionButton({
+  tone = 'open',
+  href,
+  onClick,
+  children,
+  icon,
+  disabled = false,
+  className = '',
+  type = 'button',
+  title,
+  'aria-label': ariaLabel,
+}: TableActionButtonProps) {
+  const Icon = icon === false ? null : (icon ?? TABLE_ACTION_ICONS[tone]);
+  const classes =
+    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#215E61]/25 disabled:pointer-events-none disabled:opacity-50 ' +
+    TABLE_ACTION_STYLES[tone] +
+    (className ? ` ${className}` : '');
+
+  const content = (
+    <>
+      {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
+      <span>{children}</span>
+    </>
+  );
+
+  if (href && !disabled) {
+    return (
+      <Link
+        href={href}
+        className={classes}
+        title={title}
+        aria-label={ariaLabel}
+        {...(onClick ? { onClick } : {})}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type={type}
+      className={classes}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
+    >
+      {content}
+    </button>
+  );
+}
+
+export function TableActionGroup({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={'flex flex-wrap items-center justify-end gap-1.5 ' + className}>{children}</div>
+  );
+}
 
 export function DataTableSurface({
   children,

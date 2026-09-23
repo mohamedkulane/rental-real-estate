@@ -9,13 +9,13 @@ import {
   Edit3,
   Mail,
   MapPin,
-  MoreHorizontal,
   Phone,
   Plus,
   Search,
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import { PaginationControls, usePagination } from '@/components/shared/pagination';
 import { StatusBadge } from '@/components/shared/ui';
 
@@ -231,52 +231,39 @@ export function BranchDirectory({
                       <StatusBadge value={branch.active} />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <details className="relative inline-block">
-                        <summary className="cursor-pointer list-none rounded-lg p-2 text-slate-400 hover:bg-white hover:text-[#0D47A1]">
-                          <MoreHorizontal className="h-5 w-5" />
-                        </summary>
-                        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                          <button
-                            type="button"
+                      <TableActionGroup>
+                        <TableActionButton
+                          tone="view"
+                          onClick={() => {
+                            setSelected(branch);
+                            setPanel('details');
+                          }}
+                        >
+                          View
+                        </TableActionButton>
+                        {canUpdate(branch) ? (
+                          <TableActionButton
+                            tone="edit"
                             onClick={() => {
                               setSelected(branch);
-                              setPanel('details');
+                              setPanel('edit');
                             }}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
                           >
-                            <Building2 className="h-4 w-4" /> View branch
-                          </button>
-                          {canUpdate(branch) ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelected(branch);
-                                setPanel('edit');
-                              }}
-                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-                            >
-                              <Edit3 className="h-4 w-4" /> Edit branch
-                            </button>
-                          ) : null}
-                          {canUpdate(branch) ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelected(branch);
-                                setPanel('status');
-                              }}
-                              className={
-                                'flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ' +
-                                (branch.active
-                                  ? 'text-red-700 hover:bg-red-50'
-                                  : 'text-[#0D47A1] hover:bg-[#E3F2FD]')
-                              }
-                            >
-                              {branch.active ? 'Deactivate branch' : 'Activate branch'}
-                            </button>
-                          ) : null}
-                        </div>
-                      </details>
+                            Edit
+                          </TableActionButton>
+                        ) : null}
+                        {canUpdate(branch) ? (
+                          <TableActionButton
+                            tone={branch.active ? 'danger' : 'create'}
+                            onClick={() => {
+                              setSelected(branch);
+                              setPanel('status');
+                            }}
+                          >
+                            {branch.active ? 'Deactivate' : 'Activate'}
+                          </TableActionButton>
+                        ) : null}
+                      </TableActionGroup>
                     </td>
                   </tr>
                 ))}

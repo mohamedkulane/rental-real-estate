@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-import { PageSkeleton } from '@/components/shared/loading-system';
-import { EngagementRegister } from '@/features/commercial/engagement-register';
+import { redirect } from 'next/navigation';
 
-export default function ServiceEngagementsPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <EngagementRegister />
-    </Suspense>
-  );
+export default function Page() {
+  redirect('/commercial/rental-brokerage');
 }

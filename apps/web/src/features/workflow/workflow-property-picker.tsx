@@ -100,7 +100,7 @@ export function WorkflowPropertyPicker({
           If the property is not yet registered, add it from the portfolio workspace first, then
           return to this workflow.
         </p>
-        <Link href="/portfolio/properties">Go to Properties</Link>
+        <Link href="/rental/properties">Go to Properties</Link>
       </div>
     </div>
   );

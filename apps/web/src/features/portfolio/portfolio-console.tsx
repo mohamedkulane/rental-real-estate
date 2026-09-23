@@ -23,6 +23,7 @@ import {
 import styles from './portfolio-console.module.css';
 import { RentableSpaceOperations, type RentableSpaceDetailTab } from './rentable-space-operations';
 import { AppShell } from '@/components/shared/app-shell';
+import { TableActionButton } from '@/components/shared/data-table';
 import { EmptyState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import { AppLoadingScreen } from '@/components/shared/loading-system';
 import { humanize } from '@/lib/presentation';
@@ -72,7 +73,6 @@ type SpaceType = { id: string; code: string; name: string };
 type Building = { id: string; buildingCode: string; name: string; status: string };
 
 const tabs: { key: Tab; label: string; permission: string }[] = [
-  { key: 'parties', label: 'Parties', permission: 'party.read' },
   { key: 'owners', label: 'Owners', permission: 'owner.read' },
   { key: 'properties', label: 'Properties', permission: 'portfolio.property.read' },
   { key: 'spaces', label: 'Rentable spaces', permission: 'portfolio.space.read' },
@@ -126,6 +126,7 @@ export function PortfolioConsole() {
     hasNextPage: false,
   });
   const [registerFilters, setRegisterFilters] = useState<Record<string, string>>({});
+  const [ownerCreateOpen, setOwnerCreateOpen] = useState(false);
 
   const loadTab = useCallback(
     async (
@@ -179,25 +180,57 @@ export function PortfolioConsole() {
           return;
         }
         const requested = parameters.get('section');
+        if (requested === 'parties') {
+          router.replace('/portfolio?section=owners');
+          return;
+        }
+        // Properties live only under Portfolio nav → canonical /rental/properties register.
+        if (requested === 'properties') {
+          const create = parameters.get('create') === '1' ? '?create=1' : '';
+          router.replace(`/rental/properties${create}`);
+          return;
+        }
+        if (!requested) {
+          if (hasPermission(current, 'owner.read')) {
+            router.replace('/portfolio?section=owners');
+            return;
+          }
+          if (hasPermission(current, 'portfolio.amenity.read')) {
+            router.replace('/portfolio?section=amenities');
+            return;
+          }
+          router.replace('/rental/properties');
+          return;
+        }
+        if (requested === 'spaces' && parameters.get('create') !== '1') {
+          const propertyId = parameters.get('propertyId');
+          router.replace(
+            propertyId
+              ? `/portfolio/properties/${propertyId}?tab=spaces`
+              : '/rental/properties',
+          );
+          return;
+        }
         const first =
           tabs.find((item) => item.key === requested && hasPermission(current, item.permission))
             ?.key ??
-          tabs.find((item) => hasPermission(current, item.permission))?.key ??
-          'properties';
+          tabs.find((item) => hasPermission(current, item.permission) && item.key !== 'properties')
+            ?.key ??
+          'owners';
         setActive(first);
+        if (first === 'owners' && parameters.get('create') === '1') {
+          setOwnerCreateOpen(true);
+        }
         const firstView = portfolioNavigationView(first, parameters.get('view'));
         setActiveView(firstView);
         if (!shouldLoadParentPortfolioList(first, firstView)) {
           setLoading(false);
           return;
         }
-        const [branchData, partyData, propertyData, ownerData] = await Promise.all([
+        const [branchData, propertyData, ownerData] = await Promise.all([
           (first === 'properties' || first === 'parties') &&
           hasPermission(current, 'organization.branch.read')
             ? apiCached<Branch[]>('/branches')
-            : null,
-          first === 'owners' && hasPermission(current, 'party.read')
-            ? apiCached<CursorPage<Party>>('/parties').then(pageItems)
             : null,
           first === 'spaces' && hasPermission(current, 'portfolio.property.read')
             ? apiCached<CursorPage<Property>>('/properties').then(pageItems)
@@ -207,7 +240,6 @@ export function PortfolioConsole() {
             : null,
         ]);
         if (branchData) setBranches(branchData);
-        if (partyData) setParties(partyData);
         const contextualPropertyId = first === 'spaces' ? (parameters.get('propertyId') ?? '') : '';
         const contextualBuildingId = first === 'spaces' ? (parameters.get('buildingId') ?? '') : '';
         let availableProperties = propertyData ?? [];
@@ -312,9 +344,6 @@ export function PortfolioConsole() {
     void searchSpaceBuildings('');
     void searchParentSpaces('');
   }, [propertyFilter, searchParentSpaces, searchSpaceBuildings]);
-  const visibleTabs = principal
-    ? tabs.filter((tab) => hasPermission(principal, tab.permission))
-    : [];
   const canManageSpaces = principal
     ? ['portfolio.space.create', 'portfolio.space.update', 'portfolio.space.partition'].some(
         (permission) => hasPermission(principal, permission),
@@ -345,13 +374,10 @@ export function PortfolioConsole() {
 
   async function loadDependencies(tab: Tab) {
     if (!principal) return;
-    const [branchData, partyData, propertyData, ownerData] = await Promise.all([
+    const [branchData, propertyData, ownerData] = await Promise.all([
       (tab === 'properties' || tab === 'parties') &&
       hasPermission(principal, 'organization.branch.read')
         ? apiCached<Branch[]>('/branches')
-        : null,
-      tab === 'owners' && hasPermission(principal, 'party.read')
-        ? apiCached<CursorPage<Party>>('/parties').then(pageItems)
         : null,
       tab === 'spaces' && hasPermission(principal, 'portfolio.property.read')
         ? apiCached<CursorPage<Property>>('/properties').then(pageItems)
@@ -361,7 +387,6 @@ export function PortfolioConsole() {
         : null,
     ]);
     if (branchData) setBranches(branchData);
-    if (partyData) setParties(partyData);
     if (propertyData) setProperties(propertyData);
     if (ownerData) setOwners(ownerData);
   }
@@ -1103,13 +1128,12 @@ export function PortfolioConsole() {
                   <StatusBadge value={item.status} />
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <button
-                    type="button"
+                  <TableActionButton
+                    tone={canManageSpaces ? 'manage' : 'view'}
                     onClick={() => router.push(rentableSpaceDetailHref(item.id))}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                   >
                     {canManageSpaces ? 'Manage' : 'View'}
-                  </button>
+                  </TableActionButton>
                 </td>
               </tr>
             ))}
@@ -1119,31 +1143,18 @@ export function PortfolioConsole() {
     );
   }
 
-  const hierarchicalPortfolioNavigation = visibleTabs.map((tab) => {
-    if (tab.key === 'amenities') {
-      return {
-        key: tab.key,
-        label: tab.label,
-        onSelect: () => void choose(tab.key),
-      };
-    }
-    return {
-      key: tab.key,
-      label: tab.label,
-      children: PORTFOLIO_NAVIGATION[tab.key].map((item) => ({
-        key: `${tab.key}:${item.key}`,
-        label: item.label,
-        onSelect: () => void choose(tab.key, item.key),
-      })),
-    };
-  });
-  const activeNavigationItem = active === 'amenities' ? 'amenities' : `${active}:${activeView}`;
+  const activeNavigationItem =
+    active === 'owners' || active === 'properties' || active === 'amenities'
+      ? active
+      : 'properties';
   const activeSectionLabel = tabs.find((tab) => tab.key === active)?.label ?? 'Portfolio';
   const activeChildLabel =
     active === 'amenities'
       ? 'Amenity Catalog'
-      : (PORTFOLIO_NAVIGATION[active].find((item) => item.key === activeView)?.label ??
-        PORTFOLIO_NAVIGATION[active][0].label);
+      : active === 'owners' || active === 'properties' || active === 'spaces' || active === 'parties'
+        ? (PORTFOLIO_NAVIGATION[active].find((item) => item.key === activeView)?.label ??
+          PORTFOLIO_NAVIGATION[active][0]!.label)
+        : 'Portfolio';
 
   const partyKind =
     activeView === 'people' ? 'PERSON' : activeView === 'organizations' ? 'ORGANIZATION' : 'all';
@@ -1161,9 +1172,6 @@ export function PortfolioConsole() {
     <AppShell
       active="portfolio"
       activeItem={activeNavigationItem}
-      subNavigation={{
-        portfolio: hierarchicalPortfolioNavigation,
-      }}
       accessMode={principal.accessMode}
       accessBranches={principal.branches}
       permissions={principal.permissions}
@@ -1257,14 +1265,27 @@ export function PortfolioConsole() {
           ) : (
             <OwnerDirectory
               initialDetailTab={ownerDetailTab}
+              initialCreateOpen={ownerCreateOpen}
+              onCreateClose={() => {
+                setOwnerCreateOpen(false);
+                const parameters = new URLSearchParams(window.location.search);
+                if (parameters.get('create') !== '1') return;
+                parameters.delete('create');
+                const query = parameters.toString();
+                router.replace(query ? `/portfolio?${query}` : '/portfolio?section=owners', {
+                  scroll: false,
+                });
+              }}
+              principal={principal}
               businessDate={principal.businessDate}
               records={records as OwnerRecord[]}
               onQueryChange={(filters) => {
                 void queryRegister(filters);
               }}
-              parties={parties}
               busy={busy}
-              canCreate={(record) => canAcross('owner.create', record.scopeBranchIds)}
+              canCreateOwner={
+                hasPermission(principal, 'owner.create') && hasPermission(principal, 'party.create')
+              }
               canUpdate={(record) => canAcross('owner.update', record.scopeBranchIds)}
               canReadDocuments={(record) =>
                 canAcross('portfolio.document.read', record.scopeBranchIds)
@@ -1272,12 +1293,54 @@ export function PortfolioConsole() {
               canManageDocuments={(record) =>
                 canAcross('portfolio.document.manage', record.scopeBranchIds)
               }
-              onCreate={(input) =>
-                portfolioMutation('/owners', 'POST', input, 'Owner profile created.')
-              }
-              onUpdate={(partyId, input) =>
-                portfolioMutation('/owners/' + partyId, 'PATCH', input, 'Owner profile updated.')
-              }
+              onOwnerCreated={async () => {
+                clearApiCache();
+                resetCursor();
+                await loadTab('owners', '', null, undefined, registerFilters);
+                setSuccess('Owner created.');
+              }}
+              onUpdate={async (partyId, input) => {
+                const {
+                  displayName,
+                  person,
+                  organization,
+                  contacts,
+                  status,
+                  communicationPreference,
+                  notes,
+                } = input as {
+                  displayName?: string;
+                  person?: Record<string, unknown>;
+                  organization?: Record<string, unknown>;
+                  contacts?: Array<Record<string, unknown>>;
+                  status?: string;
+                  communicationPreference?: string;
+                  notes?: string;
+                };
+                const partyPatch: Record<string, unknown> = {};
+                if (displayName) partyPatch.displayName = displayName;
+                if (person) partyPatch.person = person;
+                if (organization) partyPatch.organization = organization;
+                if (contacts) partyPatch.contacts = contacts;
+                if (Object.keys(partyPatch).length) {
+                  await portfolioMutation(
+                    '/parties/' + partyId,
+                    'PATCH',
+                    partyPatch,
+                    'Owner identity updated.',
+                  );
+                }
+                await portfolioMutation(
+                  '/owners/' + partyId,
+                  'PATCH',
+                  {
+                    ...(status ? { status } : {}),
+                    communicationPreference,
+                    notes,
+                  },
+                  'Owner profile updated.',
+                );
+              }}
               onLoadDetails={(partyId) =>
                 api<OwnerRecord>('/owners/' + partyId).catch((cause: unknown) => {
                   const message = userFacingError(cause, 'Unable to load owner properties.');
