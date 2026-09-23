@@ -8,6 +8,7 @@ import {
   Home,
   Menu,
   MoreHorizontal,
+  Search,
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -180,12 +181,20 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
+  const focusGlobalSearch = () => {
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-controls="global-search-results"], .app-header-search input',
+    );
+    input?.focus();
+    input?.select();
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)] font-sans text-slate-900">
       <button
         type="button"
         ref={menuTriggerRef}
-        className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white p-2 text-[#0F172A] shadow-sm lg:hidden"
         aria-label="Open navigation"
         aria-expanded={open}
         aria-controls="main-navigation"
@@ -196,7 +205,7 @@ export function AppShell({
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[1px] lg:hidden"
+          className="fixed inset-0 z-40 bg-[#0F172A]/40 backdrop-blur-[1px] lg:hidden"
           aria-label="Close navigation"
           onClick={() => setOpen(false)}
         />
@@ -264,6 +273,28 @@ export function AppShell({
               </button>
             </div>
           </div>
+          {!accordionCollapsed ? (
+            <button
+              type="button"
+              onClick={focusGlobalSearch}
+              className="mt-3 flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-[#0F172A]/45 shadow-sm transition hover:border-[#0F766E]/30"
+            >
+              <Search className="h-4 w-4 shrink-0 text-[#0F766E]" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">Search menu...</span>
+              <kbd className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#0F172A]/50">
+                Ctrl K
+              </kbd>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={focusGlobalSearch}
+              title="Search (Ctrl K)"
+              className="mt-3 flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-[#0F766E] shadow-sm hover:bg-[#E6F4F1]"
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <nav
@@ -276,15 +307,21 @@ export function AppShell({
               onClick={() => setOpen(false)}
               title="Dashboard"
               className={
-                'flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/20 ' +
+                'relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/25 ' +
                 (dashboardSelected
-                  ? 'bg-[#E6F4F1]/70 text-[#0F172A]'
-                  : 'text-[#0F172A]/80 hover:bg-slate-50/80')
+                  ? 'bg-[#E6F4F1] text-[#0F172A]'
+                  : 'text-[#0F172A]/80 hover:bg-slate-50')
               }
             >
+              {dashboardSelected ? (
+                <span
+                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-[#0F766E]"
+                  aria-hidden="true"
+                />
+              ) : null}
               <Home
                 className={
-                  'h-[18px] w-[18px] shrink-0 ' +
+                  'ml-1 h-[18px] w-[18px] shrink-0 ' +
                   (dashboardSelected ? 'text-[#0F766E]' : 'text-[#0F172A]/55')
                 }
                 aria-hidden="true"
