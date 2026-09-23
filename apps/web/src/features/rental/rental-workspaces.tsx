@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   DataTableEmpty,
   DataTableSurface,
@@ -19,6 +19,7 @@ import {
   AddRentalCustomerDrawer,
   AddRentalPropertyDrawer,
 } from './rental-create-drawers';
+import { WorkspaceFormDrawer } from '@/components/shared/workspace-form-drawer';
 import { RentalShell, useRentalPrincipal } from './rental-shell';
 import { useCreateDrawerState } from './use-create-drawer-state';
 
@@ -178,8 +179,13 @@ type RentalCustomerRow = {
 
 export function RentalCustomerRegister() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { principal, error } = useRentalPrincipal();
   const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
+  const [intentChooserOpen, setIntentChooserOpen] = useState(
+    searchParams.get('chooseIntent') === '1',
+  );
   const [search, setSearch] = useState('');
   const allowed = Boolean(principal && hasPermission(principal, 'crm.lead.read'));
   const query = useQuery({
@@ -192,6 +198,15 @@ export function RentalCustomerRegister() {
     },
   });
   const canCreate = Boolean(principal && hasPermission(principal, 'crm.lead.create'));
+
+  useEffect(() => {
+    setIntentChooserOpen(searchParams.get('chooseIntent') === '1');
+  }, [searchParams]);
+
+  const closeIntentChooser = () => {
+    setIntentChooserOpen(false);
+    router.replace('/rental/customers', { scroll: false });
+  };
 
   return (
     <RentalShell principal={principal} principalError={error} activeItem="rental:customers">
@@ -298,6 +313,42 @@ export function RentalCustomerRegister() {
             void queryClient.invalidateQueries({ queryKey: ['rental-customers'] });
           }}
         />
+      ) : null}
+      {principal && canCreate ? (
+        <WorkspaceFormDrawer
+          open={intentChooserOpen}
+          eyebrow="Customer"
+          title="Add Customer"
+          description="What is the customer looking for?"
+          onClose={closeIntentChooser}
+          size="md"
+        >
+          <div className="grid gap-3">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 p-4 text-left hover:border-emerald-500 hover:bg-emerald-50"
+              onClick={() => {
+                closeIntentChooser();
+                openCreate();
+              }}
+            >
+              <span className="block text-sm font-bold text-slate-900">Rent</span>
+              <span className="mt-1 block text-xs text-slate-500">
+                Open the rental customer form.
+              </span>
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 p-4 text-left hover:border-emerald-500 hover:bg-emerald-50"
+              onClick={() => router.push('/sales/buyers?create=1')}
+            >
+              <span className="block text-sm font-bold text-slate-900">Buy</span>
+              <span className="mt-1 block text-xs text-slate-500">
+                Open the existing buyer form.
+              </span>
+            </button>
+          </div>
+        </WorkspaceFormDrawer>
       ) : null}
     </RentalShell>
   );

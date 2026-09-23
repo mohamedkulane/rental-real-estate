@@ -472,6 +472,7 @@ export class PortfolioService {
       ACTIVE: [PropertyStatus.INACTIVE],
       INACTIVE: [PropertyStatus.ACTIVE, PropertyStatus.RETIRED],
       RETIRED: [],
+      SOLD: [],
     };
     return this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw(

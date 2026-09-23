@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { AppLoadingScreen } from '@/components/shared/loading-system';
 import { ErrorState } from '@/components/shared/ui';
 import { useClientReady } from '@/lib/client-ready';
-import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
+import { api, apiCached, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 
 export type PortalTab = {
   key: string;
@@ -21,7 +21,7 @@ export function usePortalPrincipal(expectedKind: 'OWNER' | 'TENANT') {
 
   useEffect(() => {
     let live = true;
-    void api<Principal>('/auth/me')
+    void apiCached<Principal>('/auth/me')
       .then((value) => {
         if (!live) return;
         if (value.kind !== expectedKind) {

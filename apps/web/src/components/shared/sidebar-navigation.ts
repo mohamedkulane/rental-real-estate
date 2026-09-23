@@ -46,7 +46,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
 };
 
 const ACTIVE_GROUP_ALIASES: Record<string, string> = {
-  viewings: 'rental',
+  viewings: 'portfolio',
   'service-engagements': 'rental',
   'engagement-register': 'rental',
   'start:rental-brokerage': 'rental',

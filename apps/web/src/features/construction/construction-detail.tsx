@@ -12,7 +12,7 @@ import {
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
 import { useClientReady } from '@/lib/client-ready';
-import { api, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
+import { api, apiCached, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
 
 type Detail = {
   id: string;
@@ -91,7 +91,7 @@ export function ConstructionDetail({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
-    void api<Principal>('/auth/me')
+    void apiCached<Principal>('/auth/me')
       .then(setPrincipal)
       .catch(() => router.replace('/login'));
   }, [router]);

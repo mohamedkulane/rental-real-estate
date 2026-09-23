@@ -346,7 +346,7 @@ export function FinanceReferencePicker({
       label={label}
       path={path}
       value={value}
-      required={required}
+      required={required ?? false}
       map={(row) => ({
         id: financeText(row.id),
         label: `${financeText(row.code)} — ${financeText(row.name)}`,

@@ -6,14 +6,14 @@ import { AppShell } from '@/components/shared/app-shell';
 import { AppLoadingScreen } from '@/components/shared/loading-system';
 import { ErrorState } from '@/components/shared/ui';
 import { useClientReady } from '@/lib/client-ready';
-import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
+import { api, apiCached, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 
 export function useRentalPrincipal() {
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let live = true;
-    void api<Principal>('/auth/me')
+    void apiCached<Principal>('/auth/me')
       .then((value) => live && setPrincipal(value))
       .catch(
         (cause) => live && setError(userFacingError(cause, 'Your session could not be verified.')),

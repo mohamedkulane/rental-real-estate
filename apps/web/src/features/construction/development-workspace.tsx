@@ -14,7 +14,7 @@ import {
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
 import { useClientReady } from '@/lib/client-ready';
-import { api, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
+import { api, apiCached, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
 
 const FORM_ID = 'create-development-project-form';
 
@@ -62,7 +62,7 @@ export function DevelopmentWorkspace() {
   const [sourcePropertyId, setSourcePropertyId] = useState('');
 
   useEffect(() => {
-    void api<Principal>('/auth/me')
+    void apiCached<Principal>('/auth/me')
       .then((value) => {
         if (!hasPermission(value, 'development.read')) {
           router.replace('/admin');

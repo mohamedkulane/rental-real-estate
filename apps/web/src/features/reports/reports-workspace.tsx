@@ -11,6 +11,7 @@ import { useClientReady } from '@/lib/client-ready';
 import { humanize } from '@/lib/presentation';
 import {
   api,
+  apiCached,
   clearApiCache,
   hasPermission,
   type Principal,
@@ -103,7 +104,7 @@ export function ReportsWorkspace() {
 
   useEffect(() => {
     let live = true;
-    void api<Principal>('/auth/me')
+    void apiCached<Principal>('/auth/me')
       .then(async (value) => {
         if (!live) return;
         if (!hasPermission(value, 'report.read')) {

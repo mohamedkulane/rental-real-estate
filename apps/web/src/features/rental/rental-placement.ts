@@ -9,6 +9,17 @@ export type PlacementProgress = {
   declined?: boolean;
 };
 
+export function isInterestedViewingOutcome(outcome?: string | null): boolean {
+  return Boolean(outcome && outcome !== 'NOT_INTERESTED' && outcome.startsWith('INTERESTED'));
+}
+
+export function viewingInterestLabel(outcome?: string | null): string | null {
+  if (!outcome) return null;
+  if (outcome.includes('NOT_INTERESTED')) return 'Not interested';
+  if (isInterestedViewingOutcome(outcome)) return 'Interested';
+  return null;
+}
+
 function storageKey(leadId: string, listingKey: string) {
   return `rental-placement:${leadId}:${listingKey}`;
 }

@@ -117,15 +117,15 @@ describe('simplified sidebar groups', () => {
     ]);
   });
 
-  it('lists portfolio properties in the portfolio folder', () => {
+  it('lists properties and central viewings in the portfolio folder', () => {
     expect(
       buildSidebarGroups({
-        permissions: ['portfolio.property.read', 'owner.read', 'portfolio.amenity.read'],
+        permissions: ['portfolio.property.read', 'owner.read', 'viewing.read', 'portfolio.amenity.read'],
         navigate: () => undefined,
       })
         .find((group) => group.title === 'PORTFOLIO')
         ?.items.map((item) => item.label),
-    ).toEqual(['Owners', 'Properties', 'Amenities']);
+    ).toEqual(['Owners', 'Properties', 'Viewings', 'Amenities']);
   });
 
   it('lists sales as overview buyers properties deals', () => {
@@ -203,23 +203,19 @@ describe('Start New launcher', () => {
     expect(startNewNavigation([], () => undefined)).toEqual([]);
     expect(
       startNewNavigation(['crm.lead.create'], () => undefined).map((item) => item.label),
-    ).toEqual(['Add Rental Customer', 'Add Buyer']);
+    ).toEqual(['Add Customer']);
   });
 
-  it('routes Add Rental Customer to workspace create drawer', () => {
+  it('routes Add Customer to the intent chooser', () => {
     let destination = '';
     startNewNavigation(['crm.lead.create'], (href) => {
       destination = href;
     })[0]!.onSelect!();
-    expect(destination).toBe('/rental/customers?create=1');
+    expect(destination).toBe('/rental/customers?chooseIntent=1');
   });
 
-  it('routes Start Rental Brokerage to commercial workspace drawer', () => {
-    let destination = '';
-    startNewNavigation(['service-engagement.create'], (href) => {
-      destination = href;
-    }).find((item) => item.key === 'start:rental-brokerage')!.onSelect!();
-    expect(destination).toBe('/commercial/rental-brokerage?create=1');
+  it('does not expose legacy service start actions', () => {
+    expect(startNewNavigation(['service-engagement.create'], () => undefined)).toEqual([]);
   });
 
   it('includes record payment', () => {

@@ -5,14 +5,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shared/app-shell';
 import { AppLoadingScreen } from '@/components/shared/loading-system';
-import { api, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
+import { api, apiCached, clearApiCache, type Principal, userFacingError } from '@/lib/phase3-api';
 
 export function usePortfolioPrincipal() {
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let live = true;
-    void api<Principal>('/auth/me')
+    void apiCached<Principal>('/auth/me')
       .then((record) => {
         if (live) setPrincipal(record);
       })

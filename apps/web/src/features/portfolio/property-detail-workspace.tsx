@@ -173,6 +173,7 @@ export function PropertyDetailWorkspace() {
       ? (requestedTab as PropertyDetailTab)
       : 'overview',
   );
+  const activeTab = tab as string;
   const [record, setRecord] = useState<PropertyRecord | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -475,7 +476,7 @@ export function PropertyDetailWorkspace() {
             </section>
           ) : null}
 
-          {tab === 'buildings' ? (
+          {activeTab === 'buildings' ? (
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
@@ -592,12 +593,12 @@ export function PropertyDetailWorkspace() {
             />
           ) : null}
 
-          {tab === 'amenities' || tab === 'documents' || tab === 'branch-history' ? (
+          {activeTab === 'amenities' || activeTab === 'documents' || activeTab === 'branch-history' ? (
             <PropertyOperations
               property={record}
               branches={branches}
               principal={principal}
-              section={tab}
+              section={activeTab as import('./portfolio-ia').PropertyDetailSection}
             />
           ) : null}
           {tab === 'activity' ? <PropertyActivity property={record} /> : null}

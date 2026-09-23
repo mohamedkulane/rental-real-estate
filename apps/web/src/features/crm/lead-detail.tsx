@@ -234,6 +234,7 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
     queryFn: () => api<LeadDetail>(`/crm/leads/${leadId}`),
   });
   const lead = query.data;
+  const leadIntent = lead ? String(lead.intent) : '';
   useEffect(() => {
     if (!lead) return;
     if (lead.intent === 'RENT') router.replace(`/rental/customers/${lead.id}`);
@@ -251,7 +252,7 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
           ...(canReadChild(principal, 'crm.followup.read', branch!) ? ['follow-ups'] : []),
           ...(canReadChild(principal, 'crm.assignment.read', branch!) ? ['assignment'] : []),
           ...(can(principal, 'listing.match', branch) &&
-          (lead.intent === 'RENT' || lead.intent === 'BUY')
+          (leadIntent === 'RENT' || leadIntent === 'BUY')
             ? ['matches']
             : []),
           'history',
@@ -280,10 +281,10 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
       ) : principal && lead ? (
         <>
           <Link
-            href={lead.intent === 'RENT' ? '/rental/customers' : `/crm/leads?intent=${lead.intent}`}
+            href={leadIntent === 'RENT' ? '/rental/customers' : `/crm/leads?intent=${leadIntent}`}
             className="mb-4 inline-block text-sm font-bold text-blue-700"
           >
-            {lead.intent === 'RENT' ? '← Rental Customers' : '← Lead Register'}
+            {leadIntent === 'RENT' ? '← Rental Customers' : '← Lead Register'}
           </Link>
           <PageHeader
             eyebrow={lead.leadNumber}

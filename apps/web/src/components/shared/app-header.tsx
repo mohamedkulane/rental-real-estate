@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { humanize } from '@/lib/presentation';
 import { api } from '@/lib/phase3-api';
 import {
@@ -58,6 +59,7 @@ export function AppHeader({
   permissions,
   accessMode,
   accessBranches = [],
+  companyName,
   userDisplayName,
   userRoleLabel,
   onLogout,
@@ -65,10 +67,12 @@ export function AppHeader({
   permissions: string[];
   accessMode: string;
   accessBranches?: Array<{ id: string; code: string; name: string }>;
+  companyName?: string;
   userDisplayName?: string;
   userRoleLabel?: string;
   onLogout: () => void;
 }) {
+  const router = useRouter();
   const branches = accessBranches;
   const [startNewOpen, setStartNewOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -89,7 +93,7 @@ export function AppHeader({
   const notificationPanelRef = useRef<HTMLDivElement>(null);
 
   const canSearch = permissions.includes('search.read');
-  const navigate = (href: string) => window.location.assign(href);
+  const navigate = (href: string) => router.push(href);
   const startNewItems = startNewNavigation(permissions, (href) => {
     setStartNewOpen(false);
     navigate(href);
@@ -99,6 +103,7 @@ export function AppHeader({
   const roleLabel = userRoleLabel ?? humanize(accessMode);
   const initials = userInitials(displayName);
   const branchName = branchLabel(accessMode, branches);
+  const workspaceName = companyName?.trim() || branchName;
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -310,7 +315,7 @@ export function AppHeader({
               aria-label="Current branch"
             >
               <Building2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
-              <span className="truncate">{branchName}</span>
+              <span className="truncate">{workspaceName}</span>
               <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
             </button>
 

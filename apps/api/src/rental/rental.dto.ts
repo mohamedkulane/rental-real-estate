@@ -1,4 +1,4 @@
-import { PartyKind, PropertyType } from '@prisma/client';
+import { AgreementCommissionMethod, PartyKind, PropertyType } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -8,12 +8,14 @@ import {
   IsEmail,
   IsEnum,
   IsIn,
+  IsInt,
   IsNumberString,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   MaxLength,
+  Min,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
@@ -217,4 +219,38 @@ export class CreateRentalLeaseDto {
   @IsDateString({ strict: true }) leaseEndDate!: string;
   @IsOptional() @IsUUID() rentableSpaceId?: string;
   @IsOptional() @IsIn(['USD']) currency?: 'USD';
+}
+
+export class CommissionTermsDto {
+  @IsEnum(AgreementCommissionMethod) method!: AgreementCommissionMethod;
+  @IsNumberString() value!: string;
+}
+
+export class CreateRentalAgreementDto {
+  @IsUUID() viewingId!: string;
+  @IsUUID() leadId!: string;
+  @IsUUID() propertyId!: string;
+  @IsUUID() rentableSpaceId!: string;
+  @IsDateString({ strict: true }) leaseStartDate!: string;
+  @IsOptional() @IsDateString({ strict: true }) leaseEndDate?: string;
+  @IsNumberString() finalRent!: string;
+  @IsOptional() @IsNumberString() depositAmount?: string;
+  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) ownerCommission?: CommissionTermsDto;
+  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) tenantCommission?: CommissionTermsDto;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+}
+
+export class CreateSaleAgreementDto {
+  @IsUUID() viewingId!: string;
+  @IsUUID() leadId!: string;
+  @IsUUID() propertyId!: string;
+  @IsNumberString() finalSalePrice!: string;
+  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) sellerCommission?: CommissionTermsDto;
+  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) buyerCommission?: CommissionTermsDto;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+}
+
+export class AgreementTransitionDto {
+  @IsInt() @Min(1) expectedVersion!: number;
+  @IsString() @Length(3, 500) reason!: string;
 }

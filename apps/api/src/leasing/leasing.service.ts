@@ -392,14 +392,16 @@ export class LeasingService {
     const application = await this.db.rentalApplication.findFirst({ where: { id: input.applicationId, companyId: principal.companyId, status: ApplicationStatus.APPROVED }, include: { rentalListing: { include: { serviceEngagement: true } } } });
     if (!application) throw new ConflictException('An approved Application is required.');
     this.auth.assertBranchPermission(principal, 'reservation.create', application.branchId);
-    if (!this.capabilities(application.rentalListing.serviceEngagement).canReserveSpace) throw new ConflictException('The Service Engagement does not permit Reservations.');
+    const listing = application.rentalListing;
+    if (!listing) throw new ConflictException('A legacy listing is required for Reservations.');
+    if (!this.capabilities(listing.serviceEngagement).canReserveSpace) throw new ConflictException('The Service Engagement does not permit Reservations.');
     await assertHierarchyOccupancyAvailable(this.db, {
       companyId: principal.companyId,
       rentableSpaceId: application.rentableSpaceId,
       businessDate: principal.businessDate,
     });
     return this.db.$transaction(async (tx) => {
-      const row = await tx.reservation.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: application.branchId, reservationNumber: await nextRecordNumber(tx, 'RESERVATION'), applicationId: application.id, rentalListingId: application.rentalListingId, rentableSpaceId: application.rentableSpaceId, startsAt, expiresAt, createdByUserId: principal.userId } });
+      const row = await tx.reservation.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: application.branchId, reservationNumber: await nextRecordNumber(tx, 'RESERVATION'), applicationId: application.id, rentalListingId: listing.id, rentableSpaceId: application.rentableSpaceId, startsAt, expiresAt, createdByUserId: principal.userId } });
       await this.audit.write(tx, { actorUserId: principal.userId, action: 'reservation.created', entityType: 'Reservation', entityId: row.id, branchId: row.branchId, correlationId, after: { reservationNumber: row.reservationNumber, applicationId: row.applicationId, startsAt, expiresAt } });
       return row;
     }).catch((error: unknown) => {
@@ -646,6 +648,7 @@ export class LeasingService {
     const lease = await this.db.lease.findFirst({ where: { id: input.originalLeaseId, companyId: principal.companyId, status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] } } });
     if (!lease) throw new ConflictException('A Signed or Active Lease is required.');
     this.auth.assertBranchPermission(principal, 'renewal.manage', lease.branchId);
+    if (!lease.leaseEndDate) throw new ConflictException('Open-ended leases cannot be renewed.');
     const start = new Date(input.proposedStartDate); const end = new Date(input.proposedEndDate);
     if (end <= start || start < lease.leaseEndDate) throw new BadRequestException('Renewal dates must begin at or after the existing Lease end and have a valid period.');
     return this.db.$transaction(async (tx) => {
@@ -686,7 +689,7 @@ export class LeasingService {
     if (!lease) throw new ConflictException('A Signed or Active Lease is required.');
     this.auth.assertBranchPermission(principal, 'move-in.manage', lease.branchId);
     const date = new Date(input.scheduledDate);
-    if (date < lease.leaseStartDate || date >= lease.leaseEndDate) throw new BadRequestException('Move-In date must be within the Lease period.');
+    if (date < lease.leaseStartDate || (lease.leaseEndDate && date >= lease.leaseEndDate)) throw new BadRequestException('Move-In date must be within the Lease period.');
     return this.db.$transaction(async (tx) => {
       const row = await tx.moveIn.create({ data: { id: uuidv7(), leaseId: lease.id, scheduledDate: date, notes: input.notes?.trim() || null, recordedByUserId: principal.userId } });
       await this.audit.write(tx, { actorUserId: principal.userId, action: 'move-in.scheduled', entityType: 'MoveIn', entityId: row.id, branchId: lease.branchId, correlationId, after: { leaseId: lease.id, scheduledDate: date } });

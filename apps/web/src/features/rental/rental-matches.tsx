@@ -322,7 +322,7 @@ export function RentalCustomerMatches({
                     .find(Boolean) ?? undefined;
                 const progress = progressMap[item.listing.id] ?? {};
                 const step = nextPlacementStep({
-                  viewingStatus: viewing?.status,
+                  viewingStatus: viewing?.status ?? null,
                   progress,
                 });
                 if (step === 'declined') {
@@ -439,7 +439,7 @@ export function RentalCustomerMatches({
                                     { declined: true },
                                   ),
                                 }));
-                                toast.message('Marked not interested. Match another unit.');
+                                toast('Marked not interested. Match another unit.');
                               }}
                             >
                               Not interested
@@ -557,6 +557,7 @@ export function RentalCustomerMatches({
               formId="negotiate-rental-rent"
               onCancel={() => setNegotiateFor(null)}
               submitLabel="Save agreed rent"
+              isPending={false}
             />
           }
         >
@@ -614,6 +615,7 @@ export function RentalCustomerMatches({
               formId="collect-company-fee"
               onCancel={() => setFeesFor(null)}
               submitLabel="Confirm fee collected"
+              isPending={false}
             />
           }
         >

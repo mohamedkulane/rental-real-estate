@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import { Manrope } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { Providers } from './providers';
 
-const manrope = Manrope({
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-manrope',
+  variable: '--font-inter',
 });
 export const metadata: Metadata = {
   title: 'Real Estate Rental Management',
@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" translate="no" suppressHydrationWarning>
-      <body className={manrope.variable} suppressHydrationWarning>
+      <body className={inter.variable} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

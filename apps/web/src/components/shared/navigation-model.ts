@@ -13,18 +13,25 @@ export type SidebarGroup = {
 
 export const startNewDestinations = [
   {
-    key: 'start:add-rental-customer',
-    label: 'Add Rental Customer',
-    description: 'Register someone looking for a rental.',
-    href: '/rental/customers?create=1',
+    key: 'start:add-owner-property',
+    label: 'Add Owner + Property',
+    description: 'Register a new owner, property, and service intent in one flow.',
+    href: '/rental/properties?create=1',
+    permission: 'portfolio.property.create',
+  },
+  {
+    key: 'start:add-customer',
+    label: 'Add Customer',
+    description: 'Choose whether the customer is looking to rent or buy.',
+    href: '/rental/customers?chooseIntent=1',
     permission: 'crm.lead.create',
   },
   {
-    key: 'start:add-buyer',
-    label: 'Add Buyer',
-    description: 'Register someone looking to buy a property.',
-    href: '/sales/buyers?create=1',
-    permission: 'crm.lead.create',
+    key: 'start:add-owner',
+    label: 'Add Owner',
+    description: 'Register an owner for the property portfolio.',
+    href: '/portfolio?section=owners&create=1',
+    permission: 'owner.create',
   },
   {
     key: 'start:add-property',
@@ -32,27 +39,6 @@ export const startNewDestinations = [
     description: 'Register a property under an existing owner (or create a new owner).',
     href: '/rental/properties?create=1',
     permission: 'portfolio.property.create',
-  },
-  {
-    key: 'start:rental-brokerage',
-    label: 'Start Rental Brokerage',
-    description: 'Find a tenant and collect brokerage fees.',
-    href: '/commercial/rental-brokerage?create=1',
-    permission: 'service-engagement.create',
-  },
-  {
-    key: 'start:full-management',
-    label: 'Start Full Management',
-    description: 'Manage rent collection for an owner property.',
-    href: '/commercial/full-management?create=1',
-    permission: 'service-engagement.create',
-  },
-  {
-    key: 'start:property-sale',
-    label: 'Start Property Sale',
-    description: 'Market a property for sale.',
-    href: '/sales/deals/new',
-    permission: 'service-engagement.create',
   },
   {
     key: 'start:record-payment',
@@ -159,6 +145,12 @@ export const portfolioDestinations = [
     label: 'Properties',
     href: '/rental/properties',
     permission: 'portfolio.property.read',
+  },
+  {
+    key: 'viewings',
+    label: 'Viewings',
+    href: '/viewings',
+    permission: 'viewing.read',
   },
   {
     key: 'amenities',

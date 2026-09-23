@@ -166,7 +166,7 @@ export function PortfolioConsole() {
   );
 
   useEffect(() => {
-    api<Principal>('/auth/me')
+    apiCached<Principal>('/auth/me')
       .then(async (current) => {
         setPrincipal(current);
         const parameters = new URLSearchParams(window.location.search);
