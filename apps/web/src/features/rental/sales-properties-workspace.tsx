@@ -3,9 +3,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/shared/ui';
-import { DataTableEmpty, DataTableSurface, DataTableToolbar } from '@/components/shared/data-table';
+import {
+  DataTableEmpty,
+  DataTableSurface,
+  DataTableToolbar,
+  TableActionButton,
+  TableActionGroup,
+} from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
-import { api, hasPermission, type CursorPage } from '@/lib/phase3-api';
+import { ErrorState } from '@/components/shared/ui';
+import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
 import { CommercialShell, useCommercialPrincipal } from '@/features/commercial/commercial-shell';
 
@@ -35,8 +42,39 @@ export function SalesPropertiesWorkspace() {
         <DataTableToolbar>
           <input className="input max-w-sm" placeholder="Search properties" value={search} onChange={(event) => setSearch(event.target.value)} />
         </DataTableToolbar>
-        {!principal || query.isLoading ? <TableSkeleton columns={5} /> : query.data?.items.length ? (
-          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>Property</th><th>Type</th><th>Location</th><th className="text-right">Sale price</th></tr></thead><tbody>{query.data.items.map((row) => <tr key={row.id} className="border-t border-slate-100"><td><div className="font-semibold">{row.name}</div><div className="text-xs text-slate-500">{row.propertyCode}</div></td><td>{humanize(row.propertyType)}</td><td>{row.location || 'Not set'}</td><td className="text-right font-medium">{row.salePrice ? `${row.currency} ${row.salePrice}` : 'Not set'}</td></tr>)}</tbody></table></div>
+        {!principal || query.isLoading ? <TableSkeleton columns={5} /> : query.isError ? (
+          <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} />
+        ) : query.data?.items.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr>
+                  {['Property', 'Type', 'Location', 'Sale price', 'Actions'].map((header) => (
+                    <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {query.data.items.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
+                    <td className="px-4 py-3"><div className="font-semibold text-slate-900">{row.name}</div><div className="text-xs text-slate-500">{row.propertyCode}</div></td>
+                    <td className="px-4 py-3">{humanize(row.propertyType)}</td>
+                    <td className="px-4 py-3">{row.location || 'Not set'}</td>
+                    <td className="px-4 py-3 font-medium">{row.salePrice ? `${row.currency} ${row.salePrice}` : 'Not set'}</td>
+                    <td className="px-4 py-3">
+                      <TableActionGroup className="justify-start">
+                        <TableActionButton tone="open" href={`/portfolio/properties/${row.id}`}>
+                          Open property
+                        </TableActionButton>
+                      </TableActionGroup>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : <DataTableEmpty title="No sale properties" description="Owner properties with Sale service intent will appear here." />}
       </DataTableSurface>
     </CommercialShell>

@@ -97,7 +97,7 @@ export function SalesOverview() {
         }
       />
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Properties For Sale" value={forSale} />
         <KpiCard label="Active Buyers" value={activeBuyers} />
         <KpiCard label="Active Deals" value={activeDeals} />
@@ -152,6 +152,18 @@ export function SalesOverview() {
             ]}
             occupancy={[35, 42, 48, 55, 62, Math.min(95, 40 + sold.length * 8)]}
           />
+        </div>
+      </section>
+
+      <section className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Sales workspaces</h2>
+          <p className="mt-1 text-xs text-slate-500">Move from demand to property and offer operations.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link className="button secondary" href="/sales/buyers">Buyers</Link>
+          <Link className="button secondary" href="/sales/properties">Properties for sale</Link>
+          <Link className="button secondary" href="/sales/deals">Deals</Link>
         </div>
       </section>
     </CommercialShell>
