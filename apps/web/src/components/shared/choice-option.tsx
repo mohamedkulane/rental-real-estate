@@ -26,7 +26,7 @@ export function ChoiceOption({
       className={
         'flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors duration-150 ' +
         (selected
-          ? 'border-[#5D9293] bg-[#F1F8F7]'
+          ? 'border-[var(--primary)] bg-[var(--primary-soft)]'
           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50')
       }
     >
@@ -44,7 +44,7 @@ export function ChoiceOption({
           className={
             'pointer-events-none flex h-4 w-4 items-center justify-center rounded-full border-[1.5px] transition-colors duration-150 ' +
             (selected
-              ? 'border-[#215E61] bg-[#215E61] text-white'
+              ? 'border-[var(--primary)] bg-[var(--primary)] text-white'
               : 'border-slate-300 bg-white text-transparent peer-hover:border-slate-400')
           }
         >

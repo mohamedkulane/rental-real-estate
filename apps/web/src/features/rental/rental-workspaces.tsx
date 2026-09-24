@@ -367,24 +367,24 @@ export function RentalCustomerRegister() {
           <div className="grid gap-3">
             <button
               type="button"
-              className="rounded-lg border border-slate-200 p-4 text-left hover:border-emerald-500 hover:bg-emerald-50"
+              className="workspace-choice-card rounded-lg border border-slate-200 bg-white p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
               onClick={() => {
                 closeIntentChooser();
                 openCreate();
               }}
             >
-              <span className="block text-sm font-bold text-slate-900">Rent</span>
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="workspace-choice-card-title block text-sm font-bold text-slate-900">Rent</span>
+              <span className="workspace-choice-card-description mt-1 block text-xs text-slate-500">
                 Open the rental customer form.
               </span>
             </button>
             <button
               type="button"
-              className="rounded-lg border border-slate-200 p-4 text-left hover:border-emerald-500 hover:bg-emerald-50"
+              className="workspace-choice-card rounded-lg border border-slate-200 bg-white p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
               onClick={() => router.push('/sales/buyers?create=1')}
             >
-              <span className="block text-sm font-bold text-slate-900">Buy</span>
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="workspace-choice-card-title block text-sm font-bold text-slate-900">Buy</span>
+              <span className="workspace-choice-card-description mt-1 block text-xs text-slate-500">
                 Open the existing buyer form.
               </span>
             </button>

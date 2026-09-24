@@ -3358,6 +3358,21 @@ details[open] > :not(summary) {
   background: var(--primary-soft) !important;
   color: var(--primary) !important;
 }
+.workspace-choice-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+.workspace-choice-card:hover {
+  background: var(--primary-soft) !important;
+  border-color: var(--primary) !important;
+}
+.workspace-choice-card-title {
+  color: var(--text-primary) !important;
+}
+.workspace-choice-card-description {
+  color: var(--text-secondary) !important;
+}
 .app-header-branch {
   min-height: 36px;
   align-items: center;
