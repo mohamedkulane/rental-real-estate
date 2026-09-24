@@ -55,6 +55,7 @@
   --motion-fast: 160ms;
   --motion-standard: 200ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --font-decorative: 'Caveat', 'Segoe Print', cursive;
 }
 
 * {

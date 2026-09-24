@@ -30,10 +30,10 @@ export type TableActionTone =
   | 'neutral';
 
 const TABLE_ACTION_STYLES: Record<TableActionTone, string> = {
-  open: 'border-[#215E61]/20 bg-[#E8F3F3] text-[#215E61] hover:bg-[#d7eaea]',
+  open: 'border-[#0F766E]/20 bg-[#E6F4F1] text-[#0F766E] hover:bg-[#D6EEE9]',
   view: 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100',
   edit: 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100',
-  manage: 'border-[#FF9E20]/35 bg-[#FFF4E5] text-[#9A5B00] hover:bg-[#ffe8c7]',
+  manage: 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100',
   create: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
   schedule: 'border-indigo-200 bg-indigo-50 text-indigo-800 hover:bg-indigo-100',
   property: 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
@@ -82,7 +82,7 @@ export function TableActionButton({
 }: TableActionButtonProps) {
   const Icon = icon === false ? null : (icon ?? TABLE_ACTION_ICONS[tone]);
   const classes =
-    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#215E61]/25 disabled:pointer-events-none disabled:opacity-50 ' +
+    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/25 disabled:pointer-events-none disabled:opacity-50 ' +
     TABLE_ACTION_STYLES[tone] +
     (className ? ` ${className}` : '');
 
@@ -129,7 +129,7 @@ export function TableActionGroup({
   className?: string;
 }) {
   return (
-    <div className={'flex flex-wrap items-center justify-end gap-1.5 ' + className}>{children}</div>
+    <div className={'flex flex-wrap items-center justify-end gap-1 ' + className}>{children}</div>
   );
 }
 
@@ -141,11 +141,7 @@ export function DataTableSurface({
   className?: string;
 }) {
   return (
-    <section
-      className={
-        'overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-sm ' + className
-      }
-    >
+    <section className={'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ' + className}>
       {children}
     </section>
   );
@@ -183,7 +179,7 @@ export function DataTableSearch({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-800 shadow-sm transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-800 shadow-sm transition focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/15"
       />
     </label>
   );
@@ -208,7 +204,7 @@ export function DataTableFilter({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-700 shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-700 shadow-sm focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/15"
       >
         {options.map((option) => (
           <option key={option.value || '__all'} value={option.value}>
