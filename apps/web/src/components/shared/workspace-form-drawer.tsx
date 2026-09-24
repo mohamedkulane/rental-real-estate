@@ -117,7 +117,7 @@ export function WorkspaceFormDrawer({
       />
       <aside
         className={
-          'workspace-form-drawer-panel relative flex h-fit max-h-[min(90vh,820px)] w-full flex-col ' +
+          'workspace-form-drawer-panel relative flex h-[min(90vh,820px)] max-h-[calc(100dvh-2rem)] w-full flex-col ' +
           'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl ' +
           'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none ' +
           (entered
@@ -160,7 +160,7 @@ export function WorkspaceFormDrawer({
           <div
             ref={bodyRef}
             onScroll={onBodyScroll}
-            className="workspace-form-drawer-body h-full max-h-[min(calc(90vh-9.5rem),680px)] overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
+            className="workspace-form-drawer-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
           >
             {children}
           </div>
