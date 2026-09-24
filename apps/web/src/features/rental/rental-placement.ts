@@ -13,6 +13,10 @@ export function isInterestedViewingOutcome(outcome?: string | null): boolean {
   return Boolean(outcome && outcome !== 'NOT_INTERESTED' && outcome.startsWith('INTERESTED'));
 }
 
+export function isNotInterestedViewingOutcome(outcome?: string | null): boolean {
+  return Boolean(outcome?.toUpperCase().includes('NOT_INTERESTED'));
+}
+
 export function viewingInterestLabel(outcome?: string | null): string | null {
   if (!outcome) return null;
   if (outcome.includes('NOT_INTERESTED')) return 'Not interested';
@@ -50,9 +54,10 @@ export type PlacementStep = 'viewing' | 'negotiate' | 'fees' | 'lease' | 'declin
 
 export function nextPlacementStep(input: {
   viewingStatus?: string | null;
+  viewingOutcome?: string | null;
   progress: PlacementProgress;
 }): PlacementStep {
-  if (input.progress.declined) return 'declined';
+  if (input.progress.declined || isNotInterestedViewingOutcome(input.viewingOutcome)) return 'declined';
   const viewingDone = input.viewingStatus === 'COMPLETED';
   if (!viewingDone) return 'viewing';
   if (!input.progress.agreedRent?.trim()) return 'negotiate';

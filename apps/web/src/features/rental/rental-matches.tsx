@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from '@/lib/toast';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import {
@@ -16,6 +17,9 @@ import {
   nextPlacementStep,
   readPlacementProgress,
   writePlacementProgress,
+  isInterestedViewingOutcome,
+  isNotInterestedViewingOutcome,
+  viewingInterestLabel,
   type PlacementProgress,
   type PlacementStep,
 } from './rental-placement';
@@ -43,6 +47,7 @@ type MatchItem = {
         propertyCode: string;
         city?: string;
         district?: string | null;
+        serviceIntent?: 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE' | 'CONSTRUCTION' | null;
       };
     };
   };
@@ -51,6 +56,7 @@ type MatchItem = {
 type ViewingRow = {
   id: string;
   status: string;
+  outcome?: string | null;
   version: number;
   rentalListingId?: string | null;
   rentableSpaceId?: string | null;
@@ -60,6 +66,10 @@ type ViewingRow = {
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15';
+
+/** Equal-height date fields; constrains oversized native calendar icons (esp. Windows). */
+const dateInputClass =
+  'box-border h-11 w-full min-h-[2.75rem] max-h-11 rounded-lg border border-slate-200 px-3 py-0 text-sm leading-none shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 [&::-webkit-calendar-picker-indicator]:h-4 [&::-webkit-calendar-picker-indicator]:w-4 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70';
 
 const STEP_LABELS: Record<Exclude<PlacementStep, 'declined'>, string> = {
   viewing: '1. Viewing',
@@ -107,7 +117,6 @@ function PipelineSteps({ active }: { active: PlacementStep }) {
     </ol>
   );
 }
-
 export function RentalCustomerMatches({
   lead,
   principal,
@@ -116,6 +125,7 @@ export function RentalCustomerMatches({
   principal: Principal;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [viewingFor, setViewingFor] = useState<MatchItem | null>(null);
   const [assignedAgentId, setAssignedAgentId] = useState(
     () => lead.currentAssignee?.id ?? '',
@@ -222,14 +232,14 @@ export function RentalCustomerMatches({
             status: 'COMPLETED',
             expectedVersion: current.version,
             reason: 'Viewing completed',
-            outcome: 'Customer reviewing interest with owner terms',
+            outcome: 'INTERESTED',
           }),
         });
       }
       return current;
     },
     onSuccess: (row) => {
-      toast.success('Viewing completed. If interested, agree rent with the owner next.');
+      toast.success('Viewing completed as interested. Agree rent with the owner next.');
       const key =
         row.rentalListingId ??
         row.rentalListing?.id ??
@@ -241,6 +251,82 @@ export function RentalCustomerMatches({
           [key]: writePlacementProgress(lead.id, key, { viewingId: row.id, declined: false }),
         }));
       }
+      void queryClient.invalidateQueries({ queryKey: ['rental-customer-viewings', lead.id] });
+    },
+    onError: (cause) => toast.error(userFacingError(cause)),
+  });
+
+  const confirmAgreement = useMutation({
+    mutationFn: async ({
+      body,
+      viewing,
+    }: {
+      body: Record<string, unknown>;
+      viewing: ViewingRow;
+    }) => {
+      let ready = viewing;
+      if (isNotInterestedViewingOutcome(ready.outcome)) {
+        throw new Error('This viewing was marked not interested. Match another unit.');
+      }
+      if (ready.status === 'COMPLETED' && !isInterestedViewingOutcome(ready.outcome)) {
+        ready = await api<ViewingRow>(`/viewings/${ready.id}/transition`, {
+          method: 'POST',
+          body: JSON.stringify({
+            status: 'COMPLETED',
+            expectedVersion: ready.version,
+            reason: 'Customer confirmed interest before agreement',
+            outcome: 'INTERESTED',
+          }),
+        });
+      }
+      const agreement = await api<{ id: string; version: number }>(
+        '/rental/commands/rental-agreements',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      return api<{ id: string }>(`/rental/commands/rental-agreements/${agreement.id}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          expectedVersion: agreement.version,
+          reason: 'Final rental terms confirmed',
+        }),
+      });
+    },
+    onSuccess: (agreement) => {
+      toast.success('Agreement confirmed. Lease terms are ready.');
+      router.push(`/rental/leases/new?agreementId=${agreement.id}`);
+    },
+    onError: (cause) => toast.error(userFacingError(cause)),
+  });
+
+  const declineViewing = useMutation({
+    mutationFn: (row: ViewingRow) =>
+      api<ViewingRow>(`/viewings/${row.id}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status: 'COMPLETED',
+          expectedVersion: row.version,
+          reason: 'Customer is not interested in this unit',
+          outcome: 'NOT_INTERESTED',
+        }),
+      }),
+    onSuccess: (row) => {
+      toast('Marked not interested. Match another unit.');
+      const key =
+        row.rentalListingId ??
+        row.rentalListing?.id ??
+        row.rentableSpaceId ??
+        row.rentableSpace?.id;
+      if (key) {
+        setProgressMap((current) => ({
+          ...current,
+          [key]: writePlacementProgress(lead.id, key, {
+            viewingId: row.id,
+            declined: true,
+          }),
+        }));
+      }
+      void queryClient.invalidateQueries({ queryKey: ['rental-listing-matches', lead.id] });
+      void queryClient.invalidateQueries({ queryKey: ['rental-customer', lead.id] });
       void queryClient.invalidateQueries({ queryKey: ['rental-customer-viewings', lead.id] });
     },
     onError: (cause) => toast.error(userFacingError(cause)),
@@ -323,6 +409,7 @@ export function RentalCustomerMatches({
                 const progress = progressMap[item.listing.id] ?? {};
                 const step = nextPlacementStep({
                   viewingStatus: viewing?.status ?? null,
+                  viewingOutcome: viewing?.outcome ?? null,
                   progress,
                 });
                 if (step === 'declined') {
@@ -386,7 +473,9 @@ export function RentalCustomerMatches({
                       <PipelineSteps active={step} />
                       {viewing ? (
                         <p className="mt-1 text-xs text-slate-500">
-                          Viewing: {viewing.status.replaceAll('_', ' ')}
+                          Viewing:{' '}
+                          {viewingInterestLabel(viewing.outcome) ??
+                            viewing.status.replaceAll('_', ' ')}
                         </p>
                       ) : null}
                     </td>
@@ -430,16 +519,9 @@ export function RentalCustomerMatches({
                             </TableActionButton>
                             <TableActionButton
                               tone="neutral"
+                              disabled={declineViewing.isPending}
                               onClick={() => {
-                                setProgressMap((current) => ({
-                                  ...current,
-                                  [item.listing.id]: writePlacementProgress(
-                                    lead.id,
-                                    item.listing.id,
-                                    { declined: true },
-                                  ),
-                                }));
-                                toast('Marked not interested. Match another unit.');
+                                if (viewing) declineViewing.mutate(viewing);
                               }}
                             >
                               Not interested
@@ -606,16 +688,16 @@ export function RentalCustomerMatches({
         <WorkspaceFormDrawer
           open
           eyebrow="Placement"
-          title="Company fee"
-          description="Record the company fee after customer and owner agree. Then create the lease."
+          title="Confirm agreement"
+          description="Record final rental terms and placement commissions. The lease is created only after this agreement is confirmed."
           onClose={() => setFeesFor(null)}
           size="md"
           footer={
             <WorkspaceFormDrawerFooter
               formId="collect-company-fee"
               onCancel={() => setFeesFor(null)}
-              submitLabel="Confirm fee collected"
-              isPending={false}
+              submitLabel="Confirm agreement"
+              isPending={confirmAgreement.isPending}
             />
           }
         >
@@ -625,29 +707,79 @@ export function RentalCustomerMatches({
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
-              const companyFee = String(form.get('companyFee') ?? '').trim();
-              if (!companyFee) return;
-              setProgressMap((current) => ({
-                ...current,
-                [feesFor.listing.id]: writePlacementProgress(lead.id, feesFor.listing.id, {
-                  companyFee,
-                  feeCollected: true,
-                }),
-              }));
-              toast.success('Company fee recorded. You can create the lease now.');
-              setFeesFor(null);
+              const space = feesFor.listing.rentableSpace;
+              const viewing = matchKeys(feesFor).map((key) => viewingByKey.get(key)).find(Boolean);
+              if (!space?.property?.id || !viewing?.id) {
+                toast.error('A completed viewing and property are required.');
+                return;
+              }
+              const ownerCommission = String(form.get('ownerCommission') ?? '').trim();
+              const tenantCommission = String(form.get('tenantCommission') ?? '').trim();
+              confirmAgreement.mutate({
+                viewing,
+                body: {
+                  leadId: lead.id,
+                  propertyId: space.property.id,
+                  rentableSpaceId: space.id,
+                  viewingId: viewing.id,
+                  finalRent: String(form.get('finalRent') ?? '').trim(),
+                  leaseStartDate: String(form.get('leaseStartDate') ?? '').trim(),
+                  ...(String(form.get('leaseEndDate') ?? '').trim()
+                    ? { leaseEndDate: String(form.get('leaseEndDate') ?? '').trim() }
+                    : {}),
+                  ...(space.property.serviceIntent === 'RENTAL_BROKERAGE'
+                    ? {
+                        ownerCommission: {
+                          method: String(form.get('ownerCommissionMethod') ?? 'PERCENT'),
+                          value: ownerCommission,
+                        },
+                        tenantCommission: {
+                          method: String(form.get('tenantCommissionMethod') ?? 'PERCENT'),
+                          value: tenantCommission,
+                        },
+                      }
+                    : tenantCommission
+                      ? {
+                          tenantCommission: {
+                            method: String(form.get('tenantCommissionMethod') ?? 'FIXED'),
+                            value: tenantCommission,
+                          },
+                        }
+                      : {}),
+                },
+              });
             }}
           >
             <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Company fee amount ({feesFor.listing.currency || 'USD'})
+              Final agreed rent ({feesFor.listing.currency || 'USD'})
               <input
-                name="companyFee"
+                name="finalRent"
                 required
                 inputMode="decimal"
-                defaultValue={progressMap[feesFor.listing.id]?.companyFee ?? ''}
+                defaultValue={progressMap[feesFor.listing.id]?.agreedRent ?? String(feesFor.listing.askingRent ?? '')}
                 className={inputClass}
               />
             </label>
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+              <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
+                Lease start
+                <input
+                  name="leaseStartDate"
+                  type="date"
+                  required
+                  className={dateInputClass}
+                />
+              </label>
+              <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
+                Lease end (optional)
+                <input name="leaseEndDate" type="date" className={dateInputClass} />
+                <span className="mt-1 block text-xs font-normal leading-snug text-slate-500">
+                  Leave blank for an open-ended lease.
+                </span>
+              </label>
+            </div>
+            {feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE' ? <label className="block space-y-1.5 text-sm font-semibold text-slate-700">Owner commission<input name="ownerCommission" required inputMode="decimal" className={inputClass} /><input name="ownerCommissionMethod" type="hidden" value="PERCENT" /></label> : null}
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">Tenant brokerage fee {feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE' ? '' : '(optional)'}<input name="tenantCommission" required={feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE'} inputMode="decimal" className={inputClass} /><input name="tenantCommissionMethod" type="hidden" value="PERCENT" /></label>
           </form>
         </WorkspaceFormDrawer>
       ) : null}
