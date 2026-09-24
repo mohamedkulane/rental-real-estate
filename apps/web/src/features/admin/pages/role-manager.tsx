@@ -131,9 +131,7 @@ export function RoleManager({
     () =>
       records.map((role) => ({
         ...role,
-        permissions: (role.permissions ?? []).filter(
-          (item) => item?.permission?.code,
-        ) as RoleRecord['permissions'],
+        permissions: (role.permissions ?? []).filter((item) => item?.permission?.code),
       })),
     [records],
   );

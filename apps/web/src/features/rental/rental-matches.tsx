@@ -71,6 +71,11 @@ const inputClass =
 const dateInputClass =
   'box-border h-11 w-full min-h-[2.75rem] max-h-11 rounded-lg border border-slate-200 px-3 py-0 text-sm leading-none shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 [&::-webkit-calendar-picker-indicator]:h-4 [&::-webkit-calendar-picker-indicator]:w-4 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70';
 
+function formText(form: FormData, key: string): string {
+  const value = form.get(key);
+  return typeof value === 'string' ? value : '';
+}
+
 const STEP_LABELS: Record<Exclude<PlacementStep, 'declined'>, string> = {
   viewing: '1. Viewing',
   negotiate: '2. Agree with owner',
@@ -401,7 +406,6 @@ export function RentalCustomerMatches({
                 const propertyId = property?.id;
                 const spaceId = item.listing.rentableSpace?.id;
                 const location = [property?.city, property?.district].filter(Boolean).join(', ');
-                const published = item.matchSource === 'PUBLISHED_LISTING';
                 const viewing =
                   matchKeys(item)
                     .map((key) => viewingByKey.get(key))
@@ -590,8 +594,8 @@ export function RentalCustomerMatches({
               scheduleViewing.mutate({
                 leadId: lead.id,
                 assignedEmployeeId: assignedAgentId,
-                scheduledAt: String(form.get('scheduledAt') ?? ''),
-                notes: String(form.get('notes') ?? '').trim() || undefined,
+                scheduledAt: formText(form, 'scheduledAt'),
+                notes: formText(form, 'notes').trim() || undefined,
                 rentableSpaceId: spaceId,
               });
             }}
@@ -649,7 +653,7 @@ export function RentalCustomerMatches({
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
-              const agreedRent = String(form.get('agreedRent') ?? '').trim();
+              const agreedRent = formText(form, 'agreedRent').trim();
               if (!agreedRent) return;
               setProgressMap((current) => ({
                 ...current,
@@ -713,8 +717,8 @@ export function RentalCustomerMatches({
                 toast.error('A completed viewing and property are required.');
                 return;
               }
-              const ownerCommission = String(form.get('ownerCommission') ?? '').trim();
-              const tenantCommission = String(form.get('tenantCommission') ?? '').trim();
+              const ownerCommission = formText(form, 'ownerCommission').trim();
+              const tenantCommission = formText(form, 'tenantCommission').trim();
               confirmAgreement.mutate({
                 viewing,
                 body: {
@@ -722,26 +726,26 @@ export function RentalCustomerMatches({
                   propertyId: space.property.id,
                   rentableSpaceId: space.id,
                   viewingId: viewing.id,
-                  finalRent: String(form.get('finalRent') ?? '').trim(),
-                  leaseStartDate: String(form.get('leaseStartDate') ?? '').trim(),
-                  ...(String(form.get('leaseEndDate') ?? '').trim()
-                    ? { leaseEndDate: String(form.get('leaseEndDate') ?? '').trim() }
+                  finalRent: formText(form, 'finalRent').trim(),
+                  leaseStartDate: formText(form, 'leaseStartDate').trim(),
+                  ...(formText(form, 'leaseEndDate').trim()
+                    ? { leaseEndDate: formText(form, 'leaseEndDate').trim() }
                     : {}),
                   ...(space.property.serviceIntent === 'RENTAL_BROKERAGE'
                     ? {
                         ownerCommission: {
-                          method: String(form.get('ownerCommissionMethod') ?? 'PERCENT'),
+                          method: formText(form, 'ownerCommissionMethod') || 'PERCENT',
                           value: ownerCommission,
                         },
                         tenantCommission: {
-                          method: String(form.get('tenantCommissionMethod') ?? 'PERCENT'),
+                          method: formText(form, 'tenantCommissionMethod') || 'PERCENT',
                           value: tenantCommission,
                         },
                       }
                     : tenantCommission
                       ? {
                           tenantCommission: {
-                            method: String(form.get('tenantCommissionMethod') ?? 'FIXED'),
+                            method: formText(form, 'tenantCommissionMethod') || 'FIXED',
                             value: tenantCommission,
                           },
                         }
