@@ -129,8 +129,12 @@ export function AppShell({
     sidebarGroups,
   );
   const isDesktop = useIsDesktop();
-  const sidebarWidthClass = isDesktop && sidebarCollapsed ? 'w-[72px]' : 'w-[252px]';
-  const contentOffsetClass = isDesktop && sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[252px]';
+  const sidebarWidthClass = isDesktop
+    ? sidebarCollapsed
+      ? 'w-[96px]'
+      : 'w-[264px]'
+    : 'w-[min(84vw,300px)]';
+  const contentOffsetClass = isDesktop && sidebarCollapsed ? 'lg:pl-[96px]' : 'lg:pl-[264px]';
   const accordionCollapsed = isDesktop && sidebarCollapsed;
   const dashboardSelected =
     active === 'overview' ||
@@ -241,11 +245,17 @@ export function AppShell({
               <img
                 src={companyBrand.logoMetadata.url}
                 alt=""
-                className="h-10 w-10 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-[var(--primary)]/20"
+                className={
+                  'shrink-0 bg-white object-contain ring-1 ring-[var(--primary)]/20 ' +
+                  (accordionCollapsed ? 'h-8 w-8 rounded-lg p-0.5' : 'h-10 w-10 rounded-xl p-1')
+                }
               />
             ) : (
               <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm"
+                className={
+                  'flex shrink-0 items-center justify-center text-white shadow-sm ' +
+                  (accordionCollapsed ? 'h-8 w-8 rounded-lg' : 'h-10 w-10 rounded-xl')
+                }
                 style={{ backgroundColor: MINT }}
               >
                 <Home className="h-5 w-5" aria-hidden="true" />
