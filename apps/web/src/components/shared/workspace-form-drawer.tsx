@@ -4,9 +4,9 @@ import { X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 
 const SIZE_CLASS = {
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
+  md: 'max-w-md',
+  lg: 'max-w-xl',
+  xl: 'max-w-3xl',
 } as const;
 
 export type WorkspaceFormDrawerSize = keyof typeof SIZE_CLASS;
@@ -38,6 +38,8 @@ export function WorkspaceFormDrawer({
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   function updateScrollFades(target: HTMLDivElement) {
     const { scrollTop, scrollHeight, clientHeight } = target;
@@ -68,7 +70,7 @@ export function WorkspaceFormDrawer({
       }
     });
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
 
@@ -92,7 +94,7 @@ export function WorkspaceFormDrawer({
       window.removeEventListener('keydown', onKey);
       observer?.disconnect();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -129,7 +131,7 @@ export function WorkspaceFormDrawer({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {eyebrow ? (
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#215E61]">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--primary)]">
                   {eyebrow}
                 </p>
               ) : null}
@@ -172,7 +174,7 @@ export function WorkspaceFormDrawer({
         </div>
 
         {footer ? (
-          <footer className="relative z-10 shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-5 sm:py-4">
+          <footer className="workspace-form-drawer-footer relative z-10 shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-5 sm:py-4">
             {footer}
           </footer>
         ) : null}

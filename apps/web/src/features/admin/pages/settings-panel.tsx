@@ -215,19 +215,12 @@ export function SettingsPanel({
         </p>
       </header>
 
-      <div
-        className={
-          'grid gap-6 ' +
-          (selected.key === 'company'
-            ? 'xl:grid-cols-[220px_minmax(0,1fr)_260px]'
-            : 'xl:grid-cols-[240px_minmax(0,1fr)]')
-        }
-      >
+      <div className="space-y-5">
         <nav
-          className="h-fit rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
+          className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
           aria-label="Settings sections"
         >
-          <ul className="space-y-0.5">
+          <ul className="flex min-w-max gap-1">
             {SETTINGS_SECTIONS.map((section) => {
               const isActive = section.key === selected.key;
               return (
@@ -235,9 +228,9 @@ export function SettingsPanel({
                   <button
                     type="button"
                     className={
-                      'w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ' +
+                      'whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold transition ' +
                       (isActive
-                        ? 'bg-[#E3F2FD] text-[#0D47A1]'
+                        ? 'bg-[var(--primary-soft)] text-[var(--primary)] shadow-sm'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
                     }
                     aria-current={isActive ? 'page' : undefined}
@@ -251,7 +244,14 @@ export function SettingsPanel({
           </ul>
         </nav>
 
-        <div className="space-y-4">
+        <div
+          className={
+            selected.key === 'company'
+              ? 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]'
+              : 'space-y-4'
+          }
+        >
+          <div className="space-y-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{selected.label}</h2>
             <p className="mt-1 text-sm text-slate-500">{selected.description}</p>
@@ -446,7 +446,7 @@ export function SettingsPanel({
                   <button
                     type="submit"
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-md bg-[#0F766E] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0B5F59] disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
                   >
                     <Save className="h-4 w-4" />
                     {busy ? 'Saving...' : 'Save workspace'}
@@ -573,69 +573,9 @@ export function SettingsPanel({
               recorded in the Audit log.
             </p>
           </aside>
-        </div>
+          </div>
 
-        {selected.key === 'company' ? (
-          <aside className="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-24">
-            <div
-              className="relative flex aspect-[4/3] items-end overflow-hidden rounded-lg p-4"
-              style={{ backgroundColor: `${formState.primaryColor}12` }}
-            >
-              <div
-                className="absolute inset-x-0 top-0 h-1"
-                style={{ backgroundColor: formState.accentColor }}
-              />
-              {formState.logoUrl ? (
-                <img
-                  src={formState.logoUrl}
-                  alt={`${formState.displayName || 'Company'} logo`}
-                  className="absolute inset-0 h-full w-full object-contain p-8"
-                />
-              ) : (
-                <span
-                  className="relative flex h-14 w-14 items-center justify-center rounded-xl text-white shadow-sm"
-                  style={{ backgroundColor: formState.primaryColor }}
-                >
-                  <Building2 className="h-7 w-7" aria-hidden="true" />
-                </span>
-              )}
-            </div>
-            <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                Brand preview
-              </p>
-              <h3 className="mt-2 text-lg font-bold text-slate-900">
-                {formState.displayName || 'Company name'}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">Your workspace identity at a glance.</p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <div className="rounded-md border border-slate-200 p-2">
-                <span className="mb-2 block h-5 rounded" style={{ backgroundColor: formState.primaryColor }} />
-                <span className="text-[11px] font-semibold text-slate-500">Primary</span>
-              </div>
-              <div className="rounded-md border border-slate-200 p-2">
-                <span className="mb-2 block h-5 rounded" style={{ backgroundColor: formState.accentColor }} />
-                <span className="text-[11px] font-semibold text-slate-500">Accent</span>
-              </div>
-            </div>
-            <ul className="mt-5 space-y-2 text-xs text-slate-600">
-              {['Custom logo and colors', 'Consistent workspace identity', 'Clear operational surfaces'].map(
-                (item) => (
-                  <li key={item} className="flex items-center gap-2">
-                    <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                      style={{ backgroundColor: formState.primaryColor }}
-                    >
-                      ✓
-                    </span>
-                    {item}
-                  </li>
-                ),
-              )}
-            </ul>
-          </aside>
-        ) : null}
+        </div>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ export function ChoiceOption({
       className={
         'flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors duration-150 ' +
         (selected
-          ? 'border-[#215E61] bg-[#E8F3F3]'
+          ? 'border-[#5D9293] bg-[#F1F8F7]'
           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50')
       }
     >

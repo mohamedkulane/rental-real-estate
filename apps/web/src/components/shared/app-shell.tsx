@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ChevronsLeft,
@@ -8,7 +8,6 @@ import {
   Home,
   Menu,
   MoreHorizontal,
-  Search,
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -98,7 +97,11 @@ export function AppShell({
   const [companyBrand, setCompanyBrand] = useState<{
     name?: string | null;
     displayName?: string | null;
-    logoMetadata?: { url?: string | null } | null;
+    logoMetadata?: {
+      url?: string | null;
+      primaryColor?: string | null;
+      accentColor?: string | null;
+    } | null;
   }>({});
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const closeNavRef = useRef<HTMLButtonElement>(null);
@@ -150,6 +153,20 @@ export function AppShell({
   }, [permissions]);
 
   const companyName = companyBrand.displayName || companyBrand.name || displayName;
+  const primaryColor = /^#[0-9A-Fa-f]{6}$/.test(companyBrand.logoMetadata?.primaryColor ?? '')
+    ? companyBrand.logoMetadata!.primaryColor!
+    : '#215E61';
+  const accentColor = /^#[0-9A-Fa-f]{6}$/.test(companyBrand.logoMetadata?.accentColor ?? '')
+    ? companyBrand.logoMetadata!.accentColor!
+    : '#2563EB';
+  const brandStyle = {
+    '--primary': primaryColor,
+    '--primary-hover': `color-mix(in srgb, ${primaryColor} 84%, #000)`,
+    '--primary-soft': `${primaryColor}18`,
+    '--primary-accent': accentColor,
+    '--info': accentColor,
+    '--info-soft': `${accentColor}18`,
+  } as CSSProperties;
 
   useEffect(() => {
     if (!open) {
@@ -181,16 +198,11 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
-  const focusGlobalSearch = () => {
-    const input = document.querySelector<HTMLInputElement>(
-      'input[aria-controls="global-search-results"], .app-header-search input',
-    );
-    input?.focus();
-    input?.select();
-  };
-
   return (
-    <div className="min-h-screen bg-[var(--background)] font-sans text-slate-900">
+    <div
+      className="app-brand-root min-h-screen bg-[var(--background)] font-sans text-slate-900"
+      style={brandStyle}
+    >
       <button
         type="button"
         ref={menuTriggerRef}
@@ -229,7 +241,7 @@ export function AppShell({
               <img
                 src={companyBrand.logoMetadata.url}
                 alt=""
-                className="h-10 w-10 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-[#0F766E]/20"
+                className="h-10 w-10 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-[var(--primary)]/20"
               />
             ) : (
               <span
@@ -273,28 +285,6 @@ export function AppShell({
               </button>
             </div>
           </div>
-          {!accordionCollapsed ? (
-            <button
-              type="button"
-              onClick={focusGlobalSearch}
-              className="mt-3 flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-[#0F172A]/45 shadow-sm transition hover:border-[#0F766E]/30"
-            >
-              <Search className="h-4 w-4 shrink-0 text-[#0F766E]" aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate">Search menu...</span>
-              <kbd className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#0F172A]/50">
-                Ctrl K
-              </kbd>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={focusGlobalSearch}
-              title="Search (Ctrl K)"
-              className="mt-3 flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-[#0F766E] shadow-sm hover:bg-[#E6F4F1]"
-            >
-              <Search className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
         </div>
 
         <nav

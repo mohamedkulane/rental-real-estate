@@ -541,6 +541,9 @@ export function AdminConsole() {
       clearApiCache();
       setSuccess(message);
       toast.success(message);
+      if (path === '/company') {
+        window.dispatchEvent(new Event('company-brand-updated'));
+      }
       resetCursor();
       await Promise.all([load(selected, principal), loadCatalogs(selected.key, principal)]);
     } catch (cause) {

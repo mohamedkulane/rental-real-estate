@@ -2,9 +2,20 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import {
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  Handshake,
+  KeyRound,
+  Plus,
+  Users,
+  WalletCards,
+  WalletMinimal,
+} from 'lucide-react';
 import { PageHeader } from '@/components/shared/ui';
 import { TableSkeleton } from '@/components/shared/loading-system';
-import { BarChart, DonutChart, TrendChart } from '@/features/admin/dashboard-charts';
+import { BarChart, ChartLegend, DonutChart, TrendChart } from '@/features/admin/dashboard-charts';
 import { api, hasPermission, type CursorPage } from '@/lib/phase3-api';
 import { RentalShell, useRentalPrincipal } from './rental-shell';
 
@@ -19,12 +30,27 @@ type LeaseItem = { id: string; status: string; leaseEndDate?: string };
 type EngagementItem = { id: string; serviceModel: string; status: string };
 type PaymentItem = { id: string; amount?: string | number; status?: string };
 
-function KpiCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function KpiCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  icon: typeof Building2;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-[26px] font-bold leading-none text-[#1D2128]">{value}</p>
-      {hint ? <p className="mt-2 text-xs text-slate-500">{hint}</p> : null}
+    <div className="rental-overview-kpi">
+      <span className="rental-overview-kpi-icon">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <small>{hint ?? 'Current register'}</small>
+      </div>
     </div>
   );
 }
@@ -99,6 +125,14 @@ export function RentalOverview() {
     return end <= soon && end >= new Date();
   }).length;
 
+  const brandChartColors = [
+    'var(--primary)',
+    'var(--primary-accent)',
+    'color-mix(in srgb, var(--primary) 68%, var(--primary-accent))',
+    'color-mix(in srgb, var(--primary) 42%, var(--primary-accent))',
+    'color-mix(in srgb, var(--primary) 24%, var(--primary-accent))',
+  ];
+
   const byCity = Object.entries(
     propertyItems.reduce<Record<string, number>>((acc, property) => {
       const city = property.city?.trim() || 'Other';
@@ -106,7 +140,11 @@ export function RentalOverview() {
       return acc;
     }, {}),
   )
-    .map(([label, value]) => ({ label, value, color: '#215E61' }))
+    .map(([label, value], index) => ({
+      label,
+      value,
+      color: brandChartColors[index % brandChartColors.length]!,
+    }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
 
@@ -119,80 +157,112 @@ export function RentalOverview() {
   ).map(([label, value], index) => ({
     label: label.replaceAll('_', ' '),
     value,
-    color: ['#215E61', '#FF9E20', '#4A7C7E', '#C97812', '#7A9A9C'][index % 5]!,
+    color: brandChartColors[index % brandChartColors.length]!,
   }));
+
+  const occupancySegments = [
+    { label: 'Occupied', value: rentedApprox || 0, color: 'var(--primary)' },
+    { label: 'Vacant', value: available || 0, color: 'var(--primary-soft)' },
+  ];
+  const propertyTypeSegments = byType.length
+    ? byType
+    : [{ label: 'No data', value: 1, color: 'var(--border)' }];
 
   return (
     <RentalShell principal={principal} principalError={error} activeItem="rental:overview">
-      <PageHeader
-        eyebrow="Rental"
-        title="Rental Overview"
-        description="Available stock, customers, brokerage, management, and collections at a glance."
-        action={
-          <div className="flex flex-wrap gap-2">
-            <Link className="button primary" href="/rental/properties?create=1">
-              Add Property
-            </Link>
-            <Link className="button secondary" href="/rental/customers?create=1">
-              Add Customer
-            </Link>
-          </div>
-        }
-      />
+      <div className="rental-overview-hero">
+        <nav className="rental-overview-breadcrumb" aria-label="Breadcrumb">
+          <span>Rentals</span>
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          <strong>Overview</strong>
+        </nav>
+        <PageHeader
+          eyebrow="Rental"
+          title="Rental Overview"
+          description="Available stock, customers, brokerage, management, and collections at a glance."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Link className="button primary" href="/rental/properties?create=1">
+                Add Property
+              </Link>
+              <Link className="button secondary" href="/rental/customers?create=1">
+                Add Customer
+              </Link>
+            </div>
+          }
+        />
+      </div>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Available Properties" value={available} />
-        <KpiCard label="Rented Properties" value={rentedApprox} />
-        <KpiCard label="Rental Customers" value={customersCount} />
-        <KpiCard label="Active Brokerage Deals" value={brokerageActive} />
-        <KpiCard label="Managed Properties" value={managedActive} />
+      <section className="rental-overview-kpis mt-6">
+        <KpiCard label="Available Properties" value={available} icon={Building2} />
+        <KpiCard label="Rented Properties" value={rentedApprox} icon={KeyRound} />
+        <KpiCard label="Rental Customers" value={customersCount} icon={Users} />
+        <KpiCard label="Active Brokerage Deals" value={brokerageActive} icon={Handshake} />
+        <KpiCard label="Managed Properties" value={managedActive} icon={Building2} />
         <KpiCard
           label="Monthly Rent Collected"
           value={`$${collected.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          icon={WalletMinimal}
         />
-        <KpiCard label="Pending Payments" value={pendingPayments} />
-        <KpiCard label="Upcoming Lease Ends" value={upcomingEnds} hint="Next 45 days" />
+        <KpiCard label="Pending Payments" value={pendingPayments} icon={WalletCards} />
+        <KpiCard label="Upcoming Lease Ends" value={upcomingEnds} hint="Next 45 days" icon={CalendarDays} />
       </section>
 
-      <section className="mt-6 grid gap-4 xl:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#1D2128]">Occupancy</h2>
-          <div className="mt-4 flex justify-center">
+      <section className="rental-overview-chart-grid mt-6">
+        <div className="rental-chart-panel">
+          <div className="rental-chart-heading">
+            <h2>Occupancy</h2>
+            <span>Units</span>
+          </div>
+          <div className="rental-chart-with-legend mt-4">
             <DonutChart
               centerLabel="Stock"
               centerValue={`${propertyItems.length || 0}`}
-              segments={[
-                { label: 'Available', value: available || 0, color: '#215E61' },
-                { label: 'Rented', value: rentedApprox || 0, color: '#FF9E20' },
-              ]}
+              segments={occupancySegments}
             />
+            <ChartLegend items={occupancySegments} />
           </div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
-          <h2 className="text-lg font-semibold text-[#1D2128]">Demand by location</h2>
+        <div className="rental-chart-panel rental-chart-panel-wide">
+          <div className="rental-chart-heading">
+            <h2>Demand by location</h2>
+            <span>Properties</span>
+          </div>
           <div className="mt-4">
             <BarChart items={byCity.length ? byCity : [{ label: 'No data', value: 0 }]} />
           </div>
         </div>
+        <aside className="rental-chart-callout">
+          <Building2 className="h-6 w-6" aria-hidden="true" />
+          <h2>Turn more properties into profit</h2>
+          <p>List properties, manage tenants, and track performance from one place.</p>
+          <Link className="button primary" href="/rental/properties?create=1">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Property
+          </Link>
+        </aside>
       </section>
 
-      <section className="mt-4 grid gap-4 xl:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#1D2128]">Property types</h2>
-          <div className="mt-4 flex justify-center">
+      <section className="rental-overview-chart-grid rental-overview-chart-grid-bottom mt-4">
+        <div className="rental-chart-panel">
+          <div className="rental-chart-heading">
+            <h2>Property types</h2>
+            <span>Properties</span>
+          </div>
+          <div className="rental-chart-with-legend mt-4">
             <DonutChart
               centerLabel="Types"
               centerValue={`${byType.length}`}
-              segments={
-                byType.length
-                  ? byType
-                  : [{ label: 'None', value: 1, color: '#E5E7EB' }]
-              }
+              segments={propertyTypeSegments}
             />
+            <ChartLegend items={propertyTypeSegments} />
           </div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#1D2128]">Rental trend</h2>
+        <div className="rental-chart-panel">
+          <div className="rental-chart-heading">
+            <h2>Rental trend</h2>
+            <span>Last 6 months</span>
+          </div>
           <div className="mt-4">
             <TrendChart
               revenue={[
@@ -212,6 +282,10 @@ export function RentalOverview() {
                 Math.round((rentedApprox / Math.max(propertyItems.length, 1)) * 100),
               ]}
             />
+            <div className="rental-trend-legend">
+              <span><i className="rental-trend-dot rental-trend-dot-primary" />Rent collected</span>
+              <span><i className="rental-trend-dot rental-trend-dot-accent" />Occupancy</span>
+            </div>
           </div>
         </div>
       </section>

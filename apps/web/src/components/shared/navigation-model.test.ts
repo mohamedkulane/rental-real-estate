@@ -103,6 +103,7 @@ describe('simplified sidebar groups', () => {
           'portfolio.property.read',
           'crm.lead.read',
           'service-engagement.read',
+          'brokerage-deal.read',
           'lease.read',
           'payment.read',
         ],
@@ -112,6 +113,7 @@ describe('simplified sidebar groups', () => {
       'Overview',
       'Customers',
       'Brokerage',
+      'Brokerage Deals',
       'Full Management',
       'Leases',
     ]);

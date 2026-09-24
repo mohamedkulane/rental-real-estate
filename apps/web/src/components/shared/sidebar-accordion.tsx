@@ -92,23 +92,16 @@ export function SidebarAccordion({
                 title={collapsed ? group.label : undefined}
                 onClick={() => toggleGroup(group.id)}
                 className={
-                  'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-[14px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/25 ' +
+                  'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-[14px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ' +
                   (groupActive
-                    ? 'bg-[#E6F4F1] text-[#0F172A]'
+                    ? 'bg-[var(--primary-soft)] text-[#0F172A]'
                     : 'text-[#0F172A]/80 hover:bg-slate-50 hover:text-[#0F172A]')
                 }
               >
-                <span
-                  className={
-                    'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-[#0F766E] transition-opacity ' +
-                    (groupActive ? 'opacity-100' : 'opacity-30 group-hover:opacity-60')
-                  }
-                  aria-hidden="true"
-                />
                 <Icon
                   className={
                     'ml-1 h-[18px] w-[18px] shrink-0 ' +
-                    (groupActive ? 'text-[#0F766E]' : 'text-[#0F172A]/55 group-hover:text-[#0F766E]')
+                    (groupActive ? 'text-[var(--primary)]' : 'text-[#0F172A]/55 group-hover:text-[var(--primary)]')
                   }
                   aria-hidden="true"
                 />
@@ -117,7 +110,7 @@ export function SidebarAccordion({
                   <ChevronRight
                     className={
                       'h-4 w-4 shrink-0 text-[#0F172A]/35 transition-transform duration-200 ' +
-                      (isOpen ? 'rotate-90 text-[#0F766E]' : '')
+                      (isOpen ? 'rotate-90 text-[var(--primary)]' : '')
                     }
                     aria-hidden="true"
                   />
@@ -126,7 +119,7 @@ export function SidebarAccordion({
 
               {!collapsed && isOpen ? (
                 <div id={`sidebar-group-${group.id}`} className="pb-1 pt-0.5">
-                  <div className="ml-4 border-l border-[#0F766E]/15 pl-2">
+                  <div className="ml-4 pl-2">
                     {group.children.map((child) => {
                       const selected = childIsActive(child.key, activeItem);
                       return (
@@ -139,15 +132,15 @@ export function SidebarAccordion({
                             onNavigate();
                           }}
                           className={
-                            'relative flex min-h-9 w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/25 ' +
+                            'relative flex min-h-9 w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ' +
                             (selected
-                              ? 'bg-[#E6F4F1] font-semibold text-[#0F766E]'
+                              ? 'bg-[var(--primary-soft)] font-semibold text-[var(--primary)]'
                               : 'text-[#0F172A]/65 hover:bg-slate-50 hover:text-[#0F172A]')
                           }
                         >
                           {selected ? (
                             <span
-                              className="absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#0F766E]"
+                              className="absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[var(--primary)]"
                               aria-hidden="true"
                             />
                           ) : null}
@@ -177,7 +170,7 @@ export function SidebarAccordion({
                         className={
                           'flex w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors ' +
                           (selected
-                            ? 'bg-[#E6F4F1] font-semibold text-[#0F766E]'
+                            ? 'bg-[var(--primary-soft)] font-semibold text-[var(--primary)]'
                             : 'text-[#0F172A]/80 hover:bg-slate-50')
                         }
                       >
