@@ -229,6 +229,7 @@ export class RentalPresentationService {
         leadNumber: true,
         displayName: true,
         stage: true,
+        createdAt: true,
         preferenceVersions: {
           where: { effectiveTo: null },
           orderBy: { versionNo: 'desc' },
@@ -259,6 +260,7 @@ export class RentalPresentationService {
           leadNumber: row.leadNumber,
           displayName: row.displayName,
           stage: row.stage,
+          createdAt: row.createdAt,
           wantedType: rent?.propertyTypeCodes?.[0] ?? null,
           preferredLocation: preference?.preferredAreaText?.[0] ?? null,
           preferredLocations: preference?.preferredAreaText ?? [],

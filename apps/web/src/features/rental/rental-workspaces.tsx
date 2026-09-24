@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react';
+import { Clock3, Handshake, Plus, Search, SearchCheck, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   DataTableEmpty,
@@ -14,7 +14,7 @@ import {
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, type CursorPage } from '@/lib/phase3-api';
-import { humanize } from '@/lib/presentation';
+import { formatDate, humanize } from '@/lib/presentation';
 import {
   AddRentalCustomerDrawer,
   AddRentalPropertyDrawer,
@@ -24,7 +24,7 @@ import { RentalShell, useRentalPrincipal } from './rental-shell';
 import { useCreateDrawerState } from './use-create-drawer-state';
 
 const inputClass =
-  'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15';
+  'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15';
 
 type RentalPropertyRow = {
   id: string;
@@ -170,6 +170,7 @@ type RentalCustomerRow = {
   leadNumber: string;
   displayName: string;
   stage: string;
+  createdAt: string;
   wantedType: string | null;
   preferredLocation: string | null;
   minRentBudget: string | null;
@@ -198,6 +199,14 @@ export function RentalCustomerRegister() {
     },
   });
   const canCreate = Boolean(principal && hasPermission(principal, 'crm.lead.create'));
+  const customerRows = query.data?.items ?? [];
+  const matchedAndRented = customerRows.filter((lead) =>
+    ['CONVERTED', 'RENTED', 'MATCHED'].includes(lead.stage.toUpperCase()),
+  ).length;
+  const newCustomers = customerRows.filter((lead) => lead.stage.toUpperCase() === 'NEW').length;
+  const inProgress = customerRows.filter((lead) =>
+    ['CONTACTED', 'QUALIFIED', 'MATCHING', 'NURTURING'].includes(lead.stage.toUpperCase()),
+  ).length;
 
   useEffect(() => {
     setIntentChooserOpen(searchParams.get('chooseIntent') === '1');
@@ -210,24 +219,42 @@ export function RentalCustomerRegister() {
 
   return (
     <RentalShell principal={principal} principalError={error} activeItem="rental:customers">
-      <PageHeader
-        eyebrow="Rental"
-        title="Rental Customers"
-        description="People looking for a rental. Match them to available properties from their detail page."
-        action={
-          canCreate ? (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Add Rental Customer
-            </button>
-          ) : undefined
-        }
-      />
-      <DataTableSurface className="mt-6">
+      <div className="rental-customer-workspace">
+        <PageHeader
+          eyebrow="Rental"
+          title="Rental Customers"
+          description="People looking for a rental. Match them to available properties from their detail page."
+          action={
+            canCreate ? (
+              <button type="button" onClick={openCreate} className="button primary">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add Rental Customer
+              </button>
+            ) : undefined
+          }
+        />
+
+        <section className="rental-customer-kpis" aria-label="Rental customer summary">
+          {[
+            { label: 'Total Customers', value: customerRows.length, icon: Users },
+            { label: 'New Customers', value: newCustomers, icon: SearchCheck },
+            { label: 'Matched & Rented', value: matchedAndRented, icon: Handshake },
+            { label: 'In Progress', value: inProgress, icon: Clock3 },
+          ].map(({ label, value, icon: Icon }) => (
+            <div className="rental-customer-kpi" key={label}>
+              <span className="rental-customer-kpi-icon">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p>{label}</p>
+                <strong>{value}</strong>
+                <small>{label === 'New Customers' ? 'This month' : 'Current register'}</small>
+              </div>
+            </div>
+          ))}
+        </section>
+
+      <DataTableSurface className="rental-customer-table-surface">
         <DataTableToolbar>
           <label className="block min-w-0 flex-1">
             <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
@@ -237,7 +264,7 @@ export function RentalCustomerRegister() {
                 className={inputClass + ' pl-10'}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search customers"
+                placeholder="Search customers by name, phone or lead number..."
               />
             </div>
           </label>
@@ -258,10 +285,10 @@ export function RentalCustomerRegister() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
+            <table className="rental-customer-table w-full min-w-[900px] text-left">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
-                  {['Name', 'Wanted Type', 'Location', 'Budget', 'Match Status', 'Actions'].map(
+                  {['Customer', 'Wanted Type', 'Location', 'Budget', 'Match Status', 'Added On', 'Actions'].map(
                     (header) => (
                       <th
                         key={header}
@@ -276,8 +303,13 @@ export function RentalCustomerRegister() {
               <tbody>
                 {query.data.items.map((lead) => (
                   <tr key={lead.id} className="border-b border-slate-100 text-sm">
-                    <td className="px-4 py-3 font-semibold text-slate-900">{lead.displayName}</td>
-                    <td className="px-4 py-3">{lead.wantedType ? humanize(lead.wantedType) : '—'}</td>
+                    <td className="px-4 py-3">
+                      <Link className="font-semibold text-slate-900 hover:text-[var(--primary)]" href={`/rental/customers/${lead.id}`}>
+                        {lead.displayName}
+                      </Link>
+                      <span className="mt-1 block text-xs text-slate-500">{lead.leadNumber}</span>
+                    </td>
+                    <td className="px-4 py-3">{lead.wantedType ? humanize(lead.wantedType) : 'Not specified'}</td>
                     <td className="px-4 py-3">{lead.preferredLocation ?? '—'}</td>
                     <td className="px-4 py-3">
                       {lead.minRentBudget
@@ -289,12 +321,20 @@ export function RentalCustomerRegister() {
                         : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge value={lead.stage} />
+                      <StatusBadge value={humanize(lead.stage)} />
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      {formatDate(lead.createdAt)}
                     </td>
                     <td className="px-4 py-3">
-                      <TableActionButton tone="open" href={`/rental/customers/${lead.id}`}>
-                        Open
-                      </TableActionButton>
+                      <div className="flex flex-wrap gap-1">
+                        <TableActionButton tone="view" href={`/rental/customers/${lead.id}`}>
+                          View
+                        </TableActionButton>
+                        <TableActionButton tone="open" href={`/rental/customers/${lead.id}`}>
+                          Open
+                        </TableActionButton>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -303,6 +343,7 @@ export function RentalCustomerRegister() {
           </div>
         )}
       </DataTableSurface>
+      </div>
       {principal && canCreate ? (
         <AddRentalCustomerDrawer
           open={createOpen}

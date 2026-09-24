@@ -1,4 +1,21 @@
-type ChartSegment = { label: string; value: number; color: string };
+type ChartSegment = { label: string; value: number; color?: string };
+
+export function ChartLegend({ items }: { items: ChartSegment[] }) {
+  return (
+    <ul className="rental-chart-legend">
+      {items.map((item) => (
+        <li key={item.label}>
+          <span
+            className="rental-chart-legend-dot"
+            style={{ background: item.color ?? 'var(--primary)' }}
+          />
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function DonutChart({
   segments,
@@ -17,9 +34,9 @@ export function DonutChart({
   let offset = 0;
 
   return (
-    <div className="staff-donut" style={{ width: size, height: size }}>
+    <div className="staff-donut chart-motion" style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="#eef2f6" strokeWidth="12" />
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--primary-soft)" strokeWidth="12" />
         {total > 0
           ? segments.map((segment) => {
               const length = (segment.value / total) * circumference;
@@ -31,7 +48,7 @@ export function DonutChart({
                   cy="50"
                   r={radius}
                   fill="none"
-                  stroke={segment.color}
+                  stroke={segment.color ?? 'var(--primary)'}
                   strokeWidth="12"
                   strokeDasharray={dash}
                   strokeDashoffset={-offset}
@@ -59,7 +76,7 @@ export function BarChart({
 }) {
   const max = Math.max(...items.map((item) => item.value), 1);
   return (
-    <div className="staff-bar-chart" aria-hidden="true">
+    <div className="staff-bar-chart chart-motion" aria-hidden="true">
       {items.map((item) => (
         <div className="staff-bar-row" key={item.label}>
           <span className="staff-bar-label">{item.label}</span>
@@ -106,7 +123,7 @@ export function TrendChart({
   const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
 
   return (
-    <svg className="staff-trend-chart" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+    <svg className="staff-trend-chart chart-motion" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       {[0, 1, 2, 3].map((line) => {
         const y = padding.top + (line / 3) * innerHeight;
         return (
@@ -116,15 +133,15 @@ export function TrendChart({
             x2={padding.left + innerWidth}
             y1={y}
             y2={y}
-            stroke="#eef2f6"
+            stroke="var(--border)"
           />
         );
       })}
-      <polygon points={area} fill="rgba(33, 94, 97, 0.16)" />
+      <polygon points={area} fill="var(--primary-soft)" opacity="0.72" />
       <polyline
         points={points.join(' ')}
         fill="none"
-        stroke="#215E61"
+        stroke="var(--primary)"
         strokeWidth="3"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -132,7 +149,7 @@ export function TrendChart({
       <polyline
         points={occupancyPoints.join(' ')}
         fill="none"
-        stroke="#FF9E20"
+        stroke="var(--primary-accent)"
         strokeWidth="2.5"
         strokeLinejoin="round"
         strokeLinecap="round"

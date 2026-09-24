@@ -2,7 +2,7 @@
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
-import { Plus, Search, Sparkles, X } from 'lucide-react';
+import { BarChart3, CheckCircle2, CircleOff, Grid2X2, Plus, Search, Sparkles, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
@@ -18,7 +18,7 @@ export type AmenityRecord = {
 };
 type Panel = 'create' | 'edit' | 'status' | null;
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0D47A1] focus:ring-2 focus:ring-[#E3F2FD]';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/15';
 const value = (form: FormData, key: string) => {
   const entry = form.get(key);
   return typeof entry === 'string' ? entry.trim() : '';
@@ -82,20 +82,35 @@ export function AmenityDirectory({
 }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
+  const [sort, setSort] = useState('most-used');
   const [panel, setPanel] = useState<Panel>(null);
   const [selected, setSelected] = useState<AmenityRecord | null>(null);
-  const filtered = useMemo(
-    () =>
-      records.filter(
-        (item) =>
-          (!query.trim() ||
-            `${item.name} ${item.code}`.toLowerCase().includes(query.trim().toLowerCase())) &&
-          (status === 'all' || String(item.active) === status),
-      ),
-    [records, query, status],
-  );
+  const filtered = useMemo(() => {
+    const next = records.filter(
+      (item) =>
+        (!query.trim() ||
+          `${item.name} ${item.code}`.toLowerCase().includes(query.trim().toLowerCase())) &&
+        (status === 'all' || String(item.active) === status),
+    );
+    return [...next].sort((left, right) => {
+      if (sort === 'name') return left.name.localeCompare(right.name);
+      if (sort === 'status') return Number(right.active) - Number(left.active);
+      const leftUse = (left._count?.propertyAssignments ?? 0) + (left._count?.spaceAssignments ?? 0);
+      const rightUse = (right._count?.propertyAssignments ?? 0) + (right._count?.spaceAssignments ?? 0);
+      return rightUse - leftUse || left.name.localeCompare(right.name);
+    });
+  }, [records, query, sort, status]);
   const pagination = usePagination(filtered);
-  useEffect(() => pagination.setPage(1), [query, status]);
+  useEffect(() => pagination.setPage(1), [query, sort, status]);
+  const totalAssignments = records.reduce(
+    (sum, item) => sum + (item._count?.propertyAssignments ?? 0) + (item._count?.spaceAssignments ?? 0),
+    0,
+  );
+  const mostUsed = [...records].sort(
+    (left, right) =>
+      (right._count?.propertyAssignments ?? 0) + (right._count?.spaceAssignments ?? 0) -
+      ((left._count?.propertyAssignments ?? 0) + (left._count?.spaceAssignments ?? 0)),
+  )[0];
   const open = (next: Exclude<Panel, null>, item?: AmenityRecord) => {
     setSelected(item ?? null);
     setPanel(next);
@@ -105,13 +120,13 @@ export function AmenityDirectory({
     setSelected(null);
   };
   return (
-    <div className="space-y-6">
+    <div className="amenities-directory">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
             Portfolio
           </p>
-          <h1 className="text-2xl font-bold sm:text-3xl">Amenities catalog</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Amenities Catalog</h1>
           <p className="mt-1 text-sm text-slate-500">
             Register reusable features, then assign them to properties and rentable spaces.
           </p>
@@ -120,14 +135,32 @@ export function AmenityDirectory({
           <button
             type="button"
             onClick={() => open('create')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
+            className="button primary"
           >
             <Plus className="h-4 w-4" /> Add amenity
           </button>
         ) : null}
       </header>
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-3 border-b border-slate-200 p-4 lg:grid-cols-[minmax(260px,1fr)_190px]">
+      <section className="amenities-kpis" aria-label="Amenities summary">
+        {[
+          { label: 'Total Amenities', value: records.length, meta: `${totalAssignments} assignments`, icon: Grid2X2 },
+          { label: 'Active Amenities', value: records.filter((item) => item.active).length, meta: records.length ? `${Math.round((records.filter((item) => item.active).length / records.length) * 100)}% of total` : '0% of total', icon: CheckCircle2 },
+          { label: 'Inactive Amenities', value: records.filter((item) => !item.active).length, meta: records.length ? `${Math.round((records.filter((item) => !item.active).length / records.length) * 100)}% of total` : '0% of total', icon: CircleOff },
+          { label: 'Most Used', value: mostUsed?.name ?? '—', meta: mostUsed ? `${(mostUsed._count?.propertyAssignments ?? 0) + (mostUsed._count?.spaceAssignments ?? 0)} assignments` : 'No assignments', icon: BarChart3 },
+        ].map(({ label, value, meta, icon: Icon }) => (
+          <div className="amenity-kpi" key={label}>
+            <span className="amenity-kpi-icon"><Icon className="h-5 w-5" aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <p>{label}</p>
+              <strong title={String(value)}>{value}</strong>
+              <small>{meta}</small>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="amenity-table-surface">
+        <div className="amenity-filter-bar">
           <label className="relative">
             <span className="sr-only">Search amenities</span>
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -150,12 +183,23 @@ export function AmenityDirectory({
             <option value="true">Active</option>
             <option value="false">Inactive</option>
           </SearchableSelect>
+          <SearchableSelect
+            searchable={false}
+            value={sort}
+            onChange={(event) => setSort(event.target.value)}
+            className={inputClass}
+            aria-label="Sort amenities"
+          >
+            <option value="most-used">Most used</option>
+            <option value="name">Name A-Z</option>
+            <option value="status">Active first</option>
+          </SearchableSelect>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left">
+          <table className="amenity-table w-full min-w-[780px] text-left">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {['Amenity', 'Property use', 'Space use', 'Status', 'Actions'].map((header) => (
+                {['Amenity', 'Properties', 'Spaces', 'Status', 'Actions'].map((header) => (
                   <th
                     key={header}
                     className={
@@ -170,10 +214,10 @@ export function AmenityDirectory({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {pagination.pageItems.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50">
+                <tr key={item.id}>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="rounded-lg bg-[#E3F2FD] p-2 text-[#0D47A1]">
+                      <span className="amenity-row-icon">
                         <Sparkles className="h-4 w-4" />
                       </span>
                       <span>
@@ -265,7 +309,7 @@ export function AmenityDirectory({
             </label>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
+              className="button primary w-full"
             >
               {busy ? 'Saving…' : 'Create amenity'}
             </button>
@@ -303,7 +347,7 @@ export function AmenityDirectory({
             </label>
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white"
+              className="button primary w-full"
             >
               {busy ? 'Saving…' : 'Save amenity'}
             </button>
@@ -329,10 +373,7 @@ export function AmenityDirectory({
                   .then(close)
                   .catch(() => undefined)
               }
-              className={
-                'w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white ' +
-                (selected.active ? 'bg-red-600' : 'bg-[#0D47A1]')
-              }
+              className={selected.active ? 'button danger w-full' : 'button primary w-full'}
             >
               {busy ? 'Updating…' : selected.active ? 'Deactivate' : 'Activate'}
             </button>

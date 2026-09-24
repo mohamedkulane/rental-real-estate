@@ -2,9 +2,20 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import {
+  BadgeDollarSign,
+  Building2,
+  ChevronRight,
+  FileText,
+  Handshake,
+  KeyRound,
+  Plus,
+  Users,
+  WalletCards,
+} from 'lucide-react';
 import { PageHeader } from '@/components/shared/ui';
 import { TableSkeleton } from '@/components/shared/loading-system';
-import { BarChart, DonutChart, TrendChart } from '@/features/admin/dashboard-charts';
+import { BarChart, ChartLegend, DonutChart, TrendChart } from '@/features/admin/dashboard-charts';
 import { CommercialShell, useCommercialPrincipal } from '@/features/commercial/commercial-shell';
 import { api, hasPermission, type CursorPage } from '@/lib/phase3-api';
 
@@ -13,11 +24,27 @@ type BuyerItem = { id: string; stage?: string };
 type OfferItem = { id: string; status: string; offerAmount?: string | number | null };
 type EngagementItem = { id: string; serviceModel: string; status: string };
 
-function KpiCard({ label, value }: { label: string; value: string | number }) {
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  hint = 'Current register',
+}: {
+  label: string;
+  value: string | number;
+  icon: typeof Building2;
+  hint?: string;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-[26px] font-bold leading-none text-[#1D2128]">{value}</p>
+    <div className="sales-overview-kpi">
+      <span className="rental-overview-kpi-icon">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <small>{hint}</small>
+      </div>
     </div>
   );
 }
@@ -74,72 +101,108 @@ export function SalesOverview() {
   const salesValue = sold.reduce((sum, item) => sum + Number(item.offerAmount ?? 0), 0);
   const commissionEarned = Math.round(salesValue * 0.03);
 
-  const pipeline = [
-    { label: 'For sale', value: forSale, color: '#215E61' },
-    { label: 'Active buyers', value: activeBuyers, color: '#4A7C7E' },
-    { label: 'Pending offers', value: pendingOffers, color: '#FF9E20' },
-    { label: 'Sold', value: sold.length, color: '#C97812' },
+  const brandChartColors = [
+    'var(--primary)',
+    'var(--primary-accent)',
+    'color-mix(in srgb, var(--primary) 68%, var(--primary-accent))',
+    'color-mix(in srgb, var(--primary) 42%, var(--primary-accent))',
   ];
+  const pipeline = [
+    { label: 'For sale', value: forSale, color: brandChartColors[0]! },
+    { label: 'Active buyers', value: activeBuyers, color: brandChartColors[1]! },
+    { label: 'Pending offers', value: pendingOffers, color: brandChartColors[2]! },
+    { label: 'Sold', value: sold.length, color: brandChartColors[3]! },
+  ];
+  const pipelineSegments = pipeline.some((item) => item.value > 0)
+    ? pipeline
+    : [{ label: 'No activity', value: 1, color: 'var(--border)' }];
 
   return (
     <CommercialShell principal={principal} activeItem="sales:overview">
       {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
-      <PageHeader
-        eyebrow="Sales"
-        title="Sales Overview"
-        description="Properties for sale, buyers, deals, and commission performance."
-        action={
-          <div className="flex flex-wrap gap-2">
+      <div className="rental-overview-hero">
+        <nav className="rental-overview-breadcrumb" aria-label="Breadcrumb">
+          <span>Sales</span>
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          <strong>Overview</strong>
+        </nav>
+        <PageHeader
+          eyebrow="Sales"
+          title="Sales Overview"
+          description="Properties for sale, buyers, deals, and commission performance."
+          action={
             <Link className="button primary" href="/sales/buyers?create=1">
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Add Buyer
             </Link>
-          </div>
-        }
-      />
+          }
+        />
+      </div>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <KpiCard label="Properties For Sale" value={forSale} />
-        <KpiCard label="Active Buyers" value={activeBuyers} />
-        <KpiCard label="Active Deals" value={activeDeals} />
-        <KpiCard label="Pending Offers" value={pendingOffers} />
-        <KpiCard label="Sold This Month" value={sold.length} />
+      <section className="rental-overview-kpis mt-6">
+        <KpiCard label="Properties For Sale" value={forSale} icon={Building2} />
+        <KpiCard label="Active Buyers" value={activeBuyers} icon={Users} />
+        <KpiCard label="Active Deals" value={activeDeals} icon={Handshake} />
+        <KpiCard label="Pending Offers" value={pendingOffers} icon={FileText} />
+        <KpiCard label="Sold This Month" value={sold.length} icon={KeyRound} />
         <KpiCard
           label="Sales Value"
           value={`$${salesValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          icon={BadgeDollarSign}
         />
         <KpiCard
           label="Commission Earned"
           value={`$${commissionEarned.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          icon={WalletCards}
         />
       </section>
 
-      <section className="mt-6 grid gap-4 xl:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#1D2128]">Sales pipeline</h2>
-          <div className="mt-4 flex justify-center">
+      <section className="rental-overview-chart-grid mt-6">
+        <div className="rental-chart-panel">
+          <div className="rental-chart-heading">
+            <h2>Sales pipeline</h2>
+            <span>Deals</span>
+          </div>
+          <div className="rental-chart-with-legend mt-4">
             <DonutChart
               centerLabel="Deals"
               centerValue={`${activeDeals || forSale}`}
-              segments={pipeline.filter((item) => item.value > 0).length ? pipeline : [{ label: 'None', value: 1, color: '#E5E7EB' }]}
+              segments={pipelineSegments}
             />
+            <ChartLegend items={pipelineSegments} />
           </div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#1D2128]">Buyer demand</h2>
+        <div className="rental-chart-panel rental-chart-panel-wide">
+          <div className="rental-chart-heading">
+            <h2>Buyer demand</h2>
+            <span>Sales activity</span>
+          </div>
           <div className="mt-4">
             <BarChart
               items={[
-                { label: 'Active buyers', value: activeBuyers, color: '#215E61' },
-                { label: 'Pending offers', value: pendingOffers, color: '#FF9E20' },
-                { label: 'Sold', value: sold.length, color: '#4A7C7E' },
+                { label: 'Active buyers', value: activeBuyers, color: brandChartColors[0]! },
+                { label: 'Pending offers', value: pendingOffers, color: brandChartColors[2]! },
+                { label: 'Sold', value: sold.length, color: brandChartColors[1]! },
               ]}
             />
           </div>
         </div>
+        <aside className="rental-chart-callout">
+          <BadgeDollarSign className="h-6 w-6" aria-hidden="true" />
+          <h2>Turn buyer demand into deals</h2>
+          <p>Keep buyers, listings, offers, and commission activity moving together.</p>
+          <Link className="button primary" href="/sales/buyers?create=1">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Buyer
+          </Link>
+        </aside>
       </section>
 
-      <section className="mt-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-[#1D2128]">Sales trend</h2>
+      <section className="rental-chart-panel mt-4">
+        <div className="rental-chart-heading">
+          <h2>Sales trend</h2>
+          <span>Last 6 months</span>
+        </div>
         <div className="mt-4">
           <TrendChart
             revenue={[
@@ -152,6 +215,22 @@ export function SalesOverview() {
             ]}
             occupancy={[35, 42, 48, 55, 62, Math.min(95, 40 + sold.length * 8)]}
           />
+          <div className="rental-trend-legend">
+            <span><i className="rental-trend-dot rental-trend-dot-primary" />Sales value</span>
+            <span><i className="rental-trend-dot rental-trend-dot-accent" />Offer activity</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Sales workspaces</h2>
+          <p className="mt-1 text-xs text-slate-500">Move from demand to property and offer operations.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link className="button secondary" href="/sales/buyers">Buyers</Link>
+          <Link className="button secondary" href="/sales/properties">Properties for sale</Link>
+          <Link className="button secondary" href="/sales/deals">Deals</Link>
         </div>
       </section>
     </CommercialShell>

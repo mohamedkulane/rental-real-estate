@@ -49,8 +49,8 @@ type ServiceDashboardConfig = {
   tableDescription: string;
   emptyTitle: string;
   emptyDescription: string;
-  footerNote: string;
   showSpaceColumn?: boolean;
+  premiumLayout?: boolean;
   metrics: MetricDefinition[];
 };
 
@@ -68,9 +68,9 @@ function MetricCard({
   return (
     <Link
       href={href}
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-200"
+      className="service-metric-card rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition"
     >
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+      <span className="service-metric-icon inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       <p className="mt-4 text-[28px] font-bold text-slate-900">{value}</p>
@@ -101,7 +101,7 @@ function CommercialHeaderActions({
 }) {
   return (
     <div className="flex flex-row flex-wrap items-center justify-end gap-2">
-      <Link className="button secondary shrink-0 whitespace-nowrap" href={secondaryHref}>
+      <Link className="button primary shrink-0 whitespace-nowrap" href={secondaryHref}>
         {secondaryLabel}
       </Link>
     </div>
@@ -149,7 +149,7 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
   );
 
   const metricsSection = (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="service-metric-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {propertyMetric ? (
         <MetricCard
           label={propertyMetric.label}
@@ -182,140 +182,141 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
 
   return (
     <CommercialShell principal={principal} activeItem={config.activeItem}>
-      <PageHeader
-        eyebrow="Commercial"
-        title={config.title}
-        description={config.description}
-        action={headerActions}
-      />
-
-      {principal && !allowed ? (
-        <DataTableEmpty
-          title="Access restricted"
-          description={`Your current access does not include ${config.title.toLowerCase()}.`}
+      <div className={config.premiumLayout ? 'service-dashboard service-dashboard--premium' : 'service-dashboard'}>
+        <PageHeader
+          eyebrow="Commercial"
+          title={config.title}
+          description={config.description}
+          action={headerActions}
         />
-      ) : engagementsQuery.isLoading ? (
-        <DashboardSkeleton />
-      ) : engagementsQuery.isError ? (
-        <ErrorState message={userFacingError(engagementsQuery.error)} />
-      ) : (
-        <div className="space-y-6">
-          {metricsSection}
 
-          <DataTableSurface>
-            <header className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-[15px] font-semibold text-slate-900">{config.tableTitle}</h2>
-              <p className="mt-1 text-[13px] text-slate-500">{config.tableDescription}</p>
-            </header>
+        {principal && !allowed ? (
+          <DataTableEmpty
+            title="Access restricted"
+            description={`Your current access does not include ${config.title.toLowerCase()}.`}
+          />
+        ) : engagementsQuery.isLoading ? (
+          <DashboardSkeleton />
+        ) : engagementsQuery.isError ? (
+          <ErrorState message={userFacingError(engagementsQuery.error)} />
+        ) : (
+          <div className="service-dashboard-content space-y-6">
+            <div className="service-dashboard-metrics">{metricsSection}</div>
 
-            {engagementsQuery.isFetching && !engagementsQuery.data ? (
-              <TableSkeleton columns={config.showSpaceColumn ? 6 : 5} />
-            ) : !engagementsQuery.data?.items.length ? (
-              <DataTableEmpty
-                title={config.emptyTitle}
-                description={config.emptyDescription}
-              />
-            ) : (
-              <>
-                <DataTableMobileCards>
-                  {engagementsQuery.data.items.map((row) => (
-                    <DataTableMobileCard
-                      key={row.id}
-                      title={propertyLabel(row)}
-                      subtitle={row.engagementNumber}
-                      rows={[
-                        ...(config.showSpaceColumn
-                          ? [{ label: 'Rentable Space', value: spaceLabel(row) }]
-                          : []),
-                        { label: 'Branch', value: currentBranch(row) },
-                        { label: 'Effective From', value: formatDate(row.effectiveFrom) },
-                        { label: 'Status', value: <StatusBadge value={row.status} /> },
-                      ]}
-                      actions={
-                        <TableActionGroup>
-                          <TableActionButton
-                            tone="property"
-                            href={`/portfolio/properties/${row.property.id}`}
-                          >
-                            Open Property
-                          </TableActionButton>
-                          <TableActionButton
-                            tone="agreement"
-                            href={`/commercial/service-engagements/${row.id}`}
-                          >
-                            Open Agreement
-                          </TableActionButton>
-                        </TableActionGroup>
-                      }
-                    />
-                  ))}
-                </DataTableMobileCards>
+            <DataTableSurface>
+              <header className="border-b border-slate-100 px-5 py-4">
+                <h2 className="text-[15px] font-semibold text-slate-900">{config.tableTitle}</h2>
+                <p className="mt-1 text-[13px] text-slate-500">{config.tableDescription}</p>
+              </header>
 
-                <DataTableDesktopOnly>
-                  <DataTableScroll>
-                    <DataTable minWidth={920}>
-                      <DataTableHead>
-                        <tr>
-                          <DataTableHeaderCell>Property</DataTableHeaderCell>
-                          {config.showSpaceColumn ? (
-                            <DataTableHeaderCell>Rentable Space</DataTableHeaderCell>
-                          ) : null}
-                          <DataTableHeaderCell>Service Agreement</DataTableHeaderCell>
-                          <DataTableHeaderCell>Operating Branch</DataTableHeaderCell>
-                          <DataTableHeaderCell>Effective From</DataTableHeaderCell>
-                          <DataTableHeaderCell>Status</DataTableHeaderCell>
-                          <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
-                        </tr>
-                      </DataTableHead>
-                      <DataTableBody>
-                        {engagementsQuery.data.items.map((row) => (
-                          <DataTableRow key={row.id}>
-                            <DataTableCell>
-                              <Link
-                                className="font-semibold text-[#0D47A1] hover:underline"
-                                href={`/portfolio/properties/${row.property.id}`}
-                              >
-                                {propertyLabel(row)}
-                              </Link>
-                            </DataTableCell>
+              {engagementsQuery.isFetching && !engagementsQuery.data ? (
+                <TableSkeleton columns={config.showSpaceColumn ? 6 : 5} />
+              ) : !engagementsQuery.data?.items.length ? (
+                <DataTableEmpty
+                  title={config.emptyTitle}
+                  description={config.emptyDescription}
+                />
+              ) : (
+                <>
+                  <DataTableMobileCards>
+                    {engagementsQuery.data.items.map((row) => (
+                      <DataTableMobileCard
+                        key={row.id}
+                        title={propertyLabel(row)}
+                        subtitle={row.engagementNumber}
+                        rows={[
+                          ...(config.showSpaceColumn
+                            ? [{ label: 'Rentable Space', value: spaceLabel(row) }]
+                            : []),
+                          { label: 'Branch', value: currentBranch(row) },
+                          { label: 'Effective From', value: formatDate(row.effectiveFrom) },
+                          { label: 'Status', value: <StatusBadge value={row.status} /> },
+                        ]}
+                        actions={
+                          <TableActionGroup>
+                            <TableActionButton
+                              tone="property"
+                              href={`/portfolio/properties/${row.property.id}`}
+                            >
+                              Open Property
+                            </TableActionButton>
+                            <TableActionButton
+                              tone="agreement"
+                              href={`/commercial/service-engagements/${row.id}`}
+                            >
+                              Open Agreement
+                            </TableActionButton>
+                          </TableActionGroup>
+                        }
+                      />
+                    ))}
+                  </DataTableMobileCards>
+
+                  <DataTableDesktopOnly>
+                    <DataTableScroll>
+                      <DataTable minWidth={920}>
+                        <DataTableHead>
+                          <tr>
+                            <DataTableHeaderCell>Property</DataTableHeaderCell>
                             {config.showSpaceColumn ? (
-                              <DataTableCell>{spaceLabel(row)}</DataTableCell>
+                              <DataTableHeaderCell>Rentable Space</DataTableHeaderCell>
                             ) : null}
-                            <DataTableCell>{row.engagementNumber}</DataTableCell>
-                            <DataTableCell>{currentBranch(row)}</DataTableCell>
-                            <DataTableCell>{formatDate(row.effectiveFrom)}</DataTableCell>
-                            <DataTableCell>
-                              <StatusBadge value={row.status} />
-                            </DataTableCell>
-                            <DataTableCell align="right">
-                              <TableActionGroup>
-                                <TableActionButton
-                                  tone="property"
+                            <DataTableHeaderCell>Service Agreement</DataTableHeaderCell>
+                            <DataTableHeaderCell>Operating Branch</DataTableHeaderCell>
+                            <DataTableHeaderCell>Effective From</DataTableHeaderCell>
+                            <DataTableHeaderCell>Status</DataTableHeaderCell>
+                            <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
+                          </tr>
+                        </DataTableHead>
+                        <DataTableBody>
+                          {engagementsQuery.data.items.map((row) => (
+                            <DataTableRow key={row.id}>
+                              <DataTableCell>
+                                <Link
+                                  className="font-semibold text-[#0D47A1] hover:underline"
                                   href={`/portfolio/properties/${row.property.id}`}
                                 >
-                                  Property
-                                </TableActionButton>
-                                <TableActionButton
-                                  tone="agreement"
-                                  href={`/commercial/service-engagements/${row.id}`}
-                                >
-                                  Agreement
-                                </TableActionButton>
-                              </TableActionGroup>
-                            </DataTableCell>
-                          </DataTableRow>
-                        ))}
-                      </DataTableBody>
-                    </DataTable>
-                  </DataTableScroll>
-                </DataTableDesktopOnly>
-              </>
-            )}
-          </DataTableSurface>
+                                  {propertyLabel(row)}
+                                </Link>
+                              </DataTableCell>
+                              {config.showSpaceColumn ? (
+                                <DataTableCell>{spaceLabel(row)}</DataTableCell>
+                              ) : null}
+                              <DataTableCell>{row.engagementNumber}</DataTableCell>
+                              <DataTableCell>{currentBranch(row)}</DataTableCell>
+                              <DataTableCell>{formatDate(row.effectiveFrom)}</DataTableCell>
+                              <DataTableCell>
+                                <StatusBadge value={row.status} />
+                              </DataTableCell>
+                              <DataTableCell align="right">
+                                <TableActionGroup>
+                                  <TableActionButton
+                                    tone="property"
+                                    href={`/portfolio/properties/${row.property.id}`}
+                                  >
+                                    Property
+                                  </TableActionButton>
+                                  <TableActionButton
+                                    tone="agreement"
+                                    href={`/commercial/service-engagements/${row.id}`}
+                                  >
+                                    Agreement
+                                  </TableActionButton>
+                                </TableActionGroup>
+                              </DataTableCell>
+                            </DataTableRow>
+                          ))}
+                        </DataTableBody>
+                      </DataTable>
+                    </DataTableScroll>
+                  </DataTableDesktopOnly>
+                </>
+              )}
+            </DataTableSurface>
 
-          <p className="text-[13px] text-slate-500">{config.footerNote}</p>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
     </CommercialShell>
   );
@@ -336,8 +337,6 @@ const fullManagementConfig: ServiceDashboardConfig = {
   emptyTitle: 'No managed properties yet',
   emptyDescription:
     'Start a Full Management guided workflow to register a property under this service model.',
-  footerNote:
-    'Service model: Full Management. Rent collection and owner accounting follow engagement commercial terms.',
   metrics: [
     {
       key: 'managed-properties',
@@ -407,9 +406,8 @@ const rentalBrokerageConfig: ServiceDashboardConfig = {
   emptyTitle: 'No brokerage properties yet',
   emptyDescription:
     'Start a Rental Brokerage guided workflow to register a property under this service model.',
-  footerNote:
-    'Service model: Rental Brokerage. Placement commission only; recurring Full Management billing does not apply.',
   showSpaceColumn: true,
+  premiumLayout: true,
   metrics: [
     {
       key: 'brokerage-properties',
@@ -468,8 +466,6 @@ const propertySaleConfig: ServiceDashboardConfig = {
   emptyTitle: 'No sale properties yet',
   emptyDescription:
     'Start a Property Sale guided workflow to register a property under this service model.',
-  footerNote:
-    'Service model: Sale Brokerage. Offers, settlements, and commissions follow engagement commercial terms.',
   metrics: [
     {
       key: 'sale-properties',

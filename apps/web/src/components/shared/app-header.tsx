@@ -314,7 +314,7 @@ export function AppHeader({
               className="app-header-branch hidden md:inline-flex"
               aria-label="Current branch"
             >
-              <Building2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+              <Building2 className="h-4 w-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
               <span className="truncate">{workspaceName}</span>
               <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
             </button>
@@ -347,7 +347,7 @@ export function AppHeader({
                     {unreadCount > 0 ? (
                       <button
                         type="button"
-                        className="text-xs font-semibold text-emerald-700"
+                        className="text-xs font-semibold text-[var(--primary)]"
                         onClick={() => void markNotificationRead()}
                       >
                         Mark all read
@@ -363,7 +363,7 @@ export function AppHeader({
                             role="menuitem"
                             className={
                               'flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-slate-50 ' +
-                              (item.status === 'UNREAD' ? 'bg-emerald-50/40' : '')
+                              (item.status === 'UNREAD' ? 'bg-[var(--primary-soft)]' : '')
                             }
                             onClick={() => {
                               void markNotificationRead(item.id);
@@ -445,7 +445,7 @@ export function AppHeader({
             role="dialog"
             aria-modal="true"
             aria-labelledby="start-new-title"
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+            className="start-new-dialog w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
@@ -476,15 +476,15 @@ export function AppHeader({
                   <button
                     key={item.key}
                     type="button"
-                    className="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+                    className="start-new-item flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
                     onClick={item.onSelect}
                   >
-                    <span className="mt-0.5 rounded-lg bg-emerald-50 p-2 text-emerald-700">
+                    <span className="start-new-item-icon mt-0.5 rounded-lg bg-[var(--primary-soft)] p-2 text-[var(--primary)]">
                       <Plus className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span>
-                      <span className="block text-sm font-bold text-slate-900">{item.label}</span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="start-new-item-title block text-sm font-bold text-slate-900">{item.label}</span>
+                      <span className="start-new-item-description block text-xs text-slate-500">
                         {destination?.description}
                       </span>
                     </span>

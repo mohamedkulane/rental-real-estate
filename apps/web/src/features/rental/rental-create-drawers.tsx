@@ -26,7 +26,7 @@ import {
 type OwnerOption = { partyId: string; ownerNumber: string; party: { displayName: string } };
 
 const inputClass =
-  'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15';
+  'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-1 focus:ring-[#215E61]/12';
 
 const MULTI_UNIT_TYPES = new Set([
   'APARTMENT_BUILDING',

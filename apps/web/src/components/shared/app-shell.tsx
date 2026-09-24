@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ChevronsLeft,
@@ -97,7 +97,11 @@ export function AppShell({
   const [companyBrand, setCompanyBrand] = useState<{
     name?: string | null;
     displayName?: string | null;
-    logoMetadata?: { url?: string | null } | null;
+    logoMetadata?: {
+      url?: string | null;
+      primaryColor?: string | null;
+      accentColor?: string | null;
+    } | null;
   }>({});
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const closeNavRef = useRef<HTMLButtonElement>(null);
@@ -149,6 +153,20 @@ export function AppShell({
   }, [permissions]);
 
   const companyName = companyBrand.displayName || companyBrand.name || displayName;
+  const primaryColor = /^#[0-9A-Fa-f]{6}$/.test(companyBrand.logoMetadata?.primaryColor ?? '')
+    ? companyBrand.logoMetadata!.primaryColor!
+    : '#215E61';
+  const accentColor = /^#[0-9A-Fa-f]{6}$/.test(companyBrand.logoMetadata?.accentColor ?? '')
+    ? companyBrand.logoMetadata!.accentColor!
+    : '#2563EB';
+  const brandStyle = {
+    '--primary': primaryColor,
+    '--primary-hover': `color-mix(in srgb, ${primaryColor} 84%, #000)`,
+    '--primary-soft': `${primaryColor}18`,
+    '--primary-accent': accentColor,
+    '--info': accentColor,
+    '--info-soft': `${accentColor}18`,
+  } as CSSProperties;
 
   useEffect(() => {
     if (!open) {
@@ -181,11 +199,14 @@ export function AppShell({
   }, [open]);
 
   return (
-    <div className="min-h-screen bg-[var(--background)] font-sans text-slate-900">
+    <div
+      className="app-brand-root min-h-screen bg-[var(--background)] font-sans text-slate-900"
+      style={brandStyle}
+    >
       <button
         type="button"
         ref={menuTriggerRef}
-        className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white p-2 text-[#0F172A] shadow-sm lg:hidden"
         aria-label="Open navigation"
         aria-expanded={open}
         aria-controls="main-navigation"
@@ -196,7 +217,7 @@ export function AppShell({
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[1px] lg:hidden"
+          className="fixed inset-0 z-40 bg-[#0F172A]/40 backdrop-blur-[1px] lg:hidden"
           aria-label="Close navigation"
           onClick={() => setOpen(false)}
         />
@@ -220,7 +241,7 @@ export function AppShell({
               <img
                 src={companyBrand.logoMetadata.url}
                 alt=""
-                className="h-10 w-10 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-[#0F766E]/20"
+                className="h-10 w-10 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-[var(--primary)]/20"
               />
             ) : (
               <span
@@ -276,15 +297,21 @@ export function AppShell({
               onClick={() => setOpen(false)}
               title="Dashboard"
               className={
-                'flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/20 ' +
+                'relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/25 ' +
                 (dashboardSelected
-                  ? 'bg-[#E6F4F1]/70 text-[#0F172A]'
-                  : 'text-[#0F172A]/80 hover:bg-slate-50/80')
+                  ? 'bg-[#E6F4F1] text-[#0F172A]'
+                  : 'text-[#0F172A]/80 hover:bg-slate-50')
               }
             >
+              {dashboardSelected ? (
+                <span
+                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-[#0F766E]"
+                  aria-hidden="true"
+                />
+              ) : null}
               <Home
                 className={
-                  'h-[18px] w-[18px] shrink-0 ' +
+                  'ml-1 h-[18px] w-[18px] shrink-0 ' +
                   (dashboardSelected ? 'text-[#0F766E]' : 'text-[#0F172A]/55')
                 }
                 aria-hidden="true"
