@@ -3,7 +3,23 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck2, Check, X } from 'lucide-react';
+import {
+  Building2,
+  ArrowUpRight,
+  CalendarCheck2,
+  CalendarDays,
+  Check,
+  CircleAlert,
+  Clock3,
+  Handshake,
+  KeyRound,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
+  UserRound,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   DataTableEmpty,
@@ -76,22 +92,27 @@ function propertyHref(row: ViewingRow) {
 function SummaryCard({
   label,
   value,
-  tone = 'slate',
+  hint,
+  icon: Icon,
+  tone,
 }: {
   label: string;
   value: number;
-  tone?: 'slate' | 'teal' | 'amber' | 'red';
+  hint: string;
+  icon: LucideIcon;
+  tone: 'blue' | 'green' | 'amber' | 'red';
 }) {
-  const tones = {
-    slate: 'border-slate-200 text-slate-900',
-    teal: 'border-[#215E61]/30 text-[#215E61]',
-    amber: 'border-amber-200 text-amber-800',
-    red: 'border-red-200 text-red-700',
-  };
   return (
-    <div className={`rounded-lg border bg-white p-4 shadow-sm ${tones[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold leading-none">{value}</p>
+    <div className={`viewing-kpi viewing-kpi-${tone}`}>
+      <span className="viewing-kpi-icon">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <small>{hint}</small>
+      </div>
+      <ArrowUpRight className="viewing-kpi-arrow h-4 w-4" aria-hidden="true" />
     </div>
   );
 }
@@ -119,6 +140,15 @@ export function CentralViewingsWorkspace() {
   const [agentId, setAgentId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const resetFilters = () => {
+    setSearch('');
+    setIntent('');
+    setPeriod('ALL');
+    setStatus('');
+    setAgentId('');
+    setFrom('');
+    setTo('');
+  };
   const canRead = Boolean(principal && hasPermission(principal, 'viewing.read'));
   const canComplete = Boolean(principal && hasPermission(principal, 'viewing.complete'));
   const query = useQuery({
@@ -214,16 +244,19 @@ export function CentralViewingsWorkspace() {
   });
   return (
     <RentalShell principal={principal} principalError={error} activeItem="rental:viewings">
-      <PageHeader
-        eyebrow="Operations"
-        title="Viewings"
-        description="Rental and sales viewings in one operational register."
-        action={
-          <Link className="button secondary" href="/rental/customers">
-            Open rental customers
-          </Link>
-        }
-      />
+      <div className="viewings-hero">
+        <PageHeader
+          eyebrow="Operations"
+          title="Viewings"
+          description="Keep rental and sales appointments, outcomes, and next actions in one operational register."
+          action={
+            <Link className="button primary" href="/rental/customers">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Open rental customers
+            </Link>
+          }
+        />
+      </div>
       {!canRead ? (
         <p className="mt-6 rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
           You cannot read viewings with your current access.
@@ -231,24 +264,40 @@ export function CentralViewingsWorkspace() {
       ) : null}
       {canRead ? (
         <>
-          <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard label="Today" value={summary.today} tone="teal" />
-            <SummaryCard label="Upcoming" value={summary.upcoming} />
-            <SummaryCard label="Interested" value={summary.interested} tone="amber" />
-            <SummaryCard label="Needs Outcome" value={summary.needsOutcome} tone="red" />
+          <section className="viewings-kpis mt-6">
+            <SummaryCard label="Today" value={summary.today} hint="Viewings scheduled today" icon={CalendarDays} tone="blue" />
+            <SummaryCard label="Upcoming" value={summary.upcoming} hint="Next scheduled viewings" icon={Clock3} tone="green" />
+            <SummaryCard label="Interested" value={summary.interested} hint="Customers interested" icon={Handshake} tone="amber" />
+            <SummaryCard label="Needs outcome" value={summary.needsOutcome} hint="Viewings pending result" icon={CircleAlert} tone="red" />
           </section>
           <DataTableSurface className="mt-6">
-            <DataTableToolbar>
-              <DataTableSearch
-                value={search}
-                onChange={setSearch}
-                placeholder="Search customer, buyer, property, unit, or lead number"
-              />
-              <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-4">
+            <DataTableToolbar
+              footer={
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button type="button" className="button ghost text-[13px]" onClick={resetFilters}>
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    Reset
+                  </button>
+                  <button type="button" className="button primary text-[13px]" onClick={() => void query.refetch()}>
+                    <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                    Filter
+                  </button>
+                </div>
+              }
+            >
+              <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+                <div className="min-w-[240px] flex-1">
+                  <DataTableSearch
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search customer, buyer, property, or unit..."
+                  />
+                </div>
                 <DataTableFilter
                   label="Type"
                   value={intent}
                   onChange={setIntent}
+                  className="w-full sm:w-36"
                   options={[
                     { value: '', label: 'All types' },
                     { value: 'RENT', label: 'Rental' },
@@ -259,6 +308,7 @@ export function CentralViewingsWorkspace() {
                   label="Period"
                   value={period}
                   onChange={(value) => setPeriod(value as Period)}
+                  className="w-full sm:w-36"
                   options={[
                     { value: 'ALL', label: 'All viewings' },
                     { value: 'TODAY', label: 'Today' },
@@ -271,6 +321,7 @@ export function CentralViewingsWorkspace() {
                   label="Status"
                   value={status}
                   onChange={setStatus}
+                  className="w-full sm:w-36"
                   options={[
                     { value: '', label: 'All statuses' },
                     { value: 'SCHEDULED', label: 'Scheduled' },
@@ -282,6 +333,7 @@ export function CentralViewingsWorkspace() {
                   label="Agent"
                   value={agentId}
                   onChange={setAgentId}
+                  className="w-full sm:w-40"
                   options={[
                     { value: '', label: 'All agents' },
                     ...agents.map((agent) => ({
@@ -290,24 +342,22 @@ export function CentralViewingsWorkspace() {
                     })),
                   ]}
                 />
-              </div>
-              <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-[22rem]">
-                <label className="block text-[12px] font-semibold text-slate-500">
+                <label className="block w-full sm:w-36 text-[12px] font-semibold text-slate-500">
                   From
                   <input
                     type="date"
                     value={from}
                     onChange={(event) => setFrom(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15"
                   />
                 </label>
-                <label className="block text-[12px] font-semibold text-slate-500">
+                <label className="block w-full sm:w-36 text-[12px] font-semibold text-slate-500">
                   To
                   <input
                     type="date"
                     value={to}
                     onChange={(event) => setTo(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15"
                   />
                 </label>
               </div>
@@ -353,28 +403,52 @@ export function CentralViewingsWorkspace() {
                       return (
                         <tr key={row.id} className="border-b border-slate-100 align-top">
                           <td className="whitespace-nowrap px-4 py-3">
-                            {formatDate(row.scheduledAt)}
+                            <span className="inline-flex items-center gap-1.5">
+                              <CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                              {formatDate(row.scheduledAt)}
+                            </span>
                           </td>
                           <td className="whitespace-nowrap px-4 py-3">
-                            {new Date(row.scheduledAt).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            <span className="inline-flex items-center gap-1.5">
+                              <Clock3 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                              {new Date(row.scheduledAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
                           </td>
                           <td className="px-4 py-3">
-                            <p className="font-semibold text-slate-900">
-                              {row.lead?.displayName ?? '-'}
-                            </p>
-                            <p className="text-xs text-slate-500">{row.lead?.leadNumber}</p>
+                            <div className="flex items-start gap-2">
+                              <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                              <div>
+                                <p className="font-semibold text-slate-900">{row.lead?.displayName ?? '-'}</p>
+                                <p className="text-xs text-slate-500">{row.lead?.leadNumber}</p>
+                              </div>
+                            </div>
                           </td>
-                          <td className="px-4 py-3">{targetLabel(row)}</td>
                           <td className="px-4 py-3">
-                            {row.lead?.intent === 'BUY' ? 'Buy' : 'Rent'}
+                            <span className="inline-flex items-start gap-1.5">
+                              <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                              {targetLabel(row)}
+                            </span>
                           </td>
                           <td className="px-4 py-3">
-                            {row.assignedEmployee?.party?.displayName ??
-                              row.assignedEmployee?.employeeNumber ??
-                              '-'}
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary-soft)] px-2 py-1 text-xs font-medium text-[var(--primary)]">
+                              {row.lead?.intent === 'BUY' ? (
+                                <Handshake className="h-3.5 w-3.5" aria-hidden="true" />
+                              ) : (
+                                <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                              )}
+                              {row.lead?.intent === 'BUY' ? 'Buy' : 'Rent'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1.5">
+                              <UserRound className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                              {row.assignedEmployee?.party?.displayName ??
+                                row.assignedEmployee?.employeeNumber ??
+                                '-'}
+                            </span>
                           </td>
                           <td className="px-4 py-3">
                             <StatusBadge value={outcome ?? humanize(row.status)} />
@@ -382,12 +456,25 @@ export function CentralViewingsWorkspace() {
                           <td className="px-4 py-3">
                             <TableActionGroup>
                               {personHref ? (
-                                <TableActionButton tone="open" href={personHref}>
+                                <TableActionButton
+                                  tone="open"
+                                  href={personHref}
+                                  icon={UserRound}
+                                  className="w-8 justify-center px-0 [&>span]:sr-only"
+                                  title={`Open ${row.lead?.intent === 'BUY' ? 'buyer' : 'customer'}`}
+                                  aria-label={`Open ${row.lead?.intent === 'BUY' ? 'buyer' : 'customer'}`}
+                                >
                                   Open {row.lead?.intent === 'BUY' ? 'buyer' : 'customer'}
                                 </TableActionButton>
                               ) : null}
                               {propertyHref(row) ? (
-                                <TableActionButton tone="open" href={propertyHref(row)!}>
+                                <TableActionButton
+                                  tone="property"
+                                  href={propertyHref(row)!}
+                                  className="w-8 justify-center px-0 [&>span]:sr-only"
+                                  title="Open property"
+                                  aria-label="Open property"
+                                >
                                   Open property
                                 </TableActionButton>
                               ) : null}
@@ -395,11 +482,11 @@ export function CentralViewingsWorkspace() {
                                 <TableActionButton
                                   tone="manage"
                                   disabled={transition.isPending}
+                                  icon={CalendarCheck2}
                                   onClick={() =>
                                     transition.mutate({ row, nextStatus: 'CONFIRMED' })
                                   }
                                 >
-                                  <CalendarCheck2 className="h-4 w-4" />
                                   Confirm
                                 </TableActionButton>
                               ) : null}
@@ -408,6 +495,7 @@ export function CentralViewingsWorkspace() {
                                   <TableActionButton
                                     tone="manage"
                                     disabled={transition.isPending}
+                                    icon={Check}
                                     onClick={() =>
                                       transition.mutate({
                                         row,
@@ -416,12 +504,12 @@ export function CentralViewingsWorkspace() {
                                       })
                                     }
                                   >
-                                    <Check className="h-4 w-4" />
                                     Interested
                                   </TableActionButton>
                                   <TableActionButton
                                     tone="danger"
                                     disabled={transition.isPending}
+                                    icon={X}
                                     onClick={() =>
                                       transition.mutate({
                                         row,
@@ -430,7 +518,6 @@ export function CentralViewingsWorkspace() {
                                       })
                                     }
                                   >
-                                    <X className="h-4 w-4" />
                                     Not interested
                                   </TableActionButton>
                                 </>

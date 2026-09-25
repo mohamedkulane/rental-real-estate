@@ -3,13 +3,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Activity,
   Building2,
+  CalendarDays,
   DollarSign,
   KeyRound,
   Percent,
   Receipt,
+  TrendingUp,
   Wrench,
 } from 'lucide-react';
 import { DashboardSkeleton } from '@/components/shared/loading-system';
@@ -18,7 +21,6 @@ import { formatDate, humanize } from '@/lib/presentation';
 import { groupBy } from '@/lib/group-by';
 import { BarChart, DonutChart, TrendChart } from './dashboard-charts';
 
-const DASHBOARD_HERO_IMAGE = '/images/dashboard/hero-house.jpg';
 const DASHBOARD_PROPERTY_IMAGE = '/images/dashboard/property-building.jpg';
 
 type Row = Record<string, unknown>;
@@ -96,19 +98,20 @@ function KpiCard({
   label,
   value,
   icon,
-  tone = 'green',
 }: {
   label: string;
   value: string;
   icon: ReactNode;
-  tone?: 'green' | 'teal' | 'mint' | 'emerald' | 'lime' | 'cyan';
 }) {
   return (
-    <article className={`staff-kpi-card staff-kpi-card-${tone}`}>
+    <article className="staff-kpi-card">
       <span className="staff-kpi-icon">{icon}</span>
       <div>
-        <strong>{value}</strong>
         <small>{label}</small>
+        <strong>{value}</strong>
+        <span className="staff-kpi-context">
+          <TrendingUp aria-hidden="true" /> Current register
+        </span>
       </div>
     </article>
   );
@@ -166,10 +169,26 @@ export function StaffDashboard({
   workspaceTitle: string;
   workspaceDescription: string;
 }) {
+  const [period, setPeriod] = useState('month');
+  const [branchId, setBranchId] = useState('');
+
   if (loading) return <DashboardSkeleton />;
 
   const widgets = dashboard.summary?.widgets ?? {};
-  const totalProperties = numberValue(widgets.totalProperties ?? dashboard.properties.length);
+  const scopedProperties = useMemo(
+    () =>
+      branchId
+        ? dashboard.properties.filter((property) => {
+            const assignments = array(property.branchAssignments);
+            const current = assignments.find((assignment) => !assignment.effectiveTo) ?? assignments[0];
+            return text(nested(current ?? {}, 'branch', 'id')) === branchId;
+          })
+        : dashboard.properties,
+    [branchId, dashboard.properties],
+  );
+  const totalProperties = branchId
+    ? scopedProperties.length
+    : numberValue(widgets.totalProperties ?? dashboard.properties.length);
   const occupancyRate = numberValue(widgets.occupancyRate);
   const activeLeases = numberValue(widgets.activeLeases);
   const monthlyRevenue = numberValue(widgets.monthlyRevenue);
@@ -182,12 +201,12 @@ export function StaffDashboard({
     totalBilled > 0 ? Math.round((monthlyRevenue / totalBilled) * 100) : monthlyRevenue > 0 ? 100 : 0;
 
   const propertyGroups = Object.entries(
-    groupBy(dashboard.properties, (property) => humanize(text(property.propertyType))),
+    groupBy(scopedProperties, (property) => humanize(text(property.propertyType))),
   )
     .map(([label, items]) => ({ label, value: items?.length ?? 0 }))
     .sort((left, right) => right.value - left.value);
 
-  const branchItems = countPropertiesByBranch(dashboard.properties, dashboard.branches);
+  const branchItems = countPropertiesByBranch(scopedProperties, dashboard.branches);
   const trendRevenue = [0, 0, 0, 0, 0, monthlyRevenue];
   const trendOccupancy = [occupancyRate, occupancyRate, occupancyRate, occupancyRate, occupancyRate, occupancyRate];
 
@@ -240,62 +259,73 @@ export function StaffDashboard({
 
   return (
     <div className="staff-dashboard">
-      <section className="staff-dashboard-hero">
-        <Image
-          src={DASHBOARD_HERO_IMAGE}
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 980px) 100vw, 960px"
-          className="staff-dashboard-hero-photo"
-        />
-        <div className="staff-dashboard-hero-copy">
+      <header className="staff-dashboard-header">
+        <div>
           <p className="eyebrow">Overview</p>
           <h1>{workspaceTitle}</h1>
           <p>{workspaceDescription}</p>
         </div>
-        <aside className="staff-dashboard-hero-card">
-          <strong>Building better communities.</strong>
-          <span>Properties. People. Possibilities.</span>
-        </aside>
-      </section>
+        <div className="staff-dashboard-controls" aria-label="Dashboard filters">
+          {([
+            ['today', 'Today'],
+            ['week', 'This Week'],
+            ['month', 'This Month'],
+            ['year', 'This Year'],
+          ] as const).map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className={period === value ? 'is-active' : ''}
+              onClick={() => setPeriod(value)}
+            >
+              {label}
+            </button>
+          ))}
+          <label className="staff-dashboard-branch">
+            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">Branch</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+              <option value="">All Branches</option>
+              {dashboard.branches.map((branch) => (
+                <option key={text(branch.id)} value={text(branch.id)}>
+                  {text(branch.name, 'Unnamed branch')}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </header>
 
       <div className="staff-kpi-grid" aria-label="Key performance indicators">
         <KpiCard
           label="Total Properties"
           value={String(totalProperties)}
           icon={<Building2 aria-hidden="true" />}
-          tone="green"
         />
         <KpiCard
           label="Occupancy Rate"
           value={`${occupancyRate}%`}
           icon={<Percent aria-hidden="true" />}
-          tone="teal"
         />
         <KpiCard
           label="Active Leases"
           value={String(activeLeases)}
           icon={<KeyRound aria-hidden="true" />}
-          tone="mint"
         />
         <KpiCard
           label="Monthly Revenue"
           value={formatMoney(monthlyRevenue)}
           icon={<DollarSign aria-hidden="true" />}
-          tone="emerald"
         />
         <KpiCard
           label="Open Maintenance"
           value={String(openMaintenance)}
           icon={<Wrench aria-hidden="true" />}
-          tone="lime"
         />
         <KpiCard
           label="Outstanding Receivables"
           value={formatMoney(outstandingReceivables)}
           icon={<Receipt aria-hidden="true" />}
-          tone="cyan"
         />
       </div>
 

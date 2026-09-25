@@ -1,4 +1,4 @@
-import { AreaUnit, BranchAccessMode } from '@prisma/client';
+import { BranchAccessMode } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { RentalOrchestrationService } from '../../src/rental/rental-orchestration.service';
@@ -17,7 +17,7 @@ const principal: AuthenticatedPrincipal = {
   permissionBranchScopes: new Map(),
 };
 
-type RentPreferenceCreate = { minArea?: Prisma.Decimal; areaUnit?: AreaUnit };
+type RentPreferenceCreate = { minArea?: Prisma.Decimal; areaUnit?: string };
 
 function createService() {
   const rentCreates: RentPreferenceCreate[] = [];
@@ -89,13 +89,13 @@ describe('rental customer area preference', () => {
     expect(rent.areaUnit).toBeUndefined();
   });
 
-  it('stores a supplied area as square metres', async () => {
+  it('stores a supplied optional area without imposing a unit', async () => {
     const { service, rentCreates } = createService();
 
     await service.addRentalCustomer(principal, { ...baseInput, minArea: '130' });
 
     const rent = rentCreates[0]!;
     expect(rent.minArea?.toString()).toBe('130');
-    expect(rent.areaUnit).toBe(AreaUnit.SQM);
+    expect(rent.areaUnit).toBeUndefined();
   });
 });

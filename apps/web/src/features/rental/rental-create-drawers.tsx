@@ -686,8 +686,8 @@ export function AddRentalCustomerDrawer({
                   <input name="minBathrooms" inputMode="decimal" className={inputClass} />
                 </label>
                 <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-                  Minimum area
-                  <input name="minArea" inputMode="decimal" className={inputClass} />
+                  Area (optional)
+                  <input name="minArea" inputMode="decimal" className={inputClass} placeholder="e.g. 130" />
                 </label>
               </div>
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
