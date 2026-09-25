@@ -31,7 +31,7 @@ export class RentalPresentationService {
         some: {
           status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
           leaseStartDate: { lte: at },
-          leaseEndDate: { gte: at },
+          OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }],
         },
       },
     };
@@ -44,7 +44,7 @@ export class RentalPresentationService {
         none: {
           status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
           leaseStartDate: { lte: at },
-          leaseEndDate: { gte: at },
+          OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }],
         },
       },
       reservations: {

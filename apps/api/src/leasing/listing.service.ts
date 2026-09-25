@@ -94,7 +94,7 @@ export class ListingService {
         none: {
           status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
           leaseStartDate: { lte: at },
-          leaseEndDate: { gte: at },
+          OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }],
         },
       },
       reservations: {
@@ -240,7 +240,7 @@ export class ListingService {
         rentableSpaceId,
         status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
         leaseStartDate: { lte: at },
-        leaseEndDate: { gte: at },
+        OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }],
       },
     });
     if (occupied > 0) {

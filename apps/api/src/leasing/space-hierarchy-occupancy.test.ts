@@ -21,9 +21,14 @@ describe('space hierarchy occupancy', () => {
   };
 
   it('rejects a child lease while a parent lease overlaps the period', async () => {
+    const database = db({ lease: { leaseNumber: 'L-1' } });
     await expect(
-      assertHierarchyOccupancyAvailable(db({ lease: { leaseNumber: 'L-1' } }), base),
+      assertHierarchyOccupancyAvailable(database, base),
     ).rejects.toThrow('parent unit lease L-1');
+    expect(database.lease.findFirst.mock.calls[0]?.[0].where.OR).toEqual([
+      { leaseEndDate: null },
+      { leaseEndDate: { gte: expect.any(Date) } },
+    ]);
   });
 
   it('rejects a whole-unit lease while a child lease overlaps the period', async () => {
