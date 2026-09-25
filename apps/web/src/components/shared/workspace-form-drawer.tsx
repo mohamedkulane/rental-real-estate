@@ -10,6 +10,7 @@ const SIZE_CLASS = {
 } as const;
 
 export type WorkspaceFormDrawerSize = keyof typeof SIZE_CLASS;
+export type WorkspaceFormDrawerLayout = 'form' | 'compact';
 
 /**
  * Centered workspace create/edit panel.
@@ -24,6 +25,7 @@ export function WorkspaceFormDrawer({
   children,
   footer,
   size = 'md',
+  layout = 'form',
 }: {
   open: boolean;
   title: string;
@@ -33,6 +35,8 @@ export function WorkspaceFormDrawer({
   children: ReactNode;
   footer?: ReactNode;
   size?: WorkspaceFormDrawerSize;
+  /** Compact dialogs keep short decisions visible without a tall empty panel. */
+  layout?: WorkspaceFormDrawerLayout;
 }) {
   const [entered, setEntered] = useState(false);
   const [canScrollUp, setCanScrollUp] = useState(false);
@@ -98,10 +102,14 @@ export function WorkspaceFormDrawer({
 
   if (!open) return null;
 
+  const isCompact = layout === 'compact';
+
   return (
     <div
       className={
-        'workspace-form-drawer-overlay fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-5 ' +
+        'workspace-form-drawer-overlay fixed inset-0 z-[80] flex justify-center p-3 sm:p-5 ' +
+        (isCompact ? 'items-start pt-12 sm:pt-20' : 'items-center') +
+        ' ' +
         'transition-colors duration-200 ease-out motion-reduce:transition-none ' +
         (entered ? 'is-entering bg-slate-950/45' : 'bg-slate-950/0')
       }
@@ -117,7 +125,9 @@ export function WorkspaceFormDrawer({
       />
       <aside
         className={
-          'workspace-form-drawer-panel relative flex h-[min(90vh,820px)] max-h-[calc(100dvh-2rem)] w-full flex-col ' +
+          'workspace-form-drawer-panel relative flex max-h-[calc(100dvh-2rem)] w-full flex-col ' +
+          (isCompact ? 'workspace-form-drawer-compact h-auto' : 'h-[min(90vh,820px)]') +
+          ' ' +
           'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl ' +
           'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none ' +
           (entered
@@ -160,7 +170,10 @@ export function WorkspaceFormDrawer({
           <div
             ref={bodyRef}
             onScroll={onBodyScroll}
-            className="workspace-form-drawer-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
+            className={
+              'workspace-form-drawer-body min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 ' +
+              (isCompact ? 'max-h-[calc(100dvh-12rem)] flex-none' : 'flex-1')
+            }
           >
             {children}
           </div>

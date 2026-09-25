@@ -2861,13 +2861,16 @@ details[open] > :not(summary) {
   border-radius: var(--radius-md) !important;
   min-height: 0;
 }
+.workspace-form-drawer-panel.workspace-form-drawer-compact {
+  height: auto;
+}
 .workspace-form-drawer-body {
   min-height: 0;
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--primary) 28%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--primary) 20%, transparent) transparent;
 }
 .workspace-form-drawer-body::-webkit-scrollbar {
   width: 5px;
@@ -2880,7 +2883,7 @@ details[open] > :not(summary) {
   border: 1px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  background-color: color-mix(in srgb, var(--primary) 24%, transparent);
+  background-color: color-mix(in srgb, var(--primary) 16%, transparent);
   transition: background-color var(--motion-fast) var(--ease-standard);
 }
 .workspace-form-drawer-body:hover::-webkit-scrollbar-thumb,
@@ -2920,6 +2923,10 @@ details[open] > :not(summary) {
   .workspace-form-drawer-panel {
     height: calc(100dvh - 16px);
     max-height: none;
+  }
+  .workspace-form-drawer-panel.workspace-form-drawer-compact {
+    height: auto;
+    max-height: calc(100dvh - 24px);
   }
   .workspace-form-drawer-body {
     padding: 12px;

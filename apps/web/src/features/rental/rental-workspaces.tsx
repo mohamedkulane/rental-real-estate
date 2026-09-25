@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Clock3, Handshake, MapPin, Plus, Search, SearchCheck, Users, Wallet } from 'lucide-react';
+import { ArrowRight, Building2, Clock3, Handshake, KeyRound, MapPin, Plus, Search, SearchCheck, Users, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   DataTableFilter,
@@ -435,30 +435,43 @@ export function RentalCustomerRegister() {
           description="What is the customer looking for?"
           onClose={closeIntentChooser}
           size="md"
+          layout="compact"
         >
-          <div className="grid gap-3">
+          <div className="grid gap-2">
             <button
               type="button"
-              className="workspace-choice-card rounded-lg border border-slate-200 bg-white p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
+              className="workspace-choice-card group flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
               onClick={() => {
                 closeIntentChooser();
                 openCreate();
               }}
             >
-              <span className="workspace-choice-card-title block text-sm font-bold text-slate-900">Rent</span>
-              <span className="workspace-choice-card-description mt-1 block text-xs text-slate-500">
-                Open the rental customer form.
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
+                <KeyRound className="h-4 w-4" aria-hidden="true" />
               </span>
+              <span className="min-w-0 flex-1">
+                <span className="workspace-choice-card-title block text-sm font-semibold text-slate-900">Rent</span>
+                <span className="workspace-choice-card-description mt-0.5 block text-xs text-slate-500">
+                  Register a customer looking for a rental property.
+                </span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--primary)]" aria-hidden="true" />
             </button>
             <button
               type="button"
-              className="workspace-choice-card rounded-lg border border-slate-200 bg-white p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
+              className="workspace-choice-card group flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
               onClick={() => router.push('/sales/buyers?create=1')}
             >
-              <span className="workspace-choice-card-title block text-sm font-bold text-slate-900">Buy</span>
-              <span className="workspace-choice-card-description mt-1 block text-xs text-slate-500">
-                Open the existing buyer form.
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
+                <Building2 className="h-4 w-4" aria-hidden="true" />
               </span>
+              <span className="min-w-0 flex-1">
+                <span className="workspace-choice-card-title block text-sm font-semibold text-slate-900">Buy</span>
+                <span className="workspace-choice-card-description mt-0.5 block text-xs text-slate-500">
+                  Open the buyer form for a property purchase.
+                </span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--primary)]" aria-hidden="true" />
             </button>
           </div>
         </WorkspaceFormDrawer>
