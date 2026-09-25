@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock3, Handshake, Plus, Search, SearchCheck, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Building2, Clock3, Handshake, MapPin, Plus, Search, SearchCheck, Users, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  DataTableFilter,
   DataTableEmpty,
   DataTableSurface,
   DataTableToolbar,
@@ -50,6 +51,8 @@ export function RentalPropertyRegister() {
   const { principal, error } = useRentalPrincipal();
   const { createOpen, openCreate, closeCreate } = useCreateDrawerState();
   const [search, setSearch] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+  const [propertyStatus, setPropertyStatus] = useState('');
   const query = useQuery({
     queryKey: ['rental-properties', search],
     enabled: Boolean(principal && hasPermission(principal, 'portfolio.property.read')),
@@ -60,6 +63,20 @@ export function RentalPropertyRegister() {
     },
   });
   const canCreate = Boolean(principal && hasPermission(principal, 'portfolio.property.create'));
+  const propertyRows = query.data?.items ?? [];
+  const propertyTypes = useMemo(
+    () => Array.from(new Set(propertyRows.map((row) => row.propertyType).filter(Boolean))).sort(),
+    [propertyRows],
+  );
+  const propertyStatuses = useMemo(
+    () => Array.from(new Set(propertyRows.map((row) => row.rentalStatus).filter(Boolean))).sort(),
+    [propertyRows],
+  );
+  const filteredPropertyRows = propertyRows.filter(
+    (row) =>
+      (!propertyType || row.propertyType === propertyType) &&
+      (!propertyStatus || row.rentalStatus === propertyStatus),
+  );
 
   return (
     <RentalShell principal={principal} principalError={error} activeItem="properties">
@@ -82,7 +99,8 @@ export function RentalPropertyRegister() {
       />
       <DataTableSurface className="mt-6">
         <DataTableToolbar>
-          <label className="block min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+          <label className="block min-w-[220px] flex-1">
             <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -94,10 +112,23 @@ export function RentalPropertyRegister() {
               />
             </div>
           </label>
+            <DataTableFilter
+              label="Type"
+              value={propertyType}
+              onChange={setPropertyType}
+              options={[{ value: '', label: 'All property types' }, ...propertyTypes.map((value) => ({ value, label: humanize(value) }))]}
+            />
+            <DataTableFilter
+              label="Status"
+              value={propertyStatus}
+              onChange={setPropertyStatus}
+              options={[{ value: '', label: 'All statuses' }, ...propertyStatuses.map((value) => ({ value, label: rentalStatusLabel(value) }))]}
+            />
+          </div>
         </DataTableToolbar>
         {query.isLoading ? (
           <TableSkeleton columns={5} />
-        ) : !query.data?.items.length ? (
+        ) : !filteredPropertyRows.length ? (
           <DataTableEmpty
             title="No properties yet"
             description="Add the first rental property."
@@ -122,17 +153,18 @@ export function RentalPropertyRegister() {
                 </tr>
               </thead>
               <tbody>
-                {query.data.items.map((row) => (
+                {filteredPropertyRows.map((row) => (
                   <tr key={row.id} className="border-b border-slate-100">
                     <td className="px-4 py-3">
-                      <Link className="font-semibold text-emerald-700" href={`/rental/properties/${row.id}`}>
-                        {row.propertyCode} — {row.name}
+                      <Link className="flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]" href={`/rental/properties/${row.id}`}>
+                        <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span>{row.propertyCode} — {row.name}</span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{humanize(row.propertyType)}</td>
-                    <td className="px-4 py-3">{row.location}</td>
+                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{humanize(row.propertyType)}</span></td>
+                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{row.location}</span></td>
                     <td className="px-4 py-3">
-                      {row.monthlyRent ? `${row.currency} ${row.monthlyRent}` : '—'}
+                      <span className="inline-flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{row.monthlyRent ? `${row.currency} ${row.monthlyRent}` : '—'}</span>
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge value={rentalStatusLabel(row.rentalStatus)} />
@@ -188,6 +220,9 @@ export function RentalCustomerRegister() {
     searchParams.get('chooseIntent') === '1',
   );
   const [search, setSearch] = useState('');
+  const [wantedType, setWantedType] = useState('');
+  const [location, setLocation] = useState('');
+  const [stage, setStage] = useState('');
   const allowed = Boolean(principal && hasPermission(principal, 'crm.lead.read'));
   const query = useQuery({
     queryKey: ['rental-customers', search],
@@ -200,6 +235,38 @@ export function RentalCustomerRegister() {
   });
   const canCreate = Boolean(principal && hasPermission(principal, 'crm.lead.create'));
   const customerRows = query.data?.items ?? [];
+  const wantedTypes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          customerRows
+            .map((row) => row.wantedType)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ).sort(),
+    [customerRows],
+  );
+  const locations = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          customerRows
+            .map((row) => row.preferredLocation)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ).sort(),
+    [customerRows],
+  );
+  const stages = useMemo(
+    () => Array.from(new Set(customerRows.map((row) => row.stage).filter(Boolean))).sort(),
+    [customerRows],
+  );
+  const filteredCustomerRows = customerRows.filter(
+    (row) =>
+      (!wantedType || row.wantedType === wantedType) &&
+      (!location || row.preferredLocation === location) &&
+      (!stage || row.stage === stage),
+  );
   const matchedAndRented = customerRows.filter((lead) =>
     ['CONVERTED', 'RENTED', 'MATCHED'].includes(lead.stage.toUpperCase()),
   ).length;
@@ -256,7 +323,8 @@ export function RentalCustomerRegister() {
 
       <DataTableSurface className="rental-customer-table-surface">
         <DataTableToolbar>
-          <label className="block min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+          <label className="block min-w-[220px] flex-1">
             <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -268,10 +336,14 @@ export function RentalCustomerRegister() {
               />
             </div>
           </label>
+            <DataTableFilter label="Wanted type" value={wantedType} onChange={setWantedType} options={[{ value: '', label: 'All wanted types' }, ...wantedTypes.map((value) => ({ value, label: humanize(value) }))]} />
+            <DataTableFilter label="Location" value={location} onChange={setLocation} options={[{ value: '', label: 'All locations' }, ...locations.map((value) => ({ value, label: value }))]} />
+            <DataTableFilter label="Match status" value={stage} onChange={setStage} options={[{ value: '', label: 'All match statuses' }, ...stages.map((value) => ({ value, label: humanize(value) }))]} />
+          </div>
         </DataTableToolbar>
         {query.isLoading ? (
           <TableSkeleton columns={5} />
-        ) : !query.data?.items.length ? (
+        ) : !filteredCustomerRows.length ? (
           <DataTableEmpty
             title="No rental customers yet"
             description="Add someone looking for a property to start matching."
@@ -301,7 +373,7 @@ export function RentalCustomerRegister() {
                 </tr>
               </thead>
               <tbody>
-                {query.data.items.map((lead) => (
+                {filteredCustomerRows.map((lead) => (
                   <tr key={lead.id} className="border-b border-slate-100 text-sm">
                     <td className="px-4 py-3">
                       <Link className="font-semibold text-slate-900 hover:text-[var(--primary)]" href={`/rental/customers/${lead.id}`}>
@@ -309,8 +381,8 @@ export function RentalCustomerRegister() {
                       </Link>
                       <span className="mt-1 block text-xs text-slate-500">{lead.leadNumber}</span>
                     </td>
-                    <td className="px-4 py-3">{lead.wantedType ? humanize(lead.wantedType) : 'Not specified'}</td>
-                    <td className="px-4 py-3">{lead.preferredLocation ?? '—'}</td>
+                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary-soft)] px-2 py-1 text-xs font-medium text-[var(--primary)]"><Building2 className="h-3.5 w-3.5" aria-hidden="true" />{lead.wantedType ? humanize(lead.wantedType) : 'Not specified'}</span></td>
+                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{lead.preferredLocation ?? '—'}</span></td>
                     <td className="px-4 py-3">
                       {lead.minRentBudget
                         ? `${lead.currency} ${lead.minRentBudget}${

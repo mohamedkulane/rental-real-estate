@@ -2,21 +2,25 @@
 
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Building2, Handshake, KeyRound, Receipt, ShoppingBag, Wallet } from 'lucide-react';
+import { Building2, CalendarDays, Handshake, KeyRound, MapPin, Receipt, ShoppingBag, Wallet } from 'lucide-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import {
   DataTable,
   DataTableBody,
   DataTableCell,
   DataTableDesktopOnly,
   DataTableEmpty,
+  DataTableFilter,
   DataTableHead,
   DataTableHeaderCell,
   DataTableMobileCard,
   DataTableMobileCards,
   DataTableRow,
+  DataTableSearch,
   DataTableScroll,
   DataTableSurface,
+  DataTableToolbar,
   TableActionButton,
   TableActionGroup,
 } from '@/components/shared/data-table';
@@ -117,6 +121,8 @@ async function countItems(path: string, predicate?: (row: Record<string, unknown
 function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig }) {
   const { principal } = useCommercialPrincipal();
   const allowed = Boolean(principal && hasPermission(principal, config.readPermission));
+  const [search, setSearch] = useState('');
+  const [branch, setBranch] = useState('');
 
   const engagementsQuery = useQuery({
     queryKey: ['commercial-service-engagements', config.serviceModel],
@@ -140,6 +146,18 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
 
   const propertyMetricValue = engagementsQuery.data?.items.length ?? 0;
   const propertyMetric = config.metrics[0];
+  const engagementRows = engagementsQuery.data?.items ?? [];
+  const branches = useMemo(
+    () => Array.from(new Set(engagementRows.map(currentBranch))).sort(),
+    [engagementRows],
+  );
+  const filteredEngagementRows = engagementRows.filter((row) => {
+    const searchable = `${propertyLabel(row)} ${spaceLabel(row)} ${row.engagementNumber} ${currentBranch(row)}`.toLowerCase();
+    return (
+      (!search.trim() || searchable.includes(search.trim().toLowerCase())) &&
+      (!branch || currentBranch(row) === branch)
+    );
+  });
 
   const headerActions = (
     <CommercialHeaderActions
@@ -208,18 +226,41 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                 <h2 className="text-[15px] font-semibold text-slate-900">{config.tableTitle}</h2>
                 <p className="mt-1 text-[13px] text-slate-500">{config.tableDescription}</p>
               </header>
+              <DataTableToolbar>
+                <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+                  <DataTableSearch
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search properties, agreement, or branch..."
+                  />
+                  <DataTableFilter
+                    label="Branch"
+                    value={branch}
+                    onChange={setBranch}
+                    options={[
+                      { value: '', label: 'All branches' },
+                      ...branches.map((value) => ({ value, label: value })),
+                    ]}
+                  />
+                </div>
+              </DataTableToolbar>
 
               {engagementsQuery.isFetching && !engagementsQuery.data ? (
                 <TableSkeleton columns={config.showSpaceColumn ? 6 : 5} />
-              ) : !engagementsQuery.data?.items.length ? (
+              ) : !engagementRows.length ? (
                 <DataTableEmpty
                   title={config.emptyTitle}
                   description={config.emptyDescription}
                 />
+              ) : !filteredEngagementRows.length ? (
+                <DataTableEmpty
+                  title="No matching properties"
+                  description="Try another search term or branch filter."
+                />
               ) : (
                 <>
                   <DataTableMobileCards>
-                    {engagementsQuery.data.items.map((row) => (
+                    {filteredEngagementRows.map((row) => (
                       <DataTableMobileCard
                         key={row.id}
                         title={propertyLabel(row)}
@@ -269,22 +310,38 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                           </tr>
                         </DataTableHead>
                         <DataTableBody>
-                          {engagementsQuery.data.items.map((row) => (
+                          {filteredEngagementRows.map((row) => (
                             <DataTableRow key={row.id}>
                               <DataTableCell>
                                 <Link
-                                  className="font-semibold text-[#0D47A1] hover:underline"
+                                  className="inline-flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
                                   href={`/portfolio/properties/${row.property.id}`}
                                 >
+                                  <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                                   {propertyLabel(row)}
                                 </Link>
                               </DataTableCell>
                               {config.showSpaceColumn ? (
-                                <DataTableCell>{spaceLabel(row)}</DataTableCell>
+                                <DataTableCell>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                                    {spaceLabel(row)}
+                                  </span>
+                                </DataTableCell>
                               ) : null}
                               <DataTableCell>{row.engagementNumber}</DataTableCell>
-                              <DataTableCell>{currentBranch(row)}</DataTableCell>
-                              <DataTableCell>{formatDate(row.effectiveFrom)}</DataTableCell>
+                              <DataTableCell>
+                                <span className="inline-flex items-center gap-1.5">
+                                  <MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                                  {currentBranch(row)}
+                                </span>
+                              </DataTableCell>
+                              <DataTableCell>
+                                <span className="inline-flex items-center gap-1.5">
+                                  <CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                                  {formatDate(row.effectiveFrom)}
+                                </span>
+                              </DataTableCell>
                               <DataTableCell>
                                 <StatusBadge value={row.status} />
                               </DataTableCell>
