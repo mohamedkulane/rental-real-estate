@@ -1,4 +1,9 @@
-import { AgreementCommissionMethod, PartyKind, PropertyType } from '@prisma/client';
+import {
+  AgreementCommissionMethod,
+  PartyKind,
+  PropertyServiceIntent,
+  PropertyType,
+} from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -73,6 +78,14 @@ export class AddRentalPropertyDto {
   @IsEnum(PropertyType) propertyType!: PropertyType;
   @IsString() @Length(2, 100) location!: string;
   @IsNumberString() monthlyRent!: string;
+  @IsOptional() @IsEnum(PropertyServiceIntent) serviceIntent?: PropertyServiceIntent;
+  @IsOptional() @IsNumberString() askingPrice?: string;
+  @ValidateIf((dto: AddRentalPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @IsNumberString()
+  managementFeePercent?: string;
+  @ValidateIf((dto: AddRentalPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @IsDateString({ strict: true })
+  effectiveFrom?: string;
   @IsOptional() @IsUUID() branchId?: string;
   @IsOptional() @IsString() @MaxLength(100) district?: string;
   @IsOptional() @IsString() @MaxLength(200) addressLine1?: string;
@@ -101,13 +114,28 @@ export class AddOwnerAndPropertyDto {
   @IsString() @Length(2, 200) name!: string;
   @IsEnum(PropertyType) propertyType!: PropertyType;
   @IsString() @Length(2, 100) location!: string;
-  @ValidateIf((dto: AddOwnerAndPropertyDto) => dto.purpose !== 'SALE')
+  @ValidateIf(
+    (dto: AddOwnerAndPropertyDto) =>
+      (dto.serviceIntent ?? (dto.purpose === 'SALE' ? 'SALE' : 'RENTAL_BROKERAGE')) !== 'SALE' &&
+      (dto.serviceIntent ?? (dto.purpose === 'SALE' ? 'SALE' : 'RENTAL_BROKERAGE')) !==
+        'CONSTRUCTION',
+  )
   @IsNumberString()
   monthlyRent?: string;
-  @ValidateIf((dto: AddOwnerAndPropertyDto) => dto.purpose === 'SALE')
+  @ValidateIf(
+    (dto: AddOwnerAndPropertyDto) =>
+      (dto.serviceIntent ?? (dto.purpose === 'SALE' ? 'SALE' : 'RENTAL_BROKERAGE')) === 'SALE',
+  )
   @IsNumberString()
   askingPrice?: string;
+  @IsOptional() @IsEnum(PropertyServiceIntent) serviceIntent?: PropertyServiceIntent;
   @IsOptional() @IsIn(['RENTAL', 'SALE']) purpose?: 'RENTAL' | 'SALE';
+  @ValidateIf((dto: AddOwnerAndPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @IsNumberString()
+  managementFeePercent?: string;
+  @ValidateIf((dto: AddOwnerAndPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @IsDateString({ strict: true })
+  effectiveFrom?: string;
   @IsOptional() @IsUUID() branchId?: string;
   @IsOptional() @IsString() @MaxLength(100) district?: string;
   @IsOptional() @IsString() @MaxLength(200) addressLine1?: string;

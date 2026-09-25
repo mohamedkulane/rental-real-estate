@@ -38,6 +38,8 @@ export class RentalCommandController {
     'portfolio.ownership.manage',
     'portfolio.space.create',
     'portfolio.property.update',
+    'service-engagement.create',
+    'service-engagement.activate',
   )
   addProperty(@Req() request: AuthenticatedRequest, @Body() input: AddRentalPropertyDto) {
     return this.rental.addProperty(request.principal, input, request.correlationId);
@@ -51,6 +53,8 @@ export class RentalCommandController {
     'portfolio.ownership.manage',
     'portfolio.space.create',
     'portfolio.property.update',
+    'service-engagement.create',
+    'service-engagement.activate',
   )
   addOwnerAndProperty(
     @Req() request: AuthenticatedRequest,

@@ -15,6 +15,7 @@ import {
   PartyKind,
   Prisma,
   PropertyStatus,
+  PropertyServiceIntent,
   PropertyType,
   RentableSpaceStatus,
   ScreeningStatus,
@@ -486,6 +487,11 @@ export class RentalOrchestrationService {
       correlationId,
     );
 
+    const serviceEngagementId = await this.activateOnboardedService(
+      principal,
+      { propertyId: activated.id, spaces, input },
+      correlationId,
+    );
     const rentalStatus = await this.presentation.resolvePropertyRentalStatus(
       principal,
       activated.id,
@@ -500,7 +506,69 @@ export class RentalOrchestrationService {
       branchId,
       buildingId: buildingId ?? null,
       spaces,
+      serviceIntent: input.serviceIntent ?? null,
+      serviceEngagementId,
     };
+  }
+
+  private async activateOnboardedService(
+    principal: AuthenticatedPrincipal,
+    input: { propertyId: string; spaces: Array<{ id: string }>; input: AddRentalPropertyDto },
+    correlationId?: string,
+  ): Promise<string | null> {
+    const serviceIntent = input.input.serviceIntent;
+    if (!serviceIntent) return null;
+    if (serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT && !input.input.managementFeePercent) {
+      throw new BadRequestException('Management fee percentage is required for Full Management.');
+    }
+    await this.db.property.update({
+      where: { id: input.propertyId },
+      data: {
+        serviceIntent,
+        ...(serviceIntent === PropertyServiceIntent.SALE
+          ? {
+              salePrice: new Prisma.Decimal(input.input.askingPrice ?? input.input.monthlyRent),
+              salePriceCurrency: (input.input.currency ?? 'USD').toUpperCase(),
+            }
+          : {}),
+      },
+    });
+    if (serviceIntent === PropertyServiceIntent.CONSTRUCTION) return null;
+    const effectiveFrom =
+      input.input.effectiveFrom ??
+      (await this.businessDate.today(principal.companyId)).toISOString().slice(0, 10);
+    const serviceModel =
+      serviceIntent === PropertyServiceIntent.SALE
+        ? ServiceModel.SALE_BROKERAGE
+        : serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT
+          ? ServiceModel.FULL_MANAGEMENT
+          : ServiceModel.RENTAL_BROKERAGE;
+    const engagement = await this.engagements.create(
+      principal,
+      {
+        serviceModel,
+        propertyId: input.propertyId,
+        ...(serviceModel === ServiceModel.SALE_BROKERAGE ? {} : { rentableSpaceId: input.spaces[0]?.id }),
+        effectiveFrom,
+        notes: `Created from ${serviceIntent.toLowerCase().replaceAll('_', ' ')} onboarding.`,
+      },
+      correlationId,
+    );
+    if (serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT) {
+      await this.db.$transaction(async (tx) => {
+        await this.writeCommercialTerms(tx, engagement.id, new Date(effectiveFrom), {
+          managementFeePercent: input.input.managementFeePercent,
+        });
+      });
+    }
+    const activated = await this.engagements.transition(
+      principal,
+      engagement.id,
+      ServiceEngagementStatus.ACTIVE,
+      { version: engagement.version, reason: 'Service intent activated during onboarding.' },
+      correlationId,
+    );
+    return activated.id;
   }
 
   async addRentalCustomer(
@@ -810,21 +878,25 @@ export class RentalOrchestrationService {
       },
       correlationId,
     );
-    const purpose = input.purpose ?? 'RENTAL';
+    const serviceIntent =
+      input.serviceIntent ??
+      (input.purpose === 'SALE' ? PropertyServiceIntent.SALE : PropertyServiceIntent.RENTAL_BROKERAGE);
+    const isSale = serviceIntent === PropertyServiceIntent.SALE;
+    const isConstruction = serviceIntent === PropertyServiceIntent.CONSTRUCTION;
     const hasMultipleUnits = input.hasMultipleUnits === 'true';
     const monthlyRent =
-      purpose === 'SALE'
+      isSale
         ? (input.askingPrice ?? input.monthlyRent ?? '0')
         : (input.monthlyRent ?? '0');
-    if (purpose === 'SALE') {
+    if (isSale) {
       if (!monthlyRent || monthlyRent === '0') {
         throw new BadRequestException('Asking price is required.');
       }
-    } else if (hasMultipleUnits || (input.units?.length ?? 0) > 0) {
+    } else if (!isConstruction && (hasMultipleUnits || (input.units?.length ?? 0) > 0)) {
       if (!input.units?.length) {
         throw new BadRequestException('Add at least one rental unit.');
       }
-    } else if (!monthlyRent || monthlyRent === '0') {
+    } else if (!isConstruction && (!monthlyRent || monthlyRent === '0')) {
       throw new BadRequestException('Monthly rent is required.');
     }
     const property = await this.addProperty(
@@ -837,6 +909,10 @@ export class RentalOrchestrationService {
         monthlyRent: monthlyRent === '0' && input.units?.[0]?.monthlyRent
           ? input.units[0].monthlyRent
           : monthlyRent,
+        serviceIntent,
+        ...(isSale ? { askingPrice: monthlyRent } : {}),
+        ...(input.managementFeePercent ? { managementFeePercent: input.managementFeePercent } : {}),
+        ...(input.effectiveFrom ? { effectiveFrom: input.effectiveFrom } : {}),
         ...(input.branchId ? { branchId: input.branchId } : {}),
         ...(input.district ? { district: input.district } : {}),
         ...(input.addressLine1 ? { addressLine1: input.addressLine1 } : {}),
@@ -844,7 +920,7 @@ export class RentalOrchestrationService {
           ? {
               description: [
                 input.description,
-                purpose === 'SALE' ? `Asking price: ${monthlyRent}` : null,
+                isSale ? `Asking price: ${monthlyRent}` : null,
                 input.bedrooms ? `Bedrooms: ${input.bedrooms}` : null,
                 input.bathrooms ? `Bathrooms: ${input.bathrooms}` : null,
                 input.area ? `Area: ${input.area}` : null,
@@ -866,7 +942,12 @@ export class RentalOrchestrationService {
       },
       correlationId,
     );
-    return { ...property, ownerPartyId: owner.ownerPartyId, ownerNumber: owner.ownerNumber };
+
+    return {
+      ...property,
+      ownerPartyId: owner.ownerPartyId,
+      ownerNumber: owner.ownerNumber,
+    };
   }
 
   private async resolvePrimarySpace(

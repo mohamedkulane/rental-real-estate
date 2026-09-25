@@ -24,6 +24,7 @@ import {
 } from './rental-units-editor';
 
 type OwnerOption = { partyId: string; ownerNumber: string; party: { displayName: string } };
+type PropertyServiceIntent = 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE' | 'CONSTRUCTION';
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-1 focus:ring-[#215E61]/12';
@@ -72,14 +73,14 @@ export function AddRentalPropertyDrawer({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (purpose: 'RENTAL' | 'SALE') => void;
+  onCreated: (serviceIntent: PropertyServiceIntent) => void;
   principal: Principal;
 }) {
   const formId = useId();
   const [ownerMode, setOwnerMode] = useState<'existing' | 'new'>('existing');
   const [ownerPartyId, setOwnerPartyId] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [purpose, setPurpose] = useState<'RENTAL' | 'SALE'>('RENTAL');
+  const [serviceIntent, setServiceIntent] = useState<PropertyServiceIntent>('RENTAL_BROKERAGE');
   const [propertyType, setPropertyType] = useState('HOUSE');
   const [hasMultipleUnits, setHasMultipleUnits] = useState(false);
   const [units, setUnits] = useState<UnitDraft[]>([createEmptyUnit(1), createEmptyUnit(2)]);
@@ -89,7 +90,9 @@ export function AddRentalPropertyDrawer({
   }));
   const [showMore, setShowMore] = useState(false);
   const isLand = propertyType === 'LAND';
-  const supportsUnits = purpose === 'RENTAL' && !isLand;
+  const isSale = serviceIntent === 'SALE';
+  const supportsUnits =
+    (serviceIntent === 'RENTAL_BROKERAGE' || serviceIntent === 'FULL_MANAGEMENT') && !isLand;
   const unitLabel = defaultUnitLabel(propertyType);
 
   const owners = useQuery({
@@ -106,7 +109,7 @@ export function AddRentalPropertyDrawer({
       }),
     onSuccess: () => {
       toast.success(
-        purpose === 'SALE'
+        isSale
           ? ownerMode === 'new'
             ? 'Owner and property ready for sale.'
             : 'Property ready for sale.'
@@ -114,14 +117,14 @@ export function AddRentalPropertyDrawer({
             ? 'Owner and property available for rental.'
             : 'Property available for rental.',
       );
-      onCreated(purpose);
+      onCreated(serviceIntent);
     },
     onError: (cause) => toast.error(userFacingError(cause)),
   });
 
   function applyPropertyType(nextType: string) {
     setPropertyType(nextType);
-    if (purpose !== 'RENTAL' || nextType === 'LAND') {
+    if (!['RENTAL_BROKERAGE', 'FULL_MANAGEMENT'].includes(serviceIntent) || nextType === 'LAND') {
       setHasMultipleUnits(false);
       return;
     }
@@ -136,7 +139,7 @@ export function AddRentalPropertyDrawer({
     setOwnerMode('existing');
     setOwnerPartyId('');
     setBranchId('');
-    setPurpose('RENTAL');
+    setServiceIntent('RENTAL_BROKERAGE');
     setPropertyType('HOUSE');
     setHasMultipleUnits(false);
     setUnits([createEmptyUnit(1), createEmptyUnit(2)]);
@@ -196,7 +199,7 @@ export function AddRentalPropertyDrawer({
             return;
           }
           const wholeRent =
-            purpose === 'SALE'
+            isSale
               ? String(form.get('askingPrice') ?? '').trim()
               : multi
                 ? payloadUnits?.[0]?.monthlyRent ?? '0'
@@ -239,7 +242,7 @@ export function AddRentalPropertyDrawer({
 
           if (ownerMode === 'existing') {
             const description =
-              purpose === 'SALE'
+              isSale
                 ? [baseDescription, `Asking price: ${wholeRent}`].filter(Boolean).join('\n') ||
                   undefined
                 : baseDescription;
@@ -248,7 +251,15 @@ export function AddRentalPropertyDrawer({
               body: {
                 ownerPartyId,
                 ...sharedProperty,
+                serviceIntent,
                 monthlyRent: wholeRent || '0',
+                ...(isSale ? { askingPrice: wholeRent } : {}),
+                ...(serviceIntent === 'FULL_MANAGEMENT'
+                  ? {
+                      managementFeePercent: String(form.get('managementFeePercent') ?? '').trim(),
+                      effectiveFrom: String(form.get('effectiveFrom') ?? '').trim(),
+                    }
+                  : {}),
                 ...(description ? { description } : {}),
               },
             });
@@ -261,10 +272,14 @@ export function AddRentalPropertyDrawer({
               ownerName: String(form.get('ownerName') ?? '').trim(),
               ownerPhone: String(form.get('ownerPhone') ?? '').trim(),
               ...sharedProperty,
-              purpose,
-              ...(purpose === 'SALE'
-                ? { askingPrice: wholeRent }
-                : { monthlyRent: wholeRent || '0' }),
+              serviceIntent,
+              ...(isSale ? { askingPrice: wholeRent } : { monthlyRent: wholeRent || '0' }),
+              ...(serviceIntent === 'FULL_MANAGEMENT'
+                ? {
+                    managementFeePercent: String(form.get('managementFeePercent') ?? '').trim(),
+                    effectiveFrom: String(form.get('effectiveFrom') ?? '').trim(),
+                  }
+                : {}),
               ...(baseDescription ? { description: baseDescription } : {}),
             },
           });
@@ -335,19 +350,21 @@ export function AddRentalPropertyDrawer({
             <legend className="px-1 text-sm font-semibold text-slate-700">Property</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-                Listing purpose
+                Service intent
                 <select
                   className={inputClass}
-                  value={purpose}
+                  value={serviceIntent}
                   onChange={(event) => {
-                    const next = event.target.value as 'RENTAL' | 'SALE';
-                    setPurpose(next);
-                    if (next === 'SALE') setHasMultipleUnits(false);
+                    const next = event.target.value as PropertyServiceIntent;
+                    setServiceIntent(next);
+                    if (next === 'SALE' || next === 'CONSTRUCTION') setHasMultipleUnits(false);
                     else if (MULTI_UNIT_TYPES.has(propertyType)) setHasMultipleUnits(true);
                   }}
                 >
-                  <option value="RENTAL">For rent</option>
-                  <option value="SALE">For sale</option>
+                  <option value="RENTAL_BROKERAGE">Rental brokerage</option>
+                  <option value="FULL_MANAGEMENT">Full management</option>
+                  <option value="SALE">Sale</option>
+                  <option value="CONSTRUCTION">Construction</option>
                 </select>
               </label>
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
@@ -376,7 +393,7 @@ export function AddRentalPropertyDrawer({
               Location
               <input name="location" required className={inputClass} placeholder="Hodan" />
             </label>
-            {purpose === 'SALE' ? (
+            {isSale ? (
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
                 Asking price
                 <input
@@ -426,7 +443,7 @@ export function AddRentalPropertyDrawer({
                   </div>
                 )}
               </fieldset>
-            ) : purpose === 'RENTAL' && isLand ? (
+            ) : !isSale && serviceIntent !== 'CONSTRUCTION' && isLand ? (
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
                 Asking rent (monthly)
                 <input
@@ -437,6 +454,29 @@ export function AddRentalPropertyDrawer({
                   placeholder="300"
                 />
               </label>
+            ) : null}
+            {serviceIntent === 'FULL_MANAGEMENT' ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                  Management fee (%)
+                  <input
+                    name="managementFeePercent"
+                    required
+                    inputMode="decimal"
+                    className={inputClass}
+                    placeholder="10"
+                  />
+                </label>
+                <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                  Service start date
+                  <input
+                    name="effectiveFrom"
+                    type="date"
+                    required
+                    className={inputClass}
+                  />
+                </label>
+              </div>
             ) : null}
           </fieldset>
           <button
