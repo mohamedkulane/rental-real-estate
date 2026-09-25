@@ -542,6 +542,126 @@ export class LeasingService {
     });
   }
 
+  /** Creates the lease that was agreed in the rental-agreement workflow. */
+  async createLeaseFromAgreement(
+    principal: AuthenticatedPrincipal,
+    agreementId: string,
+    correlationId?: string,
+  ) {
+    const agreement = await this.db.rentalAgreement.findFirst({
+      where: { id: agreementId, companyId: principal.companyId, status: 'CONFIRMED' },
+      include: { serviceEngagement: true },
+    });
+    if (!agreement) throw new NotFoundException('Confirmed rental agreement not found.');
+    this.auth.assertBranchPermission(principal, 'lease.create', agreement.branchId);
+
+    const engagement = await this.activeEngagement(
+      principal,
+      agreement.serviceEngagementId,
+      agreement.propertyId,
+      agreement.rentableSpaceId,
+    );
+    if (!this.capabilities(engagement).canCreateLease) {
+      throw new ConflictException('The Service Engagement does not permit Lease creation.');
+    }
+
+    const [space, parties] = await Promise.all([
+      this.db.rentableSpace.findFirst({
+        where: { id: agreement.rentableSpaceId, propertyId: agreement.propertyId, status: RentableSpaceStatus.ACTIVE },
+        select: { id: true, propertyId: true },
+      }),
+      this.db.party.findMany({
+        where: { id: { in: [agreement.customerPartyId, agreement.ownerPartyId] }, companyId: principal.companyId },
+        select: { id: true },
+      }),
+    ]);
+    if (!space || parties.length !== 2) throw new ConflictException('The agreement parties or unit are unavailable.');
+    if (agreement.customerPartyId === agreement.ownerPartyId) {
+      throw new ConflictException('A property owner cannot rent their own property.');
+    }
+    await assertPartiesNotPropertyOwners(
+      this.db.propertyOwnership,
+      agreement.propertyId,
+      [agreement.customerPartyId],
+      this.ownershipAsOf(principal),
+    );
+    await assertHierarchyOccupancyAvailable(this.db, {
+      companyId: principal.companyId,
+      rentableSpaceId: agreement.rentableSpaceId,
+      businessDate: principal.businessDate,
+    });
+
+    try {
+      return await this.db.$transaction(async (tx) => {
+        const existingTenant = await tx.tenantProfile.findUnique({ where: { partyId: agreement.customerPartyId } });
+        if (!existingTenant) {
+          await tx.tenantProfile.create({
+            data: {
+              partyId: agreement.customerPartyId,
+              companyId: principal.companyId,
+              tenantNumber: await nextRecordNumber(tx, 'TENANT'),
+              status: TenantStatus.ACTIVE,
+            },
+          });
+        } else if (existingTenant.status !== TenantStatus.ACTIVE) {
+          throw new ConflictException('The agreement customer does not have an active Tenant profile.');
+        }
+
+        const lease = await tx.lease.create({
+          data: {
+            id: uuidv7(),
+            companyId: principal.companyId,
+            branchId: agreement.branchId,
+            leaseNumber: await nextRecordNumber(tx, 'LEASE'),
+            rentalAgreementId: agreement.id,
+            rentableSpaceId: agreement.rentableSpaceId,
+            serviceEngagementId: agreement.serviceEngagementId,
+            leaseStartDate: agreement.leaseStartDate,
+            leaseEndDate: agreement.leaseEndDate,
+            rentAmount: agreement.finalRent,
+            currency: agreement.currency,
+            createdByUserId: principal.userId,
+            parties: {
+              create: [
+                { id: uuidv7(), partyId: agreement.customerPartyId, role: LeasePartyRole.TENANT },
+                { id: uuidv7(), partyId: agreement.ownerPartyId, role: LeasePartyRole.LANDLORD },
+              ],
+            },
+            versions: {
+              create: {
+                id: uuidv7(),
+                sequence: 1,
+                termsSnapshot: {
+                  leaseStartDate: agreement.leaseStartDate.toISOString().slice(0, 10),
+                  leaseEndDate: agreement.leaseEndDate?.toISOString().slice(0, 10) ?? null,
+                  rentAmount: agreement.finalRent.toString(),
+                  currency: agreement.currency,
+                  agreementId: agreement.id,
+                },
+                createdByUserId: principal.userId,
+              },
+            },
+          },
+        });
+        await this.audit.write(tx, {
+          actorUserId: principal.userId,
+          action: 'lease.created-from-agreement',
+          entityType: 'Lease',
+          entityId: lease.id,
+          branchId: agreement.branchId,
+          correlationId,
+          after: { leaseNumber: lease.leaseNumber, agreementId: agreement.id },
+        });
+        return lease;
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('A lease already exists for this rental agreement.');
+      }
+      throw error;
+    }
+  }
+
   async transitionLease(principal: AuthenticatedPrincipal, id: string, input: LeaseTransitionDto, correlationId?: string) {
     const current = await this.db.lease.findFirst({ where: { id, companyId: principal.companyId }, include: { parties: true } });
     if (!current) throw new NotFoundException('Lease not found.');

@@ -25,7 +25,6 @@ import {
 } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { BusinessDateService } from '../common/business-date.service';
-import { nextRecordNumber } from '../common/record-number';
 import { CrmContactService } from '../crm/crm-contact.service';
 import { ServiceEngagementService } from '../commercial/service-engagement.service';
 import { ListingService } from '../leasing/listing.service';
@@ -548,7 +547,11 @@ export class RentalOrchestrationService {
       {
         serviceModel,
         propertyId: input.propertyId,
-        ...(serviceModel === ServiceModel.SALE_BROKERAGE ? {} : { rentableSpaceId: input.spaces[0]?.id }),
+        ...(serviceModel === ServiceModel.SALE_BROKERAGE
+          ? {}
+          : input.spaces[0]?.id
+            ? { rentableSpaceId: input.spaces[0].id }
+            : {}),
         effectiveFrom,
         notes: `Created from ${serviceIntent.toLowerCase().replaceAll('_', ' ')} onboarding.`,
       },
@@ -557,7 +560,9 @@ export class RentalOrchestrationService {
     if (serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT) {
       await this.db.$transaction(async (tx) => {
         await this.writeCommercialTerms(tx, engagement.id, new Date(effectiveFrom), {
-          managementFeePercent: input.input.managementFeePercent,
+          ...(input.input.managementFeePercent
+            ? { managementFeePercent: input.input.managementFeePercent }
+            : {}),
         });
       });
     }
@@ -1266,6 +1271,23 @@ export class RentalOrchestrationService {
     input: CreateRentalLeaseDto,
     correlationId?: string,
   ) {
+    if (input.agreementId) {
+      const lease = await this.leasing.createLeaseFromAgreement(
+        principal,
+        input.agreementId,
+        correlationId,
+      );
+      return {
+        leaseId: lease.id,
+        leaseNumber: lease.leaseNumber,
+        agreementId: input.agreementId,
+        status: lease.status,
+      };
+    }
+
+    if (!input.leaseEndDate) {
+      throw new BadRequestException('Lease end date is required for the legacy lease flow.');
+    }
     const start = new Date(input.leaseStartDate);
     const end = new Date(input.leaseEndDate);
     if (end <= start) {

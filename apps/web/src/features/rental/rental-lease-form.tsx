@@ -41,6 +41,10 @@ function nextYearIso() {
   return date.toISOString().slice(0, 10);
 }
 
+function formString(value: FormDataEntryValue | null) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export function CreateRentalLeaseForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -48,15 +52,16 @@ export function CreateRentalLeaseForm() {
   const [leadId, setLeadId] = useState(params.get('leadId') ?? '');
   const [propertyId, setPropertyId] = useState(params.get('propertyId') ?? '');
   const [rent, setRent] = useState(params.get('rent') ?? '');
+  const agreementId = params.get('agreementId');
 
   const customers = useQuery({
     queryKey: ['rental-customers-options'],
-    enabled: Boolean(principal),
+    enabled: Boolean(principal) && !agreementId,
     queryFn: () => api<CursorPage<CustomerOption>>('/rental/customers?limit=50'),
   });
   const properties = useQuery({
     queryKey: ['rental-properties-options'],
-    enabled: Boolean(principal),
+    enabled: Boolean(principal) && !agreementId,
     queryFn: () => api<CursorPage<PropertyOption>>('/rental/properties?limit=50'),
   });
 
@@ -104,16 +109,26 @@ export function CreateRentalLeaseForm() {
             onSubmit={(event: FormEvent<HTMLFormElement>) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
-              mutation.mutate({
-                leadId,
-                propertyId,
-                monthlyRent: String(form.get('monthlyRent') ?? '').trim(),
-                leaseStartDate: String(form.get('leaseStartDate') ?? '').trim(),
-                leaseEndDate: String(form.get('leaseEndDate') ?? '').trim(),
-              });
+              mutation.mutate(
+                agreementId
+                  ? { agreementId }
+                  : {
+                      leadId,
+                      propertyId,
+                      monthlyRent: formString(form.get('monthlyRent')),
+                      leaseStartDate: formString(form.get('leaseStartDate')),
+                      leaseEndDate: formString(form.get('leaseEndDate')),
+                    },
+              );
             }}
           >
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+            {agreementId ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                <p className="font-semibold">Confirmed rental agreement</p>
+                <p className="mt-1 text-emerald-800">Lease terms, customer, property, rent, and dates will be inherited from agreement {agreementId}.</p>
+              </div>
+            ) : null}
+            {!agreementId ? <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Rental customer
               <select
                 required
@@ -128,8 +143,8 @@ export function CreateRentalLeaseForm() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+            </label> : null}
+            {!agreementId ? <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Property
               <select
                 required
@@ -149,8 +164,8 @@ export function CreateRentalLeaseForm() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+            </label> : null}
+            {!agreementId ? <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Monthly rent
               <input
                 name="monthlyRent"
@@ -161,8 +176,8 @@ export function CreateRentalLeaseForm() {
                 onChange={(event) => setRent(event.target.value)}
                 placeholder={selectedProperty?.monthlyRent ?? '300'}
               />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            </label> : null}
+            {!agreementId ? <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
                 Lease start
                 <input
@@ -178,14 +193,13 @@ export function CreateRentalLeaseForm() {
                 <input
                   name="leaseEndDate"
                   type="date"
-                  required
                   className={inputClass}
                   defaultValue={nextYearIso()}
                 />
               </label>
-            </div>
+            </div> : null}
             <button className="button" type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving...' : 'Create Lease'}
+              {mutation.isPending ? 'Saving...' : agreementId ? 'Create Lease from Agreement' : 'Create Lease'}
             </button>
           </form>
         )}

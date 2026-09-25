@@ -23,6 +23,22 @@ import type { AuthenticatedPrincipal } from '../security/security.types';
 import type { CreateRentalListingDto, CreateSaleListingDto, ListingQueryDto, MatchListingsDto, VersionedTransitionDto } from './phase5-operations.dto';
 import { assertHierarchyOccupancyAvailable } from './space-hierarchy-occupancy';
 
+export function propertyTypeMatchesPreference(
+  propertyType: PropertyType | null | undefined,
+  preferences: readonly PropertyType[],
+): boolean {
+  return !preferences.length || (!!propertyType && preferences.map(String).includes(String(propertyType)));
+}
+
+export function preferPropertyTypeMatches<T extends { reasonKeys: readonly string[] }>(
+  items: readonly T[],
+  preferences: readonly PropertyType[],
+): T[] {
+  if (!preferences.length) return [...items];
+  const preferred = items.filter((item) => item.reasonKeys.includes('property_type_match'));
+  return preferred.length ? [...preferred, ...items.filter((item) => !item.reasonKeys.includes('property_type_match'))] : [...items];
+}
+
 export const listingTransitions: Record<ListingStatus, readonly ListingStatus[]> = {
   DRAFT: [ListingStatus.PENDING_REVIEW],
   PENDING_REVIEW: [ListingStatus.PUBLISHED, ListingStatus.DRAFT],

@@ -240,11 +240,15 @@ export class StartFullManagementDto {
 }
 
 export class CreateRentalLeaseDto {
-  @IsUUID() leadId!: string;
-  @IsUUID() propertyId!: string;
-  @IsNumberString() monthlyRent!: string;
-  @IsDateString({ strict: true }) leaseStartDate!: string;
-  @IsDateString({ strict: true }) leaseEndDate!: string;
+  /** Canonical path: the confirmed agreement is the source of truth for lease terms. */
+  @IsOptional() @IsUUID() agreementId?: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsUUID() leadId!: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsUUID() propertyId!: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsNumberString() monthlyRent!: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsDateString({ strict: true }) leaseStartDate!: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId && dto.leaseEndDate !== undefined)
+  @IsDateString({ strict: true })
+  leaseEndDate?: string;
   @IsOptional() @IsUUID() rentableSpaceId?: string;
   @IsOptional() @IsIn(['USD']) currency?: 'USD';
 }
