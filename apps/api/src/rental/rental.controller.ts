@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -8,17 +8,23 @@ import {
   AddOwnerAndPropertyDto,
   AddRentalCustomerDto,
   AddRentalOwnerDto,
+  AgreementTransitionDto,
+  CreateRentalAgreementDto,
   AddRentalPropertyDto,
   CreateRentalLeaseDto,
   StartFullManagementDto,
   StartRentalBrokerageDto,
 } from './rental.dto';
+import { AgreementService } from './agreement.service';
 import { RentalOrchestrationService } from './rental-orchestration.service';
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
 @Controller({ path: 'rental/commands', version: '1' })
 export class RentalCommandController {
-  constructor(private readonly rental: RentalOrchestrationService) {}
+  constructor(
+    private readonly rental: RentalOrchestrationService,
+    private readonly agreements: AgreementService,
+  ) {}
 
   @Post('add-owner')
   @RequirePermissions('party.create', 'owner.create')
@@ -78,6 +84,30 @@ export class RentalCommandController {
   )
   createLease(@Req() request: AuthenticatedRequest, @Body() input: CreateRentalLeaseDto) {
     return this.rental.createRentalLease(request.principal, input, request.correlationId);
+  }
+
+  @Post('rental-agreements')
+  @RequirePermissions('lease.create')
+  createRentalAgreement(
+    @Req() request: AuthenticatedRequest,
+    @Body() input: CreateRentalAgreementDto,
+  ) {
+    return this.agreements.createRental(request.principal, input, request.correlationId);
+  }
+
+  @Post('rental-agreements/:agreementId/confirm')
+  @RequirePermissions('lease.create')
+  confirmRentalAgreement(
+    @Req() request: AuthenticatedRequest,
+    @Param('agreementId', ParseUUIDPipe) agreementId: string,
+    @Body() input: AgreementTransitionDto,
+  ) {
+    return this.agreements.confirmRental(
+      request.principal,
+      agreementId,
+      input,
+      request.correlationId,
+    );
   }
 
   @Post('start-rental-brokerage')

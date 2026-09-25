@@ -23,6 +23,7 @@ import { LeasingService } from './leasing/leasing.service';
 import { ListingService } from './leasing/listing.service';
 import { RentalCommandController } from './rental/rental.controller';
 import { RentalReadController } from './rental/rental-read.controller';
+import { AgreementService } from './rental/agreement.service';
 import { RentalOrchestrationService } from './rental/rental-orchestration.service';
 import { RentalPresentationService } from './rental/rental-presentation.service';
 import {
@@ -75,6 +76,7 @@ import {
     LeasingService,
     RentalPresentationService,
     RentalOrchestrationService,
+    AgreementService,
   ],
   exports: [ServiceEngagementService, RentalOrchestrationService, RentalPresentationService],
 })
