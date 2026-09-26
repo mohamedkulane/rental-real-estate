@@ -19,10 +19,14 @@ import { BarChart, ChartLegend, DonutChart, TrendChart } from '@/features/admin/
 import { CommercialShell, useCommercialPrincipal } from '@/features/commercial/commercial-shell';
 import { api, hasPermission, type CursorPage } from '@/lib/phase3-api';
 
-type ListingItem = { id: string; status: string; askingPrice?: string | number | null };
+type SalePropertyItem = { id: string; status: string; salePrice?: string | number | null };
 type BuyerItem = { id: string; stage?: string };
-type OfferItem = { id: string; status: string; offerAmount?: string | number | null };
-type EngagementItem = { id: string; serviceModel: string; status: string };
+type SaleAgreementItem = {
+  id: string;
+  status: string;
+  finalSalePrice?: string | number | null;
+  saleOffer?: { status: string; settlement?: { status: string; grossCommission?: string | number | null } | null } | null;
+};
 
 function KpiCard({
   label,
@@ -51,30 +55,24 @@ function KpiCard({
 
 export function SalesOverview() {
   const { principal, error } = useCommercialPrincipal();
-  const canListings = Boolean(principal && hasPermission(principal, 'listing.read'));
+  const canProperties = Boolean(principal && hasPermission(principal, 'portfolio.property.read'));
   const canLeads = Boolean(principal && hasPermission(principal, 'crm.lead.read'));
-  const canOffers = Boolean(principal && hasPermission(principal, 'sale-offer.read'));
-  const canEngagements = Boolean(principal && hasPermission(principal, 'service-engagement.read'));
+  const canAgreements = Boolean(principal && hasPermission(principal, 'sale-offer.read'));
 
-  const listings = useQuery({
-    queryKey: ['sales-overview-listings'],
-    enabled: canListings,
-    queryFn: () => api<CursorPage<ListingItem>>('/sale-listings?limit=100&status=PUBLISHED'),
+  const properties = useQuery({
+    queryKey: ['sales-overview-properties'],
+    enabled: canProperties,
+    queryFn: () => api<CursorPage<SalePropertyItem>>('/rental/sale-properties?limit=100'),
   });
   const buyers = useQuery({
     queryKey: ['sales-overview-buyers'],
     enabled: canLeads,
     queryFn: () => api<CursorPage<BuyerItem>>('/rental/buyers?limit=100'),
   });
-  const offers = useQuery({
-    queryKey: ['sales-overview-offers'],
-    enabled: canOffers,
-    queryFn: () => api<CursorPage<OfferItem>>('/sale-offers?limit=100'),
-  });
-  const engagements = useQuery({
-    queryKey: ['sales-overview-engagements'],
-    enabled: canEngagements,
-    queryFn: () => api<CursorPage<EngagementItem>>('/service-engagements?limit=100'),
+  const agreements = useQuery({
+    queryKey: ['sales-overview-agreements'],
+    enabled: canAgreements,
+    queryFn: () => api<CursorPage<SaleAgreementItem>>('/rental/commands/sale-agreements?limit=100'),
   });
 
   if (!principal) {
@@ -85,21 +83,18 @@ export function SalesOverview() {
     );
   }
 
-  const forSale = (listings.data?.items ?? []).length;
+  const saleProperties = properties.data?.items ?? [];
+  const saleAgreements = agreements.data?.items ?? [];
+  const forSale = saleProperties.length;
   const activeBuyers = (buyers.data?.items ?? []).length;
-  const activeDeals = (engagements.data?.items ?? []).filter(
-    (item) =>
-      ['SALE_BROKERAGE', 'COMPANY_OWNED'].includes(item.serviceModel) &&
-      item.status === 'ACTIVE',
-  ).length;
-  const pendingOffers = (offers.data?.items ?? []).filter((item) =>
-    ['SUBMITTED', 'UNDER_REVIEW', 'NEGOTIATING', 'PENDING'].includes(item.status),
-  ).length;
-  const sold = (offers.data?.items ?? []).filter((item) =>
-    ['ACCEPTED', 'SETTLED', 'CLOSED'].includes(item.status),
+  const activeDeals = saleAgreements.filter((item) => item.status === 'CONFIRMED').length;
+  const pendingOffers = saleAgreements.filter((item) => item.status === 'DRAFT').length;
+  const sold = saleAgreements.filter((item) => item.saleOffer?.settlement?.status === 'SETTLED');
+  const salesValue = sold.reduce((sum, item) => sum + Number(item.finalSalePrice ?? 0), 0);
+  const commissionEarned = saleAgreements.reduce(
+    (sum, item) => sum + Number(item.saleOffer?.settlement?.grossCommission ?? 0),
+    0,
   );
-  const salesValue = sold.reduce((sum, item) => sum + Number(item.offerAmount ?? 0), 0);
-  const commissionEarned = Math.round(salesValue * 0.03);
 
   const brandChartColors = [
     'var(--primary)',

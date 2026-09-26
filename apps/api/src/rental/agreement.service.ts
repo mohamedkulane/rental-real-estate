@@ -169,6 +169,8 @@ export class AgreementService {
   }
 
   async createSale(principal: AuthenticatedPrincipal, input: CreateSaleAgreementDto, correlationId?: string) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
     const viewing = await this.db.viewing.findFirst({
       where: {
         id: input.viewingId,
@@ -192,7 +194,7 @@ export class AgreementService {
       this.db.property.findFirst({ where: { id: input.propertyId, companyId: principal.companyId, status: PropertyStatus.ACTIVE, serviceIntent: 'SALE', saleSettlements: { none: { status: 'SETTLED' } }, saleOffers: { none: { status: 'ACCEPTED' } } }, include: { ownerships: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1 }, company: { select: { legalPartyId: true } } } }),
     ]);
     if (!lead?.partyId || !property?.ownerships[0] || !property.salePrice) throw new ConflictException('The buyer, seller, or sale asking price is unavailable.');
-    const engagement = await this.db.serviceEngagement.findFirst({ where: { companyId: principal.companyId, propertyId: property.id, status: ServiceEngagementStatus.ACTIVE, serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] } }, orderBy: { createdAt: 'desc' } });
+    const engagement = await this.db.serviceEngagement.findFirst({ where: { companyId: principal.companyId, propertyId: property.id, status: ServiceEngagementStatus.ACTIVE, effectiveFrom: { lte: today }, AND: [{ OR: [{ effectiveTo: null }, { effectiveTo: { gt: today } }] }], serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] } }, orderBy: { createdAt: 'desc' } });
     if (!engagement) throw new ConflictException('An active sale service is required before an agreement.');
     const companyOwned = engagement.serviceModel === ServiceModel.COMPANY_OWNED || property.company.legalPartyId === property.ownerships[0].ownerPartyId;
     const sellerCommission = this.commission(input.sellerCommission, 'Seller');
@@ -226,6 +228,7 @@ export class AgreementService {
   }
 
   async listSales(principal: AuthenticatedPrincipal, query: { search?: string; branchId?: string; limit?: number; cursor?: string }) {
+    this.auth.assertCompanyPermission(principal, 'sale-offer.read');
     const allowed = this.auth.authorizedBranchIds(principal, 'sale-offer.read');
     const limit = query.limit ?? 25;
     const rows = await this.db.saleAgreement.findMany({
@@ -246,10 +249,9 @@ export class AgreementService {
         buyer: { select: { displayName: true } },
         seller: { select: { displayName: true } },
         property: { select: { id: true, propertyCode: true, name: true } },
-        saleOffer: { select: { id: true, status: true, settlement: { select: { id: true, status: true } } } },
+        saleOffer: { select: { id: true, status: true, settlement: { select: { id: true, status: true, grossCommission: true } } } },
       },
     });
-    this.auth.assertCompanyPermission(principal, 'sale-offer.read');
     const items = rows.slice(0, limit);
     return { items, pageInfo: { hasNextPage: rows.length > limit, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null } };
   }

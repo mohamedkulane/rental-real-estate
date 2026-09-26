@@ -27,7 +27,7 @@ type SaleProperty = {
 };
 
 export function SalesPropertiesWorkspace() {
-  const { principal, error } = useCommercialPrincipal();
+  const { principal } = useCommercialPrincipal();
   const [search, setSearch] = useState('');
   const query = useQuery({
     queryKey: ['sale-property-inventory', search],
