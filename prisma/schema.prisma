@@ -1355,6 +1355,8 @@ model LeasePossession {
   possessionFrom  DateTime              @db.Timestamptz(6)
   possessionTo    DateTime?             @db.Timestamptz(6)
   status          LeasePossessionStatus @default(SCHEDULED)
+  moveOutReason   String?               @db.VarChar(500)
+  moveOutNotes    String?               @db.VarChar(2000)
   createdAt       DateTime              @default(now()) @db.Timestamptz(6)
   lease           Lease                 @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   rentableSpace   RentableSpace         @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)

@@ -42,6 +42,7 @@ import type {
   CreateViewingDto,
   LeaseQueryDto,
   LeaseTransitionDto,
+  MoveOutDto,
   MoveInQueryDto,
   MoveInTransitionDto,
   RecordScreeningDto,
@@ -498,6 +499,10 @@ export class LeasingService {
         serviceEngagement: {
           select: { id: true, engagementNumber: true, serviceModel: true, status: true },
         },
+        possessions: {
+          orderBy: { possessionFrom: 'desc' },
+          take: 5,
+        },
       },
     });
     if (!row) throw new NotFoundException('Lease not found.');
@@ -682,6 +687,9 @@ export class LeasingService {
               : 'lease.manage';
     this.auth.assertBranchPermission(principal, permission, current.branchId);
     if (!leaseTransitions[current.status].includes(input.status)) throw new ConflictException(`Lease cannot transition from ${current.status} to ${input.status}.`);
+    if (current.status === LeaseStatus.ACTIVE && input.status === LeaseStatus.ENDED) {
+      throw new ConflictException('Use the Move-Out action to end an active Lease.');
+    }
     if (input.status === LeaseStatus.SIGNED && !input.signatureHash) throw new BadRequestException('Signature evidence hash is required.');
     const activating = input.status === LeaseStatus.ACTIVE;
     const captureAgreement =
@@ -773,6 +781,73 @@ export class LeasingService {
       if (isDatabaseConcurrencyConflict(error)) throw new ConflictException('Lease activation conflicts with an existing active possession.');
       throw error;
     }
+  }
+
+  async moveOut(principal: AuthenticatedPrincipal, id: string, input: MoveOutDto, correlationId?: string) {
+    const current = await this.db.lease.findFirst({
+      where: { id, companyId: principal.companyId },
+      include: {
+        rentableSpace: { select: { id: true, name: true, property: { select: { id: true, name: true } } } },
+        parties: { include: { party: { select: { displayName: true } } } },
+        possessions: { where: { status: LeasePossessionStatus.ACTIVE }, orderBy: { possessionFrom: 'desc' }, take: 1 },
+      },
+    });
+    if (!current) throw new NotFoundException('Lease not found.');
+    this.auth.assertBranchPermission(principal, 'lease.manage', current.branchId);
+    if (current.status !== LeaseStatus.ACTIVE) throw new ConflictException('Only an active Lease can be moved out.');
+    const moveOutAt = new Date(`${input.moveOutDate}T00:00:00.000Z`);
+    if (Number.isNaN(moveOutAt.getTime())) throw new BadRequestException('Move-Out date is invalid.');
+    const initialPossession = current.possessions[0];
+    if (!initialPossession) throw new ConflictException('An active LeasePossession is required before Move-Out.');
+    if (moveOutAt <= initialPossession.possessionFrom) {
+      throw new BadRequestException('Move-Out date must be after possession started.');
+    }
+    if (current.leaseEndDate && moveOutAt > current.leaseEndDate) {
+      throw new BadRequestException('Move-Out date cannot be after the Lease end date.');
+    }
+
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "leases" WHERE id = ${id}::uuid FOR UPDATE`);
+      const latest = await tx.lease.findFirstOrThrow({
+        where: { id, companyId: principal.companyId },
+        include: { possessions: { where: { status: LeasePossessionStatus.ACTIVE }, orderBy: { possessionFrom: 'desc' }, take: 1 } },
+      });
+      if (latest.status !== LeaseStatus.ACTIVE) throw new ConflictException('Lease has already been moved out or otherwise ended.');
+      if (latest.version !== input.expectedVersion) throw new ConflictException('Lease is stale or has already changed.');
+      const possession = latest.possessions[0];
+      if (!possession) throw new ConflictException('An active LeasePossession is required before Move-Out.');
+      if (moveOutAt <= possession.possessionFrom) throw new BadRequestException('Move-Out date must be after possession started.');
+      if (latest.leaseEndDate && moveOutAt > latest.leaseEndDate) throw new BadRequestException('Move-Out date cannot be after the Lease end date.');
+
+      const endedPossession = await tx.leasePossession.updateMany({
+        where: { id: possession.id, status: LeasePossessionStatus.ACTIVE },
+        data: {
+          status: LeasePossessionStatus.ENDED,
+          possessionTo: moveOutAt,
+          moveOutReason: input.reason.trim(),
+          moveOutNotes: input.notes?.trim() || null,
+        },
+      });
+      if (endedPossession.count !== 1) throw new ConflictException('Move-Out is stale or the possession has already ended.');
+      const endedLease = await tx.lease.updateMany({
+        where: { id, version: input.expectedVersion, status: LeaseStatus.ACTIVE },
+        data: { status: LeaseStatus.ENDED, version: { increment: 1 } },
+      });
+      if (endedLease.count !== 1) throw new ConflictException('Lease is stale or has already changed.');
+      const row = await tx.lease.findUniqueOrThrow({ where: { id } });
+      await this.audit.write(tx, {
+        actorUserId: principal.userId,
+        action: 'lease.moved-out',
+        entityType: 'Lease',
+        entityId: id,
+        branchId: latest.branchId,
+        correlationId,
+        reason: input.reason,
+        before: { status: latest.status, version: latest.version, possessionId: possession.id },
+        after: { status: row.status, version: row.version, moveOutDate: moveOutAt, possessionId: possession.id, notes: input.notes?.trim() || null },
+      });
+      return row;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async listRenewals(principal: AuthenticatedPrincipal, query: RenewalQueryDto) {

@@ -156,6 +156,13 @@ export class LeaseTransitionDto extends VersionedTransitionDto {
   @IsOptional() @IsUUID() documentId?: string;
 }
 
+export class MoveOutDto {
+  @IsInt() @Min(1) expectedVersion!: number;
+  @IsDateString() moveOutDate!: string;
+  @IsString() @Length(3, 500) reason!: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+}
+
 export class RenewalQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsEnum(RenewalStatus) status?: RenewalStatus;
 }

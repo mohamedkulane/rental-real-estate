@@ -10,7 +10,7 @@ import {
   ApplicationQueryDto, ApplicationTransitionDto, CompleteViewingDto, ConvertTenantDto,
   CreateApplicationDto, CreateLeaseDto, CreateRentalListingDto, CreateRenewalDto,
   CreateReservationDto, CreateSaleListingDto, CreateViewingDto, LeaseQueryDto,
-  LeaseTransitionDto, ListingQueryDto, MatchListingsDto, MoveInQueryDto,
+  LeaseTransitionDto, ListingQueryDto, MatchListingsDto, MoveInQueryDto, MoveOutDto,
   MoveInTransitionDto, RecordScreeningDto, RenewalQueryDto, RenewalTransitionDto,
   ReservationQueryDto, ReservationTransitionDto, RescheduleViewingDto, ScheduleMoveInDto,
   TenantQueryDto, VersionedTransitionDto, ViewingQueryDto,
@@ -97,6 +97,7 @@ export class LeaseController {
   @Get() @RequirePermissions('lease.read') list(@Req() req: AuthenticatedRequest, @Query() query: LeaseQueryDto) { return this.leasing.listLeases(req.principal, query); }
   @Post() @RequirePermissions('lease.create') create(@Req() req: AuthenticatedRequest, @Body() input: CreateLeaseDto) { return this.leasing.createLease(req.principal, input, req.correlationId); }
   @Post(':id/transition') @RequirePermissions('lease.read') transition(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string, @Body() input: LeaseTransitionDto) { return this.leasing.transitionLease(req.principal, id, input, req.correlationId); }
+  @Post(':id/move-out') @RequirePermissions('lease.manage') moveOut(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string, @Body() input: MoveOutDto) { return this.leasing.moveOut(req.principal, id, input, req.correlationId); }
 }
 
 @UseGuards(SessionAuthGuard, PermissionGuard)

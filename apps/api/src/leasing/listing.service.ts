@@ -113,6 +113,13 @@ export class ListingService {
           OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }],
         },
       },
+      leasePossessions: {
+        none: {
+          status: 'ACTIVE',
+          possessionFrom: { lte: at },
+          OR: [{ possessionTo: null }, { possessionTo: { gt: at } }],
+        },
+      },
       reservations: {
         none: {
           status: ReservationStatus.ACTIVE,
@@ -717,7 +724,12 @@ export class ListingService {
                 take: 1,
               },
               serviceEngagements: {
-                where: { status: ServiceEngagementStatus.ACTIVE },
+                where: {
+                  status: ServiceEngagementStatus.ACTIVE,
+                  rentableSpaceId: null,
+                  effectiveFrom: { lte: at },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                },
                 select: { serviceModel: true },
                 take: 8,
               },
@@ -750,12 +762,26 @@ export class ListingService {
             orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
             take: 5,
           },
+          serviceEngagements: {
+            where: {
+              status: ServiceEngagementStatus.ACTIVE,
+              effectiveFrom: { lte: at },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+            },
+            select: { serviceModel: true },
+            take: 8,
+          },
         },
       });
 
       const scored = spaces
         .map((space) => {
           const property = space.property;
+          const rentalAuthority = resolveCapabilitySet(
+            property.serviceEngagements.map((engagement) => engagement.serviceModel),
+            space.serviceEngagements.map((engagement) => engagement.serviceModel),
+          );
+          if (!rentalAuthority.canMarketRentalSpace) return null;
           const published = space.rentalListings.find(
             (row) => row.status === ListingStatus.PUBLISHED,
           );

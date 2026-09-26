@@ -5,6 +5,7 @@ import {
   LeaseStatus,
   PrismaClient,
   PropertyType,
+  ServiceEngagementStatus,
   ServiceModel,
 } from '@prisma/client';
 import type { ApiEnvironment } from '@rerms/config';
@@ -12,16 +13,18 @@ import { uuidv7 } from '@rerms/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AuditService } from '../../src/governance/audit.service';
 import { LeasingService } from '../../src/leasing/leasing.service';
+import { ListingService } from '../../src/leasing/listing.service';
 import { AuthorizationService } from '../../src/security/authorization.service';
 import type { AuthenticatedPrincipal } from '../../src/security/security.types';
 import { WorkflowPayloadCipher } from '../../src/workflow/workflow-payload-cipher';
 
 const url = process.env.PHASE5_TEST_DATABASE_URL;
-const permissions = ['lease.read', 'lease.approve', 'lease.activate', 'lease.manage'];
+const permissions = ['lease.read', 'lease.approve', 'lease.activate', 'lease.manage', 'listing.match'];
 
 describe.skipIf(!url)('active residential tenancy database invariant', () => {
   let database: PrismaClient;
   let leasing: LeasingService;
+  let listings: ListingService;
   let principal: AuthenticatedPrincipal;
   let companyId: string;
   let branchId: string;
@@ -29,6 +32,7 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
   let companyPartyId: string;
   let engagementId: string;
   let spaceIds: string[];
+  let matchingLeadId: string;
   const suffix = randomUUID().slice(0, 8).toUpperCase();
 
   beforeAll(async () => {
@@ -57,7 +61,7 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
         ownerships: { create: { id: uuidv7(), ownerPartyId: companyPartyId, ownershipPercent: '100', effectiveFrom: new Date('2026-01-01') } },
       },
     });
-    const spaces = await Promise.all(Array.from({ length: 4 }, (_, index) =>
+    const spaces = await Promise.all(Array.from({ length: 6 }, (_, index) =>
       database.rentableSpace.create({
         data: {
           id: uuidv7(), propertyId: property.id, typeId: type.id,
@@ -75,6 +79,28 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
       },
     });
     engagementId = engagement.id;
+    const source = await database.leadSource.findFirstOrThrow({ where: { companyId, status: 'ACTIVE' } });
+    const matchingParty = await database.party.create({
+      data: {
+        id: uuidv7(), companyId, partyNumber: `PTY-MATCH-${suffix}`,
+        kind: 'PERSON', displayName: `Matching Tenant ${suffix}`,
+        person: { create: { givenName: 'Matching', familyName: suffix } },
+        branchAssignments: { create: { id: uuidv7(), branchId, effectiveFrom: new Date('2026-01-01') } },
+      },
+    });
+    const matchingLead = await database.lead.create({
+      data: {
+        id: uuidv7(), companyId, leadNumber: `LEAD-${Number.parseInt(suffix, 16)}`, intent: 'RENT', sourceId: source.id,
+        responsibleBranchId: branchId, partyId: matchingParty.id, displayName: matchingParty.displayName,
+        createdByUserId: userId,
+        branchHistory: { create: { id: uuidv7(), branchId, assignedFrom: new Date('2026-01-01'), actorUserId: userId, reason: 'Integration fixture' } },
+        stageHistory: { create: { id: uuidv7(), toStage: 'NEW', actorUserId: userId, leadVersion: 1, reason: 'Integration fixture' } },
+        intentHistory: { create: { id: uuidv7(), toIntent: 'RENT', actorUserId: userId, leadVersion: 1, reason: 'Integration fixture' } },
+        preferenceVersions: { create: { id: uuidv7(), intent: 'RENT', versionNo: 1, effectiveFrom: new Date('2026-01-01'), actorUserId: userId,
+          rent: { create: { minRent: '100', maxRent: '5000', currency: 'USD' } } } },
+      },
+    });
+    matchingLeadId = matchingLead.id;
     principal = {
       userId, employeeId: employee.id, sessionId: randomUUID(), companyId,
       businessDate: '2026-09-26', accessMode: BranchAccessMode.COMPANY_WIDE,
@@ -92,6 +118,7 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
       new AuditService(),
       new WorkflowPayloadCipher(environment),
     );
+    listings = new ListingService(database as never, new AuthorizationService(), new AuditService());
   }, 60_000);
 
   afterAll(async () => database?.$disconnect());
@@ -107,12 +134,12 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
     });
   }
 
-  async function createLease(tenantPartyId: string, rentableSpaceId: string, label: string) {
+  async function createLease(tenantPartyId: string, rentableSpaceId: string, label: string, leaseEndDate: Date | null = new Date('2027-01-01')) {
     return database.lease.create({
       data: {
         id: uuidv7(), companyId, branchId, leaseNumber: `LSE-ACT-${suffix}-${label}`,
         rentableSpaceId, serviceEngagementId: engagementId, status: LeaseStatus.DRAFT,
-        leaseStartDate: new Date('2026-01-01'), leaseEndDate: new Date('2027-01-01'),
+        leaseStartDate: new Date('2026-01-01'), leaseEndDate,
         rentAmount: '1200', currency: 'USD', createdByUserId: userId,
         parties: { create: [
           { id: uuidv7(), partyId: tenantPartyId, role: LeasePartyRole.TENANT },
@@ -134,6 +161,11 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
     const tenant = await createTenant('SERVICE');
     const first = await submitLease(await createLease(tenant.id, spaceIds[0]!, 'SERVICE-1'));
     const second = await submitLease(await createLease(tenant.id, spaceIds[1]!, 'SERVICE-2'));
+    await expect(leasing.moveOut(principal, first.id, {
+      expectedVersion: first.version,
+      moveOutDate: '2026-09-26',
+      reason: 'Cannot move out a pending lease',
+    })).rejects.toThrow('Only an active Lease can be moved out');
     const active = await leasing.transitionLease(principal, first.id, {
       expectedVersion: first.version,
       status: LeaseStatus.ACTIVE,
@@ -146,11 +178,21 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
       reason: 'Attempt overlapping active tenancy',
     })).rejects.toThrow('already has an active residential lease');
 
-    await leasing.transitionLease(principal, active.id, {
+    await leasing.moveOut(principal, active.id, {
       expectedVersion: active.version,
-      status: LeaseStatus.ENDED,
+      moveOutDate: '2026-09-26',
       reason: 'Tenant moved out',
+      notes: 'Formal Move-Out regression path',
     });
+    const endedPossession = await database.leasePossession.findFirstOrThrow({ where: { leaseId: active.id } });
+    expect(endedPossession.status).toBe('ENDED');
+    expect(endedPossession.possessionTo?.toISOString()).toBe('2026-09-26T00:00:00.000Z');
+    expect(endedPossession.moveOutReason).toBe('Tenant moved out');
+    await expect(leasing.moveOut(principal, active.id, {
+      expectedVersion: active.version + 1,
+      moveOutDate: '2026-09-26',
+      reason: 'Duplicate move out',
+    })).rejects.toThrow('Only an active Lease can be moved out');
     const successor = await leasing.transitionLease(principal, second.id, {
       expectedVersion: second.version,
       status: LeaseStatus.ACTIVE,
@@ -175,5 +217,73 @@ describe.skipIf(!url)('active residential tenancy database invariant', () => {
       FROM "active_residential_tenancies"
       WHERE "partyId" = ${tenant.id}::uuid
     `).toEqual([{ count: 1n }]);
+  }, 60_000);
+
+  it('supports an open-ended move-out and rejects unauthorized or duplicate requests', async () => {
+    const tenant = await createTenant('MOVEOUT');
+    const draft = await createLease(tenant.id, spaceIds[4]!, 'MOVEOUT-1', null);
+    const pending = await submitLease(draft);
+    const active = await leasing.transitionLease(principal, pending.id, {
+      expectedVersion: pending.version,
+      status: LeaseStatus.ACTIVE,
+      reason: 'Activate open-ended tenancy',
+    });
+    const unauthorized = {
+      ...principal,
+      accessMode: BranchAccessMode.BRANCH,
+      branchIds: new Set<string>(),
+    } as AuthenticatedPrincipal;
+    await expect(leasing.moveOut(unauthorized, active.id, {
+      expectedVersion: active.version,
+      moveOutDate: '2026-09-26',
+      reason: 'Unauthorized move out',
+    })).rejects.toThrow();
+    await expect(leasing.moveOut(principal, active.id, {
+      expectedVersion: active.version - 1,
+      moveOutDate: '2026-09-26',
+      reason: 'Stale move out',
+    })).rejects.toThrow('stale');
+
+    const attempts = await Promise.allSettled([
+      leasing.moveOut(principal, active.id, {
+        expectedVersion: active.version,
+        moveOutDate: '2026-09-26',
+        reason: 'Open-ended tenancy ended',
+      }),
+      leasing.moveOut(principal, active.id, {
+        expectedVersion: active.version,
+        moveOutDate: '2026-09-26',
+        reason: 'Duplicate concurrent move out',
+      }),
+    ]);
+    expect(attempts.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(attempts.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect((await database.lease.findUniqueOrThrow({ where: { id: active.id } })).status).toBe(LeaseStatus.ENDED);
+  }, 60_000);
+
+  it('requires physical vacancy and active rental authority for matching', async () => {
+    const tenant = await createTenant('MATCH');
+    const pending = await submitLease(await createLease(tenant.id, spaceIds[5]!, 'MATCH-1'));
+    const active = await leasing.transitionLease(principal, pending.id, {
+      expectedVersion: pending.version,
+      status: LeaseStatus.ACTIVE,
+      reason: 'Activate matching fixture',
+    });
+    const activeMatches = await listings.match(principal, { leadId: matchingLeadId, limit: 50 });
+    expect(activeMatches.items.some((item) => 'rentableSpace' in item.listing && item.listing.rentableSpace?.id === spaceIds[5])).toBe(false);
+    expect(activeMatches.items.some((item) => 'rentableSpace' in item.listing && item.listing.rentableSpace?.id === spaceIds[1])).toBe(false);
+
+    await leasing.moveOut(principal, active.id, {
+      expectedVersion: active.version,
+      moveOutDate: '2026-09-26',
+      reason: 'Matching fixture move-out',
+    });
+    const vacantMatches = await listings.match(principal, { leadId: matchingLeadId, limit: 50 });
+    expect(vacantMatches.items.some((item) => 'rentableSpace' in item.listing && item.listing.rentableSpace?.id === spaceIds[5])).toBe(true);
+    expect(vacantMatches.items.some((item) => 'rentableSpace' in item.listing && item.listing.rentableSpace?.id === spaceIds[1])).toBe(false);
+
+    await database.serviceEngagement.update({ where: { id: engagementId }, data: { status: ServiceEngagementStatus.INACTIVE } });
+    const unauthorizedMatches = await listings.match(principal, { leadId: matchingLeadId, limit: 50 });
+    expect(unauthorizedMatches.items.some((item) => 'rentableSpace' in item.listing && item.listing.rentableSpace?.id === spaceIds[5])).toBe(false);
   }, 60_000);
 });
