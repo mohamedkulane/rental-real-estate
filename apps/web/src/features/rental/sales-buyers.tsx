@@ -54,6 +54,7 @@ type MatchItem = {
     askingRent?: string | number | null;
     askingPrice?: string | number | null;
     currency: string;
+    propertyId?: string;
     property?: {
       id: string;
       name: string;
@@ -334,7 +335,7 @@ export function BuyerMatches({
       {!items.length ? (
         <EmptyState
           title="No matching sale properties yet"
-          description="Published properties for sale that fit this buyer’s budget and locations will appear here."
+          description="Eligible Sale-intent properties that fit this buyer’s budget and locations will appear here."
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -455,14 +456,13 @@ export function BuyerMatches({
               }
               const form = new FormData(event.currentTarget);
               const spaceId = viewingFor.listing.rentableSpace?.id;
+              const propertyId = viewingFor.listing.propertyId ?? viewingFor.listing.property?.id;
               scheduleViewing.mutate({
                 leadId: lead.id,
                 assignedEmployeeId: assignedAgentId,
                 scheduledAt: String(form.get('scheduledAt') ?? ''),
                 notes: String(form.get('notes') ?? '').trim() || undefined,
-                ...(spaceId
-                  ? { rentableSpaceId: spaceId }
-                  : { saleListingId: viewingFor.listing.id }),
+                ...(spaceId ? { rentableSpaceId: spaceId } : propertyId ? { propertyId } : { saleListingId: viewingFor.listing.id }),
               });
             }}
           >

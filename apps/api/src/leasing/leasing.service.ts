@@ -13,6 +13,7 @@ import {
   ReservationStatus,
   ScreeningStatus,
   ServiceEngagementStatus,
+  ServiceModel,
   TenantStatus,
   ViewingStatus,
 } from '@prisma/client';
@@ -156,14 +157,14 @@ export class LeasingService {
         { saleListing: { is: { title: { contains: query.search, mode: 'insensitive' } } } },
       ] } : {}),
     };
-    const rows = await this.db.viewing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { lead: { select: { id: true, leadNumber: true, displayName: true, intent: true } }, rentalListing: { select: { id: true, listingNumber: true, title: true, rentableSpaceId: true } }, saleListing: { select: { id: true, listingNumber: true, title: true } }, rentableSpace: { select: { id: true, spaceCode: true, name: true, propertyId: true } }, assignedEmployee: { select: { id: true, employeeNumber: true, party: { select: { displayName: true } } } } } });
+    const rows = await this.db.viewing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { lead: { select: { id: true, leadNumber: true, displayName: true, intent: true } }, rentalListing: { select: { id: true, listingNumber: true, title: true, rentableSpaceId: true } }, saleListing: { select: { id: true, listingNumber: true, title: true } }, property: { select: { id: true, propertyCode: true, name: true } }, rentableSpace: { select: { id: true, spaceCode: true, name: true, propertyId: true } }, assignedEmployee: { select: { id: true, employeeNumber: true, party: { select: { displayName: true } } } } } });
     return this.page(rows, query.limit);
   }
 
   async createViewing(principal: AuthenticatedPrincipal, input: CreateViewingDto, correlationId?: string) {
-    const targetCount = [input.rentalListingId, input.saleListingId, input.rentableSpaceId].filter(Boolean).length;
+    const targetCount = [input.rentalListingId, input.saleListingId, input.propertyId, input.rentableSpaceId].filter(Boolean).length;
     if (targetCount !== 1) {
-      throw new BadRequestException('Choose exactly one rental listing, sale listing, or rentable space.');
+      throw new BadRequestException('Choose exactly one rental listing, sale listing, property, or rentable space.');
     }
     const lead = await this.db.lead.findFirst({ where: { id: input.leadId, companyId: principal.companyId } });
     if (!lead) throw new NotFoundException('Lead not found.');
@@ -171,6 +172,7 @@ export class LeasingService {
 
     let rentalListingId: string | null = input.rentalListingId ?? null;
     let saleListingId: string | null = input.saleListingId ?? null;
+    let propertyId: string | null = input.propertyId ?? null;
     let rentableSpaceId: string | null = input.rentableSpaceId ?? null;
 
     if (input.rentableSpaceId) {
@@ -197,6 +199,23 @@ export class LeasingService {
         throw new ConflictException('The selected rentable space is unavailable in the customer branch.');
       }
       rentableSpaceId = space.id;
+    } else if (input.propertyId) {
+      const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
+      const property = await this.db.property.findFirst({
+        where: {
+          id: input.propertyId,
+          companyId: principal.companyId,
+          status: PropertyStatus.ACTIVE,
+          serviceIntent: 'SALE',
+          branchAssignments: { some: { branchId: lead.responsibleBranchId, effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] } },
+          serviceEngagements: { some: { status: ServiceEngagementStatus.ACTIVE, serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] }, effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] } },
+          saleSettlements: { none: { status: 'SETTLED' } },
+          saleOffers: { none: { status: 'ACCEPTED' } },
+        },
+        select: { id: true },
+      });
+      if (!property) throw new ConflictException('The selected sale property is unavailable.');
+      propertyId = property.id;
     } else if (input.rentalListingId) {
       const listing = await this.db.rentalListing.findFirst({
         where: {
@@ -262,6 +281,7 @@ export class LeasingService {
           leadId: lead.id,
           rentalListingId,
           saleListingId,
+          propertyId,
           rentableSpaceId,
           assignedEmployeeId: employee.id,
           scheduledAt,

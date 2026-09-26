@@ -31,6 +31,21 @@ export class RentalReadController {
     });
   }
 
+  @Get('sale-properties')
+  @RequirePermissions('portfolio.property.read')
+  listSaleProperties(
+    @Req() request: AuthenticatedRequest,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.presentation.listSaleProperties(request.principal, {
+      ...(search ? { search } : {}),
+      ...(limit ? { limit: Number(limit) } : {}),
+      ...(cursor ? { cursor } : {}),
+    });
+  }
+
   @Get('properties/:propertyId')
   @RequirePermissions('portfolio.property.read')
   getProperty(

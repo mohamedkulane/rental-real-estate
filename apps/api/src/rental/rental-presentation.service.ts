@@ -5,8 +5,13 @@ import {
   ListingStatus,
   Prisma,
   PropertyStatus,
+  PropertyServiceIntent,
   RentableSpaceStatus,
   ReservationStatus,
+  SaleOfferStatus,
+  SaleSettlementStatus,
+  ServiceEngagementStatus,
+  ServiceModel,
 } from '@prisma/client';
 import { DatabaseService } from '../database/database.service';
 import { AuthorizationService } from '../security/authorization.service';
@@ -274,6 +279,73 @@ export class RentalPresentationService {
         nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
       },
     };
+  }
+
+  async listSaleProperties(
+    principal: AuthenticatedPrincipal,
+    query: { search?: string; limit?: number; cursor?: string },
+  ) {
+    this.auth.assertCompanyPermission(principal, 'portfolio.property.read');
+    const limit = query.limit ?? 25;
+    const at = this.at(principal);
+    const branchIds = this.auth.authorizedBranchIds(principal, 'portfolio.property.read');
+    const baseWhere: Prisma.PropertyWhereInput = {
+      companyId: principal.companyId,
+      status: PropertyStatus.ACTIVE,
+      serviceIntent: PropertyServiceIntent.SALE,
+      ...(branchIds === null
+        ? {}
+        : { branchAssignments: { some: { branchId: { in: [...branchIds] }, effectiveTo: null } } }),
+      serviceEngagements: {
+        some: {
+          status: ServiceEngagementStatus.ACTIVE,
+          serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] },
+          effectiveFrom: { lte: at },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+        },
+      },
+      saleSettlements: { none: { status: SaleSettlementStatus.SETTLED } },
+      saleOffers: { none: { status: SaleOfferStatus.ACCEPTED } },
+      saleAgreements: { none: { status: { in: ['DRAFT', 'CONFIRMED'] } } },
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' } },
+              { propertyCode: { contains: query.search, mode: 'insensitive' } },
+              { city: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const rows = await this.db.property.findMany({
+      where: { ...baseWhere, ...(query.cursor ? { id: { lt: query.cursor } } : {}) },
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+      include: {
+        serviceEngagements: {
+          where: { status: ServiceEngagementStatus.ACTIVE, effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] },
+          select: { id: true, serviceModel: true, status: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        ownerships: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1, select: { owner: { select: { displayName: true } } } },
+        branchAssignments: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1, select: { branchId: true } },
+      },
+    });
+    const items = rows.slice(0, limit).map((row) => ({
+      id: row.id,
+      propertyCode: row.propertyCode,
+      name: row.name,
+      propertyType: row.propertyType,
+      location: [row.city, row.district].filter(Boolean).join(', '),
+      salePrice: row.salePrice?.toString() ?? null,
+      currency: row.salePriceCurrency ?? 'USD',
+      serviceModel: row.serviceEngagements[0]?.serviceModel ?? null,
+      ownerDisplayName: row.ownerships[0]?.owner.displayName ?? null,
+      branchId: row.branchAssignments[0]?.branchId ?? null,
+      status: row.status,
+    }));
+    return { items, pageInfo: { hasNextPage: rows.length > limit, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null } };
   }
 
   async listBuyers(

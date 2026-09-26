@@ -130,11 +130,21 @@ export class ListingService {
     };
   }
 
-  private availableSalePropertyWhere(): Prisma.PropertyWhereInput {
+  private availableSalePropertyWhere(at = new Date()): Prisma.PropertyWhereInput {
     return {
       status: PropertyStatus.ACTIVE,
+      serviceIntent: 'SALE',
+      serviceEngagements: {
+        some: {
+          status: ServiceEngagementStatus.ACTIVE,
+          serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] },
+          effectiveFrom: { lte: at },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+        },
+      },
       saleSettlements: { none: { status: SaleSettlementStatus.SETTLED } },
       saleOffers: { none: { status: SaleOfferStatus.ACCEPTED } },
+      saleAgreements: { none: { status: { in: ['DRAFT', 'CONFIRMED'] } } },
     };
   }
 
@@ -189,6 +199,7 @@ export class ListingService {
   }
 
   private buildSalePropertyMatchWhere(
+    at: Date,
     buy: {
       propertyTypeCodes?: string[];
       minBedrooms?: number | null;
@@ -196,7 +207,7 @@ export class ListingService {
     } | null | undefined,
     preferredAreas: string[],
   ): Prisma.PropertyWhereInput {
-    const parts: Prisma.PropertyWhereInput[] = [this.availableSalePropertyWhere()];
+    const parts: Prisma.PropertyWhereInput[] = [this.availableSalePropertyWhere(at)];
     if (buy?.propertyTypeCodes?.length) {
       parts.push({ propertyType: { in: buy.propertyTypeCodes as PropertyType[] } });
     }
@@ -904,60 +915,60 @@ export class ListingService {
 
     if (lead.intent === LeadIntent.BUY) {
       const buyPrefs = preference?.buy ?? null;
-      const where: Prisma.SaleListingWhereInput = {
+      const where: Prisma.PropertyWhereInput = {
         companyId: principal.companyId,
         ...(authorizedBranches === null
           ? {}
-          : { branchId: { in: authorizedBranches } }),
-        status: ListingStatus.PUBLISHED,
+          : { branchAssignments: { some: { branchId: { in: authorizedBranches }, effectiveTo: null } } }),
         ...(query.cursor ? { id: { lt: query.cursor } } : {}),
         ...(query.search
           ? {
               OR: [
-                { title: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
-                { listingNumber: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
+                { name: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
+                { propertyCode: { contains: query.search, mode: Prisma.QueryMode.insensitive } },
               ],
             }
           : {}),
-        ...(buyPrefs?.currency ? { currency: buyPrefs.currency } : {}),
-        property: {
-          is: this.buildSalePropertyMatchWhere(buyPrefs, preferredAreas),
-        },
+        ...this.buildSalePropertyMatchWhere(at, buyPrefs, preferredAreas),
       };
-      const rows = await this.db.saleListing.findMany({
+      const rows = await this.db.property.findMany({
         where,
         orderBy: { id: 'desc' },
         take: Math.min(query.limit * 4, 100),
         include: {
-          property: {
-            include: {
-              spaces: {
-                where: { status: RentableSpaceStatus.ACTIVE },
-                take: 1,
-                include: { residentialProfile: true },
-              },
+          spaces: {
+            where: { status: RentableSpaceStatus.ACTIVE },
+            take: 1,
+            include: { residentialProfile: true },
+          },
+          serviceEngagements: {
+            where: {
+              status: ServiceEngagementStatus.ACTIVE,
+              serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] },
             },
+            select: { serviceModel: true },
+            take: 1,
           },
         },
       });
       const scored = rows
         .map((row) => {
-          const location = this.locationMatchScore(row.property, preferredAreas);
+          const location = this.locationMatchScore(row, preferredAreas);
           const budget = this.budgetMatchScore(
-            row.askingPrice,
+            row.salePrice,
             buyPrefs?.minBudget,
             buyPrefs?.maxBudget,
           );
-          const type = this.typeMatchScore(row.property.propertyType, buyPrefs?.propertyTypeCodes);
+          const type = this.typeMatchScore(row.propertyType, buyPrefs?.propertyTypeCodes);
           const bedrooms = this.bedroomMatchScore(
-            row.property.spaces[0]?.residentialProfile?.bedrooms ?? null,
+            row.spaces[0]?.residentialProfile?.bedrooms ?? null,
             buyPrefs?.minBedrooms,
             buyPrefs?.maxBedrooms,
           );
           const score = this.compositeMatchScore({ location, budget, type, bedrooms });
           const reasonKeys = [
             'intent_buy',
-            'published_listing',
+            'property_inventory',
             'property_available',
             ...(budget.matched ? ['within_buy_budget'] : []),
             ...(type.matched && buyPrefs?.propertyTypeCodes?.length
@@ -973,9 +984,17 @@ export class ListingService {
           ];
           return {
             listingType: 'SALE' as const,
-            matchSource: 'PUBLISHED_LISTING' as const,
+            matchSource: 'PROPERTY_INVENTORY' as const,
             canScheduleViewing: true,
-            listing: row,
+            listing: {
+              id: row.id,
+              listingNumber: row.propertyCode,
+              title: row.name,
+              status: 'INVENTORY',
+              askingPrice: row.salePrice,
+              currency: row.salePriceCurrency ?? 'USD',
+              property: row,
+            },
             score,
             reasonKeys,
             reasons: reasonKeys.map((key) => reasonLabels[key] ?? key),

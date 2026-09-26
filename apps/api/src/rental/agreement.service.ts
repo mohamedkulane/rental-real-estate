@@ -181,10 +181,11 @@ export class AgreementService {
         id: true,
         branchId: true,
         rentableSpace: { select: { propertyId: true } },
+        property: { select: { id: true } },
         saleListing: { select: { propertyId: true } },
       },
     });
-    if (!viewing || (viewing.rentableSpace?.propertyId ?? viewing.saleListing?.propertyId) !== input.propertyId) throw new ConflictException('An interested completed viewing for this property is required before an agreement.');
+    if (!viewing || (viewing.property?.id ?? viewing.rentableSpace?.propertyId ?? viewing.saleListing?.propertyId) !== input.propertyId) throw new ConflictException('An interested completed viewing for this property is required before an agreement.');
     this.auth.assertBranchPermission(principal, 'sale-offer.manage', viewing.branchId);
     const [lead, property] = await Promise.all([
       this.db.lead.findFirst({ where: { id: input.leadId, companyId: principal.companyId, intent: LeadIntent.BUY }, select: { id: true, partyId: true } }),
