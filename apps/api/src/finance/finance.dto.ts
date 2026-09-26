@@ -256,7 +256,7 @@ export class SaleSettlementQueryDto extends FinanceBranchQueryDto {
 
 export class CreateSaleSettlementDto {
   @IsUUID() saleOfferId!: string;
-  @IsNumberString() salePrice!: string;
+  @IsOptional() @IsNumberString() salePrice?: string;
   @IsOptional() @IsNumberString() approvedDeductions?: string;
   @IsOptional() @IsDateString() closingDate?: string;
   @IsOptional() @IsString() @MaxLength(160) idempotencyKey?: string;

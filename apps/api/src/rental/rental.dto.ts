@@ -282,6 +282,13 @@ export class CreateSaleAgreementDto {
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
+export class SaleAgreementQueryDto {
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsInt() @Min(1) limit?: number;
+  @IsOptional() @IsUUID() cursor?: string;
+}
+
 export class AgreementTransitionDto {
   @IsInt() @Min(1) expectedVersion!: number;
   @IsString() @Length(3, 500) reason!: string;

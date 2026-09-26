@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { SalesAgreementWorkspace } from '@/features/rental/sales-agreement-workspace';
 
 export default function NewSalesDealPage() {
-  redirect('/workflows/new?type=PROPERTY_SALE');
+  return <SalesAgreementWorkspace />;
 }

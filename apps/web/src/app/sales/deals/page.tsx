@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { SalesDealsWorkspace } from '@/features/rental/sales-deals-workspace';
 
 export default function SalesDealsPage() {
-  redirect('/commercial/property-sales/pipeline');
+  return <SalesDealsWorkspace />;
 }

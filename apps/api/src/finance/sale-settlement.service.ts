@@ -65,7 +65,13 @@ export class SaleSettlementService {
     this.auth.assertBranchPermission(principal, 'sale-settlement.manage', offer.branchId);
     if (offer.settlement) throw new ConflictException('This sale offer already has a settlement.');
     const terms = await this.policy.commercialTermsAt(offer.serviceEngagementId, offer.offerDate);
-    const salePrice = offer.saleAgreement?.finalSalePrice ?? new Prisma.Decimal(input.salePrice);
+    if (offer.saleAgreement && offer.saleAgreement.status !== 'CONFIRMED') {
+      throw new ConflictException('Only a confirmed sale agreement can enter settlement.');
+    }
+    if (!offer.saleAgreement && !input.salePrice) {
+      throw new ConflictException('A sale price is required when no sale agreement is linked.');
+    }
+    const salePrice = offer.saleAgreement?.finalSalePrice ?? new Prisma.Decimal(input.salePrice!);
     const approvedDeductions = new Prisma.Decimal(input.approvedDeductions ?? 0);
     const commissionFromAgreement = (method: 'FIXED' | 'PERCENT' | null | undefined, value: Prisma.Decimal | null | undefined) =>
       !method || !value ? new Prisma.Decimal(0) : method === 'PERCENT' ? salePrice.mul(value).div(100) : value;
@@ -163,15 +169,15 @@ export class SaleSettlementService {
       throw new ConflictException(`Settlement cannot transition from ${current.status} to ${input.status}.`);
     }
     return this.db.$transaction(async (tx) => {
-      const row = await tx.saleSettlement.update({
-        where: { id: settlementId },
-        data: {
-          status: input.status,
-          settledAt: input.status === SaleSettlementStatus.SETTLED ? new Date() : current.settledAt,
-        },
+      const changed = await tx.saleSettlement.updateMany({
+        where: { id: settlementId, status: current.status },
+        data: { status: input.status, settledAt: input.status === SaleSettlementStatus.SETTLED ? new Date() : current.settledAt },
       });
+      if (changed.count !== 1) throw new ConflictException('Settlement is stale or has already changed.');
+      const row = await tx.saleSettlement.findUniqueOrThrow({ where: { id: settlementId } });
       if (input.status === SaleSettlementStatus.SETTLED) {
-        await tx.property.update({ where: { id: current.propertyId }, data: { status: 'SOLD' } });
+        const propertyChanged = await tx.property.updateMany({ where: { id: current.propertyId, status: 'ACTIVE' }, data: { status: 'SOLD' } });
+        if (propertyChanged.count !== 1) throw new ConflictException('Property is no longer available for sale.');
       }
       await this.audit.write(tx, {
         actorUserId: principal.userId,

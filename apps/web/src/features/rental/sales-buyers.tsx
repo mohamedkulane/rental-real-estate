@@ -29,6 +29,11 @@ import {
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15';
 
+function formText(form: FormData, name: string): string {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
+}
+
 type BuyerRow = {
   id: string;
   leadNumber: string;
@@ -409,14 +414,6 @@ export function BuyerMatches({
                             Mark Interested
                           </TableActionButton>
                         ) : null}
-                        {hasPermission(principal, 'sale-offer.create') && propertyId ? (
-                          <TableActionButton
-                            tone="agreement"
-                            href={`/sales/deals/new?leadId=${lead.id}&propertyId=${propertyId}`}
-                          >
-                            Start Offer
-                          </TableActionButton>
-                        ) : null}
                       </TableActionGroup>
                     </td>
                   </tr>
@@ -460,8 +457,8 @@ export function BuyerMatches({
               scheduleViewing.mutate({
                 leadId: lead.id,
                 assignedEmployeeId: assignedAgentId,
-                scheduledAt: String(form.get('scheduledAt') ?? ''),
-                notes: String(form.get('notes') ?? '').trim() || undefined,
+                scheduledAt: formText(form, 'scheduledAt'),
+                notes: formText(form, 'notes').trim() || undefined,
                 ...(spaceId ? { rentableSpaceId: spaceId } : propertyId ? { propertyId } : { saleListingId: viewingFor.listing.id }),
               });
             }}

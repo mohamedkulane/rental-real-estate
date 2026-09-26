@@ -62,6 +62,7 @@ type ViewingRow = {
     listingNumber: string;
     property?: { id: string; name: string } | null;
   } | null;
+  property?: { id: string; propertyCode: string; name: string } | null;
   assignedEmployee?: {
     id: string;
     employeeNumber: string;
@@ -80,14 +81,14 @@ function dayRange(date: Date) {
 function targetLabel(row: ViewingRow) {
   if (row.rentableSpace)
     return `${row.rentableSpace.property?.name ? `${row.rentableSpace.property.name} - ` : ''}${row.rentableSpace.spaceCode} - ${row.rentableSpace.name}`;
-  return row.rentalListing?.title ?? row.saleListing?.title ?? 'Property not available';
+  return row.property?.name ?? row.rentalListing?.title ?? row.saleListing?.title ?? 'Property not available';
 }
 function propertyHref(row: ViewingRow) {
   const propertyId = row.rentableSpace?.propertyId ?? row.rentableSpace?.property?.id;
   if (propertyId) return `/portfolio/properties/${propertyId}`;
   return row.saleListing?.property?.id
     ? `/portfolio/properties/${row.saleListing.property.id}`
-    : null;
+    : row.property?.id ? `/portfolio/properties/${row.property.id}` : null;
 }
 function SummaryCard({
   label,
@@ -521,6 +522,14 @@ export function CentralViewingsWorkspace() {
                                     Not interested
                                   </TableActionButton>
                                 </>
+                              ) : null}
+                              {row.lead?.intent === 'BUY' && isInterestedViewingOutcome(row.outcome) && row.property?.id ? (
+                                <TableActionButton
+                                  tone="agreement"
+                                  href={`/sales/deals/new?leadId=${row.lead.id}&propertyId=${row.property.id}&viewingId=${row.id}`}
+                                >
+                                  Sale agreement
+                                </TableActionButton>
                               ) : null}
                             </TableActionGroup>
                           </td>

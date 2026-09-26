@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast, { notify } from '@/lib/toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
-import { ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { ErrorState, FormSection, PageHeader } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
 import type { PickRecord } from '@/features/workflow/record-picker';
@@ -31,10 +31,11 @@ const settlementTransitions: Record<string, readonly string[]> = {
 
 export function SaleSettlementCreateWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { principal } = useCommercialPrincipal();
   const allowed = Boolean(principal && hasPermission(principal, 'sale-settlement.manage'));
-  const [offer, setOffer] = useState<PickRecord | null>(null);
-  const [salePrice, setSalePrice] = useState('');
+  const contextOfferId = searchParams.get('offerId');
+  const [offer, setOffer] = useState<PickRecord | null>(() => contextOfferId ? { id: contextOfferId, label: 'Confirmed sale agreement' } : null);
   const [approvedDeductions, setApprovedDeductions] = useState('0');
   const [closingDate, setClosingDate] = useState(new Date().toISOString().slice(0, 10));
 
@@ -44,7 +45,6 @@ export function SaleSettlementCreateWorkspace() {
         method: 'POST',
         body: JSON.stringify({
           saleOfferId: offer?.id,
-          salePrice,
           approvedDeductions: approvedDeductions || undefined,
           closingDate,
         }),
@@ -75,33 +75,16 @@ export function SaleSettlementCreateWorkspace() {
           title="Settlement details"
           submitLabel="Create settlement"
           busy={create.isPending}
-          disabled={!offer?.id || Number(salePrice) <= 0}
+          disabled={!offer?.id}
           onSubmit={() => {
-            if (!offer?.id || Number(salePrice) <= 0) {
-              toast.error('Choose an accepted offer and sale price.');
+            if (!offer?.id) {
+              toast.error('Choose a confirmed sale agreement.');
               return;
             }
             create.mutate();
           }}
         >
-          <FinanceRecordSelect
-            label="Accepted sale offer"
-            path="/sale-offers?status=ACCEPTED"
-            value={offer?.id ?? ''}
-            map={financePickerMap.offer}
-            onChange={setOffer}
-            required
-            emptyHint="No accepted sale offer. Accept an offer before creating a settlement."
-          />
-          <FinanceTextField
-            label="Sale price"
-            type="number"
-            min={0}
-            step="0.01"
-            value={salePrice}
-            onChange={setSalePrice}
-            required
-          />
+          {contextOfferId ? <FinanceField label="Agreement context" value="Confirmed sale agreement inherited" /> : <FinanceRecordSelect label="Accepted sale offer" path="/sale-offers?status=ACCEPTED" value={offer?.id ?? ''} map={financePickerMap.offer} onChange={setOffer} required emptyHint="No accepted sale offer. Confirm an agreement before creating a settlement." />}
           <FinanceTextField
             label="Approved deductions"
             type="number"

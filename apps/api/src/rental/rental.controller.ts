@@ -1,4 +1,4 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -10,6 +10,8 @@ import {
   AddRentalOwnerDto,
   AgreementTransitionDto,
   CreateRentalAgreementDto,
+  CreateSaleAgreementDto,
+  SaleAgreementQueryDto,
   AddRentalPropertyDto,
   CreateRentalLeaseDto,
   StartFullManagementDto,
@@ -112,6 +114,24 @@ export class RentalCommandController {
       input,
       request.correlationId,
     );
+  }
+
+  @Get('sale-agreements')
+  @RequirePermissions('sale-offer.read')
+  listSaleAgreements(@Req() request: AuthenticatedRequest, @Query() query: SaleAgreementQueryDto) {
+    return this.agreements.listSales(request.principal, query);
+  }
+
+  @Post('sale-agreements')
+  @RequirePermissions('sale-offer.manage')
+  createSaleAgreement(@Req() request: AuthenticatedRequest, @Body() input: CreateSaleAgreementDto) {
+    return this.agreements.createSale(request.principal, input, request.correlationId);
+  }
+
+  @Post('sale-agreements/:agreementId/confirm')
+  @RequirePermissions('sale-offer.manage')
+  confirmSaleAgreement(@Req() request: AuthenticatedRequest, @Param('agreementId', ParseUUIDPipe) agreementId: string, @Body() input: AgreementTransitionDto) {
+    return this.agreements.confirmSale(request.principal, agreementId, input, request.correlationId);
   }
 
   @Post('start-rental-brokerage')

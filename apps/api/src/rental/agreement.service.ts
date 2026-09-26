@@ -24,7 +24,7 @@ import type {
   CreateRentalAgreementDto,
   CreateSaleAgreementDto,
 } from './rental.dto';
-import { interestedViewingOutcomeFilter } from './viewing-outcome';
+import { interestedViewingOutcomeFilter, isInterestedViewingOutcome } from './viewing-outcome';
 
 const asDate = (value: string) => new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
 
@@ -189,7 +189,7 @@ export class AgreementService {
     this.auth.assertBranchPermission(principal, 'sale-offer.manage', viewing.branchId);
     const [lead, property] = await Promise.all([
       this.db.lead.findFirst({ where: { id: input.leadId, companyId: principal.companyId, intent: LeadIntent.BUY }, select: { id: true, partyId: true } }),
-      this.db.property.findFirst({ where: { id: input.propertyId, companyId: principal.companyId, status: PropertyStatus.ACTIVE }, include: { ownerships: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1 }, company: { select: { legalPartyId: true } } } }),
+      this.db.property.findFirst({ where: { id: input.propertyId, companyId: principal.companyId, status: PropertyStatus.ACTIVE, serviceIntent: 'SALE', saleSettlements: { none: { status: 'SETTLED' } }, saleOffers: { none: { status: 'ACCEPTED' } } }, include: { ownerships: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1 }, company: { select: { legalPartyId: true } } } }),
     ]);
     if (!lead?.partyId || !property?.ownerships[0] || !property.salePrice) throw new ConflictException('The buyer, seller, or sale asking price is unavailable.');
     const engagement = await this.db.serviceEngagement.findFirst({ where: { companyId: principal.companyId, propertyId: property.id, status: ServiceEngagementStatus.ACTIVE, serviceModel: { in: [ServiceModel.SALE_BROKERAGE, ServiceModel.COMPANY_OWNED] } }, orderBy: { createdAt: 'desc' } });
@@ -198,14 +198,21 @@ export class AgreementService {
     const sellerCommission = this.commission(input.sellerCommission, 'Seller');
     const buyerCommission = this.commission(input.buyerCommission, 'Buyer');
     if (!companyOwned && !sellerCommission) throw new BadRequestException('Seller commission is required for an external-owner sale.');
-    return this.db.$transaction(async (tx) => tx.saleAgreement.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: viewing.branchId, agreementNumber: await nextRecordNumber(tx, 'SALE_AGREEMENT'), leadId: lead.id, viewingId: viewing.id, propertyId: property.id, serviceEngagementId: engagement.id, sellerPartyId: property.ownerships[0]!.ownerPartyId, buyerPartyId: lead.partyId!, originalAskingPrice: property.salePrice!, finalSalePrice: positive(input.finalSalePrice, 'Final sale price'), currency: (property.salePriceCurrency ?? 'USD').toUpperCase(), companyOwned, sellerCommissionMethod: sellerCommission?.method ?? null, sellerCommissionValue: sellerCommission?.value ?? null, buyerCommissionMethod: buyerCommission?.method ?? null, buyerCommissionValue: buyerCommission?.value ?? null, notes: input.notes?.trim() || null, createdByUserId: principal.userId } }));
+    return this.db.$transaction(async (tx) => {
+      const agreement = await tx.saleAgreement.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: viewing.branchId, agreementNumber: await nextRecordNumber(tx, 'SALE_AGREEMENT'), leadId: lead.id, viewingId: viewing.id, propertyId: property.id, serviceEngagementId: engagement.id, sellerPartyId: property.ownerships[0]!.ownerPartyId, buyerPartyId: lead.partyId!, originalAskingPrice: property.salePrice!, finalSalePrice: positive(input.finalSalePrice, 'Final sale price'), currency: (property.salePriceCurrency ?? 'USD').toUpperCase(), companyOwned, sellerCommissionMethod: sellerCommission?.method ?? null, sellerCommissionValue: sellerCommission?.value ?? null, buyerCommissionMethod: buyerCommission?.method ?? null, buyerCommissionValue: buyerCommission?.value ?? null, notes: input.notes?.trim() || null, createdByUserId: principal.userId } });
+      await this.audit.write(tx, { actorUserId: principal.userId, action: 'sale-agreement.created', entityType: 'SaleAgreement', entityId: agreement.id, branchId: agreement.branchId, correlationId, after: { agreementNumber: agreement.agreementNumber, propertyId: agreement.propertyId, buyerPartyId: agreement.buyerPartyId } });
+      return agreement;
+    });
   }
 
   async confirmSale(principal: AuthenticatedPrincipal, id: string, input: AgreementTransitionDto, correlationId?: string) {
-    const agreement = await this.db.saleAgreement.findFirst({ where: { id, companyId: principal.companyId }, include: { serviceEngagement: true } });
+    const agreement = await this.db.saleAgreement.findFirst({ where: { id, companyId: principal.companyId }, include: { serviceEngagement: true, property: { select: { status: true } }, viewing: { select: { status: true, outcome: true } } } });
     if (!agreement) throw new NotFoundException('Sale agreement not found.');
     this.auth.assertBranchPermission(principal, 'sale-offer.manage', agreement.branchId);
     if (agreement.status !== AgreementStatus.DRAFT) throw new ConflictException('Only a draft agreement can be confirmed.');
+    if (agreement.property.status !== PropertyStatus.ACTIVE || agreement.serviceEngagement.status !== ServiceEngagementStatus.ACTIVE || agreement.viewing.status !== ViewingStatus.COMPLETED || !isInterestedViewingOutcome(agreement.viewing.outcome)) {
+      throw new ConflictException('The property, sale service, or interested viewing is no longer eligible.');
+    }
     if (!agreement.companyOwned && (!agreement.sellerCommissionMethod || !agreement.sellerCommissionValue)) throw new ConflictException('Seller commission is required for an external-owner sale.');
     return this.db.$transaction(async (tx) => {
       const changed = await tx.saleAgreement.updateMany({ where: { id, status: AgreementStatus.DRAFT, version: input.expectedVersion }, data: { status: AgreementStatus.CONFIRMED, confirmedAt: new Date(), version: { increment: 1 } } });
@@ -216,5 +223,34 @@ export class AgreementService {
       await this.audit.write(tx, { actorUserId: principal.userId, action: 'sale-agreement.confirmed', entityType: 'SaleAgreement', entityId: id, branchId: agreement.branchId, correlationId, reason: input.reason, before: { status: agreement.status }, after: { status: AgreementStatus.CONFIRMED, saleOfferId: offer.id } });
       return { agreement: confirmed, saleOfferId: offer.id };
     });
+  }
+
+  async listSales(principal: AuthenticatedPrincipal, query: { search?: string; branchId?: string; limit?: number; cursor?: string }) {
+    const allowed = this.auth.authorizedBranchIds(principal, 'sale-offer.read');
+    const limit = query.limit ?? 25;
+    const rows = await this.db.saleAgreement.findMany({
+      where: {
+        companyId: principal.companyId,
+        ...(allowed === null ? {} : { branchId: { in: [...allowed] } }),
+        ...(query.branchId ? { branchId: query.branchId } : {}),
+        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+        ...(query.search ? { OR: [
+          { agreementNumber: { contains: query.search, mode: 'insensitive' } },
+          { buyer: { displayName: { contains: query.search, mode: 'insensitive' } } },
+          { property: { name: { contains: query.search, mode: 'insensitive' } } },
+        ] } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+      include: {
+        buyer: { select: { displayName: true } },
+        seller: { select: { displayName: true } },
+        property: { select: { id: true, propertyCode: true, name: true } },
+        saleOffer: { select: { id: true, status: true, settlement: { select: { id: true, status: true } } } },
+      },
+    });
+    this.auth.assertCompanyPermission(principal, 'sale-offer.read');
+    const items = rows.slice(0, limit);
+    return { items, pageInfo: { hasNextPage: rows.length > limit, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null } };
   }
 }
