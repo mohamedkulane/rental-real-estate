@@ -25,6 +25,11 @@ import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import { WorkflowPayloadCipher } from '../workflow/workflow-payload-cipher';
 import { assertHierarchyOccupancyAvailable } from './space-hierarchy-occupancy';
+import {
+  ACTIVE_RESIDENTIAL_TENANCY_MESSAGE,
+  assertActiveResidentialTenancyAvailable,
+  isActiveResidentialTenancyConstraint,
+} from './active-tenancy';
 import type {
   ApplicationQueryDto,
   ApplicationTransitionDto,
@@ -693,6 +698,16 @@ export class LeasingService {
     }
     try {
       return await this.db.$transaction(async (tx) => {
+        if (activating) {
+          await assertActiveResidentialTenancyAvailable(tx, {
+            companyId: principal.companyId,
+            rentableSpaceId: current.rentableSpaceId,
+            tenantPartyIds: current.parties
+              .filter((party) => party.role === LeasePartyRole.TENANT)
+              .map((party) => party.partyId),
+            excludeLeaseId: current.id,
+          });
+        }
         const changed = await tx.lease.updateMany({
           where: { id, version: input.expectedVersion, status: current.status },
           data: {
@@ -752,6 +767,9 @@ export class LeasingService {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
       if (error instanceof ConflictException) throw error;
+      if (isActiveResidentialTenancyConstraint(error)) {
+        throw new ConflictException(ACTIVE_RESIDENTIAL_TENANCY_MESSAGE);
+      }
       if (isDatabaseConcurrencyConflict(error)) throw new ConflictException('Lease activation conflicts with an existing active possession.');
       throw error;
     }

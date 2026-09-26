@@ -46,6 +46,7 @@ model Company {
   reservations          Reservation[]
   tenantProfiles        TenantProfile[]
   leases                Lease[]
+  activeTenancies       ActiveTenancy[]
   fiscalYears           FiscalYear[]
   accounts              Account[]
   chargeTypes           ChargeType[]
@@ -354,6 +355,7 @@ model Party {
   tenant                                                         TenantProfile?
   rentalApplications                                             RentalApplication[]
   leaseParties                                                   LeaseParty[]
+  activeTenancy                                                  ActiveTenancy?
   chargesAsDebtor                                                Charge[]                  @relation("ChargeDebtor")
   invoicesAsDebtor                                               Invoice[]                 @relation("InvoiceDebtor")
   paymentsAsPayer                                                Payment[]                 @relation("PaymentPayer")
@@ -1293,6 +1295,7 @@ model Lease {
   expenses            Expense[]
   journalLines        JournalLine[]
   brokerageDeals      BrokerageDeal[]
+  activeTenancies     ActiveTenancy[]
 
   @@unique([companyId, leaseNumber], map: "uq_lease_company_number")
   @@index([companyId, branchId, status, leaseStartDate, id], map: "lease_register_idx")
@@ -1312,6 +1315,19 @@ model LeaseParty {
   @@unique([leaseId, partyId, role], map: "uq_lease_party_role")
   @@index([partyId, role], map: "lease_party_lookup_idx")
   @@map("lease_parties")
+}
+
+model ActiveTenancy {
+  partyId   String   @id @db.Uuid
+  leaseId   String   @db.Uuid
+  companyId String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  party     Party    @relation(fields: [partyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lease     Lease    @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([leaseId], map: "active_residential_tenancies_lease_idx")
+  @@map("active_residential_tenancies")
 }
 
 model LeaseVersion {
