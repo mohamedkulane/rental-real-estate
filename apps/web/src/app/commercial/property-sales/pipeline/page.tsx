@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-import { PageSkeleton } from '@/components/shared/loading-system';
-import { PropertySalesPipeline } from '@/features/commercial/property-sales-pipeline';
+import { redirect } from 'next/navigation';
 
-export default function PropertySalesPipelinePage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <PropertySalesPipeline />
-    </Suspense>
-  );
+export default function LegacySalesPipelinePage() {
+  redirect('/sales/deals');
 }

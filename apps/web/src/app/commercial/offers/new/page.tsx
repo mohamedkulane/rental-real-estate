@@ -1,5 +1,5 @@
-import { SaleOfferCreateWorkspace } from '@/features/commercial/commercial-offer-create';
+import { redirect } from 'next/navigation';
 
-export default function SaleOfferCreatePage() {
-  return <SaleOfferCreateWorkspace />;
+export default function LegacyOfferCreatePage() {
+  redirect('/sales/deals');
 }

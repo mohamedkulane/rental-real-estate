@@ -1,5 +1,5 @@
-import { SaleSettlementCreateWorkspace } from '@/features/commercial/commercial-settlement-workspace';
+import { redirect } from 'next/navigation';
 
-export default function SaleSettlementCreatePage() {
-  return <SaleSettlementCreateWorkspace />;
+export default function LegacySettlementCreatePage() {
+  redirect('/sales/deals');
 }

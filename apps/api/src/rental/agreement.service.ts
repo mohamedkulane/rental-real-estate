@@ -300,4 +300,27 @@ export class AgreementService {
     const items = rows.slice(0, limit);
     return { items, pageInfo: { hasNextPage: rows.length > limit, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null } };
   }
+
+  async getSale(principal: AuthenticatedPrincipal, id: string) {
+    const agreement = await this.db.saleAgreement.findFirst({
+      where: { id, companyId: principal.companyId },
+      include: {
+        buyer: { select: { id: true, displayName: true, partyNumber: true } },
+        seller: { select: { id: true, displayName: true, partyNumber: true } },
+        lead: { select: { id: true, leadNumber: true, displayName: true } },
+        viewing: { select: { id: true, scheduledAt: true, updatedAt: true, outcome: true } },
+        property: { select: { id: true, propertyCode: true, name: true, city: true, status: true } },
+        serviceEngagement: { select: { id: true, engagementNumber: true, serviceModel: true } },
+        saleOffer: {
+          include: {
+            events: { orderBy: { occurredAt: 'desc' }, take: 10 },
+            settlement: true,
+          },
+        },
+      },
+    });
+    if (!agreement) throw new NotFoundException('Sale agreement not found.');
+    this.auth.assertBranchPermission(principal, 'sale-offer.read', agreement.branchId);
+    return agreement;
+  }
 }

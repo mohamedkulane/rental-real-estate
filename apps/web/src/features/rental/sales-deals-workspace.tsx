@@ -51,7 +51,7 @@ export function SalesDealsWorkspace() {
 
   return (
     <CommercialShell principal={principal} activeItem="sales:deals">
-      <PageHeader eyebrow="Sales" title="Sales Deals" description="Sale agreements, confirmation, and settlement handoff." />
+      <PageHeader eyebrow="Sales" title="Sales Deals" description="Manage each agreement through settlement and completion without leaving Sales." />
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
       {!canRead ? <ErrorState message="Sales deal access requires sale-offer.read permission." /> : (
         <DataTableSurface className="mt-6">
@@ -73,7 +73,7 @@ export function SalesDealsWorkspace() {
                 <tbody>
                   {query.data.items.map((deal) => (
                     <tr key={deal.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-3 font-semibold text-slate-900">{deal.agreementNumber}</td>
+                      <td className="px-4 py-3"><Link className="font-semibold text-emerald-700" href={`/sales/deals/${deal.id}`}>{deal.agreementNumber}</Link></td>
                       <td className="px-4 py-3">{deal.buyer.displayName}</td>
                       <td className="px-4 py-3">{deal.seller.displayName}</td>
                       <td className="px-4 py-3"><Link className="font-medium text-emerald-700" href={`/portfolio/properties/${deal.property.id}`}>{deal.property.propertyCode} — {deal.property.name}</Link></td>
@@ -82,8 +82,9 @@ export function SalesDealsWorkspace() {
                       <td className="px-4 py-3">{deal.saleOffer?.settlement ? humanize(deal.saleOffer.settlement.status) : 'Not started'}</td>
                       <td className="px-4 py-3"><TableActionGroup className="justify-start">
                         {deal.status === 'DRAFT' && canManage ? <TableActionButton tone="manage" disabled={confirm.isPending} onClick={() => confirm.mutate(deal)}>Confirm</TableActionButton> : null}
-                        {deal.status === 'CONFIRMED' && deal.saleOffer ? <TableActionButton tone="agreement" href={`/commercial/settlements/new?offerId=${deal.saleOffer.id}`}>Settlement</TableActionButton> : null}
-                        {deal.saleOffer?.settlement ? <TableActionButton tone="open" href={`/commercial/settlements/${deal.saleOffer.settlement.id}`}>View</TableActionButton> : null}
+                        <TableActionButton tone={deal.saleOffer?.settlement ? 'agreement' : 'open'} href={`/sales/deals/${deal.id}`}>
+                          {deal.saleOffer?.settlement ? 'Settlement' : 'Open'}
+                        </TableActionButton>
                       </TableActionGroup></td>
                     </tr>
                   ))}

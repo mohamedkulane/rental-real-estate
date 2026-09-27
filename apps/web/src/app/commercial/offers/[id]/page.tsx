@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-import { PageSkeleton } from '@/components/shared/loading-system';
-import { OfferDetail } from '@/features/commercial/offer-detail';
+import { redirect } from 'next/navigation';
 
-export default function OfferDetailPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <OfferDetail />
-    </Suspense>
-  );
+export default function LegacyOfferDetailPage() {
+  redirect('/sales/deals');
 }

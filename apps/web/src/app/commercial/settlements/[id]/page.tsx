@@ -1,5 +1,5 @@
-import { SaleSettlementDetailWorkspace } from '@/features/commercial/commercial-settlement-workspace';
+import { redirect } from 'next/navigation';
 
-export default function SaleSettlementDetailPage() {
-  return <SaleSettlementDetailWorkspace />;
+export default function LegacySettlementDetailPage() {
+  redirect('/sales/deals');
 }

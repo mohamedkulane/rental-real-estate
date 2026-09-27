@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-import { PageSkeleton } from '@/components/shared/loading-system';
-import { CommercialRegister } from '@/features/commercial/commercial-register';
+import { redirect } from 'next/navigation';
 
-export default function SettlementsPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <CommercialRegister mode="sale-settlements" />
-    </Suspense>
-  );
+export default function LegacySettlementsPage() {
+  redirect('/sales/deals');
 }

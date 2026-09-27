@@ -122,6 +122,15 @@ export class RentalCommandController {
     return this.agreements.listSales(request.principal, query);
   }
 
+  @Get('sale-agreements/:agreementId')
+  @RequirePermissions('sale-offer.read')
+  getSaleAgreement(
+    @Req() request: AuthenticatedRequest,
+    @Param('agreementId', ParseUUIDPipe) agreementId: string,
+  ) {
+    return this.agreements.getSale(request.principal, agreementId);
+  }
+
   @Post('sale-agreements')
   @RequirePermissions('sale-offer.manage')
   createSaleAgreement(@Req() request: AuthenticatedRequest, @Body() input: CreateSaleAgreementDto) {
