@@ -120,12 +120,6 @@ export const rentalDestinations = [
     permission: 'service-engagement.read',
   },
   {
-    key: 'commercial:brokerage-deals',
-    label: 'Brokerage Deals',
-    href: '/commercial/rental-brokerage/deals',
-    permission: 'brokerage-deal.read',
-  },
-  {
     key: 'commercial:full-management',
     label: 'Full Management',
     href: '/commercial/full-management',
@@ -151,12 +145,6 @@ export const portfolioDestinations = [
     label: 'Properties',
     href: '/rental/properties',
     permission: 'portfolio.property.read',
-  },
-  {
-    key: 'viewings',
-    label: 'Viewings',
-    href: '/viewings',
-    permission: 'viewing.read',
   },
   {
     key: 'amenities',
@@ -279,6 +267,12 @@ export const operationsDestinations = [
     label: 'Overview',
     href: '/operations',
     permission: 'maintenance.read',
+  },
+  {
+    key: 'viewings',
+    label: 'Viewings',
+    href: '/viewings',
+    permission: 'viewing.read',
   },
   {
     key: 'operations:maintenance',

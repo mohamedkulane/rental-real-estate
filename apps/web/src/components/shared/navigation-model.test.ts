@@ -71,6 +71,7 @@ describe('simplified sidebar groups', () => {
     'lease.read',
     'sale-offer.read',
     'maintenance.read',
+    'viewing.read',
     'inspection.read',
     'construction.read',
     'development.read',
@@ -103,7 +104,6 @@ describe('simplified sidebar groups', () => {
           'portfolio.property.read',
           'crm.lead.read',
           'service-engagement.read',
-          'brokerage-deal.read',
           'lease.read',
           'payment.read',
         ],
@@ -113,13 +113,12 @@ describe('simplified sidebar groups', () => {
       'Overview',
       'Customers',
       'Brokerage',
-      'Brokerage Deals',
       'Full Management',
       'Leases',
     ]);
   });
 
-  it('lists properties and central viewings in the portfolio folder', () => {
+  it('lists portfolio owners, properties, and amenities only', () => {
     expect(
       buildSidebarGroups({
         permissions: ['portfolio.property.read', 'owner.read', 'viewing.read', 'portfolio.amenity.read'],
@@ -127,7 +126,7 @@ describe('simplified sidebar groups', () => {
       })
         .find((group) => group.title === 'PORTFOLIO')
         ?.items.map((item) => item.label),
-    ).toEqual(['Owners', 'Properties', 'Viewings', 'Amenities']);
+    ).toEqual(['Owners', 'Properties', 'Amenities']);
   });
 
   it('lists sales as overview buyers properties deals', () => {
@@ -148,15 +147,21 @@ describe('simplified sidebar groups', () => {
     ).toEqual(['Overview', 'Payments', 'Expenses', 'Owner Statements', 'Owner Payouts']);
   });
 
-  it('lists operations without vendors and work orders as primary', () => {
+  it('lists operations overview, viewings, maintenance, and inspections', () => {
     expect(
       buildSidebarGroups({
-        permissions: ['maintenance.read', 'inspection.read', 'vendor.read', 'work-order.read'],
+        permissions: [
+          'maintenance.read',
+          'viewing.read',
+          'inspection.read',
+          'vendor.read',
+          'work-order.read',
+        ],
         navigate: () => undefined,
       })
         .find((group) => group.title === 'OPERATIONS')
         ?.items.map((item) => item.label),
-    ).toEqual(['Overview', 'Maintenance', 'Inspections']);
+    ).toEqual(['Overview', 'Viewings', 'Maintenance', 'Inspections']);
   });
 
   it('routes construction and development through projects', () => {
