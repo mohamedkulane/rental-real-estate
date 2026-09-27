@@ -432,6 +432,7 @@ export function BuyerMatches({
           description={viewingFor.listing.title ?? 'Sale property viewing'}
           onClose={() => setViewingFor(null)}
           size="md"
+          layout="compact"
           footer={
             <WorkspaceFormDrawerFooter
               formId="schedule-sale-viewing"

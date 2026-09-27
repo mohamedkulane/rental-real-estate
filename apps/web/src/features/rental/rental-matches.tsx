@@ -570,6 +570,7 @@ export function RentalCustomerMatches({
           description="No brokerage start needed. View the unit first; continue only if the customer is interested."
           onClose={() => setViewingFor(null)}
           size="md"
+          layout="compact"
           footer={
             <WorkspaceFormDrawerFooter
               formId="schedule-rental-viewing"
