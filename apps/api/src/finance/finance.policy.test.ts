@@ -94,6 +94,14 @@ describe('finance.policy owner payouts', () => {
     expect(fee.toString()).toBe('85');
   });
 
+  it('deducts the canonical management fee from collected rent before owner payout', () => {
+    const collectedRent = new Prisma.Decimal('500');
+    const managementFee = computeManagementFee(collectedRent, new Prisma.Decimal('10'));
+    const ownerExpenses = new Prisma.Decimal('20');
+    expect(managementFee.toString()).toBe('50');
+    expect(collectedRent.minus(managementFee).minus(ownerExpenses).toString()).toBe('430');
+  });
+
   it('splits net payable by joint ownership shares', () => {
     const lines = computeOwnerShareAmounts(new Prisma.Decimal('1000'), [
       { ownerPartyId: 'owner-a', ownershipPercent: new Prisma.Decimal('60') },

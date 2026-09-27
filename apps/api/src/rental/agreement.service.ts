@@ -2,7 +2,9 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import {
   AgreementCommissionMethod,
   AgreementStatus,
+  BrokerageCommissionSide,
   BrokerageDealStatus,
+  ChargeStatus,
   LeadIntent,
   Prisma,
   PropertyStatus,
@@ -161,7 +163,50 @@ export class AgreementService {
       if (agreement.serviceEngagement.serviceModel === ServiceModel.RENTAL_BROKERAGE) {
         const owner = commissionAmount(confirmed.ownerCommissionMethod && confirmed.ownerCommissionValue ? { method: confirmed.ownerCommissionMethod, value: confirmed.ownerCommissionValue } : null, confirmed.finalRent);
         const tenant = commissionAmount(confirmed.tenantCommissionMethod && confirmed.tenantCommissionValue ? { method: confirmed.tenantCommissionMethod, value: confirmed.tenantCommissionValue } : null, confirmed.finalRent);
-        await tx.brokerageDeal.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: confirmed.branchId, serviceEngagementId: confirmed.serviceEngagementId, rentableSpaceId: confirmed.rentableSpaceId, leadId: confirmed.leadId, viewingId: confirmed.viewingId, rentalAgreementId: confirmed.id, dealNumber: await nextRecordNumber(tx, 'BROKERAGE_DEAL'), status: BrokerageDealStatus.CONFIRMED, rentBasis: confirmed.finalRent, grossCommission: owner.plus(tenant), currency: confirmed.currency } });
+        const deal = await tx.brokerageDeal.create({ data: { id: uuidv7(), companyId: principal.companyId, branchId: confirmed.branchId, serviceEngagementId: confirmed.serviceEngagementId, rentableSpaceId: confirmed.rentableSpaceId, leadId: confirmed.leadId, viewingId: confirmed.viewingId, rentalAgreementId: confirmed.id, dealNumber: await nextRecordNumber(tx, 'BROKERAGE_DEAL'), status: BrokerageDealStatus.CONFIRMED, rentBasis: confirmed.finalRent, grossCommission: owner.plus(tenant), currency: confirmed.currency } });
+        const chargeTypes = await tx.chargeType.findMany({
+          where: {
+            companyId: principal.companyId,
+            code: { in: ['OWNER_COMMISSION', 'TENANT_COMMISSION'] },
+            active: true,
+          },
+          select: { id: true, code: true },
+        });
+        const typeByCode = new Map(chargeTypes.map((row) => [row.code, row.id]));
+        const ownerTypeId = typeByCode.get('OWNER_COMMISSION');
+        const tenantTypeId = typeByCode.get('TENANT_COMMISSION');
+        if (!ownerTypeId || !tenantTypeId) {
+          throw new ConflictException('Owner and tenant commission charge types must be configured.');
+        }
+        const businessDate = asDate(principal.businessDate);
+        for (const receivable of [
+          { side: BrokerageCommissionSide.OWNER, debtorPartyId: confirmed.ownerPartyId, chargeTypeId: ownerTypeId, amount: owner },
+          { side: BrokerageCommissionSide.TENANT, debtorPartyId: confirmed.customerPartyId, chargeTypeId: tenantTypeId, amount: tenant },
+        ]) {
+          const charge = await tx.charge.create({
+            data: {
+              id: uuidv7(),
+              companyId: principal.companyId,
+              branchId: confirmed.branchId,
+              chargeNumber: await nextRecordNumber(tx, 'CHARGE'),
+              debtorPartyId: receivable.debtorPartyId,
+              propertyId: confirmed.propertyId,
+              rentableSpaceId: confirmed.rentableSpaceId,
+              serviceEngagementId: confirmed.serviceEngagementId,
+              brokerageDealId: deal.id,
+              commissionSide: receivable.side,
+              chargeTypeId: receivable.chargeTypeId,
+              businessDate,
+              dueDate: businessDate,
+              currency: confirmed.currency,
+              originalAmount: receivable.amount,
+              outstandingAmount: receivable.amount,
+              status: ChargeStatus.OPEN,
+              idempotencyKey: `brokerage:${deal.id}:${receivable.side}`,
+            },
+          });
+          await this.audit.write(tx, { actorUserId: principal.userId, action: 'billing.commission-receivable-created', entityType: 'Charge', entityId: charge.id, branchId: confirmed.branchId, correlationId, after: { brokerageDealId: deal.id, commissionSide: receivable.side, amount: receivable.amount.toString() } });
+        }
       }
       await this.audit.write(tx, { actorUserId: principal.userId, action: 'rental-agreement.confirmed', entityType: 'RentalAgreement', entityId: id, branchId: agreement.branchId, correlationId, reason: input.reason, before: { status: agreement.status }, after: { status: AgreementStatus.CONFIRMED } });
       return confirmed;

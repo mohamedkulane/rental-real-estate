@@ -1831,6 +1831,8 @@ model Charge {
   serviceEngagementId String?                   @db.Uuid
   chargeTypeId        String                    @db.Uuid
   billingScheduleId   String?                   @db.Uuid
+  brokerageDealId     String?                   @db.Uuid
+  commissionSide      BrokerageCommissionSide?
   businessDate        DateTime                  @db.Date
   periodStart         DateTime?                 @db.Date
   periodEnd           DateTime?                 @db.Date
@@ -1851,15 +1853,18 @@ model Charge {
   serviceEngagement   ServiceEngagement?        @relation(fields: [serviceEngagementId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   chargeType          ChargeType                @relation(fields: [chargeTypeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   billingSchedule     BillingSchedule?          @relation(fields: [billingScheduleId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  brokerageDeal       BrokerageDeal?            @relation(fields: [brokerageDealId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   invoiceLines        InvoiceLine[]
   allocations         PaymentAllocation[]
   adjustments         ChargeAdjustment[]
   constructionBilling ConstructionBillingEvent?
 
   @@unique([companyId, chargeNumber], map: "uq_charge_company_number")
+  @@unique([brokerageDealId, commissionSide], map: "uq_charge_brokerage_commission_side")
   @@index([companyId, branchId, status, dueDate], map: "charge_register_idx")
   @@index([debtorPartyId, status, dueDate], map: "charge_debtor_status_due_idx")
   @@index([leaseId, status, businessDate], map: "charge_lease_status_date_idx")
+  @@index([brokerageDealId, status], map: "charge_brokerage_deal_status_idx")
   @@map("charges")
 }
 
@@ -1919,13 +1924,15 @@ model ChargeAdjustment {
 }
 
 model PaymentMethod {
-  id        String    @id @db.Uuid
-  companyId String    @db.Uuid
-  code      String    @db.VarChar(40)
-  name      String    @db.VarChar(100)
-  active    Boolean   @default(true)
-  company   Company   @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  payments  Payment[]
+  id                 String    @id @db.Uuid
+  companyId          String    @db.Uuid
+  code               String    @db.VarChar(40)
+  name               String    @db.VarChar(100)
+  active             Boolean   @default(true)
+  receivingAccountId String?   @db.Uuid
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receivingAccount   Account?  @relation("PaymentMethodReceivingAccount", fields: [receivingAccountId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payments           Payment[]
 
   @@unique([companyId, code], map: "uq_payment_method_company_code")
   @@map("payment_methods")
@@ -2196,22 +2203,23 @@ model AccountingPeriod {
 }
 
 model Account {
-  id                String        @id @db.Uuid
-  companyId         String        @db.Uuid
-  code              String        @db.VarChar(30)
-  name              String        @db.VarChar(160)
+  id                String          @id @db.Uuid
+  companyId         String          @db.Uuid
+  code              String          @db.VarChar(30)
+  name              String          @db.VarChar(160)
   accountType       AccountType
   normalBalance     NormalBalance
   fundClass         FundClass?
-  currency          String?       @db.Char(3)
-  systemReserved    Boolean       @default(false)
-  postingAllowed    Boolean       @default(true)
-  active            Boolean       @default(true)
-  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime      @updatedAt @db.Timestamptz(6)
-  company           Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  currency          String?         @db.Char(3)
+  systemReserved    Boolean         @default(false)
+  postingAllowed    Boolean         @default(true)
+  active            Boolean         @default(true)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(6)
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   journalLines      JournalLine[]
-  receivingPayments Payment[]     @relation("PaymentReceivingAccount")
+  receivingPayments Payment[]       @relation("PaymentReceivingAccount")
+  paymentMethods    PaymentMethod[] @relation("PaymentMethodReceivingAccount")
 
   @@unique([companyId, code], map: "uq_account_company_code")
   @@map("accounts")
@@ -2423,6 +2431,7 @@ model BrokerageDeal {
   viewing             Viewing?            @relation(fields: [viewingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   rentalApplication   RentalApplication?  @relation(fields: [rentalApplicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   journalSource       JournalSourceLink?
+  charges             Charge[]
 
   @@unique([companyId, dealNumber], map: "uq_brokerage_deal_company_number")
   @@index([companyId, branchId, status, createdAt(sort: Desc)], map: "brokerage_deal_register_idx")
@@ -3110,6 +3119,11 @@ enum ChargeStatus {
   PAID
   WRITTEN_OFF
   CANCELLED
+}
+
+enum BrokerageCommissionSide {
+  OWNER
+  TENANT
 }
 
 enum InvoiceStatus {

@@ -8,7 +8,7 @@ import toast from '@/lib/toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
-import { formatDate, humanize } from '@/lib/presentation';
+import { formatDate } from '@/lib/presentation';
 import type { PickRecord } from '@/features/workflow/record-picker';
 import {
   FinanceField,
@@ -19,10 +19,12 @@ import {
   financeMoney,
   financeNested,
   financePickerMap,
+  financeScalar,
   financeText,
   type FinanceRow,
 } from '@/features/finance/finance-forms';
 import { CommercialShell, useCommercialPrincipal } from './commercial-shell';
+import { RecordPaymentDrawer, type CommissionPaymentContext } from '@/features/finance/record-payment-drawer';
 
 const dealTransitions: Record<string, readonly string[]> = {
   DRAFT: ['NEGOTIATING', 'CANCELLED'],
@@ -107,7 +109,7 @@ export function BrokerageDealCreateWorkspace() {
             label="Rentable space"
             path={
               engagement?.propertyId
-                ? `/rentable-spaces?status=ACTIVE&propertyId=${String(engagement.propertyId)}`
+                ? `/rentable-spaces?status=ACTIVE&propertyId=${financeScalar(engagement.propertyId)}`
                 : '/rentable-spaces?status=ACTIVE'
             }
             value={space?.id ?? ''}
@@ -171,8 +173,10 @@ export function BrokerageDealDetailWorkspace() {
   const { principal } = useCommercialPrincipal();
   const canRead = Boolean(principal && hasPermission(principal, 'brokerage-deal.read'));
   const canManage = Boolean(principal && hasPermission(principal, 'brokerage-deal.manage'));
+  const canRecordPayment = Boolean(principal && hasPermission(principal, 'payment.create'));
   const [selectedLease, setSelectedLease] = useState<PickRecord | null>(null);
   const [linkReason, setLinkReason] = useState('');
+  const [paymentContext, setPaymentContext] = useState<CommissionPaymentContext | null>(null);
 
   const query = useQuery({
     queryKey: ['brokerage-deal', params.id],
@@ -216,6 +220,10 @@ export function BrokerageDealDetailWorkspace() {
     !financeText(query.data?.leaseId) &&
     status !== 'CLOSED' &&
     status !== 'CANCELLED';
+  const receivables = (query.data?.commissionReceivables as Array<Record<string, unknown>> | undefined) ?? [];
+  const propertyName = financeText(financeNested(query.data ?? {}, 'rentableSpace', 'property', 'name'));
+  const dealNumber = financeText(query.data?.dealNumber);
+  const branchId = financeText(query.data?.branchId);
 
   return (
     <CommercialShell principal={principal} activeItem="commercial:rental-brokerage">
@@ -237,6 +245,7 @@ export function BrokerageDealDetailWorkspace() {
         <ErrorState message={userFacingError(query.error)} />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-[15px] font-semibold text-slate-900">Deal summary</h2>
@@ -256,6 +265,44 @@ export function BrokerageDealDetailWorkspace() {
               <FinanceField label="Closed" value={formatDate(query.data?.closedAt)} />
             </div>
           </section>
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-[15px] font-semibold text-slate-900">Commission collection</h2>
+            <p className="mt-1 text-xs text-slate-500">Contractual revenue and cash received are tracked separately.</p>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {receivables.map((receivable) => {
+                const side = financeText(receivable.side) as 'OWNER' | 'TENANT';
+                const expected = financeScalar(receivable.expected);
+                const received = financeScalar(receivable.received);
+                const outstanding = financeScalar(receivable.outstanding);
+                const debtor = receivable.debtor as Record<string, unknown> | undefined;
+                const payerPartyId = financeText(debtor?.id);
+                const payerName = financeText(debtor?.displayName);
+                const currency = financeText(receivable.currency);
+                return (
+                  <article key={financeText(receivable.id)} className="rounded-lg border border-slate-200 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-slate-900">{side === 'OWNER' ? 'Owner Commission' : 'Tenant Commission'}</h3>
+                      <StatusBadge value={financeText(receivable.status)} />
+                    </div>
+                    <dl className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                      <div><dt className="text-slate-500">Expected</dt><dd className="mt-1 font-semibold text-slate-900">{financeMoney(currency, expected)}</dd></div>
+                      <div><dt className="text-slate-500">Received</dt><dd className="mt-1 font-semibold text-slate-900">{financeMoney(currency, received)}</dd></div>
+                      <div><dt className="text-slate-500">Outstanding</dt><dd className="mt-1 font-semibold text-slate-900">{financeMoney(currency, outstanding)}</dd></div>
+                    </dl>
+                    {canRecordPayment && Number(outstanding) > 0 ? (
+                      <button className="button primary mt-4 w-full" type="button" onClick={() => setPaymentContext({
+                        chargeId: financeText(receivable.id), branchId, payerPartyId, payerName, side,
+                        propertyName, dealNumber, currency, expected, received, outstanding,
+                      })}>
+                        Record {side === 'OWNER' ? 'Owner' : 'Tenant'} Payment
+                      </button>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+          </div>
           <div className="space-y-6">
             {canLinkLease ? (
               <FinanceFormPanel
@@ -304,6 +351,7 @@ export function BrokerageDealDetailWorkspace() {
           </div>
         </div>
       )}
+      {principal ? <RecordPaymentDrawer open={Boolean(paymentContext)} onClose={() => setPaymentContext(null)} principal={principal} context={paymentContext} /> : null}
     </CommercialShell>
   );
 }

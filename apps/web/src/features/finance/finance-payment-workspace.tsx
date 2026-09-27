@@ -34,9 +34,6 @@ export function PaymentCreateWorkspace() {
   const allowed = Boolean(principal && hasPermission(principal, 'payment.create'));
   const [branchId, setBranchId] = useState('');
   const [payerKind, setPayerKind] = useState<'tenant' | 'owner'>('tenant');
-  const [purpose, setPurpose] = useState<'GENERAL' | 'OWNER_COMMISSION' | 'TENANT_COMMISSION'>(
-    'GENERAL',
-  );
   const [payer, setPayer] = useState<PickRecord | null>(null);
   const [methodId, setMethodId] = useState('');
   const [receivingAccountId, setReceivingAccountId] = useState('');
@@ -60,7 +57,7 @@ export function PaymentCreateWorkspace() {
           currency,
           amount,
           receivedAt,
-          purpose,
+          purpose: 'GENERAL',
           externalRef: externalRef || undefined,
           notes: notes || undefined,
         }),
@@ -68,10 +65,7 @@ export function PaymentCreateWorkspace() {
     onSuccess: (payment: { id: string }) => {
       notify.payment({
         title: 'Payment recorded',
-        message:
-          purpose === 'GENERAL'
-            ? 'Manual payment captured successfully.'
-            : 'Commission payment recorded and allocated.',
+        message: 'Manual payment captured successfully.',
       });
       router.push(`/finance/payments/${payment.id}`);
     },
@@ -83,7 +77,7 @@ export function PaymentCreateWorkspace() {
       <PageHeader
         eyebrow="Finance"
         title="Record Payment"
-        description="Capture cash from a tenant or owner. Commission payments create and settle the receivable automatically."
+        description="Capture a general payment. Commission payments start from their brokerage receivable."
         action={
           <Link className="button secondary" href="/finance/payments">
             Back to payments
@@ -111,33 +105,10 @@ export function PaymentCreateWorkspace() {
             <BranchSelect branches={principal.branches} value={branchId} onChange={setBranchId} />
           ) : null}
           <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-            Payment for
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-              value={purpose}
-              onChange={(event) => {
-                const next = event.target.value as typeof purpose;
-                setPurpose(next);
-                if (next === 'OWNER_COMMISSION') {
-                  setPayerKind('owner');
-                  setPayer(null);
-                } else if (next === 'TENANT_COMMISSION') {
-                  setPayerKind('tenant');
-                  setPayer(null);
-                }
-              }}
-            >
-              <option value="GENERAL">Rent / general payment</option>
-              <option value="OWNER_COMMISSION">Owner brokerage commission</option>
-              <option value="TENANT_COMMISSION">Tenant brokerage commission</option>
-            </select>
-          </label>
-          <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
             Payer type
             <select
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
               value={payerKind}
-              disabled={purpose !== 'GENERAL'}
               onChange={(event) => {
                 setPayerKind(event.target.value as 'tenant' | 'owner');
                 setPayer(null);
@@ -208,6 +179,7 @@ export function PaymentDetailWorkspace() {
   const canRead = Boolean(principal && hasPermission(principal, 'payment.read'));
   const canAllocate = Boolean(principal && hasPermission(principal, 'payment.allocate'));
   const canReceipt = Boolean(principal && hasPermission(principal, 'payment.create'));
+  const [reverseReason, setReverseReason] = useState('');
 
   const payment = useQuery({
     queryKey: ['payment', params.id],
@@ -269,6 +241,20 @@ export function PaymentDetailWorkspace() {
     onSuccess: () => {
       notify.payment({ title: 'Receipt issued', message: 'Tenant receipt is ready to share.' });
       void queryClient.invalidateQueries({ queryKey: ['payment', params.id] });
+    },
+    onError: (error) => toast.error(userFacingError(error)),
+  });
+
+  const reverse = useMutation({
+    mutationFn: () => api(`/payments/${params.id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reverseReason }),
+    }),
+    onSuccess: () => {
+      notify.payment({ title: 'Payment reversed', message: 'Allocated balances were restored to their receivables.' });
+      setReverseReason('');
+      void queryClient.invalidateQueries({ queryKey: ['payment', params.id] });
+      void queryClient.invalidateQueries({ queryKey: ['finance-overview'] });
     },
     onError: (error) => toast.error(userFacingError(error)),
   });
@@ -422,6 +408,16 @@ export function PaymentDetailWorkspace() {
                 <p className="mt-3 text-[13px] text-slate-500">Receipt is not issued yet.</p>
               )}
             </section>
+            {canAllocate && financeText(payment.data?.status) !== 'REVERSED' ? (
+              <section className="rounded-xl border border-red-200 bg-white p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900">Reverse payment</h2>
+                <p className="mt-1 text-xs text-slate-500">This preserves the record and restores allocated outstanding balances.</p>
+                <FinanceTextArea label="Reason" value={reverseReason} onChange={setReverseReason} />
+                <button className="button destructive mt-3 w-full" type="button" disabled={reverse.isPending || reverseReason.trim().length < 3} onClick={() => reverse.mutate()}>
+                  {reverse.isPending ? 'Reversing…' : 'Reverse payment'}
+                </button>
+              </section>
+            ) : null}
           </aside>
         </div>
       )}

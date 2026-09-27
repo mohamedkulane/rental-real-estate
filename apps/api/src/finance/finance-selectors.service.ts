@@ -42,6 +42,7 @@ export class FinanceSelectorsService {
     const where: Prisma.PaymentMethodWhereInput = {
       companyId: principal.companyId,
       active: true,
+      code: { in: ['EVC', 'EDAHAB', 'SOMNET', 'SALAAM_BANK'] },
       ...(query.search
         ? {
             OR: [
@@ -56,7 +57,7 @@ export class FinanceSelectorsService {
       where,
       take: query.limit + 1,
       orderBy: [{ code: 'asc' }, { id: 'asc' }],
-      select: { id: true, code: true, name: true },
+      select: { id: true, code: true, name: true, receivingAccountId: true },
     });
     return cursorPage(rows, query.limit, (row) => row.id);
   }

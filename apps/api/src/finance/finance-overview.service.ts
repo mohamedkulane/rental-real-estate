@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
-  BrokerageDealStatus,
   ChargeStatus,
   ExpenseStatus,
   InvoiceStatus,
   JournalStatus,
   PaymentStatus,
   PayoutStatus,
+  Prisma,
 } from '@prisma/client';
 import { DatabaseService } from '../database/database.service';
 import { AuthorizationService } from '../security/authorization.service';
@@ -77,6 +77,13 @@ export class FinanceOverviewService {
         }),
       ]);
 
+    const [brokerage, rentCollected, managementFees, ownerPayouts] = await Promise.all([
+      this.brokerageSummary(companyId, principal),
+      this.sumAllocatedByChargeTypes(companyId, principal, ['RENT']),
+      this.sumManagementFees(companyId, principal),
+      this.sumOwnerPayouts(companyId, principal),
+    ]);
+
     return {
       summary: {
         openInvoices,
@@ -93,12 +100,13 @@ export class FinanceOverviewService {
         }),
         receivablesTotal: await this.sumOutstandingCharges(companyId, principal),
         paymentsReceivedTotal: await this.sumRecentPayments(companyId, principal),
-        managementFeesTotal: await this.sumPostedExpensesByCategory(
-          companyId,
-          principal,
-          'MANAGEMENT',
-        ),
-        brokerageCommissionsTotal: await this.sumBrokerageCommissions(companyId, principal),
+        rentCollected,
+        brokerageCommissionEarned: brokerage.earned,
+        brokerageCashReceived: brokerage.received,
+        brokerageOutstanding: brokerage.outstanding,
+        managementFeesTotal: managementFees,
+        ownerPayoutsTotal: ownerPayouts,
+        brokerageCommissionsTotal: brokerage.earned,
       },
       charts: await this.charts(principal),
       recentInvoices,
@@ -133,33 +141,71 @@ export class FinanceOverviewService {
     return result._sum.amount?.toString() ?? '0';
   }
 
-  private async sumPostedExpensesByCategory(
+  private async sumAllocatedByChargeTypes(
     companyId: string,
     principal: AuthenticatedPrincipal,
-    categoryCode: string,
+    chargeTypeCodes: string[],
   ) {
-    const result = await this.db.expense.aggregate({
+    const result = await this.db.paymentAllocation.aggregate({
       where: {
-        companyId,
-        categoryCode,
-        status: { in: [ExpenseStatus.POSTED, ExpenseStatus.PAID, ExpenseStatus.RECONCILED] },
-        ...this.branchFilter(principal, 'expense.read'),
+        reversedAt: null,
+        charge: {
+          companyId,
+          chargeType: { code: { in: chargeTypeCodes } },
+          ...this.branchFilter(principal, 'billing.read'),
+        },
       },
       _sum: { amount: true },
     });
     return result._sum.amount?.toString() ?? '0';
   }
 
-  private async sumBrokerageCommissions(companyId: string, principal: AuthenticatedPrincipal) {
-    const result = await this.db.brokerageDeal.aggregate({
+  private async brokerageSummary(companyId: string, principal: AuthenticatedPrincipal) {
+    const where: Prisma.ChargeWhereInput = {
+      companyId,
+      commissionSide: { not: null },
+      status: { notIn: [ChargeStatus.CANCELLED, ChargeStatus.WRITTEN_OFF] },
+      ...this.branchFilter(principal, 'billing.read'),
+    };
+    const [totals, received] = await Promise.all([
+      this.db.charge.aggregate({
+        where,
+        _sum: { originalAmount: true, outstandingAmount: true },
+      }),
+      this.sumAllocatedByChargeTypes(companyId, principal, [
+        'OWNER_COMMISSION',
+        'TENANT_COMMISSION',
+      ]),
+    ]);
+    return {
+      earned: totals._sum.originalAmount?.toString() ?? '0',
+      received,
+      outstanding: totals._sum.outstandingAmount?.toString() ?? '0',
+    };
+  }
+
+  private async sumManagementFees(companyId: string, principal: AuthenticatedPrincipal) {
+    const result = await this.db.ownerPayout.aggregate({
       where: {
         companyId,
-        status: { in: [BrokerageDealStatus.CONFIRMED, BrokerageDealStatus.CLOSED] },
-        ...this.branchFilter(principal, 'brokerage-deal.read'),
+        status: { notIn: [PayoutStatus.CANCELLED, PayoutStatus.REJECTED, PayoutStatus.FAILED] },
+        ...this.branchFilter(principal, 'payout.read'),
       },
-      _sum: { grossCommission: true },
+      _sum: { managementFee: true },
     });
-    return result._sum.grossCommission?.toString() ?? '0';
+    return result._sum.managementFee?.toString() ?? '0';
+  }
+
+  private async sumOwnerPayouts(companyId: string, principal: AuthenticatedPrincipal) {
+    const result = await this.db.ownerPayout.aggregate({
+      where: {
+        companyId,
+        status: { in: [PayoutStatus.PAID, PayoutStatus.RECONCILED] },
+        ...this.branchFilter(principal, 'payout.read'),
+      },
+      _sum: { netPayable: true },
+    });
+    return result._sum.netPayable?.toString() ?? '0';
   }
 
   private async charts(principal: AuthenticatedPrincipal) {
@@ -177,7 +223,7 @@ export class FinanceOverviewService {
       });
     }
 
-    const [collections, billed, expenses] = await Promise.all([
+    const [collections, billed, expenses, paymentMethods, sourceAmounts] = await Promise.all([
       Promise.all(
         months.map(async (month) => {
           const result = await this.db.payment.aggregate({
@@ -220,7 +266,27 @@ export class FinanceOverviewService {
         },
         _sum: { amount: true },
       }),
+      this.db.payment.groupBy({
+        by: ['methodId'],
+        where: {
+          companyId,
+          status: { not: PaymentStatus.REVERSED },
+          ...this.branchFilter(principal, 'payment.read'),
+        },
+        _sum: { amount: true },
+      }),
+      Promise.all([
+        this.sumAllocatedByChargeTypes(companyId, principal, ['RENT']),
+        this.sumAllocatedByChargeTypes(companyId, principal, ['OWNER_COMMISSION']),
+        this.sumAllocatedByChargeTypes(companyId, principal, ['TENANT_COMMISSION']),
+      ]),
     ]);
+
+    const methodRows = await this.db.paymentMethod.findMany({
+      where: { id: { in: paymentMethods.map((row) => row.methodId) }, companyId },
+      select: { id: true, name: true },
+    });
+    const methodName = new Map(methodRows.map((row) => [row.id, row.name]));
 
     return {
       monthlyCollections: collections,
@@ -234,15 +300,14 @@ export class FinanceOverviewService {
         value: Number(row._sum.amount ?? 0),
       })),
       revenueBySource: [
-        {
-          label: 'Collections',
-          value: collections.reduce((sum, row) => sum + row.value, 0),
-        },
-        {
-          label: 'Brokerage',
-          value: Number(await this.sumBrokerageCommissions(companyId, principal)),
-        },
+        { label: 'Rent', value: Number(sourceAmounts[0]) },
+        { label: 'Owner commission', value: Number(sourceAmounts[1]) },
+        { label: 'Tenant commission', value: Number(sourceAmounts[2]) },
       ],
+      receivedByMethod: paymentMethods.map((row) => ({
+        label: methodName.get(row.methodId) ?? 'Payment method',
+        value: Number(row._sum.amount ?? 0),
+      })),
     };
   }
 }

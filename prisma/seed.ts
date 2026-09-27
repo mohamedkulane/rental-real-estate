@@ -926,6 +926,22 @@ async function seed(): Promise<void> {
       },
     });
   }
+  const receivingAccountByMethod = {
+    EVC: '1030',
+    EDAHAB: '1030',
+    SOMNET: '1030',
+    SALAAM_BANK: '1020',
+  } as const;
+  for (const [methodCode, accountCode] of Object.entries(receivingAccountByMethod)) {
+    const account = await database.account.findUniqueOrThrow({
+      where: { companyId_code: { companyId: company.id, code: accountCode } },
+      select: { id: true },
+    });
+    await database.paymentMethod.update({
+      where: { companyId_code: { companyId: company.id, code: methodCode } },
+      data: { receivingAccountId: account.id },
+    });
+  }
   const fiscalYearName = `FY${today.getUTCFullYear()}`;
   const fiscalStartsOn = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
   const fiscalEndsOn = new Date(Date.UTC(today.getUTCFullYear(), 11, 31));

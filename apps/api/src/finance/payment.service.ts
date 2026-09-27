@@ -12,6 +12,7 @@ import type {
   AllocatePaymentDto,
   CreatePaymentDto,
   PaymentQueryDto,
+  ReversePaymentDto,
 } from './finance.dto';
 
 const isoInstant = (value: string): Date => new Date(value);
@@ -59,6 +60,23 @@ export class PaymentService {
   async create(principal: AuthenticatedPrincipal, input: CreatePaymentDto, correlationId?: string) {
     assertManualPaymentOnly(input.autoCapture);
     this.auth.assertBranchPermission(principal, 'payment.create', input.branchId);
+    const contextualCharge = input.chargeId
+      ? await this.db.charge.findFirst({
+          where: {
+            id: input.chargeId,
+            companyId: principal.companyId,
+            branchId: input.branchId,
+            status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
+          },
+          include: { chargeType: { select: { code: true } } },
+        })
+      : null;
+    if (input.chargeId && !contextualCharge) {
+      throw new ConflictException('The selected receivable is unavailable or already paid.');
+    }
+    if (contextualCharge && contextualCharge.debtorPartyId !== input.payerPartyId) {
+      throw new ConflictException('The payer must match the receivable debtor.');
+    }
     const payer = await this.db.party.findFirst({
       where: { id: input.payerPartyId, companyId: principal.companyId },
       select: { id: true },
@@ -66,12 +84,22 @@ export class PaymentService {
     if (!payer) throw new ConflictException('Payer party is unavailable.');
     const method = await this.db.paymentMethod.findFirst({
       where: { id: input.methodId, companyId: principal.companyId, active: true },
-      select: { id: true },
+      select: { id: true, code: true, receivingAccountId: true },
     });
     if (!method) throw new ConflictException('Payment method is unavailable.');
+    const receivingAccountId = contextualCharge
+      ? method.receivingAccountId
+      : input.receivingAccountId;
+    if (!receivingAccountId) {
+      throw new ConflictException(
+        contextualCharge
+          ? 'This payment method has no configured receiving account.'
+          : 'Choose a receiving account for a general payment.',
+      );
+    }
     const account = await this.db.account.findFirst({
       where: {
-        id: input.receivingAccountId,
+        id: receivingAccountId,
         companyId: principal.companyId,
         active: true,
         postingAllowed: true,
@@ -87,13 +115,15 @@ export class PaymentService {
     }
     const amount = new Prisma.Decimal(input.amount);
     if (amount.lte(0)) throw new BadRequestException('Payment amount must be positive.');
-    const purpose = input.purpose ?? 'GENERAL';
-    const commissionTypeCode =
-      purpose === 'OWNER_COMMISSION'
-        ? 'OWNER_COMMISSION'
-        : purpose === 'TENANT_COMMISSION'
-          ? 'TENANT_COMMISSION'
-          : null;
+    if (contextualCharge && contextualCharge.currency !== input.currency.toUpperCase()) {
+      throw new ConflictException('Payment currency must match the receivable currency.');
+    }
+    if (contextualCharge && amount.gt(contextualCharge.outstandingAmount)) {
+      throw new BadRequestException('Payment amount cannot exceed the outstanding balance.');
+    }
+    if (!contextualCharge && input.purpose && input.purpose !== 'GENERAL') {
+      throw new BadRequestException('Commission payments must start from a commission receivable.');
+    }
     try {
       return await this.db.$transaction(async (tx) => {
         if (input.idempotencyKey) {
@@ -104,53 +134,6 @@ export class PaymentService {
           if (existing) return existing;
         }
 
-        let commissionChargeId: string | null = null;
-        if (commissionTypeCode) {
-          const chargeType = await tx.chargeType.findFirst({
-            where: {
-              companyId: principal.companyId,
-              code: commissionTypeCode,
-              active: true,
-            },
-          });
-          if (!chargeType) {
-            throw new ConflictException(
-              `${commissionTypeCode === 'OWNER_COMMISSION' ? 'Owner' : 'Tenant'} commission charge type is not configured.`,
-            );
-          }
-          const businessDate = new Date(input.receivedAt.slice(0, 10));
-          const charge = await tx.charge.create({
-            data: {
-              id: uuidv7(),
-              companyId: principal.companyId,
-              branchId: input.branchId,
-              chargeNumber: await nextRecordNumber(tx, 'CHARGE'),
-              debtorPartyId: input.payerPartyId,
-              chargeTypeId: chargeType.id,
-              businessDate,
-              dueDate: businessDate,
-              currency: input.currency.toUpperCase(),
-              originalAmount: amount,
-              outstandingAmount: amount,
-              status: ChargeStatus.OPEN,
-            },
-          });
-          commissionChargeId = charge.id;
-          await this.audit.write(tx, {
-            actorUserId: principal.userId,
-            action: 'billing.commission-charge-created',
-            entityType: 'Charge',
-            entityId: charge.id,
-            branchId: input.branchId,
-            correlationId,
-            after: {
-              chargeNumber: charge.chargeNumber,
-              purpose,
-              amount: amount.toString(),
-            },
-          });
-        }
-
         const payment = await tx.payment.create({
           data: {
             id: uuidv7(),
@@ -159,11 +142,11 @@ export class PaymentService {
             paymentNumber: await nextRecordNumber(tx, 'PAYMENT'),
             payerPartyId: input.payerPartyId,
             methodId: input.methodId,
-            receivingAccountId: input.receivingAccountId,
+            receivingAccountId,
             currency: input.currency.toUpperCase(),
             amount,
             verifiedAmount: amount,
-            status: commissionChargeId
+            status: contextualCharge
               ? PaymentStatus.FULLY_ALLOCATED
               : PaymentStatus.CAPTURED,
             externalRef: input.externalRef?.trim() || null,
@@ -171,25 +154,42 @@ export class PaymentService {
             receivedAt: isoInstant(input.receivedAt),
             notes: input.notes?.trim() || null,
             receivedByUserId: principal.userId,
-            postedAt: commissionChargeId ? new Date() : null,
+            postedAt: contextualCharge ? new Date() : null,
           },
         });
 
-        if (commissionChargeId) {
+        if (contextualCharge) {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT id FROM charges WHERE id = ${contextualCharge.id}::uuid FOR UPDATE`,
+          );
+          const lockedCharge = await tx.charge.findFirst({
+            where: {
+              id: contextualCharge.id,
+              companyId: principal.companyId,
+              branchId: input.branchId,
+              debtorPartyId: input.payerPartyId,
+              currency: input.currency.toUpperCase(),
+              status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
+            },
+          });
+          if (!lockedCharge || amount.gt(lockedCharge.outstandingAmount)) {
+            throw new ConflictException('The receivable balance changed. Refresh and try again.');
+          }
           await tx.paymentAllocation.create({
             data: {
               id: uuidv7(),
               paymentId: payment.id,
-              chargeId: commissionChargeId,
+              chargeId: lockedCharge.id,
               amount,
               allocatedAt: new Date(),
             },
           });
+          const outstanding = lockedCharge.outstandingAmount.minus(amount);
           await tx.charge.update({
-            where: { id: commissionChargeId },
+            where: { id: lockedCharge.id },
             data: {
-              outstandingAmount: new Prisma.Decimal(0),
-              status: ChargeStatus.PAID,
+              outstandingAmount: outstanding,
+              status: outstanding.isZero() ? ChargeStatus.PAID : ChargeStatus.PARTIALLY_PAID,
             },
           });
         }
@@ -204,8 +204,8 @@ export class PaymentService {
           after: {
             paymentNumber: payment.paymentNumber,
             amount: payment.amount.toString(),
-            purpose,
-            commissionChargeId,
+            chargeId: contextualCharge?.id ?? null,
+            paymentMethod: method.code,
           },
         });
         return payment;
@@ -223,6 +223,64 @@ export class PaymentService {
       }
       throw error;
     }
+  }
+
+  async reverse(
+    principal: AuthenticatedPrincipal,
+    paymentId: string,
+    input: ReversePaymentDto,
+    correlationId?: string,
+  ) {
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM payments WHERE id = ${paymentId}::uuid AND "companyId" = ${principal.companyId}::uuid FOR UPDATE`,
+      );
+      const payment = await tx.payment.findFirst({
+        where: { id: paymentId, companyId: principal.companyId },
+        include: { allocations: { where: { reversedAt: null }, include: { charge: true } }, receipt: true },
+      });
+      if (!payment) throw new NotFoundException('Payment not found.');
+      this.auth.assertBranchPermission(principal, 'payment.allocate', payment.branchId);
+      if (payment.status === PaymentStatus.REVERSED) {
+        throw new ConflictException('This payment has already been reversed.');
+      }
+      const now = new Date();
+      for (const allocation of payment.allocations) {
+        const outstanding = allocation.charge.outstandingAmount.plus(allocation.amount);
+        await tx.charge.update({
+          where: { id: allocation.chargeId },
+          data: {
+            outstandingAmount: outstanding,
+            status: outstanding.gte(allocation.charge.originalAmount)
+              ? ChargeStatus.OPEN
+              : ChargeStatus.PARTIALLY_PAID,
+          },
+        });
+        await tx.paymentAllocation.update({
+          where: { id: allocation.id },
+          data: { reversedAt: now },
+        });
+      }
+      if (payment.receipt) {
+        await tx.receipt.update({ where: { id: payment.receipt.id }, data: { status: ReceiptStatus.VOIDED } });
+      }
+      const reversed = await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.REVERSED },
+      });
+      await this.audit.write(tx, {
+        actorUserId: principal.userId,
+        action: 'payment.reversed',
+        entityType: 'Payment',
+        entityId: payment.id,
+        branchId: payment.branchId,
+        correlationId,
+        reason: input.reason,
+        before: { status: payment.status },
+        after: { status: PaymentStatus.REVERSED, restoredAllocations: payment.allocations.length },
+      });
+      return reversed;
+    });
   }
 
   async allocate(

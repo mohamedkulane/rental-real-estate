@@ -32,6 +32,7 @@ import {
   OwnerStatementQueryDto,
   PaymentQueryDto,
   ReverseJournalDto,
+  ReversePaymentDto,
   RunBillingDto,
   SaleOfferQueryDto,
   SaleOfferTransitionDto,
@@ -145,6 +146,16 @@ export class PaymentController {
   @RequirePermissions('payment.create')
   receipt(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.payments.issueReceipt(req.principal, id, req.correlationId);
+  }
+
+  @Post(':id/reverse')
+  @RequirePermissions('payment.allocate')
+  reverse(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: ReversePaymentDto,
+  ) {
+    return this.payments.reverse(req.principal, id, input, req.correlationId);
   }
 }
 

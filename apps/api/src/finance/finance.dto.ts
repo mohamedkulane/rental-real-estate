@@ -98,7 +98,8 @@ export class CreatePaymentDto {
   @IsUUID() branchId!: string;
   @IsUUID() payerPartyId!: string;
   @IsUUID() methodId!: string;
-  @IsUUID() receivingAccountId!: string;
+  @IsOptional() @IsUUID() receivingAccountId?: string;
+  @IsOptional() @IsUUID() chargeId?: string;
   @IsString() @Length(3, 3) currency!: string;
   @IsNumberString() amount!: string;
   @IsDateString() receivedAt!: string;
@@ -106,7 +107,7 @@ export class CreatePaymentDto {
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
   @IsOptional() @IsString() @MaxLength(160) idempotencyKey?: string;
   @IsOptional() @IsBoolean() autoCapture?: boolean;
-  /** When set, creates a matching commission charge and allocates this payment to it. */
+  /** Retained for backward-compatible general payment clients. Commission context uses chargeId. */
   @IsOptional()
   @IsIn(['GENERAL', 'OWNER_COMMISSION', 'TENANT_COMMISSION'])
   purpose?: 'GENERAL' | 'OWNER_COMMISSION' | 'TENANT_COMMISSION';
@@ -218,6 +219,10 @@ export class CreateBrokerageDealDto {
 
 export class BrokerageDealTransitionDto {
   @IsEnum(BrokerageDealStatus) status!: BrokerageDealStatus;
+  @IsString() @Length(3, 500) reason!: string;
+}
+
+export class ReversePaymentDto {
   @IsString() @Length(3, 500) reason!: string;
 }
 

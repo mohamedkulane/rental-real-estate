@@ -230,10 +230,40 @@ export class BrokerageDealService {
   async get(principal: AuthenticatedPrincipal, dealId: string) {
     const deal = await this.db.brokerageDeal.findFirst({
       where: { id: dealId, companyId: principal.companyId },
-      include: { lease: true, rentableSpace: true },
+      include: {
+        lease: true,
+        rentableSpace: { include: { property: { select: { id: true, propertyCode: true, name: true } } } },
+        rentalAgreement: {
+          include: {
+            owner: { select: { id: true, displayName: true } },
+            customer: { select: { id: true, displayName: true } },
+          },
+        },
+        charges: {
+          where: { commissionSide: { not: null } },
+          include: {
+            debtor: { select: { id: true, displayName: true } },
+            chargeType: { select: { code: true, name: true } },
+          },
+          orderBy: { commissionSide: 'asc' },
+        },
+      },
     });
     if (!deal) throw new NotFoundException('Brokerage deal not found.');
     this.auth.assertBranchPermission(principal, 'brokerage-deal.read', deal.branchId);
-    return deal;
+    return {
+      ...deal,
+      commissionReceivables: deal.charges.map((charge) => ({
+        id: charge.id,
+        side: charge.commissionSide,
+        label: charge.chargeType.name,
+        debtor: charge.debtor,
+        currency: charge.currency,
+        expected: charge.originalAmount,
+        received: charge.originalAmount.minus(charge.outstandingAmount),
+        outstanding: charge.outstandingAmount,
+        status: charge.status,
+      })),
+    };
   }
 }

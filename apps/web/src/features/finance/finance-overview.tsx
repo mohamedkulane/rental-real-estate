@@ -30,7 +30,12 @@ type FinanceOverview = {
     openCharges?: number;
     receivablesTotal?: string;
     paymentsReceivedTotal?: string;
+    rentCollected?: string;
+    brokerageCommissionEarned?: string;
+    brokerageCashReceived?: string;
+    brokerageOutstanding?: string;
     managementFeesTotal?: string;
+    ownerPayoutsTotal?: string;
     brokerageCommissionsTotal?: string;
   };
   charts?: {
@@ -38,6 +43,7 @@ type FinanceOverview = {
     billedVsCollected?: Array<{ label: string; billed: number; collected: number }>;
     expenseBreakdown?: Array<{ label: string; value: number }>;
     revenueBySource?: Array<{ label: string; value: number }>;
+    receivedByMethod?: Array<{ label: string; value: number }>;
   };
   recentInvoices?: Array<Record<string, unknown>>;
   recentPayments?: Array<Record<string, unknown>>;
@@ -277,12 +283,12 @@ export function FinanceOverview() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                      Brokerage deals
+                      Brokerage earned
                     </p>
                     <p className="mt-2 text-[22px] font-bold">
-                      ${formatMoney(summary?.brokerageCommissionsTotal)}
+                      ${formatMoney(summary?.brokerageCommissionEarned)}
                     </p>
-                    <p className="mt-1 text-[12px] text-slate-400">Confirmed deal amounts, not cash yet</p>
+                    <p className="mt-1 text-[12px] text-slate-400">Contractual commission receivables</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">
@@ -347,22 +353,41 @@ export function FinanceOverview() {
 
             <div className="grid gap-4">
               <HighlightMetric
-                label="Receivables outstanding"
-                value={`$${formatMoney(summary?.receivablesTotal)}`}
-                hint="Open charge balances still owed by payers"
-              />
-              <HighlightMetric
-                label="Payments received"
-                value={`$${formatMoney(summary?.paymentsReceivedTotal)}`}
-                hint="Last 6 months of captured receipts"
+                label="Brokerage cash received"
+                value={`$${formatMoney(summary?.brokerageCashReceived)}`}
+                hint="Owner and tenant commission allocations received"
                 accent
               />
               <HighlightMetric
-                label="Brokerage commissions"
-                value={`$${formatMoney(summary?.brokerageCommissionsTotal)}`}
-                hint="Deal totals — use Record Payment to capture cash"
+                label="Brokerage outstanding"
+                value={`$${formatMoney(summary?.brokerageOutstanding)}`}
+                hint="Confirmed commission still waiting collection"
+              />
+              <HighlightMetric
+                label="Management fee earned"
+                value={`$${formatMoney(summary?.managementFeesTotal)}`}
+                hint="Derived from canonical owner payout calculations"
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <HighlightMetric label="Rent collected" value={`$${formatMoney(summary?.rentCollected)}`} hint="Payments allocated to rent charges" />
+            <HighlightMetric label="Owner payouts" value={`$${formatMoney(summary?.ownerPayoutsTotal)}`} hint="Paid and reconciled owner payouts" />
+            <HighlightMetric label="All cash received" value={`$${formatMoney(summary?.paymentsReceivedTotal)}`} hint="Non-reversed payments in the last six months" />
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-semibold text-slate-900">Money received by source</h2>
+              <p className="mt-1 text-xs text-slate-500">Based on real payment allocations.</p>
+              <div className="mt-5"><BarChart items={query.data?.charts?.revenueBySource ?? []} /></div>
+            </section>
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-semibold text-slate-900">Money received by method</h2>
+              <p className="mt-1 text-xs text-slate-500">Non-reversed payments grouped by payment method.</p>
+              <div className="mt-5"><BarChart items={query.data?.charts?.receivedByMethod ?? []} /></div>
+            </section>
           </div>
 
           {query.data?.charts?.expenseBreakdown?.length ? (
