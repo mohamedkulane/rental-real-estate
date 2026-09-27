@@ -51,11 +51,53 @@ export class BrokerageDealService {
       take: query.limit + 1,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
-        rentableSpace: { select: { spaceCode: true, name: true } },
-        lease: { select: { leaseNumber: true } },
+        rentableSpace: {
+          select: {
+            id: true,
+            spaceCode: true,
+            name: true,
+            property: { select: { id: true, propertyCode: true, name: true } },
+          },
+        },
+        lease: { select: { id: true, leaseNumber: true, status: true, moveIn: true } },
+        rentalAgreement: {
+          select: {
+            id: true,
+            agreementNumber: true,
+            finalRent: true,
+            owner: { select: { id: true, displayName: true } },
+            customer: { select: { id: true, displayName: true } },
+          },
+        },
+        charges: {
+          where: { commissionSide: { not: null } },
+          select: {
+            id: true,
+            commissionSide: true,
+            currency: true,
+            originalAmount: true,
+            outstandingAmount: true,
+            status: true,
+          },
+        },
       },
     });
-    return cursorPage(rows, query.limit, (row) => row.id);
+    const page = cursorPage(rows, query.limit, (row) => row.id);
+    return {
+      ...page,
+      items: page.items.map((deal) => ({
+        ...deal,
+        commissionReceivables: deal.charges.map((charge) => ({
+          id: charge.id,
+          side: charge.commissionSide,
+          currency: charge.currency,
+          expected: charge.originalAmount,
+          received: charge.originalAmount.minus(charge.outstandingAmount),
+          outstanding: charge.outstandingAmount,
+          status: charge.status,
+        })),
+      })),
+    };
   }
 
   async create(principal: AuthenticatedPrincipal, input: CreateBrokerageDealDto, correlationId?: string) {
@@ -138,12 +180,26 @@ export class BrokerageDealService {
   ) {
     const current = await this.db.brokerageDeal.findFirst({
       where: { id: dealId, companyId: principal.companyId },
+      include: {
+        charges: {
+          where: { commissionSide: { not: null } },
+          select: { outstandingAmount: true },
+        },
+      },
     });
     if (!current) throw new NotFoundException('Brokerage deal not found.');
     this.auth.assertBranchPermission(principal, 'brokerage-deal.manage', current.branchId);
     assertLifecycleTransition(current.status, input.status, brokerageDealTransitions);
     if (input.status === BrokerageDealStatus.CLOSED && !current.leaseId) {
       throw new ConflictException('A linked lease is required before closing a brokerage deal.');
+    }
+    if (
+      input.status === BrokerageDealStatus.CLOSED &&
+      current.charges.some((charge) => charge.outstandingAmount.greaterThan(0))
+    ) {
+      throw new ConflictException(
+        'Owner and tenant commissions must be fully collected before closing the brokerage deal.',
+      );
     }
     return this.db.$transaction(async (tx) => {
       const row = await tx.brokerageDeal.update({
@@ -231,7 +287,7 @@ export class BrokerageDealService {
     const deal = await this.db.brokerageDeal.findFirst({
       where: { id: dealId, companyId: principal.companyId },
       include: {
-        lease: true,
+        lease: { include: { moveIn: true } },
         rentableSpace: { include: { property: { select: { id: true, propertyCode: true, name: true } } } },
         rentalAgreement: {
           include: {

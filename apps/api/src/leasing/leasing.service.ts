@@ -707,6 +707,14 @@ export class LeasingService {
             },
           },
         });
+        const linkedDeals = await tx.brokerageDeal.updateMany({
+          where: {
+            companyId: principal.companyId,
+            rentalAgreementId: agreement.id,
+            leaseId: null,
+          },
+          data: { leaseId: lease.id },
+        });
         await this.audit.write(tx, {
           actorUserId: principal.userId,
           action: 'lease.created-from-agreement',
@@ -716,6 +724,17 @@ export class LeasingService {
           correlationId,
           after: { leaseNumber: lease.leaseNumber, agreementId: agreement.id },
         });
+        if (linkedDeals.count > 0) {
+          await this.audit.write(tx, {
+            actorUserId: principal.userId,
+            action: 'brokerage-deal.lease-linked-automatically',
+            entityType: 'Lease',
+            entityId: lease.id,
+            branchId: agreement.branchId,
+            correlationId,
+            after: { agreementId: agreement.id, linkedDeals: linkedDeals.count },
+          });
+        }
         return lease;
       });
     } catch (error) {

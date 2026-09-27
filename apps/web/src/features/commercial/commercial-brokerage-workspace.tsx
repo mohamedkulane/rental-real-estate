@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from '@/lib/toast';
@@ -9,16 +9,11 @@ import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { formatDate } from '@/lib/presentation';
-import type { PickRecord } from '@/features/workflow/record-picker';
 import {
   FinanceField,
-  FinanceFormPanel,
-  FinanceRecordSelect,
-  FinanceTextField,
   TransitionPanel,
   financeMoney,
   financeNested,
-  financePickerMap,
   financeScalar,
   financeText,
   type FinanceRow,
@@ -32,141 +27,6 @@ const dealTransitions: Record<string, readonly string[]> = {
   CONFIRMED: ['CLOSED', 'CANCELLED'],
 };
 
-export function BrokerageDealCreateWorkspace() {
-  const router = useRouter();
-  const { principal } = useCommercialPrincipal();
-  const allowed = Boolean(principal && hasPermission(principal, 'brokerage-deal.manage'));
-  const [engagement, setEngagement] = useState<PickRecord | null>(null);
-  const [space, setSpace] = useState<PickRecord | null>(null);
-  const [lease, setLease] = useState<PickRecord | null>(null);
-  const [lead, setLead] = useState<PickRecord | null>(null);
-  const [grossCommission, setGrossCommission] = useState('');
-  const [rentBasis, setRentBasis] = useState('');
-  const [currency, setCurrency] = useState('USD');
-
-  const create = useMutation({
-    mutationFn: () =>
-      api<{ id: string }>('/brokerage-deals', {
-        method: 'POST',
-        body: JSON.stringify({
-          serviceEngagementId: engagement?.id,
-          rentableSpaceId: space?.id,
-          leaseId: lease?.id || undefined,
-          leadId: lead?.id || undefined,
-          grossCommission,
-          rentBasis: rentBasis || undefined,
-          currency,
-        }),
-      }),
-    onSuccess: (deal: { id: string }) => {
-      toast.success('Brokerage deal created.');
-      router.push(`/commercial/rental-brokerage/${deal.id}`);
-    },
-    onError: (error) => toast.error(userFacingError(error)),
-  });
-
-  return (
-    <CommercialShell principal={principal} activeItem="commercial:rental-brokerage">
-      <PageHeader
-        eyebrow="Commercial"
-        title="Create Rental Brokerage Deal"
-        description="Tenant placement commission workflow. No recurring Full Management billing."
-        action={
-          <Link className="button secondary" href="/commercial/rental-brokerage/deals">
-            Back to deals
-          </Link>
-        }
-      />
-      {principal && !allowed ? (
-        <ErrorState message="Brokerage deal creation requires brokerage-deal.manage permission." />
-      ) : (
-        <FinanceFormPanel
-          title="Deal details"
-          description="Placement commission only. This does not create recurring rent billing."
-          submitLabel="Create deal"
-          busy={create.isPending}
-          disabled={!engagement?.id || !space?.id || Number(grossCommission) <= 0}
-          onSubmit={() => {
-            if (!engagement?.id || !space?.id || Number(grossCommission) <= 0) {
-              toast.error('Choose an engagement, space, and commission amount.');
-              return;
-            }
-            create.mutate();
-          }}
-        >
-          <FinanceRecordSelect
-            label="Rental brokerage engagement"
-            path="/service-engagements?status=ACTIVE&serviceModel=RENTAL_BROKERAGE"
-            value={engagement?.id ?? ''}
-            map={financePickerMap.engagement}
-            onChange={(record) => {
-              setEngagement(record);
-              setSpace(null);
-            }}
-            required
-          />
-          <FinanceRecordSelect
-            label="Rentable space"
-            path={
-              engagement?.propertyId
-                ? `/rentable-spaces?status=ACTIVE&propertyId=${financeScalar(engagement.propertyId)}`
-                : '/rentable-spaces?status=ACTIVE'
-            }
-            value={space?.id ?? ''}
-            map={financePickerMap.space}
-            onChange={setSpace}
-            required
-            enabled={Boolean(engagement?.propertyId)}
-            emptyHint={
-              engagement?.propertyId
-                ? 'No active space on this engagement’s property.'
-                : 'Choose a rental brokerage engagement first.'
-            }
-          />
-          <FinanceRecordSelect
-            label="Lease (optional)"
-            path="/leases?status=ACTIVE"
-            value={lease?.id ?? ''}
-            map={financePickerMap.lease}
-            onChange={setLease}
-          />
-          <FinanceRecordSelect
-            label="Lead (optional)"
-            path="/crm/leads?intent=RENT"
-            value={lead?.id ?? ''}
-            map={financePickerMap.lead}
-            onChange={setLead}
-          />
-          <FinanceTextField
-            label="Gross commission"
-            type="number"
-            min={0}
-            step="0.01"
-            value={grossCommission}
-            onChange={setGrossCommission}
-            required
-          />
-          <FinanceTextField
-            label="Rent basis"
-            type="number"
-            min={0}
-            step="0.01"
-            value={rentBasis}
-            onChange={setRentBasis}
-          />
-          <FinanceTextField
-            label="Currency"
-            value={currency}
-            onChange={(value) => setCurrency(value.toUpperCase())}
-            maxLength={3}
-            required
-          />
-        </FinanceFormPanel>
-      )}
-    </CommercialShell>
-  );
-}
-
 export function BrokerageDealDetailWorkspace() {
   const params = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -174,8 +34,6 @@ export function BrokerageDealDetailWorkspace() {
   const canRead = Boolean(principal && hasPermission(principal, 'brokerage-deal.read'));
   const canManage = Boolean(principal && hasPermission(principal, 'brokerage-deal.manage'));
   const canRecordPayment = Boolean(principal && hasPermission(principal, 'payment.create'));
-  const [selectedLease, setSelectedLease] = useState<PickRecord | null>(null);
-  const [linkReason, setLinkReason] = useState('');
   const [paymentContext, setPaymentContext] = useState<CommissionPaymentContext | null>(null);
 
   const query = useQuery({
@@ -197,33 +55,37 @@ export function BrokerageDealDetailWorkspace() {
     onError: (error) => toast.error(userFacingError(error)),
   });
 
-  const linkLease = useMutation({
-    mutationFn: () =>
-      api(`/brokerage-deals/${params.id}/lease`, {
-        method: 'PATCH',
-        body: JSON.stringify({ leaseId: selectedLease?.id, reason: linkReason }),
-      }),
-    onSuccess: () => {
-      toast.success('Lease linked to deal.');
-      setSelectedLease(null);
-      setLinkReason('');
-      void queryClient.invalidateQueries({ queryKey: ['brokerage-deal', params.id] });
-    },
-    onError: (error) => toast.error(userFacingError(error)),
-  });
-
   const status = financeText(query.data?.status);
-  const rentableSpaceId = financeText(query.data?.rentableSpaceId);
   const linkedLeaseNumber = financeText(financeNested(query.data ?? {}, 'lease', 'leaseNumber'));
-  const canLinkLease =
-    canManage &&
-    !financeText(query.data?.leaseId) &&
-    status !== 'CLOSED' &&
-    status !== 'CANCELLED';
   const receivables = (query.data?.commissionReceivables as Array<Record<string, unknown>> | undefined) ?? [];
   const propertyName = financeText(financeNested(query.data ?? {}, 'rentableSpace', 'property', 'name'));
   const dealNumber = financeText(query.data?.dealNumber);
   const branchId = financeText(query.data?.branchId);
+  const propertyId = financeText(financeNested(query.data ?? {}, 'rentableSpace', 'property', 'id'));
+  const leadId = financeText(query.data?.leadId);
+  const leaseId = financeText(query.data?.leaseId);
+  const agreementNumber = financeText(financeNested(query.data ?? {}, 'rentalAgreement', 'agreementNumber'));
+  const ownerName = financeText(financeNested(query.data ?? {}, 'rentalAgreement', 'owner', 'displayName'));
+  const customerName = financeText(financeNested(query.data ?? {}, 'rentalAgreement', 'customer', 'displayName'));
+  const moveInStatus = financeText(financeNested(query.data ?? {}, 'lease', 'moveIn', 'status'));
+  const ownerReceivable = receivables.find((row) => financeText(row.side) === 'OWNER');
+  const tenantReceivable = receivables.find((row) => financeText(row.side) === 'TENANT');
+  const ownerOutstanding = Number(financeScalar(ownerReceivable?.outstanding));
+  const tenantOutstanding = Number(financeScalar(tenantReceivable?.outstanding));
+  const workflowSteps = [
+    { label: 'Agreement confirmed', complete: Boolean(financeText(query.data?.rentalAgreementId)) },
+    { label: 'Lease linked', complete: Boolean(financeText(query.data?.leaseId)) },
+    { label: 'Owner commission collected', complete: ownerOutstanding <= 0 },
+    { label: 'Tenant commission collected', complete: tenantOutstanding <= 0 },
+    { label: 'Deal closed', complete: status === 'CLOSED' },
+  ];
+  const nextAction = status === 'CLOSED'
+    ? 'This placement is complete.'
+    : !financeText(query.data?.leaseId)
+      ? 'Create the lease from the confirmed agreement; it will link automatically.'
+      : ownerOutstanding > 0 || tenantOutstanding > 0
+        ? 'Record the outstanding owner and tenant commission payments.'
+        : 'Close the operational brokerage deal.';
 
   return (
     <CommercialShell principal={principal} activeItem="commercial:rental-brokerage">
@@ -232,8 +94,8 @@ export function BrokerageDealDetailWorkspace() {
         title={financeText(query.data?.dealNumber) || 'Brokerage Deal'}
         description="Placement commission lifecycle from draft through close."
         action={
-          <Link className="button secondary" href="/commercial/rental-brokerage/deals">
-            Back to deals
+          <Link className="button secondary" href="/commercial/rental-brokerage">
+            Back to brokerage
           </Link>
         }
       />
@@ -244,6 +106,27 @@ export function BrokerageDealDetailWorkspace() {
       ) : query.isError ? (
         <ErrorState message={userFacingError(query.error)} />
       ) : (
+        <>
+        <section className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Placement workflow</p>
+              <h2 className="mt-1 text-base font-semibold text-slate-900">One clear path from agreement to collection</h2>
+              <p className="mt-1 text-sm text-slate-600">Next action: {nextAction}</p>
+            </div>
+            <StatusBadge value={status} />
+          </div>
+          <ol className="mt-5 grid gap-3 sm:grid-cols-5">
+            {workflowSteps.map((step, index) => (
+              <li key={step.label} className="flex items-start gap-2 text-sm sm:block">
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${step.complete ? 'bg-emerald-700 text-white' : 'border border-slate-300 bg-white text-slate-500'}`}>
+                  {step.complete ? 'OK' : index + 1}
+                </span>
+                <span className={`mt-1 block leading-snug sm:mt-2 ${step.complete ? 'font-semibold text-emerald-900' : 'text-slate-600'}`}>{step.label}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -260,9 +143,18 @@ export function BrokerageDealDetailWorkspace() {
                 label="Linked lease"
                 value={linkedLeaseNumber !== 'Not recorded' ? linkedLeaseNumber : 'Not linked yet'}
               />
+              <FinanceField label="Owner" value={ownerName} />
+              <FinanceField label="Customer" value={customerName} />
+              <FinanceField label="Agreement" value={agreementNumber} />
+              <FinanceField label="Move-In" value={moveInStatus} />
               <FinanceField label="Commission" value={financeMoney(query.data?.currency, query.data?.grossCommission)} />
               <FinanceField label="Rent basis" value={financeMoney(query.data?.currency, query.data?.rentBasis)} />
               <FinanceField label="Closed" value={formatDate(query.data?.closedAt)} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+              {propertyId !== 'Not recorded' ? <Link className="button secondary" href={`/portfolio/properties/${propertyId}`}>Open Property</Link> : null}
+              {leadId !== 'Not recorded' ? <Link className="button secondary" href={`/rental/customers/${leadId}`}>Open Customer</Link> : null}
+              {leaseId !== 'Not recorded' ? <Link className="button secondary" href={`/leasing/leases/${leaseId}`}>Open Lease</Link> : null}
             </div>
           </section>
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -304,52 +196,21 @@ export function BrokerageDealDetailWorkspace() {
           </section>
           </div>
           <div className="space-y-6">
-            {canLinkLease ? (
-              <FinanceFormPanel
-                title="Link lease"
-                description="Choose the signed lease for this rentable space before closing the deal."
-                submitLabel="Link lease"
-                busy={linkLease.isPending}
-                disabled={!selectedLease?.id || linkReason.trim().length < 3}
-                onSubmit={() => {
-                  if (!selectedLease?.id || linkReason.trim().length < 3) {
-                    toast.error('Choose a lease and enter a reason.');
-                    return;
-                  }
-                  linkLease.mutate();
-                }}
-              >
-                <FinanceRecordSelect
-                  label="Lease"
-                  path={
-                    rentableSpaceId
-                      ? `/leases?rentableSpaceId=${rentableSpaceId}&limit=50`
-                      : '/leases?limit=50'
-                  }
-                  value={selectedLease?.id ?? ''}
-                  map={financePickerMap.lease}
-                  onChange={setSelectedLease}
-                  required
-                  emptyHint="No active lease on this rentable space yet. Create one under Leasing → Lease Contracts."
-                />
-                <FinanceTextField
-                  label="Reason"
-                  value={linkReason}
-                  onChange={setLinkReason}
-                  required
-                />
-              </FinanceFormPanel>
-            ) : null}
             {canManage ? (
               <TransitionPanel
                 currentStatus={status}
-                transitions={dealTransitions[status] ?? []}
+                transitions={(dealTransitions[status] ?? []).filter(
+                  (nextStatus) =>
+                    nextStatus !== 'CLOSED' ||
+                    (ownerOutstanding <= 0 && tenantOutstanding <= 0),
+                )}
                 busy={transition.isPending}
                 onTransition={(nextStatus, reason) => transition.mutate({ status: nextStatus, reason })}
               />
             ) : null}
           </div>
         </div>
+        </>
       )}
       {principal ? <RecordPaymentDrawer open={Boolean(paymentContext)} onClose={() => setPaymentContext(null)} principal={principal} context={paymentContext} /> : null}
     </CommercialShell>

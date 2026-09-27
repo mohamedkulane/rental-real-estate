@@ -45,8 +45,8 @@ type ServiceDashboardConfig = {
   activeItem: string;
   serviceModel: ServiceModel;
   readPermission: string;
-  secondaryLabel: string;
-  secondaryHref: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
   title: string;
   description: string;
   tableTitle: string;
@@ -56,6 +56,34 @@ type ServiceDashboardConfig = {
   showSpaceColumn?: boolean;
   premiumLayout?: boolean;
   metrics: MetricDefinition[];
+};
+
+type BrokeragePlacementRow = {
+  id: string;
+  dealNumber: string;
+  leadId: string | null;
+  status: string;
+  currency: string;
+  rentableSpace: {
+    id: string;
+    spaceCode: string;
+    name: string;
+    property: { id: string; propertyCode: string; name: string };
+  };
+  rentalAgreement: {
+    agreementNumber: string;
+    finalRent: string;
+    owner: { displayName: string };
+    customer: { displayName: string };
+  } | null;
+  lease: { id: string; leaseNumber: string; status: string; moveIn: { status: string } | null } | null;
+  commissionReceivables: Array<{
+    id: string;
+    side: string | null;
+    expected: string;
+    received: string;
+    outstanding: string;
+  }>;
 };
 
 function MetricCard({
@@ -100,9 +128,10 @@ function CommercialHeaderActions({
   secondaryHref,
   secondaryLabel,
 }: {
-  secondaryHref: string;
-  secondaryLabel: string;
+  secondaryHref?: string;
+  secondaryLabel?: string;
 }) {
+  if (!secondaryHref || !secondaryLabel) return null;
   return (
     <div className="flex flex-row flex-wrap items-center justify-end gap-2">
       <Link className="button primary shrink-0 whitespace-nowrap" href={secondaryHref}>
@@ -118,6 +147,11 @@ async function countItems(path: string, predicate?: (row: Record<string, unknown
   return predicate ? items.filter(predicate).length : items.length;
 }
 
+function recordString(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === 'string' ? value : '';
+}
+
 function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig }) {
   const { principal } = useCommercialPrincipal();
   const allowed = Boolean(principal && hasPermission(principal, config.readPermission));
@@ -131,6 +165,14 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
       api<CursorPage<EngagementRecord>>(
         `/service-engagements?limit=25&serviceModel=${config.serviceModel}&status=ACTIVE`,
       ),
+  });
+  const placementsQuery = useQuery({
+    queryKey: ['rental-brokerage-placements'],
+    enabled:
+      allowed &&
+      config.serviceModel === 'RENTAL_BROKERAGE' &&
+      Boolean(principal && hasPermission(principal, 'brokerage-deal.read')),
+    queryFn: () => api<CursorPage<BrokeragePlacementRow>>('/brokerage-deals?limit=100'),
   });
 
   const metricQueries = useQueries({
@@ -159,12 +201,13 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
     );
   });
 
-  const headerActions = (
-    <CommercialHeaderActions
-      secondaryHref={config.secondaryHref}
-      secondaryLabel={config.secondaryLabel}
-    />
-  );
+  const headerActions =
+    config.secondaryHref && config.secondaryLabel ? (
+      <CommercialHeaderActions
+        secondaryHref={config.secondaryHref}
+        secondaryLabel={config.secondaryLabel}
+      />
+    ) : undefined;
 
   const metricsSection = (
     <div className="service-metric-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -371,6 +414,79 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
               )}
             </DataTableSurface>
 
+            {config.serviceModel === 'RENTAL_BROKERAGE' &&
+            principal &&
+            hasPermission(principal, 'brokerage-deal.read') ? (
+              <DataTableSurface>
+                <header className="border-b border-slate-100 px-5 py-4">
+                  <h2 className="text-[15px] font-semibold text-slate-900">Placements and commission collection</h2>
+                  <p className="mt-1 text-[13px] text-slate-500">
+                    Confirmed agreements automatically create placements. Leases link automatically when created.
+                  </p>
+                </header>
+                {placementsQuery.isLoading ? (
+                  <TableSkeleton columns={7} />
+                ) : placementsQuery.isError ? (
+                  <ErrorState message={userFacingError(placementsQuery.error)} />
+                ) : !(placementsQuery.data?.items ?? []).length ? (
+                  <DataTableEmpty
+                    title="No confirmed placements yet"
+                    description="Complete a customer viewing and confirm the rental agreement to create the first placement."
+                  />
+                ) : (
+                  <DataTableScroll>
+                    <DataTable minWidth={1120}>
+                      <DataTableHead>
+                        <tr>
+                          <DataTableHeaderCell>Property / Unit</DataTableHeaderCell>
+                          <DataTableHeaderCell>Owner / Customer</DataTableHeaderCell>
+                          <DataTableHeaderCell>Agreement / Lease</DataTableHeaderCell>
+                          <DataTableHeaderCell>Owner Commission</DataTableHeaderCell>
+                          <DataTableHeaderCell>Tenant Commission</DataTableHeaderCell>
+                          <DataTableHeaderCell>Status</DataTableHeaderCell>
+                          <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
+                        </tr>
+                      </DataTableHead>
+                      <DataTableBody>
+                        {(placementsQuery.data?.items ?? []).map((deal) => {
+                          const owner = deal.commissionReceivables.find((item) => item.side === 'OWNER');
+                          const tenant = deal.commissionReceivables.find((item) => item.side === 'TENANT');
+                          const commissionText = (item: typeof owner) =>
+                            item
+                              ? `${deal.currency} ${item.received} received · ${item.outstanding} outstanding`
+                              : 'Not configured';
+                          return (
+                            <DataTableRow key={deal.id}>
+                              <DataTableCell>
+                                <Link className="font-semibold text-[var(--primary)]" href={`/portfolio/properties/${deal.rentableSpace.property.id}`}>
+                                  {deal.rentableSpace.property.propertyCode} — {deal.rentableSpace.property.name}
+                                </Link>
+                                <span className="mt-1 block text-xs text-slate-500">{deal.rentableSpace.spaceCode} — {deal.rentableSpace.name}</span>
+                              </DataTableCell>
+                              <DataTableCell>
+                                <span className="block font-medium text-slate-900">{deal.rentalAgreement?.owner.displayName ?? 'Owner not recorded'}</span>
+                                <span className="mt-1 block text-xs text-slate-500">{deal.rentalAgreement?.customer.displayName ?? 'Customer not recorded'}</span>
+                              </DataTableCell>
+                              <DataTableCell>
+                                <span className="block font-medium text-slate-900">{deal.rentalAgreement?.agreementNumber ?? 'Agreement not recorded'}</span>
+                                <span className="mt-1 block text-xs text-slate-500">{deal.lease?.leaseNumber ?? 'Lease pending'}</span>
+                              </DataTableCell>
+                              <DataTableCell><span className="text-xs text-slate-700">{commissionText(owner)}</span></DataTableCell>
+                              <DataTableCell><span className="text-xs text-slate-700">{commissionText(tenant)}</span></DataTableCell>
+                              <DataTableCell><StatusBadge value={deal.status} /></DataTableCell>
+                              <DataTableCell align="right">
+                                <TableActionButton tone="open" href={`/commercial/rental-brokerage/${deal.id}`}>Open Placement</TableActionButton>
+                              </DataTableCell>
+                            </DataTableRow>
+                          );
+                        })}
+                      </DataTableBody>
+                    </DataTable>
+                  </DataTableScroll>
+                )}
+              </DataTableSurface>
+            ) : null}
+
           </div>
         )}
       </div>
@@ -452,8 +568,6 @@ const rentalBrokerageConfig: ServiceDashboardConfig = {
   activeItem: 'commercial:rental-brokerage',
   serviceModel: 'RENTAL_BROKERAGE',
   readPermission: 'service-engagement.read',
-  secondaryLabel: 'Brokerage Deals',
-  secondaryHref: '/commercial/rental-brokerage/deals',
   title: 'Rental Brokerage Operations',
   description:
     'Review properties under active rental brokerage authority, then open placement deals and commission workflows.',
@@ -477,24 +591,24 @@ const rentalBrokerageConfig: ServiceDashboardConfig = {
     {
       key: 'open-deals',
       label: 'Open Deals',
-      href: '/commercial/rental-brokerage/deals',
+      href: '/commercial/rental-brokerage',
       icon: Handshake,
       permission: 'brokerage-deal.read',
       queryKey: ['rental-brokerage-open-deals'],
       queryFn: () =>
         countItems('/brokerage-deals?limit=100', (row) =>
-          ['DRAFT', 'NEGOTIATING', 'CONFIRMED'].includes(String(row.status ?? '')),
+          ['DRAFT', 'NEGOTIATING', 'CONFIRMED'].includes(recordString(row, 'status')),
         ),
     },
     {
       key: 'closed-deals',
       label: 'Closed Deals',
-      href: '/commercial/rental-brokerage/deals',
+      href: '/commercial/rental-brokerage',
       icon: Receipt,
       permission: 'brokerage-deal.read',
       queryKey: ['rental-brokerage-closed-deals'],
       queryFn: () =>
-        countItems('/brokerage-deals?limit=100', (row) => String(row.status ?? '') === 'CLOSED'),
+        countItems('/brokerage-deals?limit=100', (row) => recordString(row, 'status') === 'CLOSED'),
     },
     {
       key: 'rental-listings',
@@ -541,7 +655,7 @@ const propertySaleConfig: ServiceDashboardConfig = {
       queryKey: ['property-sale-active-offers'],
       queryFn: () =>
         countItems('/sale-offers?limit=100', (row) =>
-          ['DRAFT', 'SUBMITTED', 'COUNTERED'].includes(String(row.status ?? '')),
+          ['DRAFT', 'SUBMITTED', 'COUNTERED'].includes(recordString(row, 'status')),
         ),
     },
     {
@@ -552,7 +666,7 @@ const propertySaleConfig: ServiceDashboardConfig = {
       permission: 'sale-offer.read',
       queryKey: ['property-sale-accepted-offers'],
       queryFn: () =>
-        countItems('/sale-offers?limit=100', (row) => String(row.status ?? '') === 'ACCEPTED'),
+        countItems('/sale-offers?limit=100', (row) => recordString(row, 'status') === 'ACCEPTED'),
     },
     {
       key: 'settlements',

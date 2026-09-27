@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-import { PageSkeleton } from '@/components/shared/loading-system';
-import { CommercialRegister } from '@/features/commercial/commercial-register';
+import { redirect } from 'next/navigation';
 
 export default function RentalBrokerageDealsPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <CommercialRegister mode="brokerage-deals" />
-    </Suspense>
-  );
+  redirect('/commercial/rental-brokerage');
 }
