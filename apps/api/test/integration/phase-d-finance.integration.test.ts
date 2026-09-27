@@ -236,4 +236,20 @@ describe.skipIf(!url)('Phase D finance and payment linkage', () => {
       chargeId: charge.id, currency: 'USD', amount: '10', receivedAt: '2026-09-27T13:00:00.000Z',
     })).rejects.toThrow();
   });
+
+  it('resolves the receiving account from the selected payment method', async () => {
+    const method = await db.paymentMethod.findUniqueOrThrow({ where: { id: evcMethodId } });
+    expect(method.receivingAccountId).toBeTruthy();
+    const payment = await payments.create(principal, {
+      branchId,
+      payerPartyId: customerPartyId,
+      methodId: evcMethodId,
+      currency: 'USD',
+      amount: '25',
+      receivedAt: '2026-09-27T14:00:00.000Z',
+      purpose: 'GENERAL',
+      idempotencyKey: `PD-${suffix}-GENERAL`,
+    });
+    expect(payment.receivingAccountId).toBe(method.receivingAccountId);
+  });
 });

@@ -26,11 +26,34 @@ export type CommissionPaymentContext = {
   outstanding: string;
 };
 
+export type RentPaymentContext = {
+  kind: 'RENT';
+  chargeId: string;
+  branchId: string;
+  payerPartyId: string;
+  payerName: string;
+  propertyName: string;
+  unitName: string;
+  leaseNumber: string;
+  chargeNumber: string;
+  dueDate: string;
+  currency: string;
+  expected: string;
+  received: string;
+  outstanding: string;
+};
+
+type PaymentContext = CommissionPaymentContext | RentPaymentContext;
+
+function isRentContext(context: PaymentContext): context is RentPaymentContext {
+  return 'kind' in context && context.kind === 'RENT';
+}
+
 export function RecordPaymentDrawer({ open, onClose, principal, context }: {
   open: boolean;
   onClose: () => void;
   principal: Principal;
-  context?: CommissionPaymentContext | null;
+  context?: PaymentContext | null;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -38,7 +61,6 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
   const [payerKind, setPayerKind] = useState<PayerKind>('tenant');
   const [payer, setPayer] = useState<PickRecord | null>(null);
   const [methodId, setMethodId] = useState('');
-  const [receivingAccountId, setReceivingAccountId] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [amount, setAmount] = useState('');
   const [receivedAt, setReceivedAt] = useState(new Date().toISOString().slice(0, 10));
@@ -50,13 +72,12 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
     if (!context) return;
     setBranchId(context.branchId);
     setPayer({ id: context.payerPartyId, label: context.payerName });
-    setPayerKind(context.side === 'OWNER' ? 'owner' : 'tenant');
+    setPayerKind(!isRentContext(context) && context.side === 'OWNER' ? 'owner' : 'tenant');
     setCurrency(context.currency);
     setAmount(context.outstanding);
-    setReceivingAccountId('');
   }, [context]);
 
-  const ready = Boolean(branchId && payer?.id && methodId && (context || receivingAccountId) && Number(amount) > 0);
+  const ready = Boolean(branchId && payer?.id && methodId && Number(amount) > 0);
   const create = useMutation({
     mutationFn: () => api<{ id: string }>('/payments', {
       method: 'POST',
@@ -64,7 +85,6 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
         branchId,
         payerPartyId: payer?.id,
         methodId,
-        receivingAccountId: context ? undefined : receivingAccountId,
         chargeId: context?.chargeId,
         currency,
         amount,
@@ -77,13 +97,19 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
     onSuccess: (payment) => {
       notify.payment({
         title: 'Payment recorded',
-        message: context ? 'Commission payment recorded and allocated.' : 'Manual payment captured successfully.',
+        message: context
+          ? `${isRentContext(context) ? 'Rent' : 'Commission'} payment recorded and allocated.`
+          : 'General payment captured successfully.',
       });
       void queryClient.invalidateQueries({ queryKey: ['finance-register', 'payments'] });
       void queryClient.invalidateQueries({ queryKey: ['finance-overview'] });
-      if (context) void queryClient.invalidateQueries({ queryKey: ['brokerage-deal'] });
+      if (context && isRentContext(context)) {
+        void queryClient.invalidateQueries({ queryKey: ['lease-detail'] });
+      } else if (context) {
+        void queryClient.invalidateQueries({ queryKey: ['brokerage-deal'] });
+      }
       onClose();
-      router.push(`/finance/payments/${payment.id}`);
+      if (!context) router.push(`/finance/payments/${payment.id}`);
     },
     onError: (error) => toast.error(userFacingError(error)),
   });
@@ -92,8 +118,8 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
     <WorkspaceFormDrawer
       open={open}
       eyebrow="Finance"
-      title={context ? `Record ${context.side === 'OWNER' ? 'Owner' : 'Tenant'} Payment` : 'Record Payment'}
-      description={context ? 'Apply cash received to this existing commission receivable.' : 'Capture a general payment received from a tenant or owner.'}
+      title={context ? (isRentContext(context) ? 'Record Rent' : `Record ${context.side === 'OWNER' ? 'Owner' : 'Tenant'} Commission`) : 'Record General Payment'}
+      description={context ? `Apply this payment to the existing ${isRentContext(context) ? 'rent' : 'commission'} amount due.` : 'Fallback entry for a payment that does not yet have a linked rent or commission amount.'}
       onClose={onClose}
       size="lg"
       footer={<WorkspaceFormDrawerFooter formId={FORM_ID} onCancel={onClose} submitLabel="Record payment" isPending={create.isPending} disabled={!ready} />}
@@ -101,12 +127,21 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
       <form id={FORM_ID} className="space-y-4" onSubmit={(event) => {
         event.preventDefault();
         if (!ready) {
-          toast.error(context ? 'Choose a payment method and enter a valid amount.' : 'Choose a branch, payer, payment method, receiving account, and amount.');
+          toast.error(context ? 'Choose a payment method and enter a valid amount.' : 'Choose a branch, payer, payment method, and amount.');
           return;
         }
         create.mutate();
       }}>
-        {context ? (
+        {context && isRentContext(context) ? (
+          <section className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 sm:grid-cols-2">
+            <Summary label="Tenant" value={context.payerName} />
+            <Summary label="Property / Unit" value={`${context.propertyName} / ${context.unitName}`} />
+            <Summary label="Lease" value={context.leaseNumber} />
+            <Summary label="Rent due" value={`${context.currency} ${context.expected}`} />
+            <Summary label="Received" value={`${context.currency} ${context.received}`} />
+            <Summary label="Outstanding" value={`${context.currency} ${context.outstanding}`} />
+          </section>
+        ) : context ? (
           <section className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
             <Summary label="Commission" value={`${context.side === 'OWNER' ? 'Owner' : 'Tenant'} Commission`} />
             <Summary label="Payer" value={context.payerName} />
@@ -134,12 +169,6 @@ export function RecordPaymentDrawer({ open, onClose, principal, context }: {
           </>
         )}
         <FinanceReferencePicker label="Payment method" path="/finance/selectors/payment-methods" value={methodId} onChange={(record) => setMethodId(record?.id ?? '')} required />
-        {!context ? (
-          <div className="space-y-1.5">
-            <FinanceReferencePicker label="Receiving account" path="/finance/selectors/receiving-accounts" value={receivingAccountId} onChange={(record) => setReceivingAccountId(record?.id ?? '')} required />
-            <p className="text-xs text-slate-500">Choose where this general payment was received.</p>
-          </div>
-        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <FinanceTextField label="Amount received" type="number" min={0} {...(context ? { max: Number(context.outstanding) } : {})} step="0.01" value={amount} onChange={setAmount} required />
           <FinanceTextField label="Payment date" type="date" value={receivedAt} onChange={setReceivedAt} required />

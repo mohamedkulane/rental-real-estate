@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ApplicationStatus,
+  ChargeStatus,
   LeasePartyRole,
   LeasePossessionStatus,
   LeaseStatus,
@@ -540,6 +541,26 @@ export class LeasingService {
             },
           },
         },
+        charges: {
+          where: {
+            chargeType: { code: 'RENT' },
+            status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
+          },
+          orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            chargeNumber: true,
+            branchId: true,
+            debtorPartyId: true,
+            businessDate: true,
+            dueDate: true,
+            currency: true,
+            originalAmount: true,
+            outstandingAmount: true,
+            status: true,
+            debtor: { select: { displayName: true } },
+          },
+        },
       },
     });
     if (!row) throw new NotFoundException('Lease not found.');
@@ -553,6 +574,20 @@ export class LeasingService {
     return {
       ...row,
       renewals,
+      rentReceivables: row.charges.map((charge) => ({
+        id: charge.id,
+        chargeNumber: charge.chargeNumber,
+        branchId: charge.branchId,
+        payerPartyId: charge.debtorPartyId,
+        payerName: charge.debtor.displayName,
+        businessDate: charge.businessDate,
+        dueDate: charge.dueDate,
+        currency: charge.currency,
+        expected: charge.originalAmount,
+        received: charge.originalAmount.minus(charge.outstandingAmount),
+        outstanding: charge.outstandingAmount,
+        status: charge.status,
+      })),
       brokerageDeals: row.brokerageDeals.map((deal) => ({
         ...deal,
         commissionReceivables: deal.charges.map((charge) => ({

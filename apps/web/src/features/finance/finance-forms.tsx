@@ -268,9 +268,11 @@ export function FinanceRecordSelect({
   }, [search]);
 
   const url = useMemo(() => {
-    const params = new URLSearchParams({ limit: '40' });
+    const [basePath, queryString] = path.split('?');
+    const params = new URLSearchParams(queryString ?? '');
+    params.set('limit', '40');
     if (term) params.set('search', term);
-    return `${path}${path.includes('?') ? '&' : '?'}${params}`;
+    return `${basePath}?${params}`;
   }, [path, term]);
 
   const query = useQuery({

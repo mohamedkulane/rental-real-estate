@@ -98,6 +98,7 @@ export class CreatePaymentDto {
   @IsUUID() branchId!: string;
   @IsUUID() payerPartyId!: string;
   @IsUUID() methodId!: string;
+  /** Deprecated compatibility input. The payment method configuration determines the account. */
   @IsOptional() @IsUUID() receivingAccountId?: string;
   @IsOptional() @IsUUID() chargeId?: string;
   @IsString() @Length(3, 3) currency!: string;

@@ -36,14 +36,13 @@ export function PaymentCreateWorkspace() {
   const [payerKind, setPayerKind] = useState<'tenant' | 'owner'>('tenant');
   const [payer, setPayer] = useState<PickRecord | null>(null);
   const [methodId, setMethodId] = useState('');
-  const [receivingAccountId, setReceivingAccountId] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [amount, setAmount] = useState('');
   const [receivedAt, setReceivedAt] = useState(new Date().toISOString().slice(0, 10));
   const [externalRef, setExternalRef] = useState('');
   const [notes, setNotes] = useState('');
 
-  const ready = Boolean(branchId && payer?.id && methodId && receivingAccountId && Number(amount) > 0);
+  const ready = Boolean(branchId && payer?.id && methodId && Number(amount) > 0);
 
   const create = useMutation({
     mutationFn: () =>
@@ -53,7 +52,6 @@ export function PaymentCreateWorkspace() {
           branchId,
           payerPartyId: payer?.id,
           methodId,
-          receivingAccountId,
           currency,
           amount,
           receivedAt,
@@ -89,13 +87,13 @@ export function PaymentCreateWorkspace() {
       ) : (
         <FinanceFormPanel
           title="Payment details"
-          description="Choose who paid, how they paid, and where the money landed."
+          description="Choose who paid, how they paid, and the amount received."
           submitLabel="Record payment"
           busy={create.isPending}
           disabled={!ready}
           onSubmit={() => {
             if (!ready) {
-              toast.error('Choose a branch, payer, payment method, receiving account, and amount.');
+              toast.error('Choose a branch, payer, payment method, and amount.');
               return;
             }
             create.mutate();
@@ -133,18 +131,6 @@ export function PaymentCreateWorkspace() {
             onChange={(record) => setMethodId(record?.id ?? '')}
             required
           />
-          <div className="space-y-1.5">
-            <FinanceReferencePicker
-              label="Receiving account"
-              path="/finance/selectors/receiving-accounts"
-              value={receivingAccountId}
-              onChange={(record) => setReceivingAccountId(record?.id ?? '')}
-              required
-            />
-            <p className="text-[12px] text-slate-500">
-              Lacagtu xagee ku dhacday? Cash, Bank, or Mobile Money only.
-            </p>
-          </div>
           <FinanceTextField
             label="Amount"
             type="number"

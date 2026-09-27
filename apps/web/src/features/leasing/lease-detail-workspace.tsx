@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from '@/lib/toast';
@@ -9,6 +10,7 @@ import { DetailTabs } from '@/components/shared/detail-tabs';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { OperationsShell, useOperationsPrincipal } from '@/features/leasing/operations-shell';
+import { RecordPaymentDrawer, type RentPaymentContext } from '@/features/finance/record-payment-drawer';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
 
@@ -51,6 +53,26 @@ type LeaseDetail = {
     applicationNumber: string;
     lead: { id: string; displayName: string; leadNumber: string };
   } | null;
+  serviceEngagement: {
+    id: string;
+    engagementNumber: string;
+    serviceModel: string;
+    status: string;
+  };
+  rentReceivables: Array<{
+    id: string;
+    chargeNumber: string;
+    branchId: string;
+    payerPartyId: string;
+    payerName: string;
+    businessDate: string;
+    dueDate: string;
+    currency: string;
+    expected: string;
+    received: string;
+    outstanding: string;
+    status: string;
+  }>;
   renewals: Array<{ id: string; status: string; proposedRent: string; currency: string }>;
   possessions: Array<{
     id: string;
@@ -60,12 +82,34 @@ type LeaseDetail = {
     moveOutReason?: string | null;
     moveOutNotes?: string | null;
   }>;
+  brokerageDeals: Array<{
+    id: string;
+    dealNumber: string;
+    status: string;
+    grossCommission: string;
+    rentBasis: string | null;
+    currency: string;
+    commissionReceivables: Array<{
+      id: string;
+      side: string | null;
+      label: string;
+      debtor: { displayName: string };
+      expected: string;
+      received: string;
+      outstanding: string;
+      status: string;
+    }>;
+  }>;
 };
 
 export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
   const { principal, error } = useOperationsPrincipal();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabKey>('overview');
+  const searchParams = useSearchParams();
+  const recordRentRequested = searchParams.get('recordRent') === '1';
+  const autoOpenedRent = useRef(false);
+  const [tab, setTab] = useState<TabKey>(recordRentRequested ? 'payments' : 'overview');
+  const [rentPaymentContext, setRentPaymentContext] = useState<RentPaymentContext | null>(null);
   const [moveOutOpen, setMoveOutOpen] = useState(false);
   const query = useQuery({
     queryKey: ['lease-detail', leaseId],
@@ -101,6 +145,29 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
     },
     onError: (cause) => toast.error(userFacingError(cause)),
   });
+
+  useEffect(() => {
+    if (!recordRentRequested || autoOpenedRent.current || !query.data?.rentReceivables[0]) return;
+    const receivable = query.data.rentReceivables[0];
+    autoOpenedRent.current = true;
+    setTab('payments');
+    setRentPaymentContext({
+      kind: 'RENT',
+      chargeId: receivable.id,
+      branchId: receivable.branchId,
+      payerPartyId: receivable.payerPartyId,
+      payerName: receivable.payerName,
+      propertyName: query.data.rentableSpace.property.name,
+      unitName: `${query.data.rentableSpace.spaceCode} — ${query.data.rentableSpace.name}`,
+      leaseNumber: query.data.leaseNumber,
+      chargeNumber: receivable.chargeNumber,
+      dueDate: receivable.dueDate,
+      currency: receivable.currency,
+      expected: receivable.expected,
+      received: receivable.received,
+      outstanding: receivable.outstanding,
+    });
+  }, [query.data, recordRentRequested]);
 
   if (!principal) {
     return (
@@ -251,15 +318,94 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
           ) : null}
 
           {tab === 'payments' ? (
-            <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-600">
-                Record and review rent payments for this lease from the payments workspace.
-              </p>
-              {hasPermission(principal, 'payment.read') ? (
-                <Link className="button mt-4" href="/finance/payments">
-                  Open Payments
-                </Link>
-              ) : null}
+            <section className="mt-6 space-y-4">
+              <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-base font-semibold text-slate-900">Rent Payments</h2>
+                {lease.serviceEngagement.serviceModel === 'FULL_MANAGEMENT' ? (
+                  lease.rentReceivables.length ? (
+                    <div className="mt-4 grid gap-3">
+                      {lease.rentReceivables.map((receivable) => (
+                        <div key={receivable.id} className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-slate-900">{receivable.chargeNumber}</p>
+                              <StatusBadge value={receivable.status} />
+                            </div>
+                            <p className="mt-1 text-sm text-slate-600">{receivable.payerName} · Due {receivable.dueDate.slice(0, 10)}</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {receivable.currency} {receivable.outstanding} outstanding
+                            </p>
+                          </div>
+                          {hasPermission(principal, 'payment.create') ? (
+                            <button
+                              className="button primary"
+                              type="button"
+                              onClick={() => setRentPaymentContext({
+                                kind: 'RENT',
+                                chargeId: receivable.id,
+                                branchId: receivable.branchId,
+                                payerPartyId: receivable.payerPartyId,
+                                payerName: receivable.payerName,
+                                propertyName: lease.rentableSpace.property.name,
+                                unitName: `${lease.rentableSpace.spaceCode} — ${lease.rentableSpace.name}`,
+                                leaseNumber: lease.leaseNumber,
+                                chargeNumber: receivable.chargeNumber,
+                                dueDate: receivable.dueDate,
+                                currency: receivable.currency,
+                                expected: receivable.expected,
+                                received: receivable.received,
+                                outstanding: receivable.outstanding,
+                              })}
+                            >
+                              Record Rent
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-600">No rent is currently due for this lease.</p>
+                  )
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">
+                    Rent is paid directly to the owner under Rental Brokerage. This company records only the placement commissions shown below.
+                  </p>
+                )}
+              </div>
+              {(lease.brokerageDeals ?? []).map((deal) => (
+                <div key={deal.id} className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-6 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Placement commissions</p>
+                      <h2 className="mt-1 text-base font-semibold text-slate-900">{deal.dealNumber}</h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Owner and tenant commission are separate receivables from the lease rent.
+                      </p>
+                    </div>
+                    <Link className="button secondary" href={`/commercial/rental-brokerage/${deal.id}`}>
+                      Open brokerage deal
+                    </Link>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {deal.commissionReceivables.map((receivable) => (
+                      <div key={receivable.id} className="rounded-lg border border-emerald-100 bg-white p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {receivable.side === 'OWNER' ? 'Owner commission' : 'Tenant commission'}
+                          </p>
+                          <StatusBadge value={receivable.status} />
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">{receivable.debtor.displayName}</p>
+                        <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div><dt className="text-slate-500">Expected</dt><dd className="mt-1 font-semibold text-slate-900">{deal.currency} {receivable.expected}</dd></div>
+                          <div><dt className="text-slate-500">Received</dt><dd className="mt-1 font-semibold text-slate-900">{deal.currency} {receivable.received}</dd></div>
+                          <div><dt className="text-slate-500">Outstanding</dt><dd className="mt-1 font-semibold text-slate-900">{deal.currency} {receivable.outstanding}</dd></div>
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </section>
           ) : null}
 
@@ -393,6 +539,12 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
               transition status when required.
             </section>
           ) : null}
+          <RecordPaymentDrawer
+            open={Boolean(rentPaymentContext)}
+            onClose={() => setRentPaymentContext(null)}
+            principal={principal}
+            context={rentPaymentContext}
+          />
         </>
       ) : null}
     </OperationsShell>

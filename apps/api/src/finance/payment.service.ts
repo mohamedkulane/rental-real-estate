@@ -87,15 +87,9 @@ export class PaymentService {
       select: { id: true, code: true, receivingAccountId: true },
     });
     if (!method) throw new ConflictException('Payment method is unavailable.');
-    const receivingAccountId = contextualCharge
-      ? method.receivingAccountId
-      : input.receivingAccountId;
+    const receivingAccountId = method.receivingAccountId;
     if (!receivingAccountId) {
-      throw new ConflictException(
-        contextualCharge
-          ? 'This payment method has no configured receiving account.'
-          : 'Choose a receiving account for a general payment.',
-      );
+      throw new ConflictException('This payment method has no configured receiving account.');
     }
     const account = await this.db.account.findFirst({
       where: {
