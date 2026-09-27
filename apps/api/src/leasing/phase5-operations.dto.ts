@@ -139,6 +139,7 @@ export class LeaseQueryDto extends CursorPageQueryDto {
   @IsOptional() @IsUUID() branchId?: string;
   @IsOptional() @IsEnum(LeaseStatus) status?: LeaseStatus;
   @IsOptional() @IsUUID() rentableSpaceId?: string;
+  @IsOptional() @IsUUID() leadId?: string;
 }
 
 export class CreateLeaseDto {

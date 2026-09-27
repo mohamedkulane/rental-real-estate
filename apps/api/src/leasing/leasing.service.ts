@@ -490,7 +490,7 @@ export class LeasingService {
 
   async listLeases(principal: AuthenticatedPrincipal, query: LeaseQueryDto) {
     const branchIds = this.branches(principal, 'lease.read', query.branchId);
-    const where: Prisma.LeaseWhereInput = { companyId: principal.companyId, ...(branchIds === null ? {} : { branchId: { in: branchIds } }), ...(query.status ? { status: query.status } : {}), ...(query.rentableSpaceId ? { rentableSpaceId: query.rentableSpaceId } : {}), ...(query.cursor ? { id: { lt: query.cursor } } : {}), ...(query.search ? { OR: [{ leaseNumber: { contains: query.search, mode: 'insensitive' } }, { rentableSpace: { is: { name: { contains: query.search, mode: 'insensitive' } } } }, { parties: { some: { party: { displayName: { contains: query.search, mode: 'insensitive' } } } } }] } : {}) };
+    const where: Prisma.LeaseWhereInput = { companyId: principal.companyId, ...(branchIds === null ? {} : { branchId: { in: branchIds } }), ...(query.status ? { status: query.status } : {}), ...(query.rentableSpaceId ? { rentableSpaceId: query.rentableSpaceId } : {}), ...(query.leadId ? { OR: [{ rentalAgreement: { is: { leadId: query.leadId } } }, { application: { is: { leadId: query.leadId } } }] } : {}), ...(query.cursor ? { id: { lt: query.cursor } } : {}), ...(query.search ? { AND: [{ OR: [{ leaseNumber: { contains: query.search, mode: 'insensitive' } }, { rentableSpace: { is: { name: { contains: query.search, mode: 'insensitive' } } } }, { parties: { some: { party: { displayName: { contains: query.search, mode: 'insensitive' } } } } }] }] } : {}) };
     const rows = await this.db.lease.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { rentableSpace: { select: { id: true, spaceCode: true, name: true, property: { select: { id: true, propertyCode: true, name: true } } } }, parties: { include: { party: { select: { id: true, displayName: true } } } }, moveIn: true } });
     return this.page(rows, query.limit);
   }
@@ -523,6 +523,23 @@ export class LeasingService {
           orderBy: { possessionFrom: 'desc' },
           take: 5,
         },
+        brokerageDeals: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            charges: {
+              where: { commissionSide: { not: null } },
+              select: {
+                id: true,
+                commissionSide: true,
+                originalAmount: true,
+                outstandingAmount: true,
+                status: true,
+                debtor: { select: { displayName: true } },
+                chargeType: { select: { name: true } },
+              },
+            },
+          },
+        },
       },
     });
     if (!row) throw new NotFoundException('Lease not found.');
@@ -533,7 +550,24 @@ export class LeasingService {
       take: 10,
       select: { id: true, status: true, proposedRent: true, currency: true },
     });
-    return { ...row, renewals };
+    return {
+      ...row,
+      renewals,
+      brokerageDeals: row.brokerageDeals.map((deal) => ({
+        ...deal,
+        commissionReceivables: deal.charges.map((charge) => ({
+          id: charge.id,
+          side: charge.commissionSide,
+          label: charge.chargeType.name,
+          debtor: charge.debtor,
+          currency: deal.currency,
+          expected: charge.originalAmount,
+          received: charge.originalAmount.minus(charge.outstandingAmount),
+          outstanding: charge.outstandingAmount,
+          status: charge.status,
+        })),
+      })),
+    };
   }
 
   async createLease(principal: AuthenticatedPrincipal, input: CreateLeaseDto, correlationId?: string) {

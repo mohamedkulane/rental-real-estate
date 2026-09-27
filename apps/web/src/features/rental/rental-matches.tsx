@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from '@/lib/toast';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
@@ -15,12 +15,9 @@ import { AsyncSelect, can, requestPath } from '@/features/crm/crm-data';
 import type { LeadDetail } from '@/features/crm/crm-types';
 import {
   nextPlacementStep,
-  readPlacementProgress,
-  writePlacementProgress,
   isInterestedViewingOutcome,
   isNotInterestedViewingOutcome,
   viewingInterestLabel,
-  type PlacementProgress,
   type PlacementStep,
 } from './rental-placement';
 
@@ -78,9 +75,8 @@ function formText(form: FormData, key: string): string {
 
 const STEP_LABELS: Record<Exclude<PlacementStep, 'declined'>, string> = {
   viewing: '1. Viewing',
-  negotiate: '2. Agree with owner',
-  fees: '3. Company fee',
-  lease: '4. Lease',
+  agreement: '2. Agreement',
+  lease: '3. Lease',
 };
 
 function matchKeys(item: MatchItem): string[] {
@@ -94,8 +90,7 @@ function PipelineSteps({ active }: { active: PlacementStep }) {
   }
   const order: Array<Exclude<PlacementStep, 'declined'>> = [
     'viewing',
-    'negotiate',
-    'fees',
+    'agreement',
     'lease',
   ];
   const activeIndex = order.indexOf(active);
@@ -135,9 +130,7 @@ export function RentalCustomerMatches({
   const [assignedAgentId, setAssignedAgentId] = useState(
     () => lead.currentAssignee?.id ?? '',
   );
-  const [negotiateFor, setNegotiateFor] = useState<MatchItem | null>(null);
   const [feesFor, setFeesFor] = useState<MatchItem | null>(null);
-  const [progressMap, setProgressMap] = useState<Record<string, PlacementProgress>>({});
 
   const allowed = can(principal, 'listing.match', lead.responsibleBranch.id);
   const query = useQuery({
@@ -152,16 +145,6 @@ export function RentalCustomerMatches({
     enabled: allowed && lead.intent === 'RENT',
     queryFn: () => api<CursorPage<ViewingRow>>(`/viewings?leadId=${lead.id}&limit=50`),
   });
-
-  useEffect(() => {
-    const items = query.data?.items ?? [];
-    if (!items.length) return;
-    const next: Record<string, PlacementProgress> = {};
-    for (const item of items) {
-      next[item.listing.id] = readPlacementProgress(lead.id, item.listing.id);
-    }
-    setProgressMap(next);
-  }, [lead.id, query.data?.items]);
 
   const viewingByKey = useMemo(() => {
     const map = new Map<string, ViewingRow>();
@@ -200,17 +183,8 @@ export function RentalCustomerMatches({
   const scheduleViewing = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
       api<ViewingRow>('/viewings', { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: (row) => {
+    onSuccess: () => {
       toast.success('Viewing scheduled.');
-      if (viewingFor) {
-        setProgressMap((current) => ({
-          ...current,
-          [viewingFor.listing.id]: writePlacementProgress(lead.id, viewingFor.listing.id, {
-            viewingId: row.id,
-            declined: false,
-          }),
-        }));
-      }
       setViewingFor(null);
       void queryClient.invalidateQueries({ queryKey: ['rental-customer-viewings', lead.id] });
     },
@@ -243,19 +217,8 @@ export function RentalCustomerMatches({
       }
       return current;
     },
-    onSuccess: (row) => {
-      toast.success('Viewing completed as interested. Agree rent with the owner next.');
-      const key =
-        row.rentalListingId ??
-        row.rentalListing?.id ??
-        row.rentableSpaceId ??
-        row.rentableSpace?.id;
-      if (key) {
-        setProgressMap((current) => ({
-          ...current,
-          [key]: writePlacementProgress(lead.id, key, { viewingId: row.id, declined: false }),
-        }));
-      }
+    onSuccess: () => {
+      toast.success('Viewing completed as interested. Confirm the agreement next.');
       void queryClient.invalidateQueries({ queryKey: ['rental-customer-viewings', lead.id] });
     },
     onError: (cause) => toast.error(userFacingError(cause)),
@@ -314,22 +277,8 @@ export function RentalCustomerMatches({
           outcome: 'NOT_INTERESTED',
         }),
       }),
-    onSuccess: (row) => {
+    onSuccess: () => {
       toast('Marked not interested. Match another unit.');
-      const key =
-        row.rentalListingId ??
-        row.rentalListing?.id ??
-        row.rentableSpaceId ??
-        row.rentableSpace?.id;
-      if (key) {
-        setProgressMap((current) => ({
-          ...current,
-          [key]: writePlacementProgress(lead.id, key, {
-            viewingId: row.id,
-            declined: true,
-          }),
-        }));
-      }
       void queryClient.invalidateQueries({ queryKey: ['rental-listing-matches', lead.id] });
       void queryClient.invalidateQueries({ queryKey: ['rental-customer', lead.id] });
       void queryClient.invalidateQueries({ queryKey: ['rental-customer-viewings', lead.id] });
@@ -364,8 +313,8 @@ export function RentalCustomerMatches({
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Matching Properties</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Schedule a viewing first. If the customer likes it, agree terms with the owner, collect
-            the company fee, then create the lease. If not, try another unit.
+            Schedule a viewing first. If the customer is interested, confirm the agreement and then
+            create the lease. If not, try another unit.
           </p>
         </div>
         {hasPermission(principal, 'crm.lead.stage') ? (
@@ -410,11 +359,9 @@ export function RentalCustomerMatches({
                   matchKeys(item)
                     .map((key) => viewingByKey.get(key))
                     .find(Boolean) ?? undefined;
-                const progress = progressMap[item.listing.id] ?? {};
                 const step = nextPlacementStep({
                   viewingStatus: viewing?.status ?? null,
                   viewingOutcome: viewing?.outcome ?? null,
-                  progress,
                 });
                 if (step === 'declined') {
                   return (
@@ -432,19 +379,11 @@ export function RentalCustomerMatches({
                         <PipelineSteps active="declined" />
                       </td>
                       <td className="px-4 py-3">
-                        <TableActionButton
-                          tone="neutral"
-                          onClick={() =>
-                            setProgressMap((current) => ({
-                              ...current,
-                              [item.listing.id]: writePlacementProgress(lead.id, item.listing.id, {
-                                declined: false,
-                              }),
-                            }))
-                          }
-                        >
-                          Consider again
-                        </TableActionButton>
+                        {propertyId ? (
+                          <TableActionButton tone="view" href={`/rental/properties/${propertyId}`}>
+                            View Property
+                          </TableActionButton>
+                        ) : null}
                       </td>
                     </tr>
                   );
@@ -465,9 +404,7 @@ export function RentalCustomerMatches({
                       ) : null}
                     </td>
                     <td className="px-4 py-3">
-                      {progress.agreedRent
-                        ? `${progress.currency ?? item.listing.currency} ${progress.agreedRent} (agreed)`
-                        : item.listing.askingRent == null || item.listing.askingRent === ''
+                      {item.listing.askingRent == null || item.listing.askingRent === ''
                           ? 'Not set'
                           : `${item.listing.currency} ${String(item.listing.askingRent)}`}
                     </td>
@@ -516,10 +453,10 @@ export function RentalCustomerMatches({
                             Complete Viewing
                           </TableActionButton>
                         ) : null}
-                        {step === 'negotiate' ? (
+                        {step === 'agreement' ? (
                           <>
-                            <TableActionButton tone="edit" onClick={() => setNegotiateFor(item)}>
-                              Agree with owner
+                            <TableActionButton tone="agreement" onClick={() => setFeesFor(item)}>
+                              Confirm Agreement
                             </TableActionButton>
                             <TableActionButton
                               tone="neutral"
@@ -531,21 +468,6 @@ export function RentalCustomerMatches({
                               Not interested
                             </TableActionButton>
                           </>
-                        ) : null}
-                        {step === 'fees' ? (
-                          <TableActionButton tone="edit" onClick={() => setFeesFor(item)}>
-                            Collect company fee
-                          </TableActionButton>
-                        ) : null}
-                        {hasPermission(principal, 'lease.create') &&
-                        propertyId &&
-                        step === 'lease' ? (
-                          <TableActionButton
-                            tone="agreement"
-                            href={`/rental/leases/new?leadId=${lead.id}&propertyId=${propertyId}&rentableSpaceId=${encodeURIComponent(spaceId ?? '')}&rent=${encodeURIComponent(progress.agreedRent ?? String(item.listing.askingRent ?? ''))}&viewingId=${encodeURIComponent(viewing?.id ?? progress.viewingId ?? '')}`}
-                          >
-                            Create Lease
-                          </TableActionButton>
                         ) : null}
                       </TableActionGroup>
                       {step !== 'lease' ? (
@@ -631,64 +553,6 @@ export function RentalCustomerMatches({
         </WorkspaceFormDrawer>
       ) : null}
 
-      {negotiateFor ? (
-        <WorkspaceFormDrawer
-          open
-          eyebrow="Placement"
-          title="Agree rent with owner"
-          description="Customer is interested. Finalize the monthly rent with the owner. If they cannot agree, mark not interested and match another unit."
-          onClose={() => setNegotiateFor(null)}
-          size="md"
-          footer={
-            <WorkspaceFormDrawerFooter
-              formId="negotiate-rental-rent"
-              onCancel={() => setNegotiateFor(null)}
-              submitLabel="Save agreed rent"
-              isPending={false}
-            />
-          }
-        >
-          <form
-            id="negotiate-rental-rent"
-            className="space-y-4"
-            onSubmit={(event: FormEvent<HTMLFormElement>) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const agreedRent = formText(form, 'agreedRent').trim();
-              if (!agreedRent) return;
-              setProgressMap((current) => ({
-                ...current,
-                [negotiateFor.listing.id]: writePlacementProgress(
-                  lead.id,
-                  negotiateFor.listing.id,
-                  {
-                    agreedRent,
-                    currency: negotiateFor.listing.currency || 'USD',
-                    declined: false,
-                  },
-                ),
-              }));
-              toast.success('Rent agreed. Collect the company fee next.');
-              setNegotiateFor(null);
-            }}
-          >
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Agreed monthly rent ({negotiateFor.listing.currency || 'USD'})
-              <input
-                name="agreedRent"
-                required
-                inputMode="decimal"
-                defaultValue={
-                  progressMap[negotiateFor.listing.id]?.agreedRent ??
-                  String(negotiateFor.listing.askingRent ?? '')
-                }
-                className={inputClass}
-              />
-            </label>
-          </form>
-        </WorkspaceFormDrawer>
-      ) : null}
-
       {feesFor ? (
         <WorkspaceFormDrawer
           open
@@ -761,7 +625,7 @@ export function RentalCustomerMatches({
                 name="finalRent"
                 required
                 inputMode="decimal"
-                defaultValue={progressMap[feesFor.listing.id]?.agreedRent ?? String(feesFor.listing.askingRent ?? '')}
+                defaultValue={String(feesFor.listing.askingRent ?? '')}
                 className={inputClass}
               />
             </label>
@@ -783,8 +647,43 @@ export function RentalCustomerMatches({
                 </span>
               </label>
             </div>
-            {feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE' ? <label className="block space-y-1.5 text-sm font-semibold text-slate-700">Owner commission<input name="ownerCommission" required inputMode="decimal" className={inputClass} /><input name="ownerCommissionMethod" type="hidden" value="PERCENT" /></label> : null}
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">Tenant brokerage fee {feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE' ? '' : '(optional)'}<input name="tenantCommission" required={feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE'} inputMode="decimal" className={inputClass} /><input name="tenantCommissionMethod" type="hidden" value="PERCENT" /></label>
+            {feesFor.listing.rentableSpace?.property?.serviceIntent === 'RENTAL_BROKERAGE' ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
+                  Owner commission
+                  <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
+                    <input name="ownerCommission" required inputMode="decimal" className={inputClass} placeholder="40" />
+                    <select name="ownerCommissionMethod" defaultValue="FIXED" className={inputClass} aria-label="Owner commission method">
+                      <option value="FIXED">Fixed USD</option>
+                      <option value="PERCENT">Percent</option>
+                    </select>
+                  </div>
+                  <span className="block text-xs font-normal text-slate-500">Choose Fixed USD for an agreed amount such as USD 40.</span>
+                </label>
+                <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
+                  Tenant commission
+                  <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
+                    <input name="tenantCommission" required inputMode="decimal" className={inputClass} placeholder="35" />
+                    <select name="tenantCommissionMethod" defaultValue="FIXED" className={inputClass} aria-label="Tenant commission method">
+                      <option value="FIXED">Fixed USD</option>
+                      <option value="PERCENT">Percent</option>
+                    </select>
+                  </div>
+                  <span className="block text-xs font-normal text-slate-500">Fixed USD keeps the agreed tenant fee separate from monthly rent.</span>
+                </label>
+              </div>
+            ) : (
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Tenant brokerage fee (optional)
+                <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
+                  <input name="tenantCommission" inputMode="decimal" className={inputClass} />
+                  <select name="tenantCommissionMethod" defaultValue="FIXED" className={inputClass} aria-label="Tenant brokerage fee method">
+                    <option value="FIXED">Fixed USD</option>
+                    <option value="PERCENT">Percent</option>
+                  </select>
+                </div>
+              </label>
+            )}
           </form>
         </WorkspaceFormDrawer>
       ) : null}

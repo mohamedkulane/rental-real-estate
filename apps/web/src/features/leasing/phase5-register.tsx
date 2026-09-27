@@ -351,11 +351,6 @@ export function Phase5Register({ mode }: { mode: Mode }) {
         description={definition.description}
         action={
           <div className="flex flex-wrap gap-2">
-            {mode === 'leases' ? (
-              <Link className="button primary" href="/rental/leases/new">
-                Create Lease
-              </Link>
-            ) : null}
             {definition.action && mode !== 'leases' ? (
               <Link className="button secondary" href={definition.action.href}>
                 {definition.action.label}
