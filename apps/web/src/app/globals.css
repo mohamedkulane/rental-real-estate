@@ -409,6 +409,17 @@ a[class*='bg-[#215E61]']:hover {
   background-color: var(--primary-hover) !important;
   border-color: var(--primary-hover) !important;
 }
+
+/* Select options use emerald as a soft active state, not a primary CTA. */
+.searchable-select [role='option'].bg-emerald-50 {
+  background-color: var(--primary-soft) !important;
+  border-color: transparent !important;
+  color: var(--primary-hover) !important;
+}
+.searchable-select [role='option'].bg-emerald-50:hover {
+  background-color: color-mix(in srgb, var(--primary) 12%, white) !important;
+}
+
 button[class*='text-emerald-'],
 a[class*='text-emerald-'],
 button[class*='text-[#0D47A1]'],
