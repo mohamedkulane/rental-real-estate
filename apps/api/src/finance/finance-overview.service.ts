@@ -77,11 +77,13 @@ export class FinanceOverviewService {
         }),
       ]);
 
-    const [brokerage, rentCollected, managementFees, ownerPayouts, activeManagedLeases] = await Promise.all([
+    const [brokerage, rentCollected, managementFees, ownerPayouts, ownerPayoutsDue, expensesTotal, activeManagedLeases] = await Promise.all([
       this.brokerageSummary(companyId, principal),
       this.sumAllocatedByChargeTypes(companyId, principal, ['RENT']),
       this.sumManagementFees(companyId, principal),
       this.sumOwnerPayouts(companyId, principal),
+      this.sumOwnerPayoutsDue(companyId, principal),
+      this.sumExpensesThisMonth(companyId, principal),
       this.db.lease.count({
         where: {
           companyId,
@@ -114,6 +116,8 @@ export class FinanceOverviewService {
         brokerageOutstanding: brokerage.outstanding,
         managementFeesTotal: managementFees,
         ownerPayoutsTotal: ownerPayouts,
+        ownerPayoutsDue,
+        expensesTotal,
         activeManagedLeases,
         brokerageCommissionsTotal: brokerage.earned,
       },
@@ -137,7 +141,8 @@ export class FinanceOverviewService {
 
   private async sumRecentPayments(companyId: string, principal: AuthenticatedPrincipal) {
     const since = new Date();
-    since.setUTCMonth(since.getUTCMonth() - 6);
+    since.setUTCDate(1);
+    since.setUTCHours(0, 0, 0, 0);
     const result = await this.db.payment.aggregate({
       where: {
         companyId,
@@ -215,6 +220,36 @@ export class FinanceOverviewService {
       _sum: { netPayable: true },
     });
     return result._sum.netPayable?.toString() ?? '0';
+  }
+
+  private async sumOwnerPayoutsDue(companyId: string, principal: AuthenticatedPrincipal) {
+    const result = await this.db.ownerPayout.aggregate({
+      where: {
+        companyId,
+        status: { in: [PayoutStatus.DRAFT, PayoutStatus.REVIEW, PayoutStatus.APPROVED, PayoutStatus.QUEUED] },
+        ...this.branchFilter(principal, 'payout.read'),
+      },
+      _sum: { netPayable: true },
+    });
+    return result._sum.netPayable?.toString() ?? '0';
+  }
+
+  private async sumExpensesThisMonth(companyId: string, principal: AuthenticatedPrincipal) {
+    const since = new Date();
+    since.setUTCDate(1);
+    since.setUTCHours(0, 0, 0, 0);
+    const result = await this.db.expense.aggregate({
+      where: {
+        companyId,
+        businessDate: { gte: since },
+        status: {
+          in: [ExpenseStatus.APPROVED, ExpenseStatus.POSTED, ExpenseStatus.PAID, ExpenseStatus.RECONCILED],
+        },
+        ...this.branchFilter(principal, 'expense.read'),
+      },
+      _sum: { amount: true },
+    });
+    return result._sum.amount?.toString() ?? '0';
   }
 
   private async charts(principal: AuthenticatedPrincipal) {

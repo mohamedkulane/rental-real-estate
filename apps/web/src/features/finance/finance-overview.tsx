@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
-  CreditCard,
-  FileText,
-  Landmark,
-  Receipt,
-  Wallet,
+  Banknote,
+  Building2,
   CircleDollarSign,
+  Handshake,
+  Receipt,
   TrendingUp,
+  Wallet,
+  type LucideIcon,
 } from 'lucide-react';
 import { BarChart } from '@/features/admin/dashboard-charts';
 import { DashboardSkeleton } from '@/components/shared/loading-system';
@@ -20,85 +21,43 @@ import { formatDate, humanize } from '@/lib/presentation';
 import { FinanceAccessDenied } from './finance-shared';
 import { FinanceShell, useFinancePrincipal } from './finance-shell';
 
-type FinanceOverview = {
+type FinanceOverviewData = {
   summary?: {
-    openInvoices?: number;
-    unallocatedPayments?: number;
     pendingOwnerPayouts?: number;
     openExpenses?: number;
-    draftJournals?: number;
-    openCharges?: number;
-    receivablesTotal?: string;
     paymentsReceivedTotal?: string;
     rentCollected?: string;
-    brokerageCommissionEarned?: string;
     brokerageCashReceived?: string;
     brokerageOutstanding?: string;
     managementFeesTotal?: string;
-    ownerPayoutsTotal?: string;
-    brokerageCommissionsTotal?: string;
+    ownerPayoutsDue?: string;
+    expensesTotal?: string;
   };
   charts?: {
     monthlyCollections?: Array<{ label: string; value: number }>;
-    billedVsCollected?: Array<{ label: string; billed: number; collected: number }>;
     expenseBreakdown?: Array<{ label: string; value: number }>;
     revenueBySource?: Array<{ label: string; value: number }>;
     receivedByMethod?: Array<{ label: string; value: number }>;
   };
-  recentInvoices?: Array<Record<string, unknown>>;
-  recentPayments?: Array<Record<string, unknown>>;
+  recentPayments?: Array<{
+    id: string;
+    paymentNumber: string;
+    receivedAt: string;
+    status: string;
+    currency: string;
+    amount: string;
+  }>;
 };
 
-const cards = [
-  {
-    key: 'charges',
-    label: 'Open Charges',
-    field: 'openCharges' as const,
-    href: '/finance/charges',
-    permission: 'billing.read',
-    icon: CircleDollarSign,
-  },
-  {
-    key: 'invoices',
-    label: 'Open Invoices',
-    field: 'openInvoices' as const,
-    href: '/finance/invoices',
-    permission: 'invoice.read',
-    icon: FileText,
-  },
-  {
-    key: 'payments',
-    label: 'Unallocated Payments',
-    field: 'unallocatedPayments' as const,
-    href: '/finance/payments',
-    permission: 'payment.read',
-    icon: CreditCard,
-  },
-  {
-    key: 'payouts',
-    label: 'Pending Owner Payouts',
-    field: 'pendingOwnerPayouts' as const,
-    href: '/finance/owner-payouts',
-    permission: 'payout.read',
-    icon: Wallet,
-  },
-  {
-    key: 'expenses',
-    label: 'Open Expenses',
-    field: 'openExpenses' as const,
-    href: '/finance/expenses',
-    permission: 'expense.read',
-    icon: Receipt,
-  },
-  {
-    key: 'journals',
-    label: 'Draft Journals',
-    field: 'draftJournals' as const,
-    href: '/finance/accounting',
-    permission: 'journal.read',
-    icon: Landmark,
-  },
-];
+type Metric = {
+  key: string;
+  label: string;
+  value: string | undefined;
+  hint: string;
+  href: string;
+  permission: string;
+  icon: LucideIcon;
+};
 
 function formatMoney(value: string | number | undefined) {
   const amount = Number(value ?? 0);
@@ -109,112 +68,48 @@ function formatMoney(value: string | number | undefined) {
   }).format(amount);
 }
 
-function OverviewCard({
-  label,
-  value,
-  href,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  href: string;
-  icon: typeof FileText;
-}) {
+function MetricCard({ metric }: { metric: Metric }) {
+  const Icon = metric.icon;
   return (
     <Link
-      href={href}
-      className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+      href={metric.href}
+      className="group flex min-h-28 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#0F172A] via-[#0F766E] to-emerald-400 opacity-80" />
-      <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#0F766E] ring-1 ring-emerald-100">
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <ArrowRight
-          className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#0F766E]"
-          aria-hidden="true"
-        />
-      </div>
-      <p className="mt-5 text-[30px] font-bold leading-none tracking-tight text-[#0F172A]">
-        {value}
-      </p>
-      <p className="mt-2 text-[13px] font-medium text-slate-500">{label}</p>
+      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#087A63]">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium text-slate-500">{metric.label}</span>
+        <strong className="mt-1 block text-2xl text-slate-950">USD {formatMoney(metric.value)}</strong>
+        <span className="mt-1 block text-xs text-slate-500">{metric.hint}</span>
+      </span>
+      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#087A63]" aria-hidden="true" />
     </Link>
   );
 }
 
-function HighlightMetric({
-  label,
-  value,
-  hint,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  accent?: boolean;
-}) {
+function ChartPanel({ title, description, items }: { title: string; description: string; items: Array<{ label: string; value: number }> }) {
+  const hasValues = items.some((item) => item.value > 0);
   return (
-    <div
-      className={
-        accent
-          ? 'rounded-2xl border border-emerald-200 bg-gradient-to-br from-[#ECFDF5] to-white p-5 shadow-sm'
-          : 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'
-      }
-    >
-      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-3 text-[28px] font-bold tracking-tight text-[#0F172A]">{value}</p>
-      <p className="mt-2 text-[12px] leading-relaxed text-slate-500">{hint}</p>
-    </div>
-  );
-}
-
-function RecentList({
-  title,
-  rows,
-  href,
-}: {
-  title: string;
-  rows: Array<Record<string, unknown>>;
-  href: string;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <header className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-5 py-4">
-        <h2 className="text-[15px] font-semibold text-[#0F172A]">{title}</h2>
-        <Link className="text-[13px] font-semibold text-[#0F766E] hover:underline" href={href}>
-          View all
-        </Link>
-      </header>
-      {rows.length ? (
-        <ul className="divide-y divide-slate-100">
-          {rows.slice(0, 5).map((row) => {
-            const number =
-              (row.invoiceNumber as string | undefined) ??
-              (row.paymentNumber as string | undefined) ??
-              (row.id as string);
-            const status = row.status as string | undefined;
-            const date =
-              (row.issueDate as string | undefined) ??
-              (row.receivedAt as string | undefined) ??
-              (row.createdAt as string | undefined);
-            return (
-              <li key={row.id as string} className="flex items-center justify-between gap-3 px-5 py-3.5">
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-semibold text-slate-900">{number}</p>
-                  <p className="text-[12px] text-slate-500">{formatDate(date)}</p>
-                </div>
-                {status ? <StatusBadge value={status} /> : null}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="px-5 py-10 text-center">
-          <p className="text-sm font-medium text-slate-700">Nothing here yet</p>
-          <p className="mt-1 text-[13px] text-slate-500">New activity will appear in this list.</p>
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
         </div>
-      )}
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#087A63]">
+          <TrendingUp className="h-4 w-4" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="mt-5">
+        {items.length && hasValues ? (
+          <BarChart items={items} />
+        ) : (
+          <div className="flex min-h-32 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
+            <p className="text-sm text-slate-500">No activity has been recorded for this period.</p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -225,23 +120,27 @@ export function FinanceOverview() {
   const query = useQuery({
     queryKey: ['finance-overview'],
     enabled: allowed,
-    queryFn: () => api<FinanceOverview>('/finance/overview'),
+    queryFn: () => api<FinanceOverviewData>('/finance/overview'),
   });
 
-  const visibleCards = cards.filter(
-    (card) => principal && hasPermission(principal, card.permission),
-  );
   const summary = query.data?.summary;
-  const collections = query.data?.charts?.monthlyCollections ?? [];
-  const hasCollections = collections.some((row) => row.value > 0);
+  const metrics: Metric[] = [
+    { key: 'received', label: 'Received This Month', value: summary?.paymentsReceivedTotal, hint: 'All confirmed receipts', href: '/finance/payments', permission: 'payment.read', icon: Banknote },
+    { key: 'rent', label: 'Rent Collected', value: summary?.rentCollected, hint: 'Allocated tenant rent', href: '/finance/payments', permission: 'payment.read', icon: Building2 },
+    { key: 'brokerage-received', label: 'Brokerage Received', value: summary?.brokerageCashReceived, hint: 'Owner and tenant commissions', href: '/commercial/rental-brokerage', permission: 'brokerage-deal.read', icon: Handshake },
+    { key: 'brokerage-outstanding', label: 'Brokerage Outstanding', value: summary?.brokerageOutstanding, hint: 'Confirmed commission due', href: '/commercial/rental-brokerage', permission: 'brokerage-deal.read', icon: CircleDollarSign },
+    { key: 'management-fee', label: 'Management Fee Earned', value: summary?.managementFeesTotal, hint: 'From owner payout calculations', href: '/commercial/full-management', permission: 'payout.read', icon: Wallet },
+    { key: 'payouts-due', label: 'Owner Payouts Due', value: summary?.ownerPayoutsDue, hint: `${summary?.pendingOwnerPayouts ?? 0} awaiting completion`, href: '/finance/owner-payouts', permission: 'payout.read', icon: Wallet },
+    { key: 'expenses', label: 'Expenses This Month', value: summary?.expensesTotal, hint: `${summary?.openExpenses ?? 0} awaiting approval`, href: '/finance/expenses', permission: 'expense.read', icon: Receipt },
+  ];
+  const visibleMetrics = metrics.filter((metric) => principal && hasPermission(principal, metric.permission));
+  const sourceItems = (query.data?.charts?.revenueBySource ?? []).filter((item) => item.value > 0);
+  const methodItems = (query.data?.charts?.receivedByMethod ?? []).filter((item) => item.value > 0);
+  const expenseItems = (query.data?.charts?.expenseBreakdown ?? []).map((item) => ({ label: humanize(item.label), value: item.value }));
 
   return (
     <FinanceShell principal={principal} principalError={principalError} activeItem="finance:overview">
-      <PageHeader
-        eyebrow="Finance workspace"
-        title="Billing & Payments"
-        description="See what is owed, what was collected, and what still needs action across your branches."
-      />
+      <PageHeader eyebrow="Finance" title="Finance Overview" description="Track money received, commission still due, owner payouts, and operating expenses." />
 
       {principal && !allowed ? (
         <FinanceAccessDenied />
@@ -250,177 +149,55 @@ export function FinanceOverview() {
       ) : query.isError ? (
         <ErrorState message={userFacingError(query.error)} />
       ) : (
-        <div className="space-y-6">
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0F172A] text-white shadow-md">
-            <div className="relative px-5 py-6 sm:px-7 sm:py-8">
-              <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-[#0F766E]/30 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
-              <div className="relative grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-                <div>
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-emerald-200/90">
-                    Cash position snapshot
-                  </p>
-                  <h2 className="mt-2 text-[28px] font-bold tracking-tight sm:text-[32px]">
-                    ${formatMoney(summary?.paymentsReceivedTotal)}
-                  </h2>
-                  <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-slate-300">
-                    Payments received in the last 6 months. Outstanding receivables still to collect:{' '}
-                    <span className="font-semibold text-white">
-                      ${formatMoney(summary?.receivablesTotal)}
-                    </span>
-                    .
-                  </p>
-                  {principal && hasPermission(principal, 'payment.create') ? (
-                    <Link
-                      href="/finance/payments/new"
-                      className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#0F766E] px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-700"
-                    >
-                      Record payment
-                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </Link>
-                  ) : null}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                      Brokerage earned
-                    </p>
-                    <p className="mt-2 text-[22px] font-bold">
-                      ${formatMoney(summary?.brokerageCommissionEarned)}
-                    </p>
-                    <p className="mt-1 text-[12px] text-slate-400">Contractual commission receivables</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                      Open work
-                    </p>
-                    <p className="mt-2 text-[22px] font-bold">{summary?.openCharges ?? 0}</p>
-                    <p className="mt-1 text-[12px] text-slate-400">Open charges waiting collection</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className="space-y-5">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {visibleMetrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}
           </section>
 
-          {visibleCards.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-              {visibleCards.map((card) => (
-                <OverviewCard
-                  key={card.key}
-                  label={card.label}
-                  value={query.data?.summary?.[card.field] ?? 0}
-                  href={card.href}
-                  icon={card.icon}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-[14px] text-slate-600">
-              No finance registers are available for your current permissions.
-            </p>
-          )}
+          <div className="grid gap-5 xl:grid-cols-[1.25fr_1fr]">
+            <ChartPanel title="Monthly Collections" description="Confirmed payments received during the last six months" items={query.data?.charts?.monthlyCollections ?? []} />
+            <ChartPanel title="Revenue by Source" description="How collected money is split across rent and brokerage" items={sourceItems} />
+          </div>
 
-          <div className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex items-start justify-between gap-3">
+          <div className="grid gap-5 xl:grid-cols-2">
+            <ChartPanel title="Payments by Method" description="Confirmed receipts grouped by payment method" items={methodItems} />
+            <ChartPanel title="Expense Breakdown" description="Operating expenses grouped by category" items={expenseItems} />
+          </div>
+
+          {principal && hasPermission(principal, 'payment.read') ? (
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                 <div>
-                  <h2 className="text-[16px] font-semibold text-[#0F172A]">Monthly collections</h2>
-                  <p className="mt-1 text-[13px] text-slate-500">Cash received over the last 6 months</p>
+                  <h2 className="text-base font-semibold text-slate-950">Recent Payments</h2>
+                  <p className="mt-1 text-xs text-slate-500">Latest confirmed money received</p>
                 </div>
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-[#0F766E]">
-                  <TrendingUp className="h-4 w-4" aria-hidden="true" />
-                </span>
-              </div>
-              {collections.length ? (
-                <div className="mt-5">
-                  {hasCollections ? (
-                    <BarChart items={collections} />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
-                      <p className="text-sm font-medium text-slate-700">No collections recorded yet</p>
-                      <p className="mt-1 text-[13px] text-slate-500">
-                        Record a payment to populate this chart.
-                      </p>
-                    </div>
-                  )}
+                <Link className="inline-flex items-center gap-1 text-sm font-semibold text-[#087A63] hover:underline" href="/finance/payments">
+                  View all <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </header>
+              {query.data?.recentPayments?.length ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                      <tr><th className="px-5 py-3 font-semibold">Payment</th><th className="px-5 py-3 font-semibold">Received</th><th className="px-5 py-3 font-semibold">Amount</th><th className="px-5 py-3 font-semibold">Status</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {query.data.recentPayments.map((payment) => (
+                        <tr key={payment.id}>
+                          <td className="px-5 py-3 font-semibold text-slate-900">{payment.paymentNumber}</td>
+                          <td className="px-5 py-3 text-slate-600">{formatDate(payment.receivedAt)}</td>
+                          <td className="px-5 py-3 font-semibold text-slate-900">{payment.currency} {formatMoney(payment.amount)}</td>
+                          <td className="px-5 py-3"><StatusBadge value={payment.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
-                <div className="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
-                  <p className="text-sm font-medium text-slate-700">Chart unavailable</p>
-                </div>
+                <div className="px-5 py-10 text-center text-sm text-slate-500">No payments have been recorded yet.</div>
               )}
             </section>
-
-            <div className="grid gap-4">
-              <HighlightMetric
-                label="Brokerage cash received"
-                value={`$${formatMoney(summary?.brokerageCashReceived)}`}
-                hint="Owner and tenant commission allocations received"
-                accent
-              />
-              <HighlightMetric
-                label="Brokerage outstanding"
-                value={`$${formatMoney(summary?.brokerageOutstanding)}`}
-                hint="Confirmed commission still waiting collection"
-              />
-              <HighlightMetric
-                label="Management fee earned"
-                value={`$${formatMoney(summary?.managementFeesTotal)}`}
-                hint="Derived from canonical owner payout calculations"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <HighlightMetric label="Rent collected" value={`$${formatMoney(summary?.rentCollected)}`} hint="Payments allocated to rent charges" />
-            <HighlightMetric label="Owner payouts" value={`$${formatMoney(summary?.ownerPayoutsTotal)}`} hint="Paid and reconciled owner payouts" />
-            <HighlightMetric label="All cash received" value={`$${formatMoney(summary?.paymentsReceivedTotal)}`} hint="Non-reversed payments in the last six months" />
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-2">
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-900">Money received by source</h2>
-              <p className="mt-1 text-xs text-slate-500">Based on real payment allocations.</p>
-              <div className="mt-5"><BarChart items={query.data?.charts?.revenueBySource ?? []} /></div>
-            </section>
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-900">Money received by method</h2>
-              <p className="mt-1 text-xs text-slate-500">Non-reversed payments grouped by payment method.</p>
-              <div className="mt-5"><BarChart items={query.data?.charts?.receivedByMethod ?? []} /></div>
-            </section>
-          </div>
-
-          {query.data?.charts?.expenseBreakdown?.length ? (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="text-[16px] font-semibold text-[#0F172A]">Expense breakdown</h2>
-              <p className="mt-1 text-[13px] text-slate-500">Where operating spend is concentrated</p>
-              <div className="mt-5">
-                <BarChart
-                  items={query.data.charts.expenseBreakdown.map((row) => ({
-                    label: humanize(row.label),
-                    value: row.value,
-                  }))}
-                />
-              </div>
-            </section>
           ) : null}
-
-          <div className="grid gap-6 xl:grid-cols-2">
-            {principal && hasPermission(principal, 'invoice.read') ? (
-              <RecentList
-                title="Recent Invoices"
-                rows={query.data?.recentInvoices ?? []}
-                href="/finance/invoices"
-              />
-            ) : null}
-            {principal && hasPermission(principal, 'payment.read') ? (
-              <RecentList
-                title="Recent Payments"
-                rows={query.data?.recentPayments ?? []}
-                href="/finance/payments"
-              />
-            ) : null}
-          </div>
         </div>
       )}
     </FinanceShell>
