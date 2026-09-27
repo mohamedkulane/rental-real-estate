@@ -28,9 +28,34 @@ export interface EngagementRecord {
     id: string;
     propertyCode: string;
     name: string;
+    ownerships?: Array<{ owner: { id: string; displayName: string } }>;
+    ownerStatements?: Array<{ id: string; statementNumber: string; status: string }>;
+    ownerPayouts?: Array<{
+      id: string;
+      payoutNumber: string;
+      status: string;
+      currency: string;
+      netPayable: string;
+    }>;
     branchAssignments?: Array<{ branch: { id: string; code: string; name: string } }>;
   };
   rentableSpace: { id: string; spaceCode: string; name: string } | null;
+  commercialTerms?: { managementFeePercent: string | null } | null;
+  leases?: Array<{
+    id: string;
+    leaseNumber: string;
+    status: string;
+    rentAmount: string;
+    currency: string;
+    parties: Array<{ party: { id: string; displayName: string } }>;
+    charges: Array<{
+      id: string;
+      originalAmount: string;
+      outstandingAmount: string;
+      currency: string;
+      dueDate: string;
+    }>;
+  }>;
 }
 
 export interface EngagementPage extends CursorPage<EngagementRecord> {

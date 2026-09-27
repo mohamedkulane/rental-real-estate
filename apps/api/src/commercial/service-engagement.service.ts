@@ -190,6 +190,30 @@ export class ServiceEngagementService {
               id: true,
               propertyCode: true,
               name: true,
+              ownerships: {
+                where: { effectiveTo: null },
+                orderBy: { effectiveFrom: 'desc' },
+                take: 1,
+                select: {
+                  owner: { select: { id: true, displayName: true } },
+                },
+              },
+              ownerStatements: {
+                orderBy: { periodEnd: 'desc' },
+                take: 1,
+                select: { id: true, statementNumber: true, status: true },
+              },
+              ownerPayouts: {
+                orderBy: { periodEnd: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  payoutNumber: true,
+                  status: true,
+                  currency: true,
+                  netPayable: true,
+                },
+              },
               branchAssignments: {
                 where: {
                   effectiveFrom: { lte: at },
@@ -201,6 +225,37 @@ export class ServiceEngagementService {
             },
           },
           rentableSpace: { select: { id: true, spaceCode: true, name: true } },
+          commercialTerms: { select: { managementFeePercent: true } },
+          leases: {
+            where: { status: { in: ['SIGNED', 'ACTIVE'] } },
+            orderBy: { leaseStartDate: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              leaseNumber: true,
+              status: true,
+              rentAmount: true,
+              currency: true,
+              parties: {
+                where: { role: 'TENANT' },
+                take: 1,
+                select: { party: { select: { id: true, displayName: true } } },
+              },
+              charges: {
+                where: {
+                  chargeType: { code: 'RENT' },
+                  status: { in: ['OPEN', 'PARTIALLY_PAID'] },
+                },
+                select: {
+                  id: true,
+                  originalAmount: true,
+                  outstandingAmount: true,
+                  currency: true,
+                  dueDate: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.database.serviceEngagement.count({ where }),

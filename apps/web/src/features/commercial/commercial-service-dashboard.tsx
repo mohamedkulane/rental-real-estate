@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Building2, CalendarDays, Handshake, KeyRound, MapPin, Receipt, ShoppingBag, Wallet } from 'lucide-react';
+import { Building2, CalendarDays, Handshake, KeyRound, MapPin, MoreHorizontal, Receipt, ShoppingBag, Wallet } from 'lucide-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -38,7 +38,7 @@ type MetricDefinition = {
   icon: LucideIcon;
   permission?: string;
   queryKey: string[];
-  queryFn: () => Promise<number>;
+  queryFn: () => Promise<number | string>;
 };
 
 type ServiceDashboardConfig = {
@@ -93,7 +93,7 @@ function MetricCard({
   icon: Icon,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   href: string;
   icon: LucideIcon;
 }) {
@@ -122,6 +122,29 @@ function currentBranch(row: EngagementRecord) {
 function spaceLabel(row: EngagementRecord) {
   if (!row.rentableSpace) return 'Whole property';
   return `${row.rentableSpace.spaceCode} — ${row.rentableSpace.name}`;
+}
+
+function managedLease(row: EngagementRecord) {
+  return row.leases?.[0] ?? null;
+}
+
+function managedRentPosition(row: EngagementRecord) {
+  const lease = managedLease(row);
+  if (!lease) return { received: 0, outstanding: 0, currency: 'USD' };
+  return lease.charges.reduce(
+    (totals, charge) => ({
+      received:
+        totals.received + Number(charge.originalAmount) - Number(charge.outstandingAmount),
+      outstanding: totals.outstanding + Number(charge.outstandingAmount),
+      currency: charge.currency || totals.currency,
+    }),
+    { received: 0, outstanding: 0, currency: lease.currency || 'USD' },
+  );
+}
+
+function managementFeeLabel(row: EngagementRecord) {
+  const percent = row.commercialTerms?.managementFeePercent;
+  return percent ? `${Number(percent).toFixed(2)}% of collected rent` : 'Not configured';
 }
 
 function CommercialHeaderActions({
@@ -303,37 +326,53 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
               ) : (
                 <>
                   <DataTableMobileCards>
-                    {filteredEngagementRows.map((row) => (
-                      <DataTableMobileCard
-                        key={row.id}
-                        title={propertyLabel(row)}
-                        subtitle={row.engagementNumber}
-                        rows={[
-                          ...(config.showSpaceColumn
-                            ? [{ label: 'Rentable Space', value: spaceLabel(row) }]
-                            : []),
-                          { label: 'Branch', value: currentBranch(row) },
-                          { label: 'Effective From', value: formatDate(row.effectiveFrom) },
-                          { label: 'Status', value: <StatusBadge value={row.status} /> },
-                        ]}
-                        actions={
-                          <TableActionGroup>
-                            <TableActionButton
-                              tone="property"
-                              href={`/portfolio/properties/${row.property.id}`}
-                            >
-                              Open Property
-                            </TableActionButton>
-                            <TableActionButton
-                              tone="agreement"
-                              href={`/commercial/service-engagements/${row.id}`}
-                            >
-                              Open Agreement
-                            </TableActionButton>
-                          </TableActionGroup>
-                        }
-                      />
-                    ))}
+                    {filteredEngagementRows.map((row) => {
+                      const lease = managedLease(row);
+                      const rent = managedRentPosition(row);
+                      const fullManagement = config.serviceModel === 'FULL_MANAGEMENT';
+                      return (
+                        <DataTableMobileCard
+                          key={row.id}
+                          title={propertyLabel(row)}
+                          subtitle={fullManagement ? row.property.ownerships?.[0]?.owner.displayName ?? 'Owner not recorded' : row.engagementNumber}
+                          rows={
+                            fullManagement
+                              ? [
+                                  { label: 'Current tenant', value: lease?.parties[0]?.party.displayName ?? 'Vacant' },
+                                  { label: 'Lease', value: lease?.leaseNumber ?? 'No active lease' },
+                                  { label: 'Rent received', value: `${rent.currency} ${rent.received.toFixed(2)}` },
+                                  { label: 'Outstanding rent', value: `${rent.currency} ${rent.outstanding.toFixed(2)}` },
+                                  { label: 'Management fee', value: managementFeeLabel(row) },
+                                  { label: 'Status', value: <StatusBadge value={row.status} /> },
+                                ]
+                              : [
+                                  ...(config.showSpaceColumn
+                                    ? [{ label: 'Rentable Space', value: spaceLabel(row) }]
+                                    : []),
+                                  { label: 'Branch', value: currentBranch(row) },
+                                  { label: 'Effective From', value: formatDate(row.effectiveFrom) },
+                                  { label: 'Status', value: <StatusBadge value={row.status} /> },
+                                ]
+                          }
+                          actions={
+                            <TableActionGroup>
+                              <TableActionButton tone="property" href={`/portfolio/properties/${row.property.id}`}>
+                                Open Property
+                              </TableActionButton>
+                              {fullManagement && lease ? (
+                                <TableActionButton tone="open" href={`/leasing/leases/${lease.id}?tab=payments`}>
+                                  Open Lease
+                                </TableActionButton>
+                              ) : !fullManagement ? (
+                                <TableActionButton tone="agreement" href={`/commercial/service-engagements/${row.id}`}>
+                                  Open Agreement
+                                </TableActionButton>
+                              ) : null}
+                            </TableActionGroup>
+                          }
+                        />
+                      );
+                    })}
                   </DataTableMobileCards>
 
                   <DataTableDesktopOnly>
@@ -342,19 +381,34 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                         <DataTableHead>
                           <tr>
                             <DataTableHeaderCell>Property</DataTableHeaderCell>
-                            {config.showSpaceColumn ? (
-                              <DataTableHeaderCell>Rentable Space</DataTableHeaderCell>
-                            ) : null}
-                            <DataTableHeaderCell>Service Agreement</DataTableHeaderCell>
-                            <DataTableHeaderCell>Operating Branch</DataTableHeaderCell>
-                            <DataTableHeaderCell>Effective From</DataTableHeaderCell>
+                            {config.serviceModel === 'FULL_MANAGEMENT' ? (
+                              <>
+                                <DataTableHeaderCell>Owner / Tenant</DataTableHeaderCell>
+                                <DataTableHeaderCell>Lease</DataTableHeaderCell>
+                                <DataTableHeaderCell>Rent Position</DataTableHeaderCell>
+                                <DataTableHeaderCell>Management Fee</DataTableHeaderCell>
+                                <DataTableHeaderCell>Statement / Payout</DataTableHeaderCell>
+                              </>
+                            ) : (
+                              <>
+                                {config.showSpaceColumn ? <DataTableHeaderCell>Rentable Space</DataTableHeaderCell> : null}
+                                <DataTableHeaderCell>Service Agreement</DataTableHeaderCell>
+                                <DataTableHeaderCell>Operating Branch</DataTableHeaderCell>
+                                <DataTableHeaderCell>Effective From</DataTableHeaderCell>
+                              </>
+                            )}
                             <DataTableHeaderCell>Status</DataTableHeaderCell>
                             <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
                           </tr>
                         </DataTableHead>
                         <DataTableBody>
-                          {filteredEngagementRows.map((row) => (
-                            <DataTableRow key={row.id}>
+                          {filteredEngagementRows.map((row) => {
+                            const lease = managedLease(row);
+                            const rent = managedRentPosition(row);
+                            const fullManagement = config.serviceModel === 'FULL_MANAGEMENT';
+                            const statement = row.property.ownerStatements?.[0];
+                            const payout = row.property.ownerPayouts?.[0];
+                            return <DataTableRow key={row.id}>
                               <DataTableCell>
                                 <Link
                                   className="inline-flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
@@ -364,7 +418,26 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                                   {propertyLabel(row)}
                                 </Link>
                               </DataTableCell>
-                              {config.showSpaceColumn ? (
+                              {fullManagement ? (
+                                <>
+                                  <DataTableCell>
+                                    <span className="block font-medium text-slate-900">{row.property.ownerships?.[0]?.owner.displayName ?? 'Owner not recorded'}</span>
+                                    <span className="mt-1 block text-xs text-slate-500">{lease?.parties[0]?.party.displayName ?? 'Vacant'}</span>
+                                  </DataTableCell>
+                                  <DataTableCell>
+                                    {lease ? <Link className="font-semibold text-[var(--primary)]" href={`/leasing/leases/${lease.id}`}>{lease.leaseNumber}</Link> : 'No active lease'}
+                                  </DataTableCell>
+                                  <DataTableCell>
+                                    <span className="block text-xs text-slate-600">Received: {rent.currency} {rent.received.toFixed(2)}</span>
+                                    <span className="mt-1 block font-semibold text-slate-900">Outstanding: {rent.currency} {rent.outstanding.toFixed(2)}</span>
+                                  </DataTableCell>
+                                  <DataTableCell>{managementFeeLabel(row)}</DataTableCell>
+                                  <DataTableCell>
+                                    <span className="block text-xs text-slate-600">Statement: {statement?.status ?? 'Not generated'}</span>
+                                    <span className="mt-1 block text-xs text-slate-600">Payout: {payout?.status ?? 'Not prepared'}</span>
+                                  </DataTableCell>
+                                </>
+                              ) : config.showSpaceColumn ? (
                                 <DataTableCell>
                                   <span className="inline-flex items-center gap-1.5">
                                     <Building2 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
@@ -372,19 +445,21 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                                   </span>
                                 </DataTableCell>
                               ) : null}
-                              <DataTableCell>{row.engagementNumber}</DataTableCell>
-                              <DataTableCell>
-                                <span className="inline-flex items-center gap-1.5">
-                                  <MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
-                                  {currentBranch(row)}
-                                </span>
-                              </DataTableCell>
-                              <DataTableCell>
-                                <span className="inline-flex items-center gap-1.5">
-                                  <CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
-                                  {formatDate(row.effectiveFrom)}
-                                </span>
-                              </DataTableCell>
+                              {!fullManagement ? <>
+                                <DataTableCell>{row.engagementNumber}</DataTableCell>
+                                <DataTableCell>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                                    {currentBranch(row)}
+                                  </span>
+                                </DataTableCell>
+                                <DataTableCell>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                                    {formatDate(row.effectiveFrom)}
+                                  </span>
+                                </DataTableCell>
+                              </> : null}
                               <DataTableCell>
                                 <StatusBadge value={row.status} />
                               </DataTableCell>
@@ -396,16 +471,27 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                                   >
                                     Property
                                   </TableActionButton>
-                                  <TableActionButton
-                                    tone="agreement"
-                                    href={`/commercial/service-engagements/${row.id}`}
-                                  >
-                                    Agreement
-                                  </TableActionButton>
+                                  {fullManagement && lease ? <>
+                                    <TableActionButton tone="open" href={`/leasing/leases/${lease.id}?tab=payments&recordRent=1`}>Record Rent</TableActionButton>
+                                    <TableActionButton tone="edit" href={`/finance/expenses/new?propertyId=${row.property.id}&serviceEngagementId=${row.id}`}>Add Expense</TableActionButton>
+                                    <details className="relative">
+                                      <summary className="inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" title="More property actions">
+                                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                                        <span className="sr-only">More property actions</span>
+                                      </summary>
+                                      <div className="absolute right-0 z-20 mt-1 grid min-w-44 gap-1 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-md">
+                                        <Link className="rounded-md px-3 py-2 text-sm hover:bg-slate-50" href={`/operations/maintenance?propertyId=${row.property.id}`}>Maintenance</Link>
+                                        <Link className="rounded-md px-3 py-2 text-sm hover:bg-slate-50" href={`/finance/owner-statements?propertyId=${row.property.id}`}>Owner Statement</Link>
+                                        <Link className="rounded-md px-3 py-2 text-sm hover:bg-slate-50" href={`/finance/owner-payouts?propertyId=${row.property.id}`}>Owner Payout</Link>
+                                      </div>
+                                    </details>
+                                  </> : !fullManagement ? (
+                                    <TableActionButton tone="agreement" href={`/commercial/service-engagements/${row.id}`}>Agreement</TableActionButton>
+                                  ) : null}
                                 </TableActionGroup>
                               </DataTableCell>
-                            </DataTableRow>
-                          ))}
+                            </DataTableRow>;
+                          })}
                         </DataTableBody>
                       </DataTable>
                     </DataTableScroll>
@@ -499,14 +585,12 @@ const fullManagementConfig: ServiceDashboardConfig = {
   activeItem: 'commercial:full-management',
   serviceModel: 'FULL_MANAGEMENT',
   readPermission: 'service-engagement.read',
-  secondaryLabel: 'Managed Properties',
-  secondaryHref: '/commercial/full-management',
   title: 'Full Management Operations',
   description:
-    'Review properties under active Full Management authority, then open leases, billing, and owner payouts from the linked workspaces.',
+    'Manage tenants, rent, expenses, statements, maintenance, and owner payouts from each property.',
   tableTitle: 'Managed Properties',
   tableDescription:
-    'Properties with active Full Management service agreements. Recurring billing applies only to these authorities.',
+    'Each property shows the active tenancy, rent position, management fee, statement, and payout status.',
   emptyTitle: 'No managed properties yet',
   emptyDescription:
     'Start a Full Management guided workflow to register a property under this service model.',
@@ -521,43 +605,37 @@ const fullManagementConfig: ServiceDashboardConfig = {
     },
     {
       key: 'active-leases',
-      label: 'Active Leases',
+      label: 'Active Managed Leases',
       href: '/leasing/leases',
       icon: KeyRound,
       permission: 'finance.overview.read',
       queryKey: ['full-management-active-leases'],
       queryFn: async () => {
-        const overview = await api<{ summary?: { activeLeases?: number } }>(
-          '/finance/overview?scope=FULL_MANAGEMENT',
-        );
-        return overview.summary?.activeLeases ?? 0;
+        const overview = await api<{ summary?: { activeManagedLeases?: number } }>('/finance/overview');
+        return overview.summary?.activeManagedLeases ?? 0;
       },
     },
     {
-      key: 'open-invoices',
-      label: 'Open Invoices',
-      href: '/finance/invoices',
+      key: 'rent-collected',
+      label: 'Rent Collected',
+      href: '/finance/payments',
       icon: Receipt,
       permission: 'finance.overview.read',
-      queryKey: ['full-management-open-invoices'],
+      queryKey: ['full-management-rent-collected'],
       queryFn: async () => {
-        const overview = await api<{ summary?: { openInvoices?: number } }>(
-          '/finance/overview?scope=FULL_MANAGEMENT',
-        );
-        return overview.summary?.openInvoices ?? 0;
+        const overview = await api<{ summary?: { rentCollected?: string } }>('/finance/overview');
+        return `USD ${overview.summary?.rentCollected ?? '0'}`;
       },
     },
     {
       key: 'pending-payouts',
-      label: 'Pending Payouts',
+      label: 'Owner Payouts Due',
       href: '/finance/owner-payouts',
       icon: Wallet,
       permission: 'finance.overview.read',
       queryKey: ['full-management-pending-payouts'],
       queryFn: async () => {
-        const overview = await api<{ summary?: { pendingOwnerPayouts?: number } }>(
-          '/finance/overview?scope=FULL_MANAGEMENT',
-        );
+        const overview = await api<{ summary?: { pendingOwnerPayouts?: number } }>('/finance/overview');
         return overview.summary?.pendingOwnerPayouts ?? 0;
       },
     },

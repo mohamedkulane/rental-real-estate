@@ -77,11 +77,19 @@ export class FinanceOverviewService {
         }),
       ]);
 
-    const [brokerage, rentCollected, managementFees, ownerPayouts] = await Promise.all([
+    const [brokerage, rentCollected, managementFees, ownerPayouts, activeManagedLeases] = await Promise.all([
       this.brokerageSummary(companyId, principal),
       this.sumAllocatedByChargeTypes(companyId, principal, ['RENT']),
       this.sumManagementFees(companyId, principal),
       this.sumOwnerPayouts(companyId, principal),
+      this.db.lease.count({
+        where: {
+          companyId,
+          status: 'ACTIVE',
+          serviceEngagement: { serviceModel: 'FULL_MANAGEMENT', status: 'ACTIVE' },
+          ...this.branchFilter(principal, 'lease.read'),
+        },
+      }),
     ]);
 
     return {
@@ -106,6 +114,7 @@ export class FinanceOverviewService {
         brokerageOutstanding: brokerage.outstanding,
         managementFeesTotal: managementFees,
         ownerPayoutsTotal: ownerPayouts,
+        activeManagedLeases,
         brokerageCommissionsTotal: brokerage.earned,
       },
       charts: await this.charts(principal),
