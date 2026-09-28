@@ -11,6 +11,12 @@ const databaseUrl = process.env.DATABASE_URL ?? '';
 const adminEmail = process.env.SEED_ADMIN_EMAIL;
 const adminPassword = process.env.SEED_ADMIN_PASSWORD;
 
+type CreatedPortalAccount = {
+  id: string;
+  portalType: string;
+  user: { emailNormalized: string };
+};
+
 describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Portal account admin', () => {
   let app: INestApplication;
   let database: PrismaClient;
@@ -76,9 +82,10 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Portal account a
         password: 'Portal-Admin-Password1!',
       })
       .expect(201);
-    createdPortalAccountId = created.body.id;
-    expect(created.body.user.emailNormalized).toBe(uniqueEmail.toLowerCase());
-    expect(created.body.portalType).toBe('OWNER');
+    const body = created.body as CreatedPortalAccount;
+    createdPortalAccountId = body.id;
+    expect(body.user.emailNormalized).toBe(uniqueEmail.toLowerCase());
+    expect(body.portalType).toBe('OWNER');
 
     await request(app.getHttpServer())
       .post('/api/v1/portal-accounts')

@@ -16,6 +16,7 @@ import {
   type Principal,
   userFacingError,
 } from '@/lib/phase3-api';
+import { formText } from '@/lib/form-data';
 import {
   createEmptyUnit,
   RentalUnitsEditor,
@@ -200,38 +201,38 @@ export function AddRentalPropertyDrawer({
           }
           const wholeRent =
             isSale
-              ? String(form.get('askingPrice') ?? '').trim()
+              ? formText(form, 'askingPrice')
               : multi
                 ? payloadUnits?.[0]?.monthlyRent ?? '0'
                 : singleUnit.rentMode === 'BY_ROOMS'
                   ? payloadUnits?.[0]?.monthlyRent ?? '0'
-                  : singleUnit.monthlyRent.trim() || String(form.get('monthlyRent') ?? '').trim();
+                  : singleUnit.monthlyRent.trim() || formText(form, 'monthlyRent');
           const district = showMore
-            ? String(form.get('district') ?? '').trim() || undefined
+            ? formText(form, 'district') || undefined
             : undefined;
           const addressLine1 = showMore
-            ? String(form.get('addressLine1') ?? '').trim() || undefined
+            ? formText(form, 'addressLine1') || undefined
             : undefined;
           const baseDescription = showMore
-            ? String(form.get('description') ?? '').trim() || undefined
+            ? formText(form, 'description') || undefined
             : undefined;
           const moreDetails = showMore
             ? !isLand
               ? {
-                  bedrooms: String(form.get('bedrooms') ?? '').trim() || undefined,
-                  bathrooms: String(form.get('bathrooms') ?? '').trim() || undefined,
-                  area: String(form.get('area') ?? '').trim() || undefined,
+                  bedrooms: formText(form, 'bedrooms') || undefined,
+                  bathrooms: formText(form, 'bathrooms') || undefined,
+                  area: formText(form, 'area') || undefined,
                 }
               : {
-                  landWidth: String(form.get('landWidth') ?? '').trim() || undefined,
-                  landLength: String(form.get('landLength') ?? '').trim() || undefined,
-                  area: String(form.get('area') ?? '').trim() || undefined,
+                  landWidth: formText(form, 'landWidth') || undefined,
+                  landLength: formText(form, 'landLength') || undefined,
+                  area: formText(form, 'area') || undefined,
                 }
             : {};
           const sharedProperty = {
-            name: String(form.get('name') ?? '').trim(),
+            name: formText(form, 'name'),
             propertyType,
-            location: String(form.get('location') ?? '').trim(),
+            location: formText(form, 'location'),
             ...(branchId ? { branchId } : {}),
             hasMultipleUnits: multi ? 'true' : 'false',
             ...(payloadUnits?.length ? { units: payloadUnits } : {}),
@@ -256,8 +257,8 @@ export function AddRentalPropertyDrawer({
                 ...(isSale ? { askingPrice: wholeRent } : {}),
                 ...(serviceIntent === 'FULL_MANAGEMENT'
                   ? {
-                      managementFeePercent: String(form.get('managementFeePercent') ?? '').trim(),
-                      effectiveFrom: String(form.get('effectiveFrom') ?? '').trim(),
+                      managementFeePercent: formText(form, 'managementFeePercent'),
+                      effectiveFrom: formText(form, 'effectiveFrom'),
                     }
                   : {}),
                 ...(description ? { description } : {}),
@@ -269,15 +270,15 @@ export function AddRentalPropertyDrawer({
           mutation.mutate({
             endpoint: '/rental/commands/add-owner-and-property',
             body: {
-              ownerName: String(form.get('ownerName') ?? '').trim(),
-              ownerPhone: String(form.get('ownerPhone') ?? '').trim(),
+              ownerName: formText(form, 'ownerName'),
+              ownerPhone: formText(form, 'ownerPhone'),
               ...sharedProperty,
               serviceIntent,
               ...(isSale ? { askingPrice: wholeRent } : { monthlyRent: wholeRent || '0' }),
               ...(serviceIntent === 'FULL_MANAGEMENT'
                 ? {
-                    managementFeePercent: String(form.get('managementFeePercent') ?? '').trim(),
-                    effectiveFrom: String(form.get('effectiveFrom') ?? '').trim(),
+                    managementFeePercent: formText(form, 'managementFeePercent'),
+                    effectiveFrom: formText(form, 'effectiveFrom'),
                   }
                 : {}),
               ...(baseDescription ? { description: baseDescription } : {}),
@@ -607,29 +608,29 @@ export function AddRentalCustomerDrawer({
           const form = new FormData(event.currentTarget);
           const preferredLocations = locations.map((value) => value.trim()).filter(Boolean);
           mutation.mutate({
-            name: String(form.get('name') ?? '').trim(),
-            phone: String(form.get('phone') ?? '').trim(),
-            propertyTypeWanted: String(form.get('propertyTypeWanted') ?? '').trim(),
+            name: formText(form, 'name'),
+            phone: formText(form, 'phone'),
+            propertyTypeWanted: formText(form, 'propertyTypeWanted'),
             preferredLocations,
-            minRentBudget: String(form.get('minRentBudget') ?? '').trim(),
-            maxRentBudget: String(form.get('maxRentBudget') ?? '').trim(),
+            minRentBudget: formText(form, 'minRentBudget'),
+            maxRentBudget: formText(form, 'maxRentBudget'),
             ...(branchId ? { branchId } : {}),
             ...(showMore
               ? {
-                  ...(String(form.get('email') ?? '').trim()
-                    ? { email: String(form.get('email') ?? '').trim() }
+                  ...(formText(form, 'email')
+                    ? { email: formText(form, 'email') }
                     : {}),
-                  ...(String(form.get('minBedrooms') ?? '').trim()
-                    ? { minBedrooms: String(form.get('minBedrooms') ?? '').trim() }
+                  ...(formText(form, 'minBedrooms')
+                    ? { minBedrooms: formText(form, 'minBedrooms') }
                     : {}),
-                  ...(String(form.get('minBathrooms') ?? '').trim()
-                    ? { minBathrooms: String(form.get('minBathrooms') ?? '').trim() }
+                  ...(formText(form, 'minBathrooms')
+                    ? { minBathrooms: formText(form, 'minBathrooms') }
                     : {}),
-                  ...(String(form.get('minArea') ?? '').trim()
-                    ? { minArea: String(form.get('minArea') ?? '').trim() }
+                  ...(formText(form, 'minArea')
+                    ? { minArea: formText(form, 'minArea') }
                     : {}),
-                  ...(String(form.get('notes') ?? '').trim()
-                    ? { notes: String(form.get('notes') ?? '').trim() }
+                  ...(formText(form, 'notes')
+                    ? { notes: formText(form, 'notes') }
                     : {}),
                 }
               : {}),

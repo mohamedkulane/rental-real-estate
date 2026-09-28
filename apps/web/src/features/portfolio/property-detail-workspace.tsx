@@ -30,7 +30,7 @@ function spaceAskingRent(space: SpaceNode): string | null {
   if (listingRent != null && listingRent !== '') return String(listingRent);
   const attrs = space.versions?.[0]?.attributes;
   const asking = attrs && typeof attrs === 'object' ? attrs.askingRent : null;
-  return asking != null && asking !== '' ? String(asking) : null;
+  return typeof asking === 'string' || typeof asking === 'number' ? String(asking) : null;
 }
 
 function spaceCurrency(space: SpaceNode): string {
@@ -598,7 +598,7 @@ export function PropertyDetailWorkspace() {
               property={record}
               branches={branches}
               principal={principal}
-              section={activeTab as import('./portfolio-ia').PropertyDetailSection}
+              section={activeTab}
             />
           ) : null}
           {tab === 'activity' ? <PropertyActivity property={record} /> : null}

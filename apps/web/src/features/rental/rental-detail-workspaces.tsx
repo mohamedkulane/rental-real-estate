@@ -9,6 +9,7 @@ import { TableSkeleton } from '@/components/shared/loading-system';
 import { WorkspaceFormDrawer, WorkspaceFormDrawerFooter } from '@/components/shared/workspace-form-drawer';
 import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
+import { formText } from '@/lib/form-data';
 import toast from '@/lib/toast';
 import { PreferenceSummary } from '@/features/crm/crm-preferences';
 import type { LeadDetail } from '@/features/crm/crm-types';
@@ -82,12 +83,12 @@ function RentalCustomerEditDrawer({
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
-          const phone = String(form.get('phone') ?? '').trim();
-          const email = String(form.get('email') ?? '').trim();
+          const phone = formText(form, 'phone');
+          const email = formText(form, 'email');
           mutation.mutate({
             expectedVersion: lead.version,
-            reason: String(form.get('reason') ?? '').trim(),
-            displayName: String(form.get('displayName') ?? '').trim(),
+            reason: formText(form, 'reason'),
+            displayName: formText(form, 'displayName'),
             ...(phone ? { phone } : {}),
             ...(email ? { email } : {}),
           });

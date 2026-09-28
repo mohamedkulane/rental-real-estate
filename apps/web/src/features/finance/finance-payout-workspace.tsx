@@ -8,7 +8,7 @@ import toast, { notify } from '@/lib/toast';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
-import { formatDate, humanize } from '@/lib/presentation';
+import { formatDate } from '@/lib/presentation';
 import type { PickRecord } from '@/features/workflow/record-picker';
 import {
   FinanceField,

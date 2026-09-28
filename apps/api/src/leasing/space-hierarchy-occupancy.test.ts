@@ -27,7 +27,7 @@ describe('space hierarchy occupancy', () => {
     ).rejects.toThrow('parent unit lease L-1');
     expect(database.lease.findFirst.mock.calls[0]?.[0].where.OR).toEqual([
       { leaseEndDate: null },
-      { leaseEndDate: { gte: expect.any(Date) } },
+      { leaseEndDate: { gte: new Date('2026-09-19T00:00:00.000Z') } },
     ]);
   });
 

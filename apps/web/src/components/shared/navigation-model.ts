@@ -392,16 +392,18 @@ export function companyNavigation(
 export function portfolioNavigation(
   permissions: string[],
   navigate: (href: string) => void,
-  _override?: NavigationItem[],
+  override?: NavigationItem[],
 ): NavigationItem[] {
+  void override;
   return authorizedTaskNavigation(portfolioDestinations, permissions, navigate);
 }
 
 export function propertiesNavigation(
   permissions: string[],
   navigate: (href: string) => void,
-  _override?: NavigationItem[],
+  override?: NavigationItem[],
 ): NavigationItem[] {
+  void override;
   return portfolioNavigation(permissions, navigate).filter((item) => item.key === 'properties');
 }
 

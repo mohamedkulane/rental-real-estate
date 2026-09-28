@@ -8,6 +8,7 @@ import {
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
 import { api, apiCached, userFacingError, type Principal } from '@/lib/phase3-api';
+import { formText } from '@/lib/form-data';
 
 const FORM_ID = 'add-unit-drawer-form';
 const inputClass =
@@ -64,12 +65,12 @@ export function AddUnitDrawer({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const name = String(form.get('name') ?? '').trim();
-    const buildingId = String(form.get('buildingId') ?? '').trim();
-    const parentSpaceId = String(form.get('parentSpaceId') ?? '').trim();
-    const usableArea = String(form.get('usableArea') ?? '').trim();
-    const areaUnit = String(form.get('areaUnit') ?? 'SQM').trim();
-    const floor = String(form.get('floor') ?? '').trim();
+    const name = formText(form, 'name');
+    const buildingId = formText(form, 'buildingId');
+    const parentSpaceId = formText(form, 'parentSpaceId');
+    const usableArea = formText(form, 'usableArea');
+    const areaUnit = formText(form, 'areaUnit') || 'SQM';
+    const floor = formText(form, 'floor');
     create.mutate({
       propertyId,
       typeCode,

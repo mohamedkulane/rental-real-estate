@@ -37,8 +37,6 @@ import {
   FinanceRecordSelect,
   FinanceTextField,
   financePickerMap,
-  financeText,
-  previousCalendarMonth,
 } from './finance-forms';
 import { FinanceAccessDenied } from './finance-shared';
 import { FinanceShell, useFinancePrincipal } from './finance-shell';

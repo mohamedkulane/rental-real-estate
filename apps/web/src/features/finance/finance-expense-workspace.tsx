@@ -49,7 +49,7 @@ export function ExpenseCreateWorkspace() {
   const [categoryCode, setCategoryCode] = useState('MAINTENANCE');
   const [responsibility, setResponsibility] = useState<'COMPANY' | 'OWNER' | 'TENANT'>('COMPANY');
   const [owner, setOwner] = useState<PickRecord | null>(null);
-  const [currency, setCurrency] = useState('USD');
+  const currency = 'USD';
   const [amount, setAmount] = useState('');
   const [businessDate, setBusinessDate] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState('');

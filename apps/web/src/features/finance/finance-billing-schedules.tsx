@@ -26,6 +26,7 @@ import {
   FinanceTextField,
   financeMoney,
   financePickerMap,
+  financeScalar,
   financeText,
 } from './finance-forms';
 import { FinanceAccessDenied } from './finance-shared';
@@ -89,8 +90,8 @@ export function FinanceBillingSchedules() {
   });
 
   useEffect(() => {
-    if (lease?.currency) setCurrency(String(lease.currency));
-    if (lease?.rentAmount) setAmount(String(lease.rentAmount));
+    if (lease?.currency) setCurrency(financeScalar(lease.currency));
+    if (lease?.rentAmount) setAmount(financeScalar(lease.rentAmount));
   }, [lease]);
 
   const engagementPath = useMemo(

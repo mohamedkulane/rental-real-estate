@@ -9,6 +9,7 @@ import {
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
 import { api, userFacingError } from '@/lib/phase3-api';
+import { formText } from '@/lib/form-data';
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15';
@@ -39,26 +40,26 @@ export function BuyerCreateFields({
         }
         const form = new FormData(event.currentTarget);
         onSubmitBody({
-          name: String(form.get('name') ?? '').trim(),
-          phone: String(form.get('phone') ?? '').trim(),
+          name: formText(form, 'name'),
+          phone: formText(form, 'phone'),
           propertyTypeWanted,
           preferredLocations: locations,
-          minPurchaseBudget: String(form.get('minPurchaseBudget') ?? '').trim(),
-          maxPurchaseBudget: String(form.get('maxPurchaseBudget') ?? '').trim(),
+          minPurchaseBudget: formText(form, 'minPurchaseBudget'),
+          maxPurchaseBudget: formText(form, 'maxPurchaseBudget'),
           ...(showMore
             ? {
                 ...(isLand
                   ? {
-                      landWidth: String(form.get('landWidth') ?? '').trim() || undefined,
-                      landLength: String(form.get('landLength') ?? '').trim() || undefined,
-                      minArea: String(form.get('minArea') ?? '').trim() || undefined,
+                      landWidth: formText(form, 'landWidth') || undefined,
+                      landLength: formText(form, 'landLength') || undefined,
+                      minArea: formText(form, 'minArea') || undefined,
                     }
                   : {
-                      minBedrooms: String(form.get('minBedrooms') ?? '').trim() || undefined,
-                      minBathrooms: String(form.get('minBathrooms') ?? '').trim() || undefined,
-                      minArea: String(form.get('minArea') ?? '').trim() || undefined,
+                      minBedrooms: formText(form, 'minBedrooms') || undefined,
+                      minBathrooms: formText(form, 'minBathrooms') || undefined,
+                      minArea: formText(form, 'minArea') || undefined,
                     }),
-                notes: String(form.get('notes') ?? '').trim() || undefined,
+                notes: formText(form, 'notes') || undefined,
               }
             : {}),
         });

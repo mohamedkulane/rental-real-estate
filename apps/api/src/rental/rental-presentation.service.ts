@@ -133,7 +133,7 @@ export class RentalPresentationService {
         !Array.isArray(version.attributes)
           ? (version.attributes as Record<string, unknown>)
           : null;
-      if (attrs?.askingRent != null && attrs.askingRent !== '') {
+      if (typeof attrs?.askingRent === 'string' || typeof attrs?.askingRent === 'number') {
         monthlyRent = String(attrs.askingRent);
         if (typeof attrs.currency === 'string' && attrs.currency.trim()) {
           currency = attrs.currency.trim().toUpperCase();
@@ -483,7 +483,7 @@ export class RentalPresentationService {
         !Array.isArray(version.attributes)
           ? (version.attributes as Record<string, unknown>)
           : null;
-      if (attrs?.askingRent != null && attrs.askingRent !== '') {
+      if (typeof attrs?.askingRent === 'string' || typeof attrs?.askingRent === 'number') {
         monthlyRent = String(attrs.askingRent);
         if (typeof attrs.currency === 'string' && attrs.currency.trim()) {
           currency = attrs.currency.trim().toUpperCase();

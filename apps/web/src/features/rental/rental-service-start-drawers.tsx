@@ -8,6 +8,7 @@ import {
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
 import { api, hasPermission, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';
+import { formText } from '@/lib/form-data';
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-2 focus:ring-[#215E61]/15';
@@ -99,8 +100,8 @@ export function StartRentalBrokerageDrawer({
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
-          const ownerAmount = String(form.get('ownerFeeAmount') ?? '').trim();
-          const tenantAmount = String(form.get('tenantFeeAmount') ?? '').trim();
+          const ownerAmount = formText(form, 'ownerFeeAmount');
+          const tenantAmount = formText(form, 'tenantFeeAmount');
           const fees = [
             ...(ownerAmount
               ? [{ party: 'OWNER', method: ownerFeeMethod, amount: ownerAmount }]
@@ -111,8 +112,8 @@ export function StartRentalBrokerageDrawer({
           ];
           mutation.mutate({
             ownerPartyId,
-            propertyId: String(form.get('propertyId') ?? ''),
-            monthlyRent: String(form.get('monthlyRent') ?? '').trim(),
+            propertyId: formText(form, 'propertyId'),
+            monthlyRent: formText(form, 'monthlyRent'),
             ...(fees.length ? { fees } : {}),
             ...(ownerFeeMethod === 'PERCENT' && ownerAmount
               ? { commissionPercent: ownerAmount }
@@ -291,13 +292,13 @@ export function StartFullManagementDrawer({
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
-          const tenantBrokerageFee = String(form.get('tenantBrokerageFee') ?? '').trim();
+          const tenantBrokerageFee = formText(form, 'tenantBrokerageFee');
           mutation.mutate({
             ownerPartyId,
-            propertyId: String(form.get('propertyId') ?? ''),
-            monthlyRent: String(form.get('monthlyRent') ?? '').trim(),
-            managementFeePercent: String(form.get('managementFeePercent') ?? '').trim(),
-            startDate: String(form.get('startDate') ?? ''),
+            propertyId: formText(form, 'propertyId'),
+            monthlyRent: formText(form, 'monthlyRent'),
+            managementFeePercent: formText(form, 'managementFeePercent'),
+            startDate: formText(form, 'startDate'),
             ...(tenantBrokerageFee ? { tenantBrokerageFee, tenantBrokerageMethod } : {}),
           });
         }}

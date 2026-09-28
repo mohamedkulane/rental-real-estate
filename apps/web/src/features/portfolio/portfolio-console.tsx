@@ -372,24 +372,6 @@ export function PortfolioConsole() {
     (branch) => principal && canPerformInBranch(principal, 'portfolio.property.create', branch.id),
   );
 
-  async function loadDependencies(tab: Tab) {
-    if (!principal) return;
-    const [branchData, propertyData, ownerData] = await Promise.all([
-      (tab === 'properties' || tab === 'parties') &&
-      hasPermission(principal, 'organization.branch.read')
-        ? apiCached<Branch[]>('/branches')
-        : null,
-      tab === 'spaces' && hasPermission(principal, 'portfolio.property.read')
-        ? apiCached<CursorPage<Property>>('/properties').then(pageItems)
-        : null,
-      tab === 'properties' && hasPermission(principal, 'owner.read')
-        ? apiCached<CursorPage<Owner>>('/owners').then(pageItems)
-        : null,
-    ]);
-    if (branchData) setBranches(branchData);
-    if (propertyData) setProperties(propertyData);
-    if (ownerData) setOwners(ownerData);
-  }
   const resetCursor = () => {
     setCursorHistory([null]);
     setCursorIndex(0);
@@ -446,43 +428,6 @@ export function PortfolioConsole() {
       setLoading(false);
     }
   }
-  async function choose(tab: Tab, requestedView?: string) {
-    const view = portfolioNavigationView(tab, requestedView);
-    setActiveView(view);
-    const url = new URL(window.location.href);
-    url.searchParams.set('section', tab);
-    if (tab === 'amenities') url.searchParams.delete('view');
-    else url.searchParams.set('view', view);
-    window.history.pushState({}, '', url);
-    if (tab === active) return;
-
-    setLoading(true);
-    setActive(tab);
-    setError('');
-    setSuccess('');
-    setShowActions(false);
-    resetCursor();
-    if (!shouldLoadParentPortfolioList(tab, view)) {
-      setLoading(false);
-      return;
-    }
-    try {
-      await Promise.all([
-        loadTab(
-          tab,
-          tab === 'spaces' ? propertyFilter : '',
-          null,
-          tab === 'spaces' ? spaceFilterQuery : undefined,
-        ),
-        loadDependencies(tab),
-      ]);
-    } catch (cause) {
-      setError(userFacingError(cause, 'Unable to load records.'));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function refreshProperties(message?: string) {
     clearApiCache();
     resetCursor();
@@ -1153,7 +1098,7 @@ export function PortfolioConsole() {
       ? 'Amenity Catalog'
       : active === 'owners' || active === 'properties' || active === 'spaces' || active === 'parties'
         ? (PORTFOLIO_NAVIGATION[active].find((item) => item.key === activeView)?.label ??
-          PORTFOLIO_NAVIGATION[active][0]!.label)
+          PORTFOLIO_NAVIGATION[active][0].label)
         : 'Portfolio';
 
   const partyKind =

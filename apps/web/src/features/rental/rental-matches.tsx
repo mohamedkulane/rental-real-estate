@@ -353,7 +353,6 @@ export function RentalCustomerMatches({
               {items.map((item) => {
                 const property = item.listing.rentableSpace?.property;
                 const propertyId = property?.id;
-                const spaceId = item.listing.rentableSpace?.id;
                 const location = [property?.city, property?.district].filter(Boolean).join(', ');
                 const viewing =
                   matchKeys(item)

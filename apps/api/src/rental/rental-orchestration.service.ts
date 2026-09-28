@@ -329,7 +329,7 @@ export class RentalOrchestrationService {
           attributes: {
             askingRent: monthlyRent,
             currency: (input.currency ?? 'USD').toUpperCase(),
-          } as Prisma.InputJsonValue,
+          },
         },
       });
     };
@@ -413,7 +413,7 @@ export class RentalOrchestrationService {
                   currency: (input.currency ?? 'USD').toUpperCase(),
                   ...(room.bathroomType ? { bathroomType: room.bathroomType } : {}),
                   ...(room.notes ? { notes: room.notes } : {}),
-                } as Prisma.InputJsonValue,
+                },
               },
             });
           }

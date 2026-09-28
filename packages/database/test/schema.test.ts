@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('Prisma operational schema boundary', () => {
-  it('contains completed foundations through Phase 7 while excluding undeclared modules', async () => {
+  it('contains implemented operational modules while excluding parallel domain models', async () => {
     const schema = await readFile(resolve(process.cwd(), '../../prisma/schema.prisma'), 'utf8');
     expect(schema).toContain('model RentableSpace');
     expect(schema).toContain('model ServiceEngagement');
@@ -15,8 +15,11 @@ describe('Prisma operational schema boundary', () => {
     expect(schema).toContain('model BrokerageDeal');
     expect(schema).toContain('model SaleOffer');
     expect(schema).toContain('model SaleSettlement');
+    expect(schema).toContain('model ConstructionProject');
+    expect(schema).toContain('model ConstructionContract');
+    expect(schema).toContain('model DevelopmentProject');
     expect(schema).not.toMatch(
-      /model\s+(Listing|Matching|SaleDeal|ConstructionProject|ConstructionAgreement|DevelopmentProject)\s*\{/,
+      /model\s+(Listing|Matching|SaleDeal|ConstructionAgreement)\s*\{/,
     );
     expect(schema).not.toMatch(/model\s+Unit\s*\{/);
     expect(schema).not.toMatch(/\bFloat\b/);

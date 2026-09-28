@@ -10,6 +10,7 @@ import {
 import { ChoiceGroup, ChoiceOption } from '@/components/shared/choice-option';
 import { BranchSelect } from '@/features/finance/finance-forms';
 import { api, type Principal, userFacingError } from '@/lib/phase3-api';
+import { formText } from '@/lib/form-data';
 
 const FORM_ID = 'add-owner-drawer-form';
 const inputClass =
@@ -108,8 +109,8 @@ export function AddOwnerDrawer({
           event.preventDefault();
           const form = new FormData(event.currentTarget);
           mutation.mutate({
-            name: String(form.get('name') ?? '').trim(),
-            phone: String(form.get('phone') ?? '').trim(),
+            name: formText(form, 'name'),
+            phone: formText(form, 'phone'),
             kind,
             ...(branchId ? { branchId } : {}),
           });
