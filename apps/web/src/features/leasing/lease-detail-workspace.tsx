@@ -23,6 +23,20 @@ const tabs = [
   { key: 'activity', label: 'Activity' },
 ] as const;
 
+const renewalNextStatus: Record<string, string | undefined> = {
+  DRAFT: 'PROPOSED',
+  PROPOSED: 'APPROVED',
+  APPROVED: 'SIGNED',
+  SIGNED: 'ACTIVATED',
+};
+
+const renewalActionLabel: Record<string, string> = {
+  PROPOSED: 'Send Proposal',
+  APPROVED: 'Approve Renewal',
+  SIGNED: 'Record Signature',
+  ACTIVATED: 'Activate Renewal',
+};
+
 type TabKey = (typeof tabs)[number]['key'];
 
 function formText(form: FormData, name: string): string {
@@ -47,7 +61,7 @@ type LeaseDetail = {
     property: { id: string; propertyCode: string; name: string; city: string };
   };
   parties: Array<{ role: string; party: { id: string; displayName: string } }>;
-  moveIn: { id: string; status: string; scheduledDate: string } | null;
+  moveIn: { id: string; status: string; version: number; scheduledDate: string; completedDate: string | null } | null;
   application: {
     id: string;
     applicationNumber: string;
@@ -73,7 +87,16 @@ type LeaseDetail = {
     outstanding: string;
     status: string;
   }>;
-  renewals: Array<{ id: string; status: string; proposedRent: string; currency: string }>;
+  renewals: Array<{
+    id: string;
+    status: string;
+    version: number;
+    proposedStartDate: string;
+    proposedEndDate: string;
+    proposedRent: string;
+    currency: string;
+    successorLease: { id: string; leaseNumber: string; status: string } | null;
+  }>;
   possessions: Array<{
     id: string;
     status: string;
@@ -125,11 +148,45 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
     },
     onError: (cause) => toast.error(userFacingError(cause)),
   });
+  const transitionRenewal = useMutation({
+    mutationFn: ({ renewalId, status, version }: { renewalId: string; status: string; version: number }) =>
+      api(`/renewals/${renewalId}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status,
+          expectedVersion: version,
+          reason: `${humanize(status)} from Lease Detail`,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success('Renewal updated.');
+      void queryClient.invalidateQueries({ queryKey: ['lease-detail', leaseId] });
+      void queryClient.invalidateQueries({ queryKey: ['leasing-register'] });
+    },
+    onError: (cause) => toast.error(userFacingError(cause)),
+  });
   const scheduleMoveIn = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
       api('/move-ins', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => {
       toast.success('Move-in scheduled.');
+      void queryClient.invalidateQueries({ queryKey: ['lease-detail', leaseId] });
+    },
+    onError: (cause) => toast.error(userFacingError(cause)),
+  });
+  const transitionMoveIn = useMutation({
+    mutationFn: ({ moveInId, status, version }: { moveInId: string; status: string; version: number }) =>
+      api(`/move-ins/${moveInId}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status,
+          expectedVersion: version,
+          reason: `${humanize(status)} from Lease Detail`,
+          ...(status === 'COMPLETED' ? { completedDate: new Date().toISOString().slice(0, 10) } : {}),
+        }),
+      }),
+    onSuccess: () => {
+      toast.success('Move-in updated.');
       void queryClient.invalidateQueries({ queryKey: ['lease-detail', leaseId] });
     },
     onError: (cause) => toast.error(userFacingError(cause)),
@@ -412,11 +469,35 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
           {tab === 'renewal' ? (
             <section className="mt-6 space-y-4">
               {lease.renewals.length ? (
-                <ul className="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+                <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white px-4 text-sm shadow-sm">
                   {lease.renewals.map((renewal) => (
-                    <li key={renewal.id} className="flex items-center justify-between gap-3 py-2">
-                      <span>Renewal {renewal.id.slice(0, 8)}</span>
-                      <StatusBadge value={renewal.status} />
+                    <li key={renewal.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-slate-900">{renewal.proposedStartDate.slice(0, 10)} → {renewal.proposedEndDate.slice(0, 10)}</span>
+                          <StatusBadge value={renewal.status} />
+                        </div>
+                        <p className="mt-1 text-slate-600">{renewal.currency} {renewal.proposedRent}</p>
+                        {renewal.successorLease ? (
+                          <Link className="mt-1 inline-block font-semibold text-emerald-700" href={`/leasing/leases/${renewal.successorLease.id}`}>
+                            Open {renewal.successorLease.leaseNumber}
+                          </Link>
+                        ) : null}
+                      </div>
+                      {hasPermission(principal, 'renewal.manage') && renewalNextStatus[renewal.status] ? (
+                        <button
+                          className="button secondary"
+                          type="button"
+                          disabled={transitionRenewal.isPending}
+                          onClick={() => transitionRenewal.mutate({
+                            renewalId: renewal.id,
+                            status: renewalNextStatus[renewal.status]!,
+                            version: renewal.version,
+                          })}
+                        >
+                          {renewalActionLabel[renewalNextStatus[renewal.status]!]}
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -485,6 +566,27 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                     Scheduled: {lease.moveIn.scheduledDate.slice(0, 10)} ·{' '}
                     <StatusBadge value={lease.moveIn.status} />
                   </p>
+                  {lease.moveIn.status === 'SCHEDULED' && hasPermission(principal, 'move-in.manage') ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="button primary"
+                        type="button"
+                        disabled={transitionMoveIn.isPending || lease.status !== 'ACTIVE'}
+                        onClick={() => transitionMoveIn.mutate({ moveInId: lease.moveIn!.id, status: 'COMPLETED', version: lease.moveIn!.version })}
+                      >
+                        Complete Move-In
+                      </button>
+                      <button
+                        className="button secondary"
+                        type="button"
+                        disabled={transitionMoveIn.isPending}
+                        onClick={() => transitionMoveIn.mutate({ moveInId: lease.moveIn!.id, status: 'CANCELLED', version: lease.moveIn!.version })}
+                      >
+                        Cancel Move-In
+                      </button>
+                      {lease.status !== 'ACTIVE' ? <p className="w-full text-xs text-amber-700">Activate the lease before completing move-in.</p> : null}
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <p className="text-sm text-slate-600">Move-in has not been scheduled yet.</p>

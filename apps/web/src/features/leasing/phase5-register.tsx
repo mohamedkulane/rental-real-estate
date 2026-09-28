@@ -204,7 +204,7 @@ const config: Record<
   leases: {
     eyebrow: 'Leasing',
     title: 'Leases',
-    description: 'Active and historical rental leases. Create a lease from a customer and a property.',
+    description: 'Active and historical rental contracts created from confirmed agreements.',
     permission: 'lease.read',
     endpoint: '/leases',
     empty: 'No Lease Contracts match the current filters.',

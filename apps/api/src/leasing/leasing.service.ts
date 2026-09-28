@@ -569,7 +569,16 @@ export class LeasingService {
       where: { originalLeaseId: id },
       orderBy: { createdAt: 'desc' },
       take: 10,
-      select: { id: true, status: true, proposedRent: true, currency: true },
+      select: {
+        id: true,
+        status: true,
+        version: true,
+        proposedStartDate: true,
+        proposedEndDate: true,
+        proposedRent: true,
+        currency: true,
+        successorLease: { select: { id: true, leaseNumber: true, status: true } },
+      },
     });
     return {
       ...row,

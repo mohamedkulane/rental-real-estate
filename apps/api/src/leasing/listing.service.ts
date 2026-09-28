@@ -36,7 +36,7 @@ export function preferPropertyTypeMatches<T extends { reasonKeys: readonly strin
 ): T[] {
   if (!preferences.length) return [...items];
   const preferred = items.filter((item) => item.reasonKeys.includes('property_type_match'));
-  return preferred.length ? [...preferred, ...items.filter((item) => !item.reasonKeys.includes('property_type_match'))] : [...items];
+  return preferred.length ? preferred : [...items];
 }
 
 export const listingTransitions: Record<ListingStatus, readonly ListingStatus[]> = {
@@ -512,7 +512,7 @@ export class ListingService {
   }
 
   private typeMatchScore(
-    propertyType: PropertyType | string | null | undefined,
+    propertyType: PropertyType | null | undefined,
     codes: string[] | undefined,
   ): { points: number; matched: boolean } {
     if (!codes?.length) return { points: 12, matched: true };
@@ -555,6 +555,9 @@ export class ListingService {
         ? record.currency.trim().toUpperCase()
         : 'USD';
     if (raw == null || raw === '') return { askingRent: null, currency };
+    if (typeof raw !== 'string' && typeof raw !== 'number') {
+      return { askingRent: null, currency };
+    }
     try {
       return { askingRent: new Prisma.Decimal(String(raw)), currency };
     } catch {
@@ -845,11 +848,9 @@ export class ListingService {
               : []),
             ...(!askingRent ? ['rent_not_set'] : []),
           ];
-          const {
-            saleListings: _saleListings,
-            serviceEngagements: _serviceEngagements,
-            ...propertyPublic
-          } = property;
+          const { saleListings, serviceEngagements, ...propertyPublic } = property;
+          void saleListings;
+          void serviceEngagements;
           const listing = openListing
             ? {
                 ...openListing,
