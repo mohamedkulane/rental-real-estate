@@ -22,6 +22,7 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
   let staffEmployeeId = '';
   let hodanId = '';
   let wadajirId = '';
+  let businessDate = '';
   const suffix = randomUUID().slice(0, 8);
   const staffEmail = `phase3.staff.${suffix}@example.test`;
   const staffPassword = 'Phase3-Staff-Password!';
@@ -80,6 +81,7 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
     expect(me.body.accessMode).toBe('COMPANY_WIDE');
     expect(me.body.permissions).toContain('identity.role.manage');
     expect(JSON.stringify(me.body)).not.toContain('passwordHash');
+    businessDate = me.body.businessDate as string;
   });
 
   it('creates branch-scoped staff and assigns a branch-scoped role', async () => {
@@ -130,7 +132,7 @@ describe.skipIf(!canRun)('Phase 3 identity and governance API', () => {
       .send({
         roleId: receptionist.id,
         branchId: hodanId,
-        effectiveFrom: new Date().toISOString().slice(0, 10),
+        effectiveFrom: businessDate,
       })
       .expect(201);
   });

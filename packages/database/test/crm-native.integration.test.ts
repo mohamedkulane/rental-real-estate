@@ -213,9 +213,17 @@ describe('Phase 5.2 CRM PostgreSQL invariants', () => {
 
   afterAll(async () => database.$disconnect());
 
-  it('seeds a complete Lead aggregate with matching current snapshots', async () => {
+  it('creates a complete Lead aggregate with matching current snapshots', async () => {
+    const leadId = await createRentLead(`LEAD-${Date.now()}${Math.floor(Math.random() * 1000)}`);
+    await database.$transaction(async (transaction) => {
+      await transaction.$executeRaw`
+        INSERT INTO "lead_assignments" ("id", "leadId", "employeeId", "branchId", "assignedFrom", "actorUserId", "reason")
+        VALUES (${randomUUID()}::uuid, ${leadId}::uuid, ${fixture.employeeId}::uuid, ${fixture.branchId}::uuid, CURRENT_TIMESTAMP, ${fixture.userId}::uuid, 'Aggregate fixture assignment')`;
+      await transaction.$executeRaw`
+        UPDATE "leads" SET "currentAssigneeEmployeeId" = ${fixture.employeeId}::uuid, "version" = "version" + 1 WHERE "id" = ${leadId}::uuid`;
+    });
     const lead = await database.lead.findFirstOrThrow({
-      where: { companyId: fixture.companyId, leadNumber: 'LEAD-000001' },
+      where: { id: leadId },
       include: {
         preferenceVersions: { where: { effectiveTo: null }, include: { rent: true } },
         assignments: { where: { assignedTo: null } },

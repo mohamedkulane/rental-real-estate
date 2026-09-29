@@ -1,4 +1,5 @@
 import { sessionToken } from '../session-cookie';
+import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -22,6 +23,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Portal account a
   let database: PrismaClient;
   let adminToken: string;
   let ownerPartyId: string;
+  let constructionProjectId: string;
   let createdPortalAccountId: string | undefined;
   const uniqueEmail = `owner-portal-admin-${Date.now()}@example.test`;
 
@@ -40,24 +42,62 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Portal account a
       .expect(201);
     adminToken = sessionToken(adminLogin);
 
-    const owners = await request(app.getHttpServer())
-      .get('/api/v1/owners?limit=20')
+    const principal = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
       .set('Cookie', `rerms_session=${adminToken}`)
       .expect(200);
-    for (const owner of owners.body.items as Array<{ partyId: string }>) {
-      const existing = await database.portalAccount.findUnique({ where: { partyId: owner.partyId } });
-      if (!existing) {
-        ownerPartyId = owner.partyId;
-        break;
-      }
-    }
-    if (!ownerPartyId) throw new Error('No owner without portal account found for test.');
+    const companyId = principal.body.companyId as string;
+    const businessDate = new Date(`${String(principal.body.businessDate)}T00:00:00.000Z`);
+    const branch = await database.branch.findFirstOrThrow({ where: { companyId, active: true } });
+    const fixtureSuffix = Date.now().toString();
+    ownerPartyId = randomUUID();
+    await database.party.create({
+      data: {
+        id: ownerPartyId,
+        companyId,
+        partyNumber: `PTY-PORTAL-${fixtureSuffix}`,
+        kind: 'PERSON',
+        displayName: 'Portal Account Integration Owner',
+        owner: {
+          create: {
+            ownerNumber: `OWN-PORTAL-${fixtureSuffix}`,
+          },
+        },
+        branchAssignments: {
+          create: {
+            id: randomUUID(),
+            branchId: branch.id,
+            effectiveFrom: businessDate,
+          },
+        },
+      },
+    });
+    constructionProjectId = randomUUID();
+    await database.constructionProject.create({
+      data: {
+        id: constructionProjectId,
+        companyId,
+        branchId: branch.id,
+        projectNumber: `CON-PORTAL-${fixtureSuffix}`,
+        name: 'Portal Account Integration Project',
+        economicModel: 'CONSTRUCTION_FOR_CLIENT',
+        clientPartyId: ownerPartyId,
+        currency: 'USD',
+      },
+    });
   });
 
   afterAll(async () => {
+    if (constructionProjectId) {
+      await database.constructionProject.deleteMany({ where: { id: constructionProjectId } });
+    }
     if (createdPortalAccountId) {
       await database.portalAccount.deleteMany({ where: { id: createdPortalAccountId } });
-      await database.user.deleteMany({ where: { emailNormalized: uniqueEmail.toLowerCase() } });
+    }
+    if (ownerPartyId) {
+      await database.partyBranchAssignment.deleteMany({ where: { partyId: ownerPartyId } });
+      await database.ownerProfile.deleteMany({ where: { partyId: ownerPartyId } });
+      await database.party.deleteMany({ where: { id: ownerPartyId } });
     }
     await app?.close();
     await database?.$disconnect();

@@ -114,13 +114,11 @@ async function seedPortalAccounts(input: {
       data: {
         id: uuidv7(),
         companyId: input.company.id,
-        branchId: input.branches[0]!.id,
         engagementNumber: 'ENG-PORTAL-DEMO',
         serviceModel: ServiceModel.FULL_MANAGEMENT,
         status: ServiceEngagementStatus.ACTIVE,
         propertyId: input.sampleProperty.id,
         rentableSpaceId: input.sampleSpace.id,
-        ownerPartyId: input.companyParty.id,
         effectiveFrom: input.today,
         createdByUserId: input.user.id,
       },
@@ -245,6 +243,9 @@ const permissions = [
   ['identity.employee.read', 'Read employees'],
   ['identity.employee.create', 'Create employees'],
   ['identity.employee.update', 'Update employees and access assignments'],
+  ['portal.account.read', 'Read owner and tenant portal accounts'],
+  ['portal.account.create', 'Create owner and tenant portal accounts'],
+  ['portal.account.update', 'Activate and deactivate owner and tenant portal accounts'],
   ['governance.audit.read', 'Read audit evidence'],
   ['governance.approval.read', 'Read approval requests'],
   ['governance.approval.request', 'Create approval requests'],
@@ -414,6 +415,9 @@ const rolePermissions: Record<string, readonly string[]> = {
     'identity.employee.read',
     'identity.employee.create',
     'identity.employee.update',
+    'portal.account.read',
+    'portal.account.create',
+    'portal.account.update',
     'governance.audit.read',
     'governance.approval.read',
     'governance.approval.request',
@@ -927,10 +931,15 @@ async function seed(): Promise<void> {
     });
   }
   const receivingAccountByMethod = {
+    CASH: '1010',
     EVC: '1030',
     EDAHAB: '1030',
     SOMNET: '1030',
     SALAAM_BANK: '1020',
+    BANK_TRANSFER: '1020',
+    MOBILE_MONEY: '1030',
+    CHEQUE: '1020',
+    CARD: '1020',
   } as const;
   for (const [methodCode, accountCode] of Object.entries(receivingAccountByMethod)) {
     const account = await database.account.findUniqueOrThrow({

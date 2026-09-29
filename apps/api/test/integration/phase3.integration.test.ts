@@ -42,6 +42,11 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .send({ email: adminEmail, password: adminPassword })
         .expect(201);
       const adminToken = sessionToken(adminLogin);
+      const adminPrincipal = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const businessDate = adminPrincipal.body.businessDate as string;
       const branches = await database.branch.findMany({
         where: { code: { in: ['HODAN', 'WADAJIR'] } },
       });
@@ -68,7 +73,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .set('authorization', `Bearer ${adminToken}`)
         .send({
           branchId: wadajir.id,
-          effectiveFrom: new Date().toISOString().slice(0, 10),
+          effectiveFrom: businessDate,
         })
         .expect(201);
       await request(app.getHttpServer())
@@ -77,7 +82,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .send({
           roleId: receptionist.id,
           branchId: hodan.id,
-          effectiveFrom: new Date().toISOString().slice(0, 10),
+          effectiveFrom: businessDate,
         })
         .expect(201);
 

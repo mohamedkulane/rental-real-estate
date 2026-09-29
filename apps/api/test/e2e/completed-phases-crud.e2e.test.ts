@@ -230,7 +230,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))(
         .send({
           roleId,
           branchId: branchOneId,
-          effectiveFrom: new Date().toISOString().slice(0, 10),
+          effectiveFrom: businessDate,
         })
         .expect(201);
       assignmentId = assignment.body.id as string;

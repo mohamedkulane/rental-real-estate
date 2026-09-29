@@ -1089,7 +1089,7 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
       .send({
         roleId: role.id,
         branchId: wadajirId,
-        effectiveFrom: new Date().toISOString().slice(0, 10),
+        effectiveFrom: businessDate,
       })
       .expect(201);
     const login = await request(app.getHttpServer())
