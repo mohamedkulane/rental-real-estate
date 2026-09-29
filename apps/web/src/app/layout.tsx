@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 };
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" translate="no" suppressHydrationWarning>
+    <html lang="en" translate="no" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={inter.variable} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

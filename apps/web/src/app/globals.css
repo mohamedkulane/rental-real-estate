@@ -3092,7 +3092,7 @@ details[open] > :not(summary) {
 }
 .workspace-form-drawer-body > form,
 .workspace-form-drawer-body > fieldset {
-  padding-bottom: 8px;
+  padding-bottom: 24px;
 }
 .workspace-form-drawer-footer {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -3113,13 +3113,13 @@ details[open] > :not(summary) {
 }
 @media (max-width: 639px) {
   .workspace-form-drawer-overlay {
-    align-items: flex-start;
+    align-items: center;
     overflow-y: auto;
-    padding: 8px;
+    padding: 12px;
   }
   .workspace-form-drawer-panel {
-    height: calc(100dvh - 16px);
-    max-height: none;
+    height: min(90dvh, 760px);
+    max-height: calc(100dvh - 24px);
   }
   .workspace-form-drawer-panel.workspace-form-drawer-compact {
     height: auto;

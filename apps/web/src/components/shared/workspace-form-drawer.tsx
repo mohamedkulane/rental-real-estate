@@ -212,10 +212,10 @@ export function WorkspaceFormDrawerFooter({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+    <div className="flex items-center justify-end gap-2">
       <button
         type="button"
-        className="button secondary"
+        className="button secondary min-w-0 flex-1 sm:flex-none"
         onClick={onCancel}
         disabled={isPending}
       >
@@ -224,7 +224,7 @@ export function WorkspaceFormDrawerFooter({
       <button
         type="submit"
         form={formId}
-        className="button primary"
+        className="button primary min-w-0 flex-1 sm:flex-none"
         disabled={isPending || disabled}
       >
         {isPending ? loadingLabel : submitLabel}
