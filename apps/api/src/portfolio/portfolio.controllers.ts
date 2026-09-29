@@ -55,6 +55,7 @@ import {
   ListSpaceMeasurementsQueryDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
+  RemoveSpaceDto,
   RetireSpaceDto,
   TransferPropertyBranchDto,
   UpdateAmenityDto,
@@ -402,12 +403,7 @@ export class RentableSpaceController {
     @Param('spaceId', ParseUUIDPipe) spaceId: string,
     @Body() input: UpdateSpaceDto,
   ) {
-    return this.portfolio.updateSpace(
-      request.principal,
-      spaceId,
-      input,
-      request.correlationId,
-    );
+    return this.portfolio.updateSpace(request.principal, spaceId, input, request.correlationId);
   }
   @Post(':spaceId/partition') @RequirePermissions('portfolio.space.partition') partition(
     @Req() request: AuthenticatedRequest,
@@ -441,6 +437,13 @@ export class RentableSpaceController {
     @Body() input: RetireSpaceDto,
   ) {
     return this.portfolio.retire(request.principal, spaceId, input, request.correlationId);
+  }
+  @Post(':spaceId/remove') @RequirePermissions('portfolio.space.update') remove(
+    @Req() request: AuthenticatedRequest,
+    @Param('spaceId', ParseUUIDPipe) spaceId: string,
+    @Body() input: RemoveSpaceDto,
+  ) {
+    return this.portfolio.removeSpace(request.principal, spaceId, input, request.correlationId);
   }
   @Post(':spaceId/amenities') @RequirePermissions('portfolio.amenity.manage') amenity(
     @Req() request: AuthenticatedRequest,

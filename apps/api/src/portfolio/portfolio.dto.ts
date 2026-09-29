@@ -323,6 +323,11 @@ export class RetireSpaceDto {
   @IsString() @Length(3, 500) reason!: string;
 }
 
+export class RemoveSpaceDto {
+  @IsDateString() effectiveDate!: string;
+  @IsString() @Length(3, 500) reason!: string;
+}
+
 export class AmenityAssignmentDto {
   @IsUUID() amenityId!: string;
 }

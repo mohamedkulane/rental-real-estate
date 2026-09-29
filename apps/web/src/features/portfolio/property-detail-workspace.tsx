@@ -5,9 +5,14 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Building2, Plus } from 'lucide-react';
 import { DetailTabs } from '@/components/shared/detail-tabs';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
 import { api, apiCached, pageItems, userFacingError, type CursorPage } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
+import toast from '@/lib/toast';
 import { PropertyOperations } from './property-operations';
 import { PropertyActivity } from './property-activity';
 import { PROPERTY_DETAIL_TABS } from './portfolio-ia';
@@ -24,6 +29,76 @@ const formValue = (form: FormData, key: string) => {
 };
 
 type SpaceNode = NonNullable<PropertyRecord['spaces']>[number];
+
+const REMOVE_UNIT_FORM_ID = 'remove-unit-form';
+
+function RemoveUnitDrawer({
+  unit,
+  businessDate,
+  busy,
+  onClose,
+  onRemove,
+}: {
+  unit: SpaceNode | null;
+  businessDate: string;
+  busy: boolean;
+  onClose: () => void;
+  onRemove: (reason: string) => void;
+}) {
+  return (
+    <WorkspaceFormDrawer
+      open={Boolean(unit)}
+      eyebrow="Unit lifecycle"
+      title="Remove Unit"
+      description={unit ? `Remove ${unit.name} from active inventory.` : 'Remove unit'}
+      onClose={onClose}
+      size="md"
+      layout="compact"
+      footer={
+        <WorkspaceFormDrawerFooter
+          formId={REMOVE_UNIT_FORM_ID}
+          onCancel={onClose}
+          submitLabel="Remove Unit"
+          loadingLabel="Removing…"
+          isPending={busy}
+        />
+      }
+    >
+      <form
+        id={REMOVE_UNIT_FORM_ID}
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const reason = formValue(new FormData(event.currentTarget), 'reason');
+          onRemove(reason);
+        }}
+      >
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          <p className="font-semibold">Business history will always be preserved.</p>
+          <p className="mt-1 leading-5">
+            If this unit has leases, agreements, viewings, finance, maintenance, service, or other
+            history, it will be retired instead of deleted. Permanent deletion is limited to an
+            unused unit created by mistake.
+          </p>
+        </div>
+        <input type="hidden" name="effectiveDate" value={businessDate} />
+        <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+          Reason
+          <textarea
+            name="reason"
+            required
+            minLength={3}
+            maxLength={500}
+            rows={3}
+            autoFocus
+            placeholder="Why is this unit being removed?"
+            className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15"
+          />
+        </label>
+      </form>
+    </WorkspaceFormDrawer>
+  );
+}
 
 function spaceAskingRent(space: SpaceNode): string | null {
   const listingRent = space.rentalListings?.[0]?.askingRent;
@@ -44,11 +119,15 @@ function isRented(space: SpaceNode): boolean {
 function UnitsHierarchyPanel({
   spaces,
   onAddUnit,
+  onRemoveUnit,
   canAdd,
+  canRemove,
 }: {
   spaces: SpaceNode[];
   onAddUnit: () => void;
+  onRemoveUnit: (unit: SpaceNode) => void;
   canAdd: boolean;
+  canRemove: boolean;
 }) {
   const roots = spaces.filter((space) => {
     const activeParent = (space.childRelations ?? []).find((relation) => !relation.effectiveTo);
@@ -98,12 +177,14 @@ function UnitsHierarchyPanel({
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge value={rented ? 'RENTED' : space.status} />
-                    <TableActionButton
-                      tone="open"
-                      href={'/portfolio/rentable-spaces/' + space.id}
-                    >
+                    <TableActionButton tone="open" href={'/portfolio/rentable-spaces/' + space.id}>
                       Open Unit
                     </TableActionButton>
+                    {canRemove && space.status !== 'RETIRED' ? (
+                      <TableActionButton tone="danger" onClick={() => onRemoveUnit(space)}>
+                        Remove Unit
+                      </TableActionButton>
+                    ) : null}
                   </div>
                 </div>
                 {rooms.length ? (
@@ -124,12 +205,22 @@ function UnitsHierarchyPanel({
                               {roomRent ? ` · ${spaceCurrency(roomNode)} ${roomRent}/month` : ''}
                             </span>
                           </div>
-                          <TableActionButton
-                            tone="open"
-                            href={'/portfolio/rentable-spaces/' + roomNode.id}
-                          >
-                            Open
-                          </TableActionButton>
+                          <TableActionGroup>
+                            <TableActionButton
+                              tone="open"
+                              href={'/portfolio/rentable-spaces/' + roomNode.id}
+                            >
+                              Open
+                            </TableActionButton>
+                            {canRemove && roomNode.status !== 'RETIRED' ? (
+                              <TableActionButton
+                                tone="danger"
+                                onClick={() => onRemoveUnit(roomNode)}
+                              >
+                                Remove
+                              </TableActionButton>
+                            ) : null}
+                          </TableActionGroup>
                         </li>
                       );
                     })}
@@ -184,6 +275,8 @@ export function PropertyDetailWorkspace() {
   const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
   const [loadingOwners, setLoadingOwners] = useState(false);
   const [savingOwnership, setSavingOwnership] = useState(false);
+  const [unitToRemove, setUnitToRemove] = useState<SpaceNode | null>(null);
+  const [removingUnit, setRemovingUnit] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -287,6 +380,32 @@ export function PropertyDetailWorkspace() {
     : '#';
   const { createOpen, openCreate, closeCreate } = useCreateDrawerState('addUnit');
   const canAddUnit = Boolean(principal?.permissions.includes('portfolio.space.create'));
+  const canRemoveUnit = Boolean(principal?.permissions.includes('portfolio.space.update'));
+
+  async function removeUnit(reason: string) {
+    if (!unitToRemove || !principal) return;
+    setRemovingUnit(true);
+    try {
+      const result = await api<{ outcome: 'DELETED' | 'RETIRED' }>(
+        `/rentable-spaces/${unitToRemove.id}/remove`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ effectiveDate: principal.businessDate, reason }),
+        },
+      );
+      toast.success(
+        result.outcome === 'RETIRED'
+          ? 'Unit retired. Its business history remains available.'
+          : 'Unused unit removed permanently.',
+      );
+      setUnitToRemove(null);
+      await load();
+    } catch (cause) {
+      toast.error(userFacingError(cause, 'The unit could not be removed.'));
+    } finally {
+      setRemovingUnit(false);
+    }
+  }
 
   return (
     <PortfolioDetailShell
@@ -315,7 +434,8 @@ export function PropertyDetailWorkspace() {
                   <p className="mt-2 text-[15px] font-medium text-slate-600">
                     {humanize(record.propertyType)}
                     {' · '}
-                    {[record.city, record.district].filter(Boolean).join(', ') || 'Location not set'}
+                    {[record.city, record.district].filter(Boolean).join(', ') ||
+                      'Location not set'}
                     {' · '}
                     {currentBranch?.branch?.name ?? 'Company-wide'}
                   </p>
@@ -391,7 +511,10 @@ export function PropertyDetailWorkspace() {
                       ['Buildings', String(record.buildings?.length ?? 0)],
                       ['City', record.city || '—'],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-lg border border-slate-200 bg-[#F4F2F2] p-3">
+                      <div
+                        key={label}
+                        className="rounded-lg border border-slate-200 bg-[#F4F2F2] p-3"
+                      >
                         <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
                           {label}
                         </p>
@@ -557,7 +680,9 @@ export function PropertyDetailWorkspace() {
               <UnitsHierarchyPanel
                 spaces={record.spaces ?? []}
                 canAdd={canAddUnit}
+                canRemove={canRemoveUnit}
                 onAddUnit={openCreate}
+                onRemoveUnit={setUnitToRemove}
               />
               {createOpen && principal ? (
                 <AddUnitDrawer
@@ -574,6 +699,13 @@ export function PropertyDetailWorkspace() {
                   }))}
                 />
               ) : null}
+              <RemoveUnitDrawer
+                unit={unitToRemove}
+                businessDate={principal.businessDate}
+                busy={removingUnit}
+                onClose={() => setUnitToRemove(null)}
+                onRemove={(reason) => void removeUnit(reason)}
+              />
             </>
           ) : null}
 
@@ -593,7 +725,9 @@ export function PropertyDetailWorkspace() {
             />
           ) : null}
 
-          {activeTab === 'amenities' || activeTab === 'documents' || activeTab === 'branch-history' ? (
+          {activeTab === 'amenities' ||
+          activeTab === 'documents' ||
+          activeTab === 'branch-history' ? (
             <PropertyOperations
               property={record}
               branches={branches}

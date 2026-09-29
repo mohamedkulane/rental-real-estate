@@ -6,7 +6,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BuildingStatus, LeaseStatus, ListingStatus, Prisma, PropertyStatus, RentableSpaceStatus } from '@prisma/client';
+import {
+  BuildingStatus,
+  LeaseStatus,
+  ListingStatus,
+  Prisma,
+  PropertyStatus,
+  RentableSpaceStatus,
+} from '@prisma/client';
 import { BusinessDateService } from '../common/business-date.service';
 import { cursorPage } from '../common/cursor-pagination';
 import { EffectiveDatingService } from '../common/effective-dating.service';
@@ -42,6 +49,7 @@ import type {
   PropertyLifecycleTransitionDto,
   ReplaceOwnershipDto,
   ReparentSpaceDto,
+  RemoveSpaceDto,
   RetireSpaceDto,
   TransferPropertyBranchDto,
   UpdateAmenityDto,
@@ -2080,7 +2088,11 @@ export class PortfolioService {
     input: UpdateSpaceDto,
     correlationId?: string,
   ) {
-    if (input.name === undefined && input.typeCode === undefined && input.buildingId === undefined) {
+    if (
+      input.name === undefined &&
+      input.typeCode === undefined &&
+      input.buildingId === undefined
+    ) {
       throw new BadRequestException('Provide at least one field to update.');
     }
     const space = await this.database.rentableSpace.findUniqueOrThrow({
@@ -2318,76 +2330,231 @@ export class PortfolioService {
       input.effectiveDate,
     );
     return this.database.$transaction(async (transaction) => {
-      const scheduledVersions = await transaction.rentableSpaceVersion.findMany({
-        where: { rentableSpaceId: spaceId, effectiveFrom: { gte: effectiveDate } },
-        select: { effectiveFrom: true },
-      });
-      const scheduledParents = await transaction.rentableSpaceParentHistory.findMany({
-        where: { childSpaceId: spaceId, effectiveFrom: { gte: effectiveDate } },
-        select: { effectiveFrom: true },
-      });
-      this.effectiveDating.assertNoLaterScheduledChange(effectiveDate, [
-        ...scheduledVersions,
-        ...scheduledParents,
-      ]);
-      const activeChildren = await transaction.rentableSpaceParentHistory.count({
-        where: {
-          parentSpaceId: spaceId,
-          effectiveFrom: { lte: effectiveDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
-          child: { status: RentableSpaceStatus.ACTIVE },
-        },
-      });
-      if (activeChildren)
-        throw new BadRequestException('Retire active child spaces before retiring their parent.');
-      const openLeases = await transaction.lease.count({
-        where: {
-          rentableSpaceId: spaceId,
-          status: {
-            notIn: [LeaseStatus.ENDED, LeaseStatus.TERMINATED, LeaseStatus.ARCHIVED],
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT id FROM rentable_spaces WHERE id = ${spaceId}::uuid FOR UPDATE`,
+      );
+      return this.retireSpaceInTransaction(
+        transaction,
+        principal,
+        space,
+        branchId,
+        effectiveDate,
+        input,
+        correlationId,
+      );
+    });
+  }
+
+  async removeSpace(
+    principal: AuthenticatedPrincipal,
+    spaceId: string,
+    input: RemoveSpaceDto,
+    correlationId?: string,
+  ) {
+    const space = await this.database.rentableSpace.findUniqueOrThrow({ where: { id: spaceId } });
+    const branchId = await this.assertPropertyPermission(
+      principal,
+      space.propertyId,
+      'portfolio.space.update',
+    );
+    const effectiveDate = await this.effectiveDating.scheduledDate(
+      principal.companyId,
+      input.effectiveDate,
+    );
+
+    return this.database.$transaction(async (transaction) => {
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT id FROM rentable_spaces WHERE id = ${spaceId}::uuid FOR UPDATE`,
+      );
+      const dependencyCounts = await transaction.rentableSpace.findUniqueOrThrow({
+        where: { id: spaceId },
+        select: {
+          _count: {
+            select: {
+              childRelations: true,
+              parentRelations: true,
+              space_successors_space_successors_predecessorSpaceIdTorentable_spaces: true,
+              space_successors_space_successors_successorSpaceIdTorentable_spaces: true,
+              serviceEngagements: true,
+              rentLeadPreferences: true,
+              rentalListings: true,
+              reservations: true,
+              leases: true,
+              leasePossessions: true,
+              rentalApplications: true,
+              charges: true,
+              expenses: true,
+              journalLines: true,
+              brokerageDeals: true,
+              rentalAgreements: true,
+              maintenanceRequests: true,
+              workOrders: true,
+              inspections: true,
+              viewings: true,
+              defectIssues: true,
+            },
           },
         },
       });
-      if (openLeases) {
-        throw new BadRequestException(
-          'End or terminate open leases on this unit before retiring it.',
+      const documentLinks = await transaction.documentLink.count({
+        where: { entityType: 'RentableSpace', entityId: spaceId },
+      });
+      const historyTypes = Object.entries({
+        hierarchy: dependencyCounts._count.childRelations + dependencyCounts._count.parentRelations,
+        successor:
+          dependencyCounts._count
+            .space_successors_space_successors_predecessorSpaceIdTorentable_spaces +
+          dependencyCounts._count
+            .space_successors_space_successors_successorSpaceIdTorentable_spaces,
+        service: dependencyCounts._count.serviceEngagements,
+        preference: dependencyCounts._count.rentLeadPreferences,
+        listing: dependencyCounts._count.rentalListings,
+        reservation: dependencyCounts._count.reservations,
+        lease: dependencyCounts._count.leases + dependencyCounts._count.leasePossessions,
+        application: dependencyCounts._count.rentalApplications,
+        finance:
+          dependencyCounts._count.charges +
+          dependencyCounts._count.expenses +
+          dependencyCounts._count.journalLines,
+        brokerage:
+          dependencyCounts._count.brokerageDeals + dependencyCounts._count.rentalAgreements,
+        maintenance:
+          dependencyCounts._count.maintenanceRequests +
+          dependencyCounts._count.workOrders +
+          dependencyCounts._count.inspections +
+          dependencyCounts._count.defectIssues,
+        viewing: dependencyCounts._count.viewings,
+        document: documentLinks,
+      })
+        .filter(([, count]) => count > 0)
+        .map(([type]) => type);
+
+      if (historyTypes.length > 0) {
+        const retired = await this.retireSpaceInTransaction(
+          transaction,
+          principal,
+          space,
+          branchId,
+          effectiveDate,
+          input,
+          correlationId,
         );
+        return {
+          outcome: 'RETIRED' as const,
+          spaceId,
+          status: retired.status,
+          preservedHistory: historyTypes,
+        };
       }
+
       if (space.status === RentableSpaceStatus.RETIRED) {
         throw new BadRequestException('This unit is already retired.');
       }
-      await transaction.rentableSpaceVersion.updateMany({
-        where: {
-          rentableSpaceId: spaceId,
-          effectiveFrom: { lt: effectiveDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
-        },
-        data: { effectiveTo: effectiveDate },
-      });
-      await transaction.rentableSpaceParentHistory.updateMany({
-        where: {
-          childSpaceId: spaceId,
-          effectiveFrom: { lt: effectiveDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
-        },
-        data: { effectiveTo: effectiveDate },
-      });
-      const retired = await transaction.rentableSpace.update({
-        where: { id: spaceId },
-        data: { status: RentableSpaceStatus.RETIRED },
-      });
+      await transaction.spaceAmenity.deleteMany({ where: { rentableSpaceId: spaceId } });
+      await transaction.residentialSpaceProfile.deleteMany({ where: { rentableSpaceId: spaceId } });
+      await transaction.commercialSpaceProfile.deleteMany({ where: { rentableSpaceId: spaceId } });
+      await transaction.landSpaceProfile.deleteMany({ where: { rentableSpaceId: spaceId } });
+      await transaction.rentableSpaceVersion.deleteMany({ where: { rentableSpaceId: spaceId } });
+      await transaction.rentableSpace.delete({ where: { id: spaceId } });
       await this.audit.write(transaction, {
         actorUserId: principal.userId,
-        action: 'portfolio.space.retired',
+        action: 'portfolio.space.deleted-unused',
         entityType: 'RentableSpace',
         entityId: spaceId,
         branchId,
         correlationId,
         reason: input.reason,
-        after: { status: retired.status, effectiveDate: input.effectiveDate },
+        before: {
+          propertyId: space.propertyId,
+          spaceCode: space.spaceCode,
+          name: space.name,
+          status: space.status,
+        },
+        after: { outcome: 'DELETED', effectiveDate: input.effectiveDate },
       });
-      return retired;
+      return { outcome: 'DELETED' as const, spaceId, preservedHistory: [] };
     });
+  }
+
+  private async retireSpaceInTransaction(
+    transaction: Prisma.TransactionClient,
+    principal: AuthenticatedPrincipal,
+    space: { id: string; status: RentableSpaceStatus },
+    branchId: string,
+    effectiveDate: Date,
+    input: RetireSpaceDto,
+    correlationId?: string,
+  ) {
+    const spaceId = space.id;
+    const scheduledVersions = await transaction.rentableSpaceVersion.findMany({
+      where: { rentableSpaceId: spaceId, effectiveFrom: { gte: effectiveDate } },
+      select: { effectiveFrom: true },
+    });
+    const scheduledParents = await transaction.rentableSpaceParentHistory.findMany({
+      where: { childSpaceId: spaceId, effectiveFrom: { gte: effectiveDate } },
+      select: { effectiveFrom: true },
+    });
+    this.effectiveDating.assertNoLaterScheduledChange(effectiveDate, [
+      ...scheduledVersions,
+      ...scheduledParents,
+    ]);
+    const activeChildren = await transaction.rentableSpaceParentHistory.count({
+      where: {
+        parentSpaceId: spaceId,
+        effectiveFrom: { lte: effectiveDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
+        child: { status: RentableSpaceStatus.ACTIVE },
+      },
+    });
+    if (activeChildren)
+      throw new BadRequestException('Retire active child spaces before retiring their parent.');
+    const openLeases = await transaction.lease.count({
+      where: {
+        rentableSpaceId: spaceId,
+        status: {
+          notIn: [LeaseStatus.ENDED, LeaseStatus.TERMINATED, LeaseStatus.ARCHIVED],
+        },
+      },
+    });
+    if (openLeases) {
+      throw new BadRequestException(
+        'End or terminate open leases on this unit before retiring it.',
+      );
+    }
+    if (space.status === RentableSpaceStatus.RETIRED) {
+      throw new BadRequestException('This unit is already retired.');
+    }
+    await transaction.rentableSpaceVersion.updateMany({
+      where: {
+        rentableSpaceId: spaceId,
+        effectiveFrom: { lt: effectiveDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
+      },
+      data: { effectiveTo: effectiveDate },
+    });
+    await transaction.rentableSpaceParentHistory.updateMany({
+      where: {
+        childSpaceId: spaceId,
+        effectiveFrom: { lt: effectiveDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveDate } }],
+      },
+      data: { effectiveTo: effectiveDate },
+    });
+    const retired = await transaction.rentableSpace.update({
+      where: { id: spaceId },
+      data: { status: RentableSpaceStatus.RETIRED },
+    });
+    await this.audit.write(transaction, {
+      actorUserId: principal.userId,
+      action: 'portfolio.space.retired',
+      entityType: 'RentableSpace',
+      entityId: spaceId,
+      branchId,
+      correlationId,
+      reason: input.reason,
+      after: { status: retired.status, effectiveDate: input.effectiveDate },
+    });
+    return retired;
   }
 
   listAmenities() {

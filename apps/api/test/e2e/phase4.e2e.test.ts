@@ -1067,6 +1067,66 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 4 portfoli
     expect(retired.body.status).toBe('RETIRED');
   });
 
+  it('deletes only unused units and retires units with preserved history', async () => {
+    const unused = await request(app.getHttpServer())
+      .post('/api/v1/rentable-spaces')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        propertyId,
+        typeCode: 'OFFICE',
+        spaceCode: `ERR-${suffix}`,
+        name: 'Erroneous unused unit',
+        effectiveFrom: businessDate,
+      })
+      .expect(201);
+    const unusedSpaceId = (unused.body as { id: string }).id;
+    const deleted = await request(app.getHttpServer())
+      .post(`/api/v1/rentable-spaces/${unusedSpaceId}/remove`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ effectiveDate: date120, reason: 'Created in error during verification' })
+      .expect(201);
+    expect(deleted.body).toMatchObject({ outcome: 'DELETED', spaceId: unusedSpaceId });
+    expect(await database.rentableSpace.findUnique({ where: { id: unusedSpaceId } })).toBeNull();
+
+    const historical = await request(app.getHttpServer())
+      .post('/api/v1/rentable-spaces')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        propertyId,
+        typeCode: 'OFFICE',
+        spaceCode: `HIST-${suffix}`,
+        name: 'Unit with document history',
+        effectiveFrom: businessDate,
+      })
+      .expect(201);
+    const historicalSpaceId = (historical.body as { id: string }).id;
+    await database.documentLink.create({
+      data: {
+        id: randomUUID(),
+        documentId: uploadedDocumentId,
+        entityType: 'RentableSpace',
+        entityId: historicalSpaceId,
+        purpose: 'REMOVAL_SAFETY_TEST',
+      },
+    });
+    const preserved = await request(app.getHttpServer())
+      .post(`/api/v1/rentable-spaces/${historicalSpaceId}/remove`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ effectiveDate: date120, reason: 'Remove from active inventory but preserve history' })
+      .expect(201);
+    expect(preserved.body).toMatchObject({
+      outcome: 'RETIRED',
+      spaceId: historicalSpaceId,
+      status: 'RETIRED',
+      preservedHistory: ['document'],
+    });
+    expect(
+      await database.documentLink.count({
+        where: { entityType: 'RentableSpace', entityId: historicalSpaceId },
+      }),
+    ).toBe(1);
+  });
+
   it('enforces object-level branch scope for portfolio records', async () => {
     const email = `phase4.manager.${suffix}@example.test`;
     const password = 'Phase4-Branch-Manager-Password!';

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { ApiEnvironment } from '@rerms/config';
-import { BranchAccessMode } from '@prisma/client';
+import { BranchAccessMode, RentableSpaceStatus } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseService } from '../../src/database/database.service';
 import type { AuditService } from '../../src/governance/audit.service';
@@ -24,6 +24,30 @@ const principal: AuthenticatedPrincipal = {
     ['portfolio.space.create', new Set([null])],
     ['portfolio.space.partition', new Set([null])],
   ]),
+};
+
+const emptySpaceDependencyCounts = {
+  childRelations: 0,
+  parentRelations: 0,
+  space_successors_space_successors_predecessorSpaceIdTorentable_spaces: 0,
+  space_successors_space_successors_successorSpaceIdTorentable_spaces: 0,
+  serviceEngagements: 0,
+  rentLeadPreferences: 0,
+  rentalListings: 0,
+  reservations: 0,
+  leases: 0,
+  leasePossessions: 0,
+  rentalApplications: 0,
+  charges: 0,
+  expenses: 0,
+  journalLines: 0,
+  brokerageDeals: 0,
+  rentalAgreements: 0,
+  maintenanceRequests: 0,
+  workOrders: 0,
+  inspections: 0,
+  viewings: 0,
+  defectIssues: 0,
 };
 
 describe('Phase 4 portfolio services', () => {
@@ -324,5 +348,141 @@ describe('Phase 4 portfolio services', () => {
       }),
     ).rejects.toThrow('Child usable-area total cannot exceed parent usable area.');
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('retires a removed unit when any business history exists', async () => {
+    const space = {
+      id: '00000000-0000-4000-8000-000000000501',
+      propertyId: '00000000-0000-4000-8000-000000000502',
+      spaceCode: 'SPC-0501',
+      name: 'Apartment 1',
+      status: RentableSpaceStatus.ACTIVE,
+    };
+    const rentableSpaceDelete = vi.fn();
+    const transaction = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: space.id }]),
+      rentableSpace: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          _count: { ...emptySpaceDependencyCounts, viewings: 1 },
+        }),
+        update: vi.fn().mockResolvedValue({ ...space, status: RentableSpaceStatus.RETIRED }),
+        delete: rentableSpaceDelete,
+      },
+      documentLink: { count: vi.fn().mockResolvedValue(0) },
+      rentableSpaceVersion: {
+        findMany: vi.fn().mockResolvedValue([]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      rentableSpaceParentHistory: {
+        findMany: vi.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(0),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      lease: { count: vi.fn().mockResolvedValue(0) },
+    };
+    const auditWrite = vi.fn();
+    const runTransaction = vi.fn((callback: (client: typeof transaction) => Promise<unknown>) =>
+      callback(transaction),
+    );
+    const service = new PortfolioService(
+      {
+        rentableSpace: { findUniqueOrThrow: vi.fn().mockResolvedValue(space) },
+        propertyBranchAssignment: {
+          findFirst: vi.fn().mockResolvedValue({
+            branchId: '00000000-0000-4000-8000-000000000503',
+          }),
+        },
+        $transaction: runTransaction,
+      } as unknown as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-08-16')) } as never,
+      {
+        scheduledDate: vi.fn().mockResolvedValue(new Date('2026-08-16')),
+        assertNoLaterScheduledChange: vi.fn(),
+      } as never,
+      { assertBranchPermission: vi.fn() } as unknown as AuthorizationService,
+      { write: auditWrite } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.removeSpace(principal, space.id, {
+      effectiveDate: '2026-08-16',
+      reason: 'Duplicate unit record',
+    });
+
+    expect(result).toMatchObject({
+      outcome: 'RETIRED',
+      spaceId: space.id,
+      preservedHistory: ['viewing'],
+    });
+    expect(rentableSpaceDelete).not.toHaveBeenCalled();
+    expect(transaction.rentableSpace.update).toHaveBeenCalledWith({
+      where: { id: space.id },
+      data: { status: RentableSpaceStatus.RETIRED },
+    });
+    expect(auditWrite).toHaveBeenCalledWith(
+      transaction,
+      expect.objectContaining({ action: 'portfolio.space.retired', entityId: space.id }),
+    );
+  });
+
+  it('permanently deletes only an unused unit and its owned configuration', async () => {
+    const space = {
+      id: '00000000-0000-4000-8000-000000000511',
+      propertyId: '00000000-0000-4000-8000-000000000512',
+      spaceCode: 'SPC-0511',
+      name: 'Erroneous unit',
+      status: RentableSpaceStatus.ACTIVE,
+    };
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+    const rentableSpaceDelete = vi.fn().mockResolvedValue(space);
+    const transaction = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: space.id }]),
+      rentableSpace: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ _count: emptySpaceDependencyCounts }),
+        delete: rentableSpaceDelete,
+      },
+      documentLink: { count: vi.fn().mockResolvedValue(0) },
+      spaceAmenity: { deleteMany },
+      residentialSpaceProfile: { deleteMany },
+      commercialSpaceProfile: { deleteMany },
+      landSpaceProfile: { deleteMany },
+      rentableSpaceVersion: { deleteMany },
+    };
+    const auditWrite = vi.fn();
+    const runTransaction = vi.fn((callback: (client: typeof transaction) => Promise<unknown>) =>
+      callback(transaction),
+    );
+    const service = new PortfolioService(
+      {
+        rentableSpace: { findUniqueOrThrow: vi.fn().mockResolvedValue(space) },
+        propertyBranchAssignment: {
+          findFirst: vi.fn().mockResolvedValue({
+            branchId: '00000000-0000-4000-8000-000000000513',
+          }),
+        },
+        $transaction: runTransaction,
+      } as unknown as DatabaseService,
+      { today: vi.fn().mockResolvedValue(new Date('2026-08-16')) } as never,
+      { scheduledDate: vi.fn().mockResolvedValue(new Date('2026-08-16')) } as never,
+      { assertBranchPermission: vi.fn() } as unknown as AuthorizationService,
+      { write: auditWrite } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.removeSpace(principal, space.id, {
+      effectiveDate: '2026-08-16',
+      reason: 'Created in error',
+    });
+
+    expect(result).toEqual({ outcome: 'DELETED', spaceId: space.id, preservedHistory: [] });
+    expect(rentableSpaceDelete).toHaveBeenCalledWith({ where: { id: space.id } });
+    expect(auditWrite).toHaveBeenCalledWith(
+      transaction,
+      expect.objectContaining({
+        action: 'portfolio.space.deleted-unused',
+        entityId: space.id,
+        reason: 'Created in error',
+      }),
+    );
   });
 });
