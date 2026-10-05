@@ -59,7 +59,7 @@ export function CreateRentalLeaseForm() {
             {agreementId ? (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
                 <p className="font-semibold">Confirmed rental agreement</p>
-                <p className="mt-1 text-emerald-800">Lease terms, customer, property, rent, and dates will be inherited from agreement {agreementId}.</p>
+                <p className="mt-1 text-emerald-800">Lease terms, customer, property, rent, and dates will be inherited from the confirmed agreement.</p>
               </div>
             ) : (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">

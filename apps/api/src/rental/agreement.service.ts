@@ -20,6 +20,7 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
+import { assertHierarchyOccupancyAvailable } from '../leasing/space-hierarchy-occupancy';
 import type {
   AgreementTransitionDto,
   CommissionTermsDto,
@@ -69,11 +70,18 @@ export class AgreementService {
         id: input.viewingId,
         companyId: principal.companyId,
         leadId: input.leadId,
-        rentableSpaceId: input.rentableSpaceId,
         status: ViewingStatus.COMPLETED,
         outcome: interestedViewingOutcomeFilter,
+        OR: [
+          {
+            propertyId: input.propertyId,
+            selectedRentableSpaceId: input.rentableSpaceId,
+          },
+          { rentableSpaceId: input.rentableSpaceId },
+          { rentalListing: { is: { rentableSpaceId: input.rentableSpaceId } } },
+        ],
       },
-      select: { id: true, branchId: true },
+      select: { id: true, branchId: true, propertyId: true, selectedRentableSpaceId: true },
     });
     if (!viewing) throw new ConflictException('An interested completed viewing is required before an agreement.');
     this.auth.assertBranchPermission(principal, 'lease.create', viewing.branchId);
@@ -87,19 +95,64 @@ export class AgreementService {
       where: { id: input.propertyId, companyId: principal.companyId, status: PropertyStatus.ACTIVE },
       include: {
         ownerships: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1 },
-        spaces: { where: { id: input.rentableSpaceId, status: 'ACTIVE' }, include: { versions: { orderBy: { versionNo: 'desc' }, take: 1 } } },
+        spaces: {
+          where: {
+            id: input.rentableSpaceId,
+            status: 'ACTIVE',
+            leases: {
+              none: {
+                status: { in: ['SIGNED', 'ACTIVE'] },
+                leaseStartDate: { lte: asDate(principal.businessDate) },
+                OR: [
+                  { leaseEndDate: null },
+                  { leaseEndDate: { gte: asDate(principal.businessDate) } },
+                ],
+              },
+            },
+            leasePossessions: {
+              none: {
+                status: 'ACTIVE',
+                possessionFrom: { lte: asDate(principal.businessDate) },
+                OR: [
+                  { possessionTo: null },
+                  { possessionTo: { gt: asDate(principal.businessDate) } },
+                ],
+              },
+            },
+            reservations: {
+              none: {
+                status: 'ACTIVE',
+                startsAt: { lte: asDate(principal.businessDate) },
+                expiresAt: { gt: asDate(principal.businessDate) },
+              },
+            },
+          },
+          include: { versions: { orderBy: { versionNo: 'desc' }, take: 1 } },
+        },
       },
     });
     if (!property?.spaces[0] || !property.ownerships[0]) {
-      throw new ConflictException('The selected property, unit, or owner is unavailable.');
+      throw new ConflictException(
+        'This unit is no longer available. Choose another available unit from this property or return to matching.',
+      );
     }
+    await assertHierarchyOccupancyAvailable(this.db, {
+      companyId: principal.companyId,
+      rentableSpaceId: input.rentableSpaceId,
+      businessDate: principal.businessDate,
+    });
+    const at = asDate(principal.businessDate);
     const engagement = await this.db.serviceEngagement.findFirst({
       where: {
         companyId: principal.companyId,
         propertyId: property.id,
         status: ServiceEngagementStatus.ACTIVE,
         serviceModel: { in: [ServiceModel.RENTAL_BROKERAGE, ServiceModel.FULL_MANAGEMENT] },
-        OR: [{ rentableSpaceId: null }, { rentableSpaceId: input.rentableSpaceId }],
+        effectiveFrom: { lte: at },
+        AND: [
+          { OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] },
+          { OR: [{ rentableSpaceId: null }, { rentableSpaceId: input.rentableSpaceId }] },
+        ],
       },
       orderBy: { createdAt: 'desc' },
     });

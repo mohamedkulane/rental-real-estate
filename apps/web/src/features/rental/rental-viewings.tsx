@@ -31,6 +31,10 @@ import {
   TableActionGroup,
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
@@ -63,11 +67,21 @@ type ViewingRow = {
     property?: { id: string; name: string } | null;
   } | null;
   property?: { id: string; propertyCode: string; name: string } | null;
+  selectedRentableSpaceId?: string | null;
+  selectedRentableSpace?: { id: string; spaceCode: string; name: string } | null;
   assignedEmployee?: {
     id: string;
     employeeNumber: string;
     party?: { displayName: string } | null;
   } | null;
+};
+type AvailableUnit = {
+  id: string;
+  spaceCode: string;
+  name: string;
+  askingRent?: string | null;
+  currency: string;
+  residentialProfile?: { bedrooms?: number | null; bathrooms?: number | null } | null;
 };
 type Period = 'ALL' | 'TODAY' | 'UPCOMING' | 'COMPLETED' | 'CANCELLED';
 
@@ -141,6 +155,7 @@ export function CentralViewingsWorkspace() {
   const [agentId, setAgentId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [outcomeFor, setOutcomeFor] = useState<ViewingRow | null>(null);
   const resetFilters = () => {
     setSearch('');
     setIntent('');
@@ -178,6 +193,11 @@ export function CentralViewingsWorkspace() {
     },
   });
   const rows = query.data?.items ?? [];
+  const availableUnits = useQuery({
+    queryKey: ['viewing-available-units', outcomeFor?.id],
+    enabled: Boolean(outcomeFor?.id),
+    queryFn: () => api<AvailableUnit[]>(`/viewings/${outcomeFor!.id}/available-units`),
+  });
   const agents = useMemo(
     () =>
       Array.from(
@@ -217,10 +237,12 @@ export function CentralViewingsWorkspace() {
       row,
       nextStatus,
       outcome,
+      selectedRentableSpaceId,
     }: {
       row: ViewingRow;
       nextStatus: string;
       outcome?: string;
+      selectedRentableSpaceId?: string;
     }) =>
       api(`/viewings/${row.id}/transition`, {
         method: 'POST',
@@ -231,6 +253,7 @@ export function CentralViewingsWorkspace() {
             ? `Viewing recorded as ${humanize(outcome)}`
             : `Viewing marked ${humanize(nextStatus)}`,
           ...(outcome ? { outcome } : {}),
+          ...(selectedRentableSpaceId ? { selectedRentableSpaceId } : {}),
         }),
       }),
     onSuccess: (_, variables) => {
@@ -240,6 +263,7 @@ export function CentralViewingsWorkspace() {
           : 'Viewing updated.',
       );
       void queryClient.invalidateQueries({ queryKey: ['central-viewings'] });
+      setOutcomeFor(null);
     },
     onError: (cause) => toast.error(userFacingError(cause)),
   });
@@ -497,13 +521,17 @@ export function CentralViewingsWorkspace() {
                                     tone="manage"
                                     disabled={transition.isPending}
                                     icon={Check}
-                                    onClick={() =>
+                                    onClick={() => {
+                                      if (row.lead?.intent === 'RENT' && row.property?.id) {
+                                        setOutcomeFor(row);
+                                        return;
+                                      }
                                       transition.mutate({
                                         row,
                                         nextStatus: 'COMPLETED',
                                         outcome: 'INTERESTED',
-                                      })
-                                    }
+                                      });
+                                    }}
                                   >
                                     Interested
                                   </TableActionButton>
@@ -541,6 +569,80 @@ export function CentralViewingsWorkspace() {
               </div>
             ) : null}
           </DataTableSurface>
+          {outcomeFor ? (
+            <WorkspaceFormDrawer
+              open
+              eyebrow="Viewing outcome"
+              title="Customer is interested"
+              description={`Choose the unit selected during the visit to ${outcomeFor.property?.name ?? 'this property'}.`}
+              onClose={() => setOutcomeFor(null)}
+              size="md"
+              layout="compact"
+              footer={
+                <WorkspaceFormDrawerFooter
+                  formId="central-viewing-unit-selection"
+                  onCancel={() => setOutcomeFor(null)}
+                  submitLabel="Save selected unit"
+                  loadingLabel="Checking availability…"
+                  isPending={transition.isPending}
+                />
+              }
+            >
+              {availableUnits.isPending ? (
+                <TableSkeleton columns={1} rows={3} />
+              ) : availableUnits.isError ? (
+                <p className="text-sm text-red-700">{userFacingError(availableUnits.error)}</p>
+              ) : (
+                <form
+                  id="central-viewing-unit-selection"
+                  className="space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    const selectedRentableSpaceId = String(
+                      form.get('selectedRentableSpaceId') ?? '',
+                    );
+                    if (!selectedRentableSpaceId) {
+                      toast.error('Choose the unit the customer selected.');
+                      return;
+                    }
+                    transition.mutate({
+                      row: outcomeFor,
+                      nextStatus: 'COMPLETED',
+                      outcome: 'INTERESTED',
+                      selectedRentableSpaceId,
+                    });
+                  }}
+                >
+                  <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                    Customer is interested in
+                    <select
+                      name="selectedRentableSpaceId"
+                      required
+                      defaultValue={
+                        availableUnits.data?.length === 1 ? availableUnits.data[0]?.id : ''
+                      }
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/15"
+                    >
+                      <option value="">Choose available unit</option>
+                      {(availableUnits.data ?? []).map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                          {unit.askingRent ? ` · ${unit.currency} ${unit.askingRent}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {!availableUnits.data?.length ? (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                      No authorized unit is currently available. Return to matching or resolve the
+                      unit availability first.
+                    </p>
+                  ) : null}
+                </form>
+              )}
+            </WorkspaceFormDrawer>
+          ) : null}
         </>
       ) : null}
     </RentalShell>

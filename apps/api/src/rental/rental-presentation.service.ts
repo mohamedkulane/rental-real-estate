@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   LeadIntent,
+  LeasePossessionStatus,
   LeaseStatus,
   ListingStatus,
   Prisma,
@@ -18,6 +19,11 @@ import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 
 export type RentalMarketStatus = 'AVAILABLE' | 'RENTED' | 'UNAVAILABLE';
+export type RentalOccupancyState =
+  | 'VACANT'
+  | 'PARTIALLY_OCCUPIED'
+  | 'FULLY_OCCUPIED'
+  | 'UNAVAILABLE';
 
 @Injectable()
 export class RentalPresentationService {
@@ -162,6 +168,10 @@ export class RentalPresentationService {
     const rows = await this.db.property.findMany({
       where: {
         companyId: principal.companyId,
+        status: PropertyStatus.ACTIVE,
+        serviceIntent: {
+          in: [PropertyServiceIntent.RENTAL_BROKERAGE, PropertyServiceIntent.FULL_MANAGEMENT],
+        },
         ...(branchIds === null
           ? {}
           : {
@@ -193,9 +203,169 @@ export class RentalPresentationService {
       },
     });
     const page = rows.slice(0, limit);
-    const items = await Promise.all(
-      page.map((row) => this.enrichPropertyRow(principal, row)),
-    );
+    const propertyIds = page.map((row) => row.id);
+    const at = this.at(principal);
+    const spaces = propertyIds.length
+      ? await this.db.rentableSpace.findMany({
+          where: {
+            propertyId: { in: propertyIds },
+            status: RentableSpaceStatus.ACTIVE,
+          },
+          select: {
+            id: true,
+            propertyId: true,
+            childRelations: {
+              where: {
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+              },
+              select: { parentSpaceId: true },
+            },
+            parentRelations: {
+              where: {
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+                child: { status: RentableSpaceStatus.ACTIVE },
+              },
+              select: { childSpaceId: true },
+            },
+            leases: {
+              where: {
+                status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] },
+                leaseStartDate: { lte: at },
+                OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }],
+              },
+              select: { id: true },
+              take: 1,
+            },
+            leasePossessions: {
+              where: {
+                status: LeasePossessionStatus.ACTIVE,
+                possessionFrom: { lte: at },
+                OR: [{ possessionTo: null }, { possessionTo: { gt: at } }],
+              },
+              select: { id: true },
+              take: 1,
+            },
+            reservations: {
+              where: {
+                status: ReservationStatus.ACTIVE,
+                startsAt: { lte: at },
+                expiresAt: { gt: at },
+              },
+              select: { id: true },
+              take: 1,
+            },
+            rentalListings: {
+              where: {
+                status: { in: [ListingStatus.DRAFT, ListingStatus.PUBLISHED, ListingStatus.PAUSED] },
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { askingRent: true, currency: true },
+              take: 1,
+            },
+            versions: {
+              where: {
+                effectiveFrom: { lte: at },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+              },
+              orderBy: { versionNo: 'desc' },
+              select: { attributes: true },
+              take: 1,
+            },
+          },
+        })
+      : [];
+
+    const spacesByProperty = new Map<string, typeof spaces>();
+    const spacesById = new Map(spaces.map((space) => [space.id, space]));
+    for (const space of spaces) {
+      const existing = spacesByProperty.get(space.propertyId) ?? [];
+      existing.push(space);
+      spacesByProperty.set(space.propertyId, existing);
+    }
+
+    const hasStateInHierarchy = (
+      startId: string,
+      predicate: (space: (typeof spaces)[number]) => boolean,
+    ) => {
+      const visited = new Set<string>();
+      let current = spacesById.get(startId);
+      while (current && !visited.has(current.id)) {
+        if (predicate(current)) return true;
+        visited.add(current.id);
+        const parentId = current.childRelations[0]?.parentSpaceId;
+        current = parentId ? spacesById.get(parentId) : undefined;
+      }
+      return false;
+    };
+
+    const items = page.map((property) => {
+      const propertySpaces = spacesByProperty.get(property.id) ?? [];
+      const inventory = propertySpaces.filter((space) => space.parentRelations.length === 0);
+      const occupiedUnits = inventory.filter((space) =>
+        hasStateInHierarchy(
+          space.id,
+          (candidate) => candidate.leases.length > 0 || candidate.leasePossessions.length > 0,
+        ),
+      ).length;
+      const unavailableUnits = inventory.filter(
+        (space) =>
+          !hasStateInHierarchy(
+            space.id,
+            (candidate) => candidate.leases.length > 0 || candidate.leasePossessions.length > 0,
+          ) &&
+          hasStateInHierarchy(space.id, (candidate) => candidate.reservations.length > 0),
+      ).length;
+      const totalUnits = inventory.length;
+      const availableUnits = Math.max(0, totalUnits - occupiedUnits - unavailableUnits);
+      const occupancyState: RentalOccupancyState =
+        totalUnits === 0
+          ? 'UNAVAILABLE'
+          : occupiedUnits === totalUnits
+            ? 'FULLY_OCCUPIED'
+            : occupiedUnits > 0
+              ? 'PARTIALLY_OCCUPIED'
+              : availableUnits > 0
+                ? 'VACANT'
+                : 'UNAVAILABLE';
+      const rentalStatus: RentalMarketStatus =
+        availableUnits > 0 ? 'AVAILABLE' : occupiedUnits === totalUnits && totalUnits > 0 ? 'RENTED' : 'UNAVAILABLE';
+      const pricedSpace = inventory.find(
+        (space) => space.rentalListings[0]?.askingRent || space.versions[0]?.attributes,
+      );
+      const listing = pricedSpace?.rentalListings[0];
+      const attributes =
+        pricedSpace?.versions[0]?.attributes &&
+        typeof pricedSpace.versions[0].attributes === 'object' &&
+        !Array.isArray(pricedSpace.versions[0].attributes)
+          ? (pricedSpace.versions[0].attributes as Record<string, unknown>)
+          : null;
+      const versionRent =
+        typeof attributes?.askingRent === 'string' || typeof attributes?.askingRent === 'number'
+          ? String(attributes.askingRent)
+          : null;
+      const versionCurrency =
+        typeof attributes?.currency === 'string' && attributes.currency.trim()
+          ? attributes.currency.trim().toUpperCase()
+          : null;
+
+      return {
+        id: property.id,
+        propertyCode: property.propertyCode,
+        name: property.name,
+        propertyType: property.propertyType,
+        location: [property.city, property.district].filter(Boolean).join(', '),
+        rentalStatus,
+        occupancyState,
+        totalUnits,
+        occupiedUnits,
+        availableUnits,
+        unavailableUnits,
+        monthlyRent: listing?.askingRent?.toString() ?? versionRent,
+        currency: listing?.currency ?? versionCurrency ?? 'USD',
+      };
+    });
     return {
       items,
       pageInfo: {

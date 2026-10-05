@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from '@/lib/toast';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
@@ -56,9 +56,23 @@ type ViewingRow = {
   outcome?: string | null;
   version: number;
   rentalListingId?: string | null;
+  propertyId?: string | null;
   rentableSpaceId?: string | null;
+  selectedRentableSpaceId?: string | null;
   rentalListing?: { id: string; listingNumber: string; title: string; rentableSpaceId?: string } | null;
+  property?: { id: string; propertyCode: string; name: string } | null;
   rentableSpace?: { id: string; spaceCode: string; name: string; propertyId: string } | null;
+  selectedRentableSpace?: { id: string; spaceCode: string; name: string; propertyId: string } | null;
+};
+
+type PropertyMatchGroup = {
+  propertyId: string;
+  property: NonNullable<NonNullable<MatchItem['listing']['rentableSpace']>['property']>;
+  units: MatchItem[];
+  score: number;
+  minRent: number | null;
+  maxRent: number | null;
+  currency: string;
 };
 
 const inputClass =
@@ -79,9 +93,35 @@ const STEP_LABELS: Record<Exclude<PlacementStep, 'declined'>, string> = {
   lease: '3. Lease',
 };
 
-function matchKeys(item: MatchItem): string[] {
-  const spaceId = item.listing.rentableSpace?.id;
-  return [item.listing.id, spaceId].filter((value): value is string => Boolean(value));
+function groupMatches(items: MatchItem[]): PropertyMatchGroup[] {
+  const groups = new Map<string, PropertyMatchGroup>();
+  for (const item of items) {
+    const property = item.listing.rentableSpace?.property;
+    if (!property) continue;
+    const rent = Number(item.listing.askingRent);
+    const current = groups.get(property.id);
+    if (current) {
+      current.units.push(item);
+      current.score = Math.max(current.score, item.score);
+      if (Number.isFinite(rent)) {
+        current.minRent = current.minRent == null ? rent : Math.min(current.minRent, rent);
+        current.maxRent = current.maxRent == null ? rent : Math.max(current.maxRent, rent);
+      }
+      continue;
+    }
+    groups.set(property.id, {
+      propertyId: property.id,
+      property,
+      units: [item],
+      score: item.score,
+      minRent: Number.isFinite(rent) ? rent : null,
+      maxRent: Number.isFinite(rent) ? rent : null,
+      currency: item.listing.currency || 'USD',
+    });
+  }
+  return [...groups.values()].sort(
+    (left, right) => right.score - left.score || left.property.name.localeCompare(right.property.name),
+  );
 }
 
 function PipelineSteps({ active }: { active: PlacementStep }) {
@@ -126,7 +166,12 @@ export function RentalCustomerMatches({
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const [viewingFor, setViewingFor] = useState<MatchItem | null>(null);
+  const [viewingFor, setViewingFor] = useState<PropertyMatchGroup | null>(null);
+  const [completeFor, setCompleteFor] = useState<{
+    group: PropertyMatchGroup;
+    viewing: ViewingRow;
+  } | null>(null);
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(() => new Set());
   const [assignedAgentId, setAssignedAgentId] = useState(
     () => lead.currentAssignee?.id ?? '',
   );
@@ -155,6 +200,10 @@ export function RentalCustomerMatches({
         row.rentableSpaceId,
         row.rentableSpace?.id,
         row.rentalListing?.rentableSpaceId,
+        row.propertyId,
+        row.property?.id,
+        row.selectedRentableSpaceId,
+        row.selectedRentableSpace?.id,
       ].filter((value): value is string => Boolean(value));
       for (const key of keys) {
         const existing = map.get(key);
@@ -192,7 +241,13 @@ export function RentalCustomerMatches({
   });
 
   const completeViewing = useMutation({
-    mutationFn: async (row: ViewingRow) => {
+    mutationFn: async ({
+      row,
+      selectedRentableSpaceId,
+    }: {
+      row: ViewingRow;
+      selectedRentableSpaceId: string;
+    }) => {
       let current = row;
       if (current.status === 'SCHEDULED') {
         current = await api<ViewingRow>(`/viewings/${current.id}/transition`, {
@@ -212,6 +267,7 @@ export function RentalCustomerMatches({
             expectedVersion: current.version,
             reason: 'Viewing completed',
             outcome: 'INTERESTED',
+            selectedRentableSpaceId,
           }),
         });
       }
@@ -219,6 +275,7 @@ export function RentalCustomerMatches({
     },
     onSuccess: () => {
       toast.success('Viewing completed as interested. Confirm the agreement next.');
+      setCompleteFor(null);
       void queryClient.invalidateQueries({ queryKey: ['rental-customer-viewings', lead.id] });
     },
     onError: (cause) => toast.error(userFacingError(cause)),
@@ -267,16 +324,28 @@ export function RentalCustomerMatches({
   });
 
   const declineViewing = useMutation({
-    mutationFn: (row: ViewingRow) =>
-      api<ViewingRow>(`/viewings/${row.id}/transition`, {
+    mutationFn: async (row: ViewingRow) => {
+      let current = row;
+      if (current.status === 'SCHEDULED') {
+        current = await api<ViewingRow>(`/viewings/${current.id}/transition`, {
+          method: 'POST',
+          body: JSON.stringify({
+            status: 'CONFIRMED',
+            expectedVersion: current.version,
+            reason: 'Customer attended viewing',
+          }),
+        });
+      }
+      return api<ViewingRow>(`/viewings/${current.id}/transition`, {
         method: 'POST',
         body: JSON.stringify({
           status: 'COMPLETED',
-          expectedVersion: row.version,
-          reason: 'Customer is not interested in this unit',
+          expectedVersion: current.version,
+          reason: 'Customer is not interested in this property',
           outcome: 'NOT_INTERESTED',
         }),
-      }),
+      });
+    },
     onSuccess: () => {
       toast('Marked not interested. Match another unit.');
       void queryClient.invalidateQueries({ queryKey: ['rental-listing-matches', lead.id] });
@@ -306,6 +375,7 @@ export function RentalCustomerMatches({
   }
 
   const items = query.data?.items ?? [];
+  const groups = groupMatches(items);
 
   return (
     <section className="space-y-4">
@@ -350,132 +420,149 @@ export function RentalCustomerMatches({
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => {
-                const property = item.listing.rentableSpace?.property;
-                const propertyId = property?.id;
-                const location = [property?.city, property?.district].filter(Boolean).join(', ');
+              {groups.map((group) => {
+                const { property } = group;
+                const location = [property.city, property.district].filter(Boolean).join(', ');
                 const viewing =
-                  matchKeys(item)
-                    .map((key) => viewingByKey.get(key))
-                    .find(Boolean) ?? undefined;
+                  viewingByKey.get(group.propertyId) ??
+                  group.units
+                    .flatMap((item) => [item.listing.id, item.listing.rentableSpace?.id])
+                    .map((key) => (key ? viewingByKey.get(key) : undefined))
+                    .find(Boolean);
                 const step = nextPlacementStep({
                   viewingStatus: viewing?.status ?? null,
                   viewingOutcome: viewing?.outcome ?? null,
                 });
-                if (step === 'declined') {
-                  return (
+                const selectedItem = group.units.find(
+                  (item) =>
+                    item.listing.rentableSpace?.id ===
+                    (viewing?.selectedRentableSpaceId ?? viewing?.selectedRentableSpace?.id),
+                );
+                const expanded = expandedProperties.has(group.propertyId);
+                const rentLabel =
+                  group.minRent == null
+                    ? 'Rent not set'
+                    : group.minRent === group.maxRent
+                      ? `${group.currency} ${group.minRent}`
+                      : `${group.currency} ${group.minRent} - ${group.maxRent}`;
+                return (
+                  <Fragment key={group.propertyId}>
                     <tr
-                      key={item.listing.id}
-                      className="border-b border-slate-100 bg-slate-50/70 text-sm last:border-0"
+                      className={`border-b border-slate-100 text-sm ${step === 'declined' ? 'bg-slate-50/70' : ''}`}
                     >
-                      <td className="px-4 py-3 text-slate-500">
-                        {property?.name ?? item.listing.title} ·{' '}
-                        {item.listing.rentableSpace?.name ?? item.listing.listingNumber}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">—</td>
-                      <td className="px-4 py-3 text-slate-400">{location || '—'}</td>
                       <td className="px-4 py-3">
-                        <PipelineSteps active="declined" />
-                      </td>
-                      <td className="px-4 py-3">
-                        {propertyId ? (
-                          <TableActionButton tone="view" href={`/rental/properties/${propertyId}`}>
-                            View Property
-                          </TableActionButton>
+                        <p className="font-semibold text-slate-900">{property.name}</p>
+                        <p className="text-slate-500">
+                          {group.units.length} available {group.units.length === 1 ? 'unit' : 'units'}
+                        </p>
+                        {selectedItem ? (
+                          <p className="mt-1 text-xs font-medium text-emerald-700">
+                            Selected: {selectedItem.listing.rentableSpace?.name}
+                          </p>
                         ) : null}
                       </td>
-                    </tr>
-                  );
-                }
-                return (
-                  <tr key={item.listing.id} className="border-b border-slate-100 text-sm last:border-0">
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-900">
-                        {property?.name ?? item.listing.title}
-                      </p>
-                      <p className="text-slate-500">
-                        {item.listing.rentableSpace?.name ?? item.listing.listingNumber}
-                      </p>
-                      {item.matchSource === 'INVENTORY' ? (
-                        <p className="mt-1">
-                          <StatusBadge value="Registered unit" />
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      {item.listing.askingRent == null || item.listing.askingRent === ''
-                          ? 'Not set'
-                          : `${item.listing.currency} ${String(item.listing.askingRent)}`}
-                    </td>
-                    <td className="px-4 py-3">{location || '—'}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-[#215E61]">{item.score}% Match</p>
-                      <PipelineSteps active={step} />
-                      {viewing ? (
-                        <p className="mt-1 text-xs text-slate-500">
-                          Viewing:{' '}
-                          {viewingInterestLabel(viewing.outcome) ??
-                            viewing.status.replaceAll('_', ' ')}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      <TableActionGroup>
-                        {propertyId ? (
+                      <td className="px-4 py-3">{rentLabel}</td>
+                      <td className="px-4 py-3">{location || '—'}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-[#215E61]">{group.score}% Match</p>
+                        <PipelineSteps active={step} />
+                        {viewing ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Viewing:{' '}
+                            {viewingInterestLabel(viewing.outcome) ??
+                              viewing.status.replaceAll('_', ' ')}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TableActionGroup>
+                          <TableActionButton
+                            tone="neutral"
+                            onClick={() =>
+                              setExpandedProperties((current) => {
+                                const next = new Set(current);
+                                if (next.has(group.propertyId)) next.delete(group.propertyId);
+                                else next.add(group.propertyId);
+                                return next;
+                              })
+                            }
+                          >
+                            {expanded ? 'Hide Units' : 'View Units'}
+                          </TableActionButton>
                           <TableActionButton
                             tone="view"
-                            href={`/rental/properties/${propertyId}`}
+                            href={`/rental/properties/${group.propertyId}`}
                           >
                             View Property
                           </TableActionButton>
-                        ) : null}
-                        {hasPermission(principal, 'viewing.create') &&
-                        step === 'viewing' &&
-                        !viewing ? (
-                          <TableActionButton
-                            tone="schedule"
-                            onClick={() => {
-                              setAssignedAgentId(lead.currentAssignee?.id ?? '');
-                              setViewingFor(item);
-                            }}
-                          >
-                            Schedule Viewing
-                          </TableActionButton>
-                        ) : null}
-                        {hasPermission(principal, 'viewing.complete') &&
-                        viewing &&
-                        (viewing.status === 'SCHEDULED' || viewing.status === 'CONFIRMED') ? (
-                          <TableActionButton
-                            tone="edit"
-                            onClick={() => completeViewing.mutate(viewing)}
-                          >
-                            Complete Viewing
-                          </TableActionButton>
-                        ) : null}
-                        {step === 'agreement' ? (
-                          <>
-                            <TableActionButton tone="agreement" onClick={() => setFeesFor(item)}>
-                              Confirm Agreement
-                            </TableActionButton>
+                          {hasPermission(principal, 'viewing.create') &&
+                          step === 'viewing' &&
+                          !viewing ? (
                             <TableActionButton
-                              tone="neutral"
-                              disabled={declineViewing.isPending}
+                              tone="schedule"
                               onClick={() => {
-                                if (viewing) declineViewing.mutate(viewing);
+                                setAssignedAgentId(lead.currentAssignee?.id ?? '');
+                                setViewingFor(group);
                               }}
                             >
-                              Not interested
+                              Schedule Viewing
                             </TableActionButton>
-                          </>
-                        ) : null}
-                      </TableActionGroup>
-                      {step !== 'lease' ? (
-                        <p className="mt-2 text-xs text-slate-500">
-                          Next: {STEP_LABELS[step].replace(/^\d+\.\s*/, '')}
-                        </p>
-                      ) : null}
-                    </td>
-                  </tr>
+                          ) : null}
+                          {hasPermission(principal, 'viewing.complete') &&
+                          viewing &&
+                          (viewing.status === 'SCHEDULED' || viewing.status === 'CONFIRMED') ? (
+                            <>
+                              <TableActionButton
+                                tone="edit"
+                                onClick={() => setCompleteFor({ group, viewing })}
+                              >
+                                Complete Viewing
+                              </TableActionButton>
+                              <TableActionButton
+                                tone="neutral"
+                                disabled={declineViewing.isPending}
+                                onClick={() => declineViewing.mutate(viewing)}
+                              >
+                                Not interested
+                              </TableActionButton>
+                            </>
+                          ) : null}
+                          {step === 'agreement' && selectedItem ? (
+                            <TableActionButton
+                              tone="agreement"
+                              onClick={() => setFeesFor(selectedItem)}
+                            >
+                              Confirm Agreement
+                            </TableActionButton>
+                          ) : null}
+                        </TableActionGroup>
+                      </td>
+                    </tr>
+                    {expanded ? (
+                      <tr className="border-b border-slate-100 bg-slate-50/60">
+                        <td colSpan={5} className="px-4 py-3">
+                          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            {group.units.map((item) => (
+                              <div
+                                key={item.listing.rentableSpace?.id ?? item.listing.id}
+                                className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                              >
+                                <p className="font-semibold text-slate-900">
+                                  {item.listing.rentableSpace?.name ?? item.listing.title}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600">
+                                  {item.listing.askingRent == null || item.listing.askingRent === ''
+                                    ? 'Rent not set'
+                                    : `${item.listing.currency} ${String(item.listing.askingRent)}`}
+                                  {' · '}Available
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -488,7 +575,7 @@ export function RentalCustomerMatches({
           open
           eyebrow="Placement"
           title="Schedule Viewing"
-          description="No brokerage start needed. View the unit first; continue only if the customer is interested."
+          description={`Schedule one visit to ${viewingFor.property.name}. The customer can inspect all ${viewingFor.units.length} currently available units.`}
           onClose={() => setViewingFor(null)}
           size="md"
           layout="compact"
@@ -512,20 +599,19 @@ export function RentalCustomerMatches({
                 return;
               }
               const form = new FormData(event.currentTarget);
-              const spaceId = viewingFor.listing.rentableSpace?.id ?? viewingFor.listing.id;
               scheduleViewing.mutate({
                 leadId: lead.id,
                 assignedEmployeeId: assignedAgentId,
                 scheduledAt: formText(form, 'scheduledAt'),
                 notes: formText(form, 'notes').trim() || undefined,
-                rentableSpaceId: spaceId,
+                propertyId: viewingFor.propertyId,
               });
             }}
           >
             <AsyncSelect
               label="Assigned agent"
               path={requestPath('/crm/selectors/employees', {
-                purpose: 'ASSIGNMENT_READ',
+                purpose: 'VIEWING_ASSIGN',
                 branchId: lead.responsibleBranch.id,
               })}
               value={assignedAgentId}
@@ -548,6 +634,78 @@ export function RentalCustomerMatches({
               Notes
               <textarea name="notes" rows={2} className={inputClass} />
             </label>
+          </form>
+        </WorkspaceFormDrawer>
+      ) : null}
+
+      {completeFor ? (
+        <WorkspaceFormDrawer
+          open
+          eyebrow="Viewing outcome"
+          title="Customer is interested"
+          description={`Choose the unit selected during the visit to ${completeFor.group.property.name}. Availability is checked again when you save.`}
+          onClose={() => setCompleteFor(null)}
+          size="md"
+          layout="compact"
+          footer={
+            <WorkspaceFormDrawerFooter
+              formId="complete-rental-viewing"
+              onCancel={() => setCompleteFor(null)}
+              submitLabel="Save selected unit"
+              loadingLabel="Checking availability…"
+              isPending={completeViewing.isPending}
+            />
+          }
+        >
+          <form
+            id="complete-rental-viewing"
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const selectedRentableSpaceId = formText(
+                new FormData(event.currentTarget),
+                'selectedRentableSpaceId',
+              );
+              if (!selectedRentableSpaceId) {
+                toast.error('Choose the unit the customer selected.');
+                return;
+              }
+              completeViewing.mutate({
+                row: completeFor.viewing,
+                selectedRentableSpaceId,
+              });
+            }}
+          >
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+              Customer is interested in
+              <select
+                name="selectedRentableSpaceId"
+                required
+                defaultValue={
+                  completeFor.group.units.length === 1
+                    ? completeFor.group.units[0]?.listing.rentableSpace?.id
+                    : ''
+                }
+                className={inputClass}
+              >
+                <option value="">Choose available unit</option>
+                {completeFor.group.units.map((item) => (
+                  <option
+                    key={item.listing.rentableSpace?.id ?? item.listing.id}
+                    value={item.listing.rentableSpace?.id ?? ''}
+                  >
+                    {item.listing.rentableSpace?.name ?? item.listing.title}
+                    {item.listing.askingRent == null || item.listing.askingRent === ''
+                      ? ''
+                      : ` · ${item.listing.currency} ${String(item.listing.askingRent)}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+              The agreement and lease will use this exact unit. The system will never switch it
+              silently.
+            </p>
           </form>
         </WorkspaceFormDrawer>
       ) : null}
@@ -576,7 +734,9 @@ export function RentalCustomerMatches({
               event.preventDefault();
               const form = new FormData(event.currentTarget);
               const space = feesFor.listing.rentableSpace;
-              const viewing = matchKeys(feesFor).map((key) => viewingByKey.get(key)).find(Boolean);
+              const viewing = space?.property?.id
+                ? (viewingByKey.get(space.property.id) ?? viewingByKey.get(space.id))
+                : undefined;
               if (!space?.property?.id || !viewing?.id) {
                 toast.error('A completed viewing and property are required.');
                 return;

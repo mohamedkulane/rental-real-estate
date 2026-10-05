@@ -7,7 +7,13 @@ import {
   WorkspaceFormDrawer,
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
-import { api, hasPermission, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';
+import {
+  api,
+  hasPermission,
+  type CursorPage,
+  type Principal,
+  userFacingError,
+} from '@/lib/phase3-api';
 import { formText } from '@/lib/form-data';
 
 const inputClass =
@@ -57,7 +63,10 @@ export function StartRentalBrokerageDrawer({
   });
   const mutation = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
-      api('/rental/commands/start-rental-brokerage', { method: 'POST', body: JSON.stringify(body) }),
+      api('/rental/commands/start-rental-brokerage', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     onSuccess: () => {
       toast.success('Rental brokerage started.');
       void queryClient.invalidateQueries({ queryKey: ['commercial-service-engagements'] });
@@ -188,7 +197,9 @@ export function StartRentalBrokerageDrawer({
           </div>
         </fieldset>
         <fieldset className="space-y-3 rounded-lg border border-slate-200 p-4">
-          <legend className="px-1 text-sm font-semibold text-slate-700">Tenant brokerage fee</legend>
+          <legend className="px-1 text-sm font-semibold text-slate-700">
+            Tenant brokerage fee
+          </legend>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
               Method
@@ -265,7 +276,7 @@ export function StartFullManagementDrawer({
       open={open}
       eyebrow="Rental"
       title="Start Full Management"
-      description="Choose the owner first. Only that owner's properties are shown. Owner pays management fee; tenant brokerage is optional."
+      description="Choose the owner first. The management fee is deducted from rent collected before the owner's net payout; tenant brokerage is optional."
       onClose={() => {
         if (!mutation.isPending) {
           setOwnerPartyId('');
@@ -352,6 +363,10 @@ export function StartFullManagementDrawer({
             className={inputClass}
             placeholder="10"
           />
+          <span className="block text-xs font-normal leading-5 text-slate-500">
+            Example: if USD 1,000 rent is collected and the fee is 10%, the company earns USD 100
+            and USD 900 remains before approved owner expenses.
+          </span>
         </label>
         <fieldset className="space-y-3 rounded-lg border border-slate-200 p-4">
           <legend className="px-1 text-sm font-semibold text-slate-700">

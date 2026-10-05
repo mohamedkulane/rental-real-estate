@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import { PageSkeleton } from '@/components/shared/loading-system';
@@ -170,6 +171,10 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
         });
       }}
     >
+      <Link className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:underline" href="/development">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to Development
+      </Link>
       <PageHeader
         eyebrow="Company development"
         title={`${project.projectNumber} — ${project.name}`}

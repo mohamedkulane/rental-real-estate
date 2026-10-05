@@ -467,7 +467,7 @@ export function BuyerMatches({
             <AsyncSelect
               label="Assigned agent"
               path={requestPath('/crm/selectors/employees', {
-                purpose: 'ASSIGNMENT_READ',
+                purpose: 'VIEWING_ASSIGN',
                 branchId: lead.responsibleBranch.id,
               })}
               value={assignedAgentId}

@@ -1,6 +1,7 @@
 import { PortalType } from '@prisma/client';
 import {
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsEnum,
   IsIn,
@@ -43,6 +44,23 @@ export class ReportExportQueryDto {
   @IsString()
   @MaxLength(120)
   search?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  status?: string;
+
+  @IsOptional()
+  @IsIn(['xlsx', 'csv'])
+  format?: 'xlsx' | 'csv';
 }
 
 export class GlobalSearchQueryDto {

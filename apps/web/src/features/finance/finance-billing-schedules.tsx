@@ -228,7 +228,7 @@ export function FinanceBillingSchedules() {
                           {financeText((row.engagement as { engagementNumber?: string })?.engagementNumber)}
                         </DataTableCell>
                         <DataTableCell>{financeMoney(row.currency, row.amount)}</DataTableCell>
-                        <DataTableCell>Monthly (day {financeText(row.billingDayOfMonth)})</DataTableCell>
+                        <DataTableCell>Monthly (day {financeScalar(row.billingDayOfMonth)})</DataTableCell>
                         <DataTableCell>{formatDate(row.nextRunOn)}</DataTableCell>
                         <DataTableCell>
                           <StatusBadge value={financeText(row.status) || 'ACTIVE'} />

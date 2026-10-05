@@ -1105,6 +1105,43 @@ async function seed(): Promise<void> {
       },
     });
 
+  const payoutApprovalPolicy = await database.approvalPolicy.upsert({
+    where: {
+      companyId_code_effectiveFrom: {
+        companyId: company.id,
+        code: 'OWNER_PAYOUT_MAKER_CHECKER',
+        effectiveFrom: today,
+      },
+    },
+    update: { name: 'Owner payout maker-checker policy', active: true },
+    create: {
+      id: uuidv7(),
+      companyId: company.id,
+      code: 'OWNER_PAYOUT_MAKER_CHECKER',
+      name: 'Owner payout maker-checker policy',
+      effectiveFrom: today,
+      active: true,
+    },
+  });
+  const existingPayoutApprovalRule = await database.approvalRule.findFirst({
+    where: {
+      policyId: payoutApprovalPolicy.id,
+      actionType: 'OWNER_PAYOUT',
+      sequence: 1,
+    },
+  });
+  if (!existingPayoutApprovalRule)
+    await database.approvalRule.create({
+      data: {
+        id: uuidv7(),
+        policyId: payoutApprovalPolicy.id,
+        actionType: 'OWNER_PAYOUT',
+        sequence: 1,
+        makerChecker: true,
+        allowDelegation: false,
+      },
+    });
+
   let sampleProperty = await database.property.findUnique({
     where: {
       companyId_propertyCode: { companyId: company.id, propertyCode: 'PROP-P5-DEMO' },

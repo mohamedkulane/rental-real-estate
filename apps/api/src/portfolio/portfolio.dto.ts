@@ -273,11 +273,24 @@ export class CreateSpaceDto {
   commercial?: CommercialProfileDto;
 }
 
-/** Identity fields only. Measurements use POST /measurements; retirement uses POST /retire. */
 export class UpdateSpaceDto {
   @IsOptional() @IsString() @Length(2, 160) name?: string;
   @IsOptional() @IsString() @Length(1, 50) typeCode?: string;
   @IsOptional() @IsUUID() buildingId?: string;
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+  @IsOptional() @IsNumberString() usableArea?: string;
+  @IsOptional() @IsNumberString() totalArea?: string;
+  @IsOptional() @IsEnum(AreaUnit) areaUnit?: AreaUnit;
+  @IsOptional() @IsInt() floorNumber?: number;
+  @IsOptional() @IsInt() @Min(0) capacity?: number;
+  @IsOptional() @IsNumberString() askingRent?: string;
+  @IsOptional() @IsString() @Length(3, 3) currency?: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResidentialProfileDto)
+  residential?: ResidentialProfileDto;
+  @IsOptional() @IsString() @Length(3, 500) reason?: string;
 }
 
 export class PartitionChildDto {

@@ -663,7 +663,8 @@ model RentableSpace {
   maintenanceRequests                                                   MaintenanceRequest[]
   workOrders                                                            WorkOrder[]
   inspections                                                           Inspection[]
-  viewings                                                              Viewing[]
+  viewings                                                              Viewing[]                    @relation("ViewingTargetSpace")
+  selectedViewings                                                      Viewing[]                    @relation("ViewingSelectedSpace")
   defectIssues                                                          DefectIssue[]
 
   @@unique([propertyId, spaceCode], map: "uq_rentable_space_property_code")
@@ -1141,39 +1142,42 @@ model SaleListing {
 }
 
 model Viewing {
-  id                 String           @id @db.Uuid
-  companyId          String           @db.Uuid
-  branchId           String           @db.Uuid
-  leadId             String           @db.Uuid
-  rentalListingId    String?          @db.Uuid
-  saleListingId      String?          @db.Uuid
-  propertyId         String?          @db.Uuid
-  rentableSpaceId    String?          @db.Uuid
-  assignedEmployeeId String           @db.Uuid
-  scheduledAt        DateTime         @db.Timestamptz(6)
-  status             ViewingStatus    @default(SCHEDULED)
-  notes              String?          @db.VarChar(2000)
-  outcome            String?          @db.VarChar(1000)
-  version            Int              @default(1)
-  createdByUserId    String           @db.Uuid
-  createdAt          DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
-  company            Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  branch             Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  lead               Lead             @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  rentalListing      RentalListing?   @relation(fields: [rentalListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  saleListing        SaleListing?     @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  property           Property?        @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  rentableSpace      RentableSpace?   @relation(fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  assignedEmployee   Employee         @relation("ViewingAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdBy          User             @relation("ViewingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  brokerageDeals     BrokerageDeal[]
-  rentalAgreement    RentalAgreement?
-  saleAgreement      SaleAgreement?
+  id                      String           @id @db.Uuid
+  companyId               String           @db.Uuid
+  branchId                String           @db.Uuid
+  leadId                  String           @db.Uuid
+  rentalListingId         String?          @db.Uuid
+  saleListingId           String?          @db.Uuid
+  propertyId              String?          @db.Uuid
+  rentableSpaceId         String?          @db.Uuid
+  selectedRentableSpaceId String?          @db.Uuid
+  assignedEmployeeId      String           @db.Uuid
+  scheduledAt             DateTime         @db.Timestamptz(6)
+  status                  ViewingStatus    @default(SCHEDULED)
+  notes                   String?          @db.VarChar(2000)
+  outcome                 String?          @db.VarChar(1000)
+  version                 Int              @default(1)
+  createdByUserId         String           @db.Uuid
+  createdAt               DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  company                 Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  branch                  Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lead                    Lead             @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentalListing           RentalListing?   @relation(fields: [rentalListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  saleListing             SaleListing?     @relation(fields: [saleListingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  property                Property?        @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  rentableSpace           RentableSpace?   @relation("ViewingTargetSpace", fields: [rentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  selectedRentableSpace   RentableSpace?   @relation("ViewingSelectedSpace", fields: [selectedRentableSpaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedEmployee        Employee         @relation("ViewingAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy               User             @relation("ViewingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  brokerageDeals          BrokerageDeal[]
+  rentalAgreement         RentalAgreement?
+  saleAgreement           SaleAgreement?
 
   @@index([companyId, branchId, status, scheduledAt, id], map: "viewing_register_idx")
   @@index([leadId, scheduledAt(sort: Desc), id(sort: Desc)], map: "viewing_lead_timeline_idx")
   @@index([rentableSpaceId, scheduledAt(sort: Desc)], map: "viewing_space_timeline_idx")
+  @@index([selectedRentableSpaceId, scheduledAt(sort: Desc)], map: "viewing_selected_space_timeline_idx")
   @@index([propertyId, scheduledAt(sort: Desc)], map: "viewing_property_timeline_idx")
   @@map("viewings")
 }

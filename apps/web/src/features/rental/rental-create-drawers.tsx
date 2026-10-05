@@ -26,6 +26,11 @@ import {
 
 type OwnerOption = { partyId: string; ownerNumber: string; party: { displayName: string } };
 type PropertyServiceIntent = 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE' | 'CONSTRUCTION';
+type CreatedProperty = {
+  propertyId: string;
+  serviceIntent: PropertyServiceIntent | null;
+  constructionProjectId?: string | null;
+};
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-[#215E61] focus:outline-none focus:ring-1 focus:ring-[#215E61]/12';
@@ -74,7 +79,7 @@ export function AddRentalPropertyDrawer({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (serviceIntent: PropertyServiceIntent) => void;
+  onCreated: (result: CreatedProperty) => void;
   principal: Principal;
 }) {
   const formId = useId();
@@ -104,13 +109,15 @@ export function AddRentalPropertyDrawer({
 
   const mutation = useMutation({
     mutationFn: (input: { endpoint: string; body: Record<string, unknown> }) =>
-      api(input.endpoint, {
+      api<CreatedProperty>(input.endpoint, {
         method: 'POST',
         body: JSON.stringify(input.body),
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success(
-        isSale
+        serviceIntent === 'CONSTRUCTION'
+          ? 'Construction site and project created.'
+          : isSale
           ? ownerMode === 'new'
             ? 'Owner and property ready for sale.'
             : 'Property ready for sale.'
@@ -118,7 +125,7 @@ export function AddRentalPropertyDrawer({
             ? 'Owner and property available for rental.'
             : 'Property available for rental.',
       );
-      onCreated(serviceIntent);
+      onCreated(result);
     },
     onError: (cause) => toast.error(userFacingError(cause)),
   });

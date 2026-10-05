@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Building2, Clock3, Handshake, KeyRound, MapPin, Plus, Search, SearchCheck, Users, Wallet } from 'lucide-react';
+import { ArrowRight, Building2, Clock3, DoorOpen, Handshake, KeyRound, MapPin, Plus, Search, SearchCheck, Users, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   DataTableFilter,
@@ -36,6 +36,11 @@ type RentalPropertyRow = {
   rentalStatus: string;
   monthlyRent: string | null;
   currency: string;
+  occupancyState: 'VACANT' | 'PARTIALLY_OCCUPIED' | 'FULLY_OCCUPIED' | 'UNAVAILABLE';
+  totalUnits: number;
+  occupiedUnits: number;
+  availableUnits: number;
+  unavailableUnits: number;
 };
 
 function rentalStatusLabel(value: string) {
@@ -43,6 +48,13 @@ function rentalStatusLabel(value: string) {
   if (value === 'RENTED') return 'Rented';
   if (value === 'UNAVAILABLE') return 'Unavailable';
   return humanize(value);
+}
+
+function occupancyLabel(value: RentalPropertyRow['occupancyState']) {
+  if (value === 'VACANT') return 'Vacant';
+  if (value === 'PARTIALLY_OCCUPIED') return 'Partially Occupied';
+  if (value === 'FULLY_OCCUPIED') return 'Fully Occupied';
+  return 'Unavailable';
 }
 
 export function RentalPropertyRegister() {
@@ -83,7 +95,7 @@ export function RentalPropertyRegister() {
       <PageHeader
         eyebrow="Portfolio"
         title="Properties"
-        description="Rental properties with simple availability status. Waa la kireyn karaa / Waa la kireeyey."
+        description="Rental inventory with unit-level occupancy and availability."
         action={
           canCreate ? (
             <button
@@ -127,7 +139,7 @@ export function RentalPropertyRegister() {
           </div>
         </DataTableToolbar>
         {query.isLoading ? (
-          <TableSkeleton columns={5} />
+          <TableSkeleton columns={7} />
         ) : !filteredPropertyRows.length ? (
           <DataTableEmpty
             title="No properties yet"
@@ -145,7 +157,7 @@ export function RentalPropertyRegister() {
             <table className="w-full min-w-[720px] text-left">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
-                  {['Property', 'Type', 'Location', 'Rent', 'Status', 'Actions'].map((header) => (
+                  {['Property', 'Type', 'Location', 'Inventory', 'Rent', 'Occupancy', 'Actions'].map((header) => (
                     <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                       {header}
                     </th>
@@ -164,10 +176,19 @@ export function RentalPropertyRegister() {
                     <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{humanize(row.propertyType)}</span></td>
                     <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{row.location}</span></td>
                     <td className="px-4 py-3">
+                      <div className="flex items-start gap-2">
+                        <DoorOpen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                        <div>
+                          <div className="font-semibold text-slate-800">{row.totalUnits} {row.totalUnits === 1 ? 'Unit' : 'Units'}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">{row.occupiedUnits} rented · {row.availableUnits} available{row.unavailableUnits ? ` · ${row.unavailableUnits} held` : ''}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{row.monthlyRent ? `${row.currency} ${row.monthlyRent}` : '—'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge value={rentalStatusLabel(row.rentalStatus)} />
+                      <StatusBadge value={row.totalUnits === 1 ? rentalStatusLabel(row.rentalStatus) : occupancyLabel(row.occupancyState)} />
                     </td>
                     <td className="px-4 py-3">
                       <TableActionButton tone="open" href={`/rental/properties/${row.id}`}>
@@ -186,10 +207,13 @@ export function RentalPropertyRegister() {
           open={createOpen}
           onClose={closeCreate}
           principal={principal}
-          onCreated={(purpose) => {
+          onCreated={(result) => {
             closeCreate();
             void queryClient.invalidateQueries({ queryKey: ['rental-properties'] });
-            if (purpose === 'SALE') router.push('/sales/properties');
+            if (result.serviceIntent === 'SALE') router.push('/sales/properties');
+            if (result.constructionProjectId) {
+              router.push(`/construction/projects/${result.constructionProjectId}`);
+            }
           }}
         />
       ) : null}

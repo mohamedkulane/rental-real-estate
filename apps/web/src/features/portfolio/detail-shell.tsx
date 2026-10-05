@@ -1,6 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shared/app-shell';
@@ -30,11 +32,15 @@ export function PortfolioDetailShell({
   principal,
   activeItem,
   breadcrumbs,
+  backHref,
+  backLabel,
   children,
 }: {
   principal: Principal | null;
   activeItem: string;
   breadcrumbs: string[];
+  backHref?: string;
+  backLabel?: string;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -53,6 +59,12 @@ export function PortfolioDetailShell({
         });
       }}
     >
+      {backHref ? (
+        <Link className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:underline" href={backHref}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {backLabel ?? 'Back'}
+        </Link>
+      ) : null}
       <nav
         className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500"
         aria-label="Breadcrumb"

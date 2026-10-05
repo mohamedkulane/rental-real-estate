@@ -27,6 +27,7 @@ import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
 import { WorkflowPayloadCipher } from '../workflow/workflow-payload-cipher';
 import { assertHierarchyOccupancyAvailable } from './space-hierarchy-occupancy';
+import { isInterestedViewingOutcome } from '../rental/viewing-outcome';
 import {
   ACTIVE_RESIDENTIAL_TENANCY_MESSAGE,
   assertActiveResidentialTenancyAvailable,
@@ -158,7 +159,7 @@ export class LeasingService {
         { saleListing: { is: { title: { contains: query.search, mode: 'insensitive' } } } },
       ] } : {}),
     };
-    const rows = await this.db.viewing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { lead: { select: { id: true, leadNumber: true, displayName: true, intent: true } }, rentalListing: { select: { id: true, listingNumber: true, title: true, rentableSpaceId: true } }, saleListing: { select: { id: true, listingNumber: true, title: true } }, property: { select: { id: true, propertyCode: true, name: true } }, rentableSpace: { select: { id: true, spaceCode: true, name: true, propertyId: true } }, assignedEmployee: { select: { id: true, employeeNumber: true, party: { select: { displayName: true } } } } } });
+    const rows = await this.db.viewing.findMany({ where, orderBy: { id: 'desc' }, take: query.limit + 1, include: { lead: { select: { id: true, leadNumber: true, displayName: true, intent: true } }, rentalListing: { select: { id: true, listingNumber: true, title: true, rentableSpaceId: true } }, saleListing: { select: { id: true, listingNumber: true, title: true } }, property: { select: { id: true, propertyCode: true, name: true } }, rentableSpace: { select: { id: true, spaceCode: true, name: true, propertyId: true } }, selectedRentableSpace: { select: { id: true, spaceCode: true, name: true, propertyId: true } }, assignedEmployee: { select: { id: true, employeeNumber: true, party: { select: { displayName: true } } } } } });
     return this.page(rows, query.limit);
   }
 
@@ -200,7 +201,7 @@ export class LeasingService {
         throw new ConflictException('The selected rentable space is unavailable in the customer branch.');
       }
       rentableSpaceId = space.id;
-    } else if (input.propertyId) {
+    } else if (input.propertyId && lead.intent === 'BUY') {
       const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
       const property = await this.db.property.findFirst({
         where: {
@@ -217,6 +218,54 @@ export class LeasingService {
       });
       if (!property) throw new ConflictException('The selected sale property is unavailable.');
       propertyId = property.id;
+    } else if (input.propertyId && lead.intent === 'RENT') {
+      const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
+      const property = await this.db.property.findFirst({
+        where: {
+          id: input.propertyId,
+          companyId: principal.companyId,
+          status: PropertyStatus.ACTIVE,
+          serviceIntent: { in: ['RENTAL_BROKERAGE', 'FULL_MANAGEMENT'] },
+          branchAssignments: {
+            some: {
+              branchId: lead.responsibleBranchId,
+              effectiveFrom: { lte: at },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+            },
+          },
+        },
+        include: {
+          serviceEngagements: {
+            where: {
+              status: ServiceEngagementStatus.ACTIVE,
+              serviceModel: { in: [ServiceModel.RENTAL_BROKERAGE, ServiceModel.FULL_MANAGEMENT] },
+              effectiveFrom: { lte: at },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+            },
+            select: { rentableSpaceId: true },
+          },
+          spaces: {
+            where: {
+              status: RentableSpaceStatus.ACTIVE,
+              leases: { none: { status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] }, leaseStartDate: { lte: at }, OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }] } },
+              leasePossessions: { none: { status: 'ACTIVE', possessionFrom: { lte: at }, OR: [{ possessionTo: null }, { possessionTo: { gt: at } }] } },
+              reservations: { none: { status: ReservationStatus.ACTIVE, startsAt: { lte: at }, expiresAt: { gt: at } } },
+            },
+            select: { id: true },
+          },
+        },
+      });
+      const propertyWide = property?.serviceEngagements.some((row) => row.rentableSpaceId === null);
+      const scopedSpaceIds = new Set(
+        property?.serviceEngagements.flatMap((row) => row.rentableSpaceId ?? []) ?? [],
+      );
+      const eligibleSpaces = property?.spaces.filter(
+        (space) => propertyWide || scopedSpaceIds.has(space.id),
+      );
+      if (!property || !eligibleSpaces?.length) {
+        throw new ConflictException('This rental property has no currently available authorized units.');
+      }
+      propertyId = property.id;
     } else if (input.rentalListingId) {
       const listing = await this.db.rentalListing.findFirst({
         where: {
@@ -232,7 +281,6 @@ export class LeasingService {
         throw new ConflictException('The Service Engagement does not permit Viewings.');
       }
       rentalListingId = listing.id;
-      rentableSpaceId = listing.rentableSpaceId;
     } else {
       const listing = await this.db.saleListing.findFirst({
         where: {
@@ -300,7 +348,9 @@ export class LeasingService {
         after: {
           leadId: created.leadId,
           scheduledAt: created.scheduledAt,
+          propertyId: created.propertyId,
           rentableSpaceId: created.rentableSpaceId,
+          selectedRentableSpaceId: created.selectedRentableSpaceId,
         },
       });
       return created;
@@ -322,18 +372,176 @@ export class LeasingService {
     });
   }
 
+  async listAvailableViewingUnits(principal: AuthenticatedPrincipal, id: string) {
+    const viewing = await this.db.viewing.findFirst({
+      where: { id, companyId: principal.companyId },
+      select: { branchId: true, propertyId: true, lead: { select: { intent: true } } },
+    });
+    if (!viewing) throw new NotFoundException('Viewing not found.');
+    this.auth.assertBranchPermission(principal, 'viewing.complete', viewing.branchId);
+    if (!viewing.propertyId || viewing.lead.intent !== 'RENT') return [];
+
+    const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
+    const property = await this.db.property.findFirst({
+      where: {
+        id: viewing.propertyId,
+        companyId: principal.companyId,
+        status: PropertyStatus.ACTIVE,
+        serviceIntent: { in: ['RENTAL_BROKERAGE', 'FULL_MANAGEMENT'] },
+      },
+      include: {
+        serviceEngagements: {
+          where: {
+            status: ServiceEngagementStatus.ACTIVE,
+            serviceModel: { in: [ServiceModel.RENTAL_BROKERAGE, ServiceModel.FULL_MANAGEMENT] },
+            effectiveFrom: { lte: at },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+          },
+          select: { rentableSpaceId: true },
+        },
+        spaces: {
+          where: {
+            status: RentableSpaceStatus.ACTIVE,
+            leases: { none: { status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] }, leaseStartDate: { lte: at }, OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }] } },
+            leasePossessions: { none: { status: 'ACTIVE', possessionFrom: { lte: at }, OR: [{ possessionTo: null }, { possessionTo: { gt: at } }] } },
+            reservations: { none: { status: ReservationStatus.ACTIVE, startsAt: { lte: at }, expiresAt: { gt: at } } },
+          },
+          include: {
+            type: { select: { code: true, name: true } },
+            residentialProfile: { select: { bedrooms: true, bathrooms: true } },
+            rentalListings: {
+              where: { status: { in: [ListingStatus.PUBLISHED, ListingStatus.DRAFT, ListingStatus.PAUSED] } },
+              orderBy: { updatedAt: 'desc' },
+              take: 1,
+              select: { askingRent: true, currency: true },
+            },
+            versions: {
+              where: { effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] },
+              orderBy: { versionNo: 'desc' },
+              take: 1,
+              select: { attributes: true },
+            },
+          },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        },
+      },
+    });
+    if (!property) return [];
+    const propertyWide = property.serviceEngagements.some((row) => row.rentableSpaceId === null);
+    const scopedSpaceIds = new Set(
+      property.serviceEngagements.flatMap((row) => row.rentableSpaceId ?? []),
+    );
+    const candidates = property.spaces.filter(
+      (space) => propertyWide || scopedSpaceIds.has(space.id),
+    );
+    const availability = await Promise.all(
+      candidates.map(async (space) => {
+        try {
+          await assertHierarchyOccupancyAvailable(this.db, {
+            companyId: principal.companyId,
+            rentableSpaceId: space.id,
+            businessDate: principal.businessDate,
+          });
+          return space;
+        } catch (error) {
+          if (error instanceof ConflictException) return null;
+          throw error;
+        }
+      }),
+    );
+    return availability.flatMap((space) => {
+      if (!space) return [];
+      const attributes = space.versions[0]?.attributes;
+      const values =
+        attributes && typeof attributes === 'object' && !Array.isArray(attributes)
+          ? (attributes as Record<string, unknown>)
+          : {};
+      const listing = space.rentalListings[0];
+      return [{
+        id: space.id,
+        spaceCode: space.spaceCode,
+        name: space.name,
+        type: space.type,
+        residentialProfile: space.residentialProfile,
+        askingRent: listing?.askingRent?.toString() ??
+          (typeof values.askingRent === 'string' || typeof values.askingRent === 'number'
+            ? String(values.askingRent)
+            : null),
+        currency: listing?.currency ??
+          (typeof values.currency === 'string' ? values.currency.toUpperCase() : 'USD'),
+      }];
+    });
+  }
+
   async completeViewing(principal: AuthenticatedPrincipal, id: string, input: CompleteViewingDto, correlationId?: string) {
     if (!oneOf(input.status, [ViewingStatus.CONFIRMED, ViewingStatus.COMPLETED, ViewingStatus.CANCELLED, ViewingStatus.NO_SHOW])) throw new BadRequestException('Unsupported Viewing transition.');
-    const current = await this.db.viewing.findFirst({ where: { id, companyId: principal.companyId } });
+    const current = await this.db.viewing.findFirst({
+      where: { id, companyId: principal.companyId },
+      include: { lead: { select: { intent: true } } },
+    });
     if (!current) throw new NotFoundException('Viewing not found.');
     this.auth.assertBranchPermission(principal, 'viewing.complete', current.branchId);
     const allowed = current.status === ViewingStatus.SCHEDULED ? [ViewingStatus.CONFIRMED, ViewingStatus.CANCELLED, ViewingStatus.NO_SHOW] : current.status === ViewingStatus.CONFIRMED ? [ViewingStatus.COMPLETED, ViewingStatus.CANCELLED, ViewingStatus.NO_SHOW] : [];
     if (!oneOf<ViewingStatus>(input.status, allowed)) throw new ConflictException(`Viewing cannot transition from ${current.status} to ${input.status}.`);
+    let selectedRentableSpaceId: string | null = current.selectedRentableSpaceId;
+    if (
+      input.status === ViewingStatus.COMPLETED &&
+      current.lead.intent === 'RENT' &&
+      current.propertyId &&
+      isInterestedViewingOutcome(input.outcome)
+    ) {
+      if (!input.selectedRentableSpaceId) {
+        throw new BadRequestException('Choose the available unit the customer is interested in.');
+      }
+      const at = new Date(`${principal.businessDate}T00:00:00.000Z`);
+      const space = await this.db.rentableSpace.findFirst({
+        where: {
+          id: input.selectedRentableSpaceId,
+          propertyId: current.propertyId,
+          status: RentableSpaceStatus.ACTIVE,
+          property: {
+            companyId: principal.companyId,
+            status: PropertyStatus.ACTIVE,
+            serviceIntent: { in: ['RENTAL_BROKERAGE', 'FULL_MANAGEMENT'] },
+            serviceEngagements: {
+              some: {
+                status: ServiceEngagementStatus.ACTIVE,
+                serviceModel: { in: [ServiceModel.RENTAL_BROKERAGE, ServiceModel.FULL_MANAGEMENT] },
+                effectiveFrom: { lte: at },
+                OR: [
+                  { effectiveTo: null, rentableSpaceId: null },
+                  { effectiveTo: null, rentableSpaceId: input.selectedRentableSpaceId },
+                  { effectiveTo: { gt: at }, rentableSpaceId: null },
+                  { effectiveTo: { gt: at }, rentableSpaceId: input.selectedRentableSpaceId },
+                ],
+              },
+            },
+          },
+          leases: { none: { status: { in: [LeaseStatus.SIGNED, LeaseStatus.ACTIVE] }, leaseStartDate: { lte: at }, OR: [{ leaseEndDate: null }, { leaseEndDate: { gte: at } }] } },
+          leasePossessions: { none: { status: 'ACTIVE', possessionFrom: { lte: at }, OR: [{ possessionTo: null }, { possessionTo: { gt: at } }] } },
+          reservations: { none: { status: ReservationStatus.ACTIVE, startsAt: { lte: at }, expiresAt: { gt: at } } },
+        },
+        select: { id: true },
+      });
+      if (!space) {
+        throw new ConflictException(
+          'This unit is no longer available. Choose another available unit from this property or return to matching.',
+        );
+      }
+      await assertHierarchyOccupancyAvailable(this.db, {
+        companyId: principal.companyId,
+        rentableSpaceId: space.id,
+        businessDate: principal.businessDate,
+      });
+      selectedRentableSpaceId = space.id;
+    } else if (input.status === ViewingStatus.COMPLETED) {
+      selectedRentableSpaceId = null;
+    }
     return this.db.$transaction(async (tx) => {
-      const changed = await tx.viewing.updateMany({ where: { id, version: input.expectedVersion, status: current.status }, data: { status: input.status, outcome: input.outcome?.trim() || null, version: { increment: 1 } } });
+      const changed = await tx.viewing.updateMany({ where: { id, version: input.expectedVersion, status: current.status }, data: { status: input.status, outcome: input.outcome?.trim() || null, selectedRentableSpaceId, version: { increment: 1 } } });
       if (changed.count !== 1) throw new ConflictException('Viewing is stale or has already changed.');
       const row = await tx.viewing.findUniqueOrThrow({ where: { id } });
-      await this.audit.write(tx, { actorUserId: principal.userId, action: 'viewing.transitioned', entityType: 'Viewing', entityId: id, branchId: current.branchId, correlationId, reason: input.reason, before: { status: current.status }, after: { status: row.status } });
+      await this.audit.write(tx, { actorUserId: principal.userId, action: 'viewing.transitioned', entityType: 'Viewing', entityId: id, branchId: current.branchId, correlationId, reason: input.reason, before: { status: current.status, selectedRentableSpaceId: current.selectedRentableSpaceId }, after: { status: row.status, selectedRentableSpaceId: row.selectedRentableSpaceId } });
       return row;
     });
   }

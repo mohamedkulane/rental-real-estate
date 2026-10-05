@@ -80,6 +80,7 @@ export function AppHeader({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [closestMatches, setClosestMatches] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -125,14 +126,21 @@ export function AppHeader({
     const trimmed = searchQuery.trim();
     if (trimmed.length < 2) {
       setSearchResults([]);
+      setClosestMatches(false);
       setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
     const timer = window.setTimeout(() => {
-      void api<{ items: SearchResult[] }>(`/search?q=${encodeURIComponent(trimmed)}`)
-        .then((data) => setSearchResults(data.items))
-        .catch(() => setSearchResults([]))
+      void api<{ items: SearchResult[]; closestMatches?: boolean }>(`/search?q=${encodeURIComponent(trimmed)}`)
+        .then((data) => {
+          setSearchResults(data.items);
+          setClosestMatches(Boolean(data.closestMatches));
+        })
+        .catch(() => {
+          setSearchResults([]);
+          setClosestMatches(false);
+        })
         .finally(() => setSearchLoading(false));
     }, 300);
     return () => window.clearTimeout(timer);
@@ -260,6 +268,8 @@ export function AppHeader({
                     {searchLoading ? (
                       <p className="px-4 py-3 text-sm text-slate-500">Searching...</p>
                     ) : searchResults.length ? (
+                      <>
+                      {closestMatches ? <p className="border-b border-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">Closest matches</p> : null}
                       <ul>
                         {searchResults.map((result) => (
                           <li key={`${result.type}-${result.id}`}>
@@ -285,6 +295,7 @@ export function AppHeader({
                           </li>
                         ))}
                       </ul>
+                      </>
                     ) : (
                       <p className="px-4 py-3 text-sm text-slate-500">No matching records found.</p>
                     )}

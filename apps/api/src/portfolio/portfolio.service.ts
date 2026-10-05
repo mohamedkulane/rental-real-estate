@@ -2088,12 +2088,32 @@ export class PortfolioService {
     input: UpdateSpaceDto,
     correlationId?: string,
   ) {
+    const changesEffectiveVersion =
+      input.usableArea !== undefined ||
+      input.totalArea !== undefined ||
+      input.areaUnit !== undefined ||
+      input.floorNumber !== undefined ||
+      input.capacity !== undefined ||
+      input.askingRent !== undefined ||
+      input.currency !== undefined ||
+      input.description !== undefined;
     if (
       input.name === undefined &&
       input.typeCode === undefined &&
-      input.buildingId === undefined
+      input.buildingId === undefined &&
+      !changesEffectiveVersion &&
+      input.residential === undefined
     ) {
       throw new BadRequestException('Provide at least one field to update.');
+    }
+    if (
+      (input.usableArea !== undefined || input.totalArea !== undefined) &&
+      input.areaUnit === undefined
+    ) {
+      throw new BadRequestException('Area unit is required whenever an area is changed.');
+    }
+    if (input.askingRent !== undefined && new Prisma.Decimal(input.askingRent).lt(0)) {
+      throw new BadRequestException('Asking rent cannot be negative.');
     }
     const space = await this.database.rentableSpace.findUniqueOrThrow({
       where: { id: spaceId },
@@ -2129,6 +2149,133 @@ export class PortfolioService {
         },
         include: { type: true },
       });
+      let versionChange: Record<string, unknown> | null = null;
+      if (changesEffectiveVersion) {
+        const effectiveFrom = await this.effectiveDating.scheduledDate(
+          principal.companyId,
+          input.effectiveFrom ?? principal.businessDate,
+        );
+        await transaction.$queryRaw(
+          Prisma.sql`SELECT id FROM rentable_space_versions WHERE "rentableSpaceId" = ${spaceId}::uuid FOR UPDATE`,
+        );
+        const versions = await transaction.rentableSpaceVersion.findMany({
+          where: { rentableSpaceId: spaceId },
+          orderBy: [{ effectiveFrom: 'desc' }, { versionNo: 'desc' }],
+        });
+        this.effectiveDating.assertNoLaterScheduledChange(
+          effectiveFrom,
+          versions.filter((version) => version.effectiveFrom > effectiveFrom),
+        );
+        const prior = versions.find(
+          (version) =>
+            version.effectiveFrom <= effectiveFrom &&
+            (!version.effectiveTo || effectiveFrom < version.effectiveTo),
+        );
+        if (!prior)
+          throw new BadRequestException('No effective unit version exists for this date.');
+        const priorAttributes =
+          prior.attributes &&
+          typeof prior.attributes === 'object' &&
+          !Array.isArray(prior.attributes)
+            ? (prior.attributes as Record<string, unknown>)
+            : {};
+        const attributes: Record<string, unknown> = {
+          ...priorAttributes,
+          ...(input.askingRent !== undefined ? { askingRent: input.askingRent } : {}),
+          ...(input.currency !== undefined ? { currency: input.currency.toUpperCase() } : {}),
+          ...(input.description !== undefined ? { description: input.description.trim() } : {}),
+        };
+        const versionData = {
+          label: input.name?.trim() ?? prior.label,
+          usableArea:
+            input.usableArea !== undefined
+              ? new Prisma.Decimal(input.usableArea)
+              : prior.usableArea,
+          totalArea:
+            input.totalArea !== undefined ? new Prisma.Decimal(input.totalArea) : prior.totalArea,
+          areaUnit: input.areaUnit ?? prior.areaUnit,
+          floorNumber: input.floorNumber ?? prior.floorNumber,
+          capacity: input.capacity ?? prior.capacity,
+          attributes: attributes as Prisma.InputJsonValue,
+        };
+        if (prior.effectiveFrom.getTime() === effectiveFrom.getTime()) {
+          await transaction.rentableSpaceVersion.update({
+            where: { id: prior.id },
+            data: versionData,
+          });
+        } else {
+          await transaction.rentableSpaceVersion.update({
+            where: { id: prior.id },
+            data: { effectiveTo: effectiveFrom },
+          });
+          await transaction.rentableSpaceVersion.create({
+            data: {
+              id: uuidv7(),
+              rentableSpaceId: spaceId,
+              versionNo: Math.max(...versions.map((version) => version.versionNo)) + 1,
+              effectiveFrom,
+              ...versionData,
+            },
+          });
+        }
+        if (input.askingRent !== undefined) {
+          await transaction.rentalListing.updateMany({
+            where: {
+              rentableSpaceId: spaceId,
+              status: {
+                in: [
+                  ListingStatus.DRAFT,
+                  ListingStatus.PENDING_REVIEW,
+                  ListingStatus.PUBLISHED,
+                  ListingStatus.PAUSED,
+                ],
+              },
+            },
+            data: {
+              askingRent: new Prisma.Decimal(input.askingRent),
+              ...(input.currency ? { currency: input.currency.toUpperCase() } : {}),
+              version: { increment: 1 },
+            },
+          });
+        }
+        versionChange = {
+          effectiveFrom: effectiveFrom.toISOString().slice(0, 10),
+          usableArea: versionData.usableArea?.toString() ?? null,
+          totalArea: versionData.totalArea?.toString() ?? null,
+          areaUnit: versionData.areaUnit,
+          floorNumber: versionData.floorNumber,
+          capacity: versionData.capacity,
+          askingRent: input.askingRent ?? priorAttributes.askingRent ?? null,
+          currency: input.currency?.toUpperCase() ?? priorAttributes.currency ?? null,
+        };
+      }
+      if (input.residential !== undefined) {
+        const residentialData = {
+          ...(input.residential.bedrooms !== undefined
+            ? { bedrooms: input.residential.bedrooms }
+            : {}),
+          ...(input.residential.bathrooms !== undefined
+            ? { bathrooms: new Prisma.Decimal(input.residential.bathrooms) }
+            : {}),
+          ...(input.residential.kitchens !== undefined
+            ? { kitchens: input.residential.kitchens }
+            : {}),
+          ...(input.residential.livingRooms !== undefined
+            ? { livingRooms: input.residential.livingRooms }
+            : {}),
+          ...(input.residential.balconies !== undefined
+            ? { balconies: input.residential.balconies }
+            : {}),
+          ...(input.residential.furnishedStatus !== undefined
+            ? { furnishedStatus: input.residential.furnishedStatus }
+            : {}),
+        };
+        await transaction.residentialSpaceProfile.upsert({
+          where: { rentableSpaceId: spaceId },
+          create: { rentableSpaceId: spaceId, ...residentialData },
+          update: residentialData,
+        });
+      }
       await this.audit.write(transaction, {
         actorUserId: principal.userId,
         action: 'portfolio.space.updated',
@@ -2136,6 +2283,7 @@ export class PortfolioService {
         entityId: spaceId,
         branchId,
         correlationId,
+        reason: input.reason,
         before: {
           name: space.name,
           typeCode: space.type.code,
@@ -2145,9 +2293,24 @@ export class PortfolioService {
           name: after.name,
           typeCode: after.type.code,
           buildingId: after.buildingId,
+          version:
+            versionChange === null
+              ? null
+              : (versionChange as Prisma.InputJsonValue),
+          residential:
+            input.residential === undefined
+              ? null
+              : (input.residential as unknown as Prisma.InputJsonValue),
         },
       });
-      return after;
+      return transaction.rentableSpace.findUniqueOrThrow({
+        where: { id: spaceId },
+        include: {
+          type: true,
+          versions: { orderBy: { effectiveFrom: 'desc' } },
+          residentialProfile: true,
+        },
+      });
     });
   }
 

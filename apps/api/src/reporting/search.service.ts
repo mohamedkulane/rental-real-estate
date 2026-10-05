@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from '../database/database.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
@@ -11,7 +12,27 @@ export type SearchResult = {
   context: string;
   branch?: string | undefined;
   href: string;
+  matchKind?: 'EXACT' | 'PREFIX' | 'CONTAINS' | 'TOKEN' | 'FUZZY';
+  score?: number;
 };
+
+type PropertySearchRow = {
+  id: string;
+  name: string;
+  propertyCode: string;
+  branch: string | null;
+  matchKind: SearchResult['matchKind'];
+  score: number;
+};
+
+function normalizeSearchTerm(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase('en')
+    .replace(/[\p{P}\p{S}_-]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 @Injectable()
 export class SearchService {
@@ -26,16 +47,19 @@ export class SearchService {
     if (term.length < 2) return { items: [] as SearchResult[] };
     const companyId = principal.companyId;
     const perType = Math.max(2, Math.ceil(limit / 6));
-    const propertyBranch =
-      branchId && this.auth.canPerformInBranch(principal, 'portfolio.property.read', branchId)
-        ? { branchAssignments: { some: { branchId } } }
-        : this.auth.authorizedBranchIds(principal, 'portfolio.property.read') === null
-          ? {}
-          : {
-              branchAssignments: {
-                some: { branchId: { in: [...(this.auth.authorizedBranchIds(principal, 'portfolio.property.read') ?? [])] } },
-              },
-            };
+    const normalizedTerm = normalizeSearchTerm(term);
+    const propertyBranchIds = this.auth.authorizedBranchIds(
+      principal,
+      'portfolio.property.read',
+    );
+    if (branchId) {
+      this.auth.assertBranchPermission(principal, 'portfolio.property.read', branchId);
+    }
+    const scopedPropertyBranchIds = branchId
+      ? [branchId]
+      : propertyBranchIds === null
+        ? null
+        : [...propertyBranchIds];
     const branchFilter =
       branchId && this.auth.canPerformInBranch(principal, 'crm.lead.read', branchId)
         ? { branchId }
@@ -45,23 +69,70 @@ export class SearchService {
 
     const [properties, owners, tenants, leads, leases, listings, invoices] = await Promise.all([
       this.auth.hasPermission(principal, 'portfolio.property.read')
-        ? this.db.property.findMany({
-            where: {
-              companyId,
-              ...propertyBranch,
-              OR: [
-                { name: { contains: term, mode: 'insensitive' } },
-                { propertyCode: { contains: term, mode: 'insensitive' } },
-              ],
-            },
-            take: perType,
-            select: {
-              id: true,
-              name: true,
-              propertyCode: true,
-              branchAssignments: { select: { branch: { select: { name: true } } }, take: 1 },
-            },
-          })
+        ? this.db.$queryRaw<PropertySearchRow[]>(Prisma.sql`
+            WITH ranked_properties AS (
+              SELECT
+                p.id,
+                p.name,
+                p."propertyCode",
+                branch.name AS branch,
+                CASE
+                  WHEN translate(lower(p.name), '-_', '  ') = ${normalizedTerm}
+                    OR translate(lower(p."propertyCode"), '-_', '  ') = ${normalizedTerm} THEN 'EXACT'
+                  WHEN translate(lower(p.name), '-_', '  ') LIKE ${`${normalizedTerm}%`}
+                    OR translate(lower(p."propertyCode"), '-_', '  ') LIKE ${`${normalizedTerm}%`} THEN 'PREFIX'
+                  WHEN translate(lower(p.name), '-_', '  ') LIKE ${`%${normalizedTerm}%`}
+                    OR translate(lower(p."propertyCode"), '-_', '  ') LIKE ${`%${normalizedTerm}%`} THEN 'CONTAINS'
+                  WHEN word_similarity(${normalizedTerm}, translate(lower(p.name), '-_', '  ')) >= 0.65 THEN 'TOKEN'
+                  ELSE 'FUZZY'
+                END AS "matchKind",
+                GREATEST(
+                  similarity(translate(lower(p.name), '-_', '  '), ${normalizedTerm}),
+                  similarity(translate(lower(p."propertyCode"), '-_', '  '), ${normalizedTerm}),
+                  word_similarity(${normalizedTerm}, translate(lower(p.name), '-_', '  '))
+                )::float8 AS score
+              FROM properties p
+              LEFT JOIN LATERAL (
+                SELECT b.name
+                FROM property_branch_assignments pba
+                JOIN branches b ON b.id = pba."branchId"
+                WHERE pba."propertyId" = p.id AND pba."effectiveTo" IS NULL
+                ORDER BY pba."effectiveFrom" DESC
+                LIMIT 1
+              ) branch ON true
+              WHERE p."companyId" = ${companyId}::uuid
+                AND (
+                  ${scopedPropertyBranchIds === null}
+                  OR EXISTS (
+                    SELECT 1
+                    FROM property_branch_assignments scope
+                    WHERE scope."propertyId" = p.id
+                      AND scope."effectiveTo" IS NULL
+                      AND scope."branchId" = ANY(${scopedPropertyBranchIds ?? []}::uuid[])
+                  )
+                )
+                AND (
+                  translate(lower(p.name), '-_', '  ') LIKE ${`%${normalizedTerm}%`}
+                  OR translate(lower(p."propertyCode"), '-_', '  ') LIKE ${`%${normalizedTerm}%`}
+                  OR similarity(translate(lower(p.name), '-_', '  '), ${normalizedTerm}) >= 0.32
+                  OR similarity(translate(lower(p."propertyCode"), '-_', '  '), ${normalizedTerm}) >= 0.32
+                  OR word_similarity(${normalizedTerm}, translate(lower(p.name), '-_', '  ')) >= 0.60
+                )
+            )
+            SELECT *
+            FROM ranked_properties
+            ORDER BY
+              CASE "matchKind"
+                WHEN 'EXACT' THEN 1
+                WHEN 'PREFIX' THEN 2
+                WHEN 'CONTAINS' THEN 3
+                WHEN 'TOKEN' THEN 4
+                ELSE 5
+              END,
+              score DESC,
+              name ASC
+            LIMIT ${perType}
+          `)
         : [],
       this.auth.hasPermission(principal, 'owner.read')
         ? this.db.party.findMany({
@@ -145,8 +216,10 @@ export class SearchService {
         id: row.id,
         label: `${row.propertyCode} — ${row.name}`,
         context: 'Portfolio',
-        branch: row.branchAssignments[0]?.branch.name,
+        branch: row.branch ?? undefined,
         href: `/portfolio/properties/${row.id}`,
+        matchKind: row.matchKind,
+        score: row.score,
       })),
       ...owners.map((row) => ({
         type: 'Owner',
@@ -201,7 +274,13 @@ export class SearchService {
       })),
     ].slice(0, limit);
 
-    return { items };
+    const propertyMatches = items.filter((item) => item.type === 'Property');
+    const closestMatches =
+      propertyMatches.length > 0 &&
+      propertyMatches.every(
+        (item) => item.matchKind === 'TOKEN' || item.matchKind === 'FUZZY',
+      );
+    return { items, closestMatches };
   }
 
   private branchFilterLease(principal: AuthenticatedPrincipal) {

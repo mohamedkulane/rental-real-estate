@@ -104,6 +104,16 @@ export class CrmSelectorsService {
       Prisma.sql`e.active=TRUE`,
       Prisma.sql`crm_employee_eligible(e.id,${principal.companyId}::uuid,${target}::uuid)`,
     ];
+    if (query.purpose === EmployeeSelectorPurpose.VIEWING_ASSIGN) {
+      filters.push(Prisma.sql`EXISTS (
+        SELECT 1
+        FROM employee_branch_assignments assignment
+        WHERE assignment."employeeId" = e.id
+          AND assignment."branchId" = ${target}::uuid
+          AND assignment."effectiveFrom" <= ${principal.businessDate}::date
+          AND (assignment."effectiveTo" IS NULL OR assignment."effectiveTo" > ${principal.businessDate}::date)
+      )`);
+    }
     if (query.search?.trim()) {
       const term = matchText(query.search);
       filters.push(Prisma.sql`(e."employeeNumber" ILIKE ${term} OR p."displayName" ILIKE ${term})`);

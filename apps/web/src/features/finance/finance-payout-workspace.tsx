@@ -64,14 +64,21 @@ export function OwnerPayoutCreateWorkspace() {
         }),
       }),
     onSuccess: (payout: { id: string }) => {
-      notify.payment({ title: 'Owner payout prepared', message: 'Review the payout before approval.' });
+      notify.payment({
+        title: 'Owner payout prepared',
+        message: 'Review the payout before approval.',
+      });
       router.push(`/finance/owner-payouts/${payout.id}`);
     },
     onError: (error) => toast.error(userFacingError(error)),
   });
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:owner-payouts">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:owner-payouts"
+    >
       <PageHeader
         eyebrow="Finance"
         title="Prepare Owner Payout"
@@ -125,8 +132,20 @@ export function OwnerPayoutCreateWorkspace() {
                 : 'Choose a property first.'
             }
           />
-          <FinanceTextField label="Period start" type="date" value={periodStart} onChange={setPeriodStart} required />
-          <FinanceTextField label="Period end" type="date" value={periodEnd} onChange={setPeriodEnd} required />
+          <FinanceTextField
+            label="Period start"
+            type="date"
+            value={periodStart}
+            onChange={setPeriodStart}
+            required
+          />
+          <FinanceTextField
+            label="Period end"
+            type="date"
+            value={periodEnd}
+            onChange={setPeriodEnd}
+            required
+          />
           <FinanceTextField
             label="Currency"
             value={currency}
@@ -134,7 +153,17 @@ export function OwnerPayoutCreateWorkspace() {
             maxLength={3}
             required
           />
-          <FinanceTextField label="Other deductions" value={otherDeductions} onChange={setOtherDeductions} />
+          <FinanceTextField
+            label="Other deductions"
+            value={otherDeductions}
+            onChange={setOtherDeductions}
+          />
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950 sm:col-span-2">
+            <strong>Calculation:</strong> tenant rent collected for this property and period, minus
+            the contractual management fee, posted owner expenses, and other approved deductions.
+            Preparing a payout does not move cash; review and approval follow on the payout detail
+            page.
+          </div>
         </FinanceFormPanel>
       )}
     </FinanceShell>
@@ -171,7 +200,11 @@ export function OwnerPayoutDetailWorkspace() {
   const lines = (query.data?.lines as Array<Record<string, unknown>> | undefined) ?? [];
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:owner-payouts">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:owner-payouts"
+    >
       <PageHeader
         eyebrow="Finance"
         title={financeText(query.data?.payoutNumber) || 'Owner Payout'}
@@ -208,13 +241,16 @@ export function OwnerPayoutDetailWorkspace() {
                 label="Period"
                 value={`${formatDate(query.data?.periodStart)} — ${formatDate(query.data?.periodEnd)}`}
               />
-              <FinanceField label="Net payable" value={financeMoney(query.data?.currency, query.data?.netPayable)} />
+              <FinanceField
+                label="Net payable"
+                value={financeMoney(query.data?.currency, query.data?.netPayable)}
+              />
               <FinanceField
                 label="Collected income"
                 value={financeMoney(query.data?.currency, query.data?.collectedIncome)}
               />
               <FinanceField
-                label="Management fee"
+                label="Management fee retained by company"
                 value={financeMoney(query.data?.currency, query.data?.managementFee)}
               />
               <FinanceField
@@ -239,9 +275,13 @@ export function OwnerPayoutDetailWorkspace() {
                   <tbody>
                     {lines.map((line) => (
                       <tr key={financeText(line.id)} className="border-t border-slate-100">
-                        <td className="px-4 py-2">{financeText(financeNested(line, 'owner', 'displayName'))}</td>
+                        <td className="px-4 py-2">
+                          {financeText(financeNested(line, 'owner', 'displayName'))}
+                        </td>
                         <td className="px-4 py-2">{financeScalar(line.sharePercent)}%</td>
-                        <td className="px-4 py-2">{financeMoney(query.data?.currency, line.amount)}</td>
+                        <td className="px-4 py-2">
+                          {financeMoney(query.data?.currency, line.amount)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -254,7 +294,9 @@ export function OwnerPayoutDetailWorkspace() {
               currentStatus={status}
               transitions={payoutTransitions[status] ?? []}
               busy={transition.isPending}
-              onTransition={(nextStatus, reason) => transition.mutate({ status: nextStatus, reason })}
+              onTransition={(nextStatus, reason) =>
+                transition.mutate({ status: nextStatus, reason })
+              }
             />
           ) : null}
         </div>

@@ -82,6 +82,7 @@ export type PropertyRecord = {
     }[];
     leases?: { id: string; status: string; rentAmount?: string | null; currency?: string }[];
     rentalListings?: { askingRent?: string | null; currency?: string; status: string }[];
+    residentialProfile?: { bedrooms: number | null; bathrooms: string | null } | null;
   }[];
   amenities?: { amenity: { id: string; name: string } }[];
   _count?: { spaces: number; buildings: number };
@@ -502,10 +503,7 @@ export function PropertyRegistry({
                       </td>
                       <td className="px-5 py-4 text-right">
                         <TableActionGroup>
-                          <TableActionButton
-                            tone="view"
-                            onClick={() => void openDetails(property)}
-                          >
+                          <TableActionButton tone="view" onClick={() => void openDetails(property)}>
                             View
                           </TableActionButton>
                           {canUpdate(property) ? (
@@ -741,17 +739,10 @@ export function PropertyRegistry({
               />
             </FormField>
             <div className="flex gap-3 border-t border-slate-200 pt-5">
-              <button
-                disabled={busy}
-                className="button primary flex-1"
-              >
+              <button disabled={busy} className="button primary flex-1">
                 {busy ? 'Saving...' : 'Save changes'}
               </button>
-              <button
-                type="button"
-                onClick={closePanel}
-                className="button secondary"
-              >
+              <button type="button" onClick={closePanel} className="button secondary">
                 Cancel
               </button>
             </div>

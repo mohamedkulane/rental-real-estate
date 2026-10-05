@@ -1,8 +1,14 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   ExpenseResponsibility,
   ExpenseStatus,
   OwnerStatementStatus,
+  PaymentStatus,
   PayoutStatus,
   Prisma,
   ServiceEngagementStatus,
@@ -56,7 +62,11 @@ export class OwnerStatementService {
       where,
       take: query.limit + 1,
       orderBy: [{ periodStart: 'desc' }, { id: 'desc' }],
-      include: { owner: { select: { displayName: true } }, property: { select: { name: true } }, lines: true },
+      include: {
+        owner: { select: { displayName: true } },
+        property: { select: { name: true } },
+        lines: true,
+      },
     });
     return cursorPage(rows, query.limit, (row) => row.id);
   }
@@ -75,7 +85,11 @@ export class OwnerStatementService {
     return statement;
   }
 
-  async generate(principal: AuthenticatedPrincipal, input: GenerateOwnerStatementDto, correlationId?: string) {
+  async generate(
+    principal: AuthenticatedPrincipal,
+    input: GenerateOwnerStatementDto,
+    correlationId?: string,
+  ) {
     const periodStart = isoDate(input.periodStart);
     const periodEnd = isoDate(input.periodEnd);
     if (periodEnd <= periodStart) {
@@ -95,7 +109,9 @@ export class OwnerStatementService {
       periodEnd,
     );
     if (input.propertyId && !propertyIds.includes(input.propertyId)) {
-      throw new ConflictException('The owner has no ownership on this property for the statement period.');
+      throw new ConflictException(
+        'The owner has no ownership on this property for the statement period.',
+      );
     }
     const totals = {
       rentCollected: new Prisma.Decimal(0),
@@ -115,10 +131,16 @@ export class OwnerStatementService {
         periodEnd,
         currency,
       );
-      totals.rentCollected = totals.rentCollected.plus(applyOwnershipShare(propertyTotals.rentCollected, share));
-      totals.managementFee = totals.managementFee.plus(applyOwnershipShare(propertyTotals.managementFee, share));
+      totals.rentCollected = totals.rentCollected.plus(
+        applyOwnershipShare(propertyTotals.rentCollected, share),
+      );
+      totals.managementFee = totals.managementFee.plus(
+        applyOwnershipShare(propertyTotals.managementFee, share),
+      );
       totals.expenses = totals.expenses.plus(applyOwnershipShare(propertyTotals.expenses, share));
-      totals.adjustments = totals.adjustments.plus(applyOwnershipShare(propertyTotals.adjustments, share));
+      totals.adjustments = totals.adjustments.plus(
+        applyOwnershipShare(propertyTotals.adjustments, share),
+      );
       totals.payouts = totals.payouts.plus(propertyTotals.payouts);
     }
     const openingBalance = await this.openingBalance(
@@ -152,7 +174,10 @@ export class OwnerStatementService {
       const existing = replayIdempotentRecord(
         await tx.ownerStatement.findUnique({
           where: { idempotencyKey },
-          include: { lines: { orderBy: { lineNo: 'asc' } }, owner: { select: { displayName: true } } },
+          include: {
+            lines: { orderBy: { lineNo: 'asc' } },
+            owner: { select: { displayName: true } },
+          },
         }),
         principal.companyId,
       );
@@ -176,7 +201,10 @@ export class OwnerStatementService {
               })),
             },
           },
-          include: { lines: { orderBy: { lineNo: 'asc' } }, owner: { select: { displayName: true } } },
+          include: {
+            lines: { orderBy: { lineNo: 'asc' } },
+            owner: { select: { displayName: true } },
+          },
         });
         await this.audit.write(tx, {
           actorUserId: principal.userId,
@@ -214,7 +242,10 @@ export class OwnerStatementService {
             })),
           },
         },
-        include: { lines: { orderBy: { lineNo: 'asc' } }, owner: { select: { displayName: true } } },
+        include: {
+          lines: { orderBy: { lineNo: 'asc' } },
+          owner: { select: { displayName: true } },
+        },
       });
       await this.audit.write(tx, {
         actorUserId: principal.userId,
@@ -248,7 +279,11 @@ export class OwnerStatementService {
     return [...new Set(rows.map((row) => row.propertyId))];
   }
 
-  private async ownerShare(propertyId: string, ownerPartyId: string, at: Date): Promise<Prisma.Decimal> {
+  private async ownerShare(
+    propertyId: string,
+    ownerPartyId: string,
+    at: Date,
+  ): Promise<Prisma.Decimal> {
     const ownerships = await this.policy.ownershipAt(propertyId, at);
     const match = ownerships.find((row) => row.ownerPartyId === ownerPartyId);
     return match?.ownershipPercent ?? new Prisma.Decimal(0);
@@ -265,10 +300,23 @@ export class OwnerStatementService {
     const collected = await this.db.paymentAllocation.aggregate({
       where: {
         reversedAt: null,
+        payment: {
+          status: {
+            in: [
+              PaymentStatus.POSTED,
+              PaymentStatus.PARTIALLY_ALLOCATED,
+              PaymentStatus.FULLY_ALLOCATED,
+            ],
+          },
+        },
         charge: {
           companyId,
           propertyId,
           currency,
+          commissionSide: null,
+          serviceEngagement: {
+            serviceModel: ServiceModel.FULL_MANAGEMENT,
+          },
           businessDate: { gte: periodStart, lte: periodEnd },
         },
       },
@@ -289,7 +337,10 @@ export class OwnerStatementService {
       where: {
         companyId,
         charge: { propertyId, currency },
-        createdAt: { gte: periodStart, lte: new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000 - 1) },
+        createdAt: {
+          gte: periodStart,
+          lte: new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000 - 1),
+        },
       },
       _sum: { amount: true },
     });

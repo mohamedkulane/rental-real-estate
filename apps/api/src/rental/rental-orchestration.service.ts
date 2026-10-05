@@ -8,6 +8,7 @@ import {
   ApplicationStatus,
   AreaUnit,
   CommissionMethod,
+  ConstructionEconomicModel,
   LeadIntent,
   LeasePartyRole,
   ListingStatus,
@@ -25,6 +26,7 @@ import {
 } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { BusinessDateService } from '../common/business-date.service';
+import { nextRecordNumber } from '../common/record-number';
 import { CrmContactService } from '../crm/crm-contact.service';
 import { ServiceEngagementService } from '../commercial/service-engagement.service';
 import { ListingService } from '../leasing/listing.service';
@@ -242,7 +244,11 @@ export class RentalOrchestrationService {
     input: AddRentalPropertyDto,
     correlationId?: string,
   ) {
-    const branchId = await this.resolveBranchId(principal, 'portfolio.property.create', input.branchId);
+    const branchId = await this.resolveBranchId(
+      principal,
+      'portfolio.property.create',
+      input.branchId,
+    );
     this.auth.assertBranchPermission(principal, 'portfolio.ownership.manage', branchId);
     this.auth.assertBranchPermission(principal, 'portfolio.space.create', branchId);
     this.auth.assertBranchPermission(principal, 'portfolio.property.update', branchId);
@@ -252,11 +258,24 @@ export class RentalOrchestrationService {
       .slice(0, 10);
     const hasMultipleUnits = input.hasMultipleUnits === 'true';
     const units = input.units ?? [];
+    const isConstruction = input.serviceIntent === PropertyServiceIntent.CONSTRUCTION;
+    if (isConstruction) {
+      this.auth.assertBranchPermission(principal, 'construction.manage', branchId);
+      if (units.length || hasMultipleUnits) {
+        throw new BadRequestException(
+          'Construction onboarding creates a project site, not rental units. Add units after the project is completed.',
+        );
+      }
+    }
     if (hasMultipleUnits && units.length < 2) {
-      throw new BadRequestException('Add at least two units when the property has multiple rentals.');
+      throw new BadRequestException(
+        'Add at least two units when the property has multiple rentals.',
+      );
     }
     if (units.length > 200) {
-      throw new BadRequestException('A property can include at most 200 units in one create request.');
+      throw new BadRequestException(
+        'A property can include at most 200 units in one create request.',
+      );
     }
     for (const unit of units) {
       if ((unit.rentMode ?? 'WHOLE') === 'BY_ROOMS') {
@@ -310,6 +329,65 @@ export class RentalOrchestrationService {
         correlationId,
       );
       buildingId = building.id;
+    }
+
+    if (isConstruction) {
+      await this.db.property.update({
+        where: { id: property.id },
+        data: { serviceIntent: PropertyServiceIntent.CONSTRUCTION },
+      });
+      const activated = await this.portfolio.transitionProperty(
+        principal,
+        property.id,
+        PropertyStatus.ACTIVE,
+        { reason: 'Construction site ready for project setup' },
+        correlationId,
+      );
+      const constructionProject = await this.db.$transaction(async (tx) => {
+        const project = await tx.constructionProject.create({
+          data: {
+            id: uuidv7(),
+            companyId: principal.companyId,
+            branchId,
+            projectNumber: await nextRecordNumber(tx, 'CONSTRUCTION_PROJECT'),
+            name: input.name.trim(),
+            economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
+            clientPartyId: input.ownerPartyId,
+            propertyId: property.id,
+            scope: input.description?.trim() || null,
+            currency: (input.currency ?? 'USD').toUpperCase(),
+          },
+        });
+        await this.audit.write(tx, {
+          actorUserId: principal.userId,
+          action: 'construction.project.created_from_property_onboarding',
+          entityType: 'ConstructionProject',
+          entityId: project.id,
+          branchId,
+          correlationId,
+          after: {
+            projectNumber: project.projectNumber,
+            propertyId: property.id,
+            clientPartyId: input.ownerPartyId,
+            economicModel: project.economicModel,
+          },
+        });
+        return project;
+      });
+
+      return {
+        propertyId: activated.id,
+        propertyCode: activated.propertyCode,
+        name: activated.name,
+        status: 'Active',
+        rentalStatus: 'UNAVAILABLE' as const,
+        branchId,
+        buildingId: buildingId ?? null,
+        spaces: [],
+        serviceIntent: PropertyServiceIntent.CONSTRUCTION,
+        serviceEngagementId: null,
+        constructionProjectId: constructionProject.id,
+      };
     }
 
     type CreatedSpace = {
@@ -517,7 +595,10 @@ export class RentalOrchestrationService {
   ): Promise<string | null> {
     const serviceIntent = input.input.serviceIntent;
     if (!serviceIntent) return null;
-    if (serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT && !input.input.managementFeePercent) {
+    if (
+      serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT &&
+      !input.input.managementFeePercent
+    ) {
       throw new BadRequestException('Management fee percentage is required for Full Management.');
     }
     await this.db.property.update({
@@ -547,11 +628,8 @@ export class RentalOrchestrationService {
       {
         serviceModel,
         propertyId: input.propertyId,
-        ...(serviceModel === ServiceModel.SALE_BROKERAGE
-          ? {}
-          : input.spaces[0]?.id
-            ? { rentableSpaceId: input.spaces[0].id }
-            : {}),
+        // Onboarding grants whole-property authority. Intentional unit-scoped
+        // agreements continue to use the dedicated Service Engagement workflow.
         effectiveFrom,
         notes: `Created from ${serviceIntent.toLowerCase().replaceAll('_', ' ')} onboarding.`,
       },
@@ -586,7 +664,9 @@ export class RentalOrchestrationService {
     const sourceId = await this.defaultLeadSourceId(principal.companyId);
     const currency = (input.currency ?? 'USD').toUpperCase();
     if (new Prisma.Decimal(input.maxRentBudget).lt(input.minRentBudget)) {
-      throw new BadRequestException('Maximum rent budget must be greater than or equal to minimum.');
+      throw new BadRequestException(
+        'Maximum rent budget must be greater than or equal to minimum.',
+      );
     }
 
     const displayName = input.name.trim();
@@ -885,14 +965,15 @@ export class RentalOrchestrationService {
     );
     const serviceIntent =
       input.serviceIntent ??
-      (input.purpose === 'SALE' ? PropertyServiceIntent.SALE : PropertyServiceIntent.RENTAL_BROKERAGE);
+      (input.purpose === 'SALE'
+        ? PropertyServiceIntent.SALE
+        : PropertyServiceIntent.RENTAL_BROKERAGE);
     const isSale = serviceIntent === PropertyServiceIntent.SALE;
     const isConstruction = serviceIntent === PropertyServiceIntent.CONSTRUCTION;
     const hasMultipleUnits = input.hasMultipleUnits === 'true';
-    const monthlyRent =
-      isSale
-        ? (input.askingPrice ?? input.monthlyRent ?? '0')
-        : (input.monthlyRent ?? '0');
+    const monthlyRent = isSale
+      ? (input.askingPrice ?? input.monthlyRent ?? '0')
+      : (input.monthlyRent ?? '0');
     if (isSale) {
       if (!monthlyRent || monthlyRent === '0') {
         throw new BadRequestException('Asking price is required.');
@@ -911,9 +992,10 @@ export class RentalOrchestrationService {
         name: input.name,
         propertyType: input.propertyType,
         location: input.location,
-        monthlyRent: monthlyRent === '0' && input.units?.[0]?.monthlyRent
-          ? input.units[0].monthlyRent
-          : monthlyRent,
+        monthlyRent:
+          monthlyRent === '0' && input.units?.[0]?.monthlyRent
+            ? input.units[0].monthlyRent
+            : monthlyRent,
         serviceIntent,
         ...(isSale ? { askingPrice: monthlyRent } : {}),
         ...(input.managementFeePercent ? { managementFeePercent: input.managementFeePercent } : {}),
@@ -986,6 +1068,33 @@ export class RentalOrchestrationService {
     return space;
   }
 
+  private async resolveAuthorizedRentalSpaces(
+    principal: AuthenticatedPrincipal,
+    propertyId: string,
+    rentableSpaceId?: string,
+  ) {
+    if (rentableSpaceId) {
+      return [await this.resolvePrimarySpace(principal, propertyId, rentableSpaceId)];
+    }
+    const spaces = await this.db.rentableSpace.findMany({
+      where: {
+        propertyId,
+        property: { companyId: principal.companyId, status: PropertyStatus.ACTIVE },
+        status: RentableSpaceStatus.ACTIVE,
+        parentRelations: {
+          none: { effectiveTo: null, child: { status: RentableSpaceStatus.ACTIVE } },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    if (!spaces.length) {
+      throw new ConflictException(
+        'Activate at least one rentable unit on this property before continuing.',
+      );
+    }
+    return spaces;
+  }
+
   private async ensurePublishedListing(
     principal: AuthenticatedPrincipal,
     input: {
@@ -1037,7 +1146,10 @@ export class RentalOrchestrationService {
         return listing;
       }
     }
-    if (listing.status === ListingStatus.PENDING_REVIEW || listing.status === ListingStatus.PAUSED) {
+    if (
+      listing.status === ListingStatus.PENDING_REVIEW ||
+      listing.status === ListingStatus.PAUSED
+    ) {
       try {
         listing = await this.listings.transitionRental(
           principal,
@@ -1073,7 +1185,7 @@ export class RentalOrchestrationService {
       },
     });
     if (!ownership) throw new ConflictException('Owner is not linked to this property.');
-    const space = await this.resolvePrimarySpace(
+    const spaces = await this.resolveAuthorizedRentalSpaces(
       principal,
       input.propertyId,
       input.rentableSpaceId,
@@ -1097,9 +1209,7 @@ export class RentalOrchestrationService {
           : (input.commissionPercent ?? '10');
     const feeNotes = JSON.stringify({
       source: 'simplified-rental-brokerage',
-      fees: input.fees ?? [
-        { party: 'OWNER', method: 'PERCENT', amount: commissionPercent },
-      ],
+      fees: input.fees ?? [{ party: 'OWNER', method: 'PERCENT', amount: commissionPercent }],
     });
 
     const engagement = await this.engagements.create(
@@ -1107,7 +1217,7 @@ export class RentalOrchestrationService {
       {
         serviceModel: ServiceModel.RENTAL_BROKERAGE,
         propertyId: input.propertyId,
-        rentableSpaceId: space.id,
+        ...(input.rentableSpaceId ? { rentableSpaceId: input.rentableSpaceId } : {}),
         effectiveFrom,
         notes: feeNotes,
       },
@@ -1129,17 +1239,23 @@ export class RentalOrchestrationService {
       correlationId,
     );
 
-    const listing = await this.ensurePublishedListing(
-      principal,
-      {
-        propertyName: property.name,
-        rentableSpaceId: space.id,
-        serviceEngagementId: activated.id,
-        monthlyRent: input.monthlyRent,
-        ...(input.currency ? { currency: input.currency } : {}),
-      },
-      correlationId,
-    );
+    const listings = [];
+    for (const space of spaces) {
+      listings.push(
+        await this.ensurePublishedListing(
+          principal,
+          {
+            propertyName: property.name,
+            rentableSpaceId: space.id,
+            serviceEngagementId: activated.id,
+            monthlyRent: input.monthlyRent,
+            ...(input.currency ? { currency: input.currency } : {}),
+          },
+          correlationId,
+        ),
+      );
+    }
+    const listing = listings[0]!;
 
     const rentalStatus = await this.presentation.resolvePropertyRentalStatus(
       principal,
@@ -1152,9 +1268,10 @@ export class RentalOrchestrationService {
       propertyId: property.id,
       propertyCode: property.propertyCode,
       propertyName: property.name,
-      rentableSpaceId: space.id,
+      rentableSpaceId: input.rentableSpaceId ?? null,
       rentalListingId: listing.id,
       listingNumber: listing.listingNumber,
+      rentalListingCount: listings.length,
       monthlyRent: listing.askingRent?.toString() ?? input.monthlyRent,
       commissionPercent,
       fees: input.fees ?? [{ party: 'OWNER', method: 'PERCENT', amount: commissionPercent }],
@@ -1183,7 +1300,7 @@ export class RentalOrchestrationService {
       },
     });
     if (!ownership) throw new ConflictException('Owner is not linked to this property.');
-    const space = await this.resolvePrimarySpace(
+    const spaces = await this.resolveAuthorizedRentalSpaces(
       principal,
       input.propertyId,
       input.rentableSpaceId,
@@ -1207,7 +1324,7 @@ export class RentalOrchestrationService {
       {
         serviceModel: ServiceModel.FULL_MANAGEMENT,
         propertyId: input.propertyId,
-        rentableSpaceId: space.id,
+        ...(input.rentableSpaceId ? { rentableSpaceId: input.rentableSpaceId } : {}),
         effectiveFrom: input.startDate,
         notes: feeNotes,
       },
@@ -1228,17 +1345,23 @@ export class RentalOrchestrationService {
       correlationId,
     );
 
-    const listing = await this.ensurePublishedListing(
-      principal,
-      {
-        propertyName: property.name,
-        rentableSpaceId: space.id,
-        serviceEngagementId: activated.id,
-        monthlyRent: input.monthlyRent,
-        ...(input.currency ? { currency: input.currency } : {}),
-      },
-      correlationId,
-    );
+    const listings = [];
+    for (const space of spaces) {
+      listings.push(
+        await this.ensurePublishedListing(
+          principal,
+          {
+            propertyName: property.name,
+            rentableSpaceId: space.id,
+            serviceEngagementId: activated.id,
+            monthlyRent: input.monthlyRent,
+            ...(input.currency ? { currency: input.currency } : {}),
+          },
+          correlationId,
+        ),
+      );
+    }
+    const listing = listings[0]!;
 
     const rentalStatus = await this.presentation.resolvePropertyRentalStatus(
       principal,
@@ -1251,9 +1374,10 @@ export class RentalOrchestrationService {
       propertyId: property.id,
       propertyCode: property.propertyCode,
       propertyName: property.name,
-      rentableSpaceId: space.id,
+      rentableSpaceId: input.rentableSpaceId ?? null,
       rentalListingId: listing.id,
       listingNumber: listing.listingNumber,
+      rentalListingCount: listings.length,
       monthlyRent: listing.askingRent?.toString() ?? input.monthlyRent,
       managementFeePercent: input.managementFeePercent,
       tenantBrokerageFee: input.tenantBrokerageFee ?? null,
@@ -1299,7 +1423,9 @@ export class RentalOrchestrationService {
     });
     if (!lead) throw new NotFoundException('Rental customer was not found.');
     if (!lead.partyId) {
-      throw new ConflictException('This customer needs a saved identity before a lease can be created.');
+      throw new ConflictException(
+        'This customer needs a saved identity before a lease can be created.',
+      );
     }
     this.auth.assertBranchPermission(principal, 'lease.create', lead.responsibleBranchId);
 
@@ -1316,7 +1442,8 @@ export class RentalOrchestrationService {
       where: { propertyId: property.id, effectiveTo: null },
       orderBy: { effectiveFrom: 'desc' },
     });
-    if (!ownership) throw new ConflictException('This property has no current owner to act as landlord.');
+    if (!ownership)
+      throw new ConflictException('This property has no current owner to act as landlord.');
     if (ownership.ownerPartyId === lead.partyId) {
       throw new ConflictException('A property owner cannot rent their own property.');
     }
@@ -1376,7 +1503,9 @@ export class RentalOrchestrationService {
       );
     }
     if (listing.status !== ListingStatus.PUBLISHED) {
-      throw new ConflictException('The property listing must be published before a lease can be created.');
+      throw new ConflictException(
+        'The property listing must be published before a lease can be created.',
+      );
     }
     if (listing.branchId !== lead.responsibleBranchId) {
       throw new ConflictException('The customer and property must belong to the same branch.');
@@ -1499,11 +1628,7 @@ export class RentalOrchestrationService {
       throw new ConflictException('The rental application could not be approved for this lease.');
     }
 
-    await this.leasing.convertTenant(
-      principal,
-      { applicationId: application.id },
-      correlationId,
-    );
+    await this.leasing.convertTenant(principal, { applicationId: application.id }, correlationId);
 
     const lease = await this.leasing.createLease(
       principal,

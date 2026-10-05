@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Plus } from 'lucide-react';
+import { Building2, Pencil, Plus } from 'lucide-react';
 import { DetailTabs } from '@/components/shared/detail-tabs';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
 import {
@@ -31,6 +31,127 @@ const formValue = (form: FormData, key: string) => {
 type SpaceNode = NonNullable<PropertyRecord['spaces']>[number];
 
 const REMOVE_UNIT_FORM_ID = 'remove-unit-form';
+const EDIT_PROPERTY_FORM_ID = 'edit-property-form';
+
+function EditPropertyDrawer({
+  property,
+  busy,
+  onClose,
+  onSave,
+}: {
+  property: PropertyRecord | null;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (input: Record<string, string | undefined>) => void;
+}) {
+  return (
+    <WorkspaceFormDrawer
+      open={Boolean(property)}
+      eyebrow="Portfolio"
+      title="Edit Property"
+      description="Update safe descriptive and location details. Historical contracts remain unchanged."
+      onClose={onClose}
+      size="lg"
+      footer={
+        <WorkspaceFormDrawerFooter
+          formId={EDIT_PROPERTY_FORM_ID}
+          onCancel={onClose}
+          submitLabel="Save Property"
+          loadingLabel="Saving…"
+          isPending={busy}
+        />
+      }
+    >
+      {property ? (
+        <form
+          id={EDIT_PROPERTY_FORM_ID}
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const optional = (key: string) => formValue(form, key) || undefined;
+            onSave({
+              name: formValue(form, 'name'),
+              city: formValue(form, 'city'),
+              addressLine1: optional('addressLine1'),
+              district: optional('district'),
+              neighborhood: optional('neighborhood'),
+              landmark: optional('landmark'),
+              description: optional('description'),
+            });
+          }}
+        >
+          <label className="text-sm font-semibold text-slate-700">
+            Property name
+            <input
+              className="input mt-1 w-full"
+              name="name"
+              defaultValue={property.name}
+              required
+              minLength={2}
+              maxLength={200}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
+            City
+            <input
+              className="input mt-1 w-full"
+              name="city"
+              defaultValue={property.city ?? ''}
+              maxLength={100}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+            Address
+            <input
+              className="input mt-1 w-full"
+              name="addressLine1"
+              defaultValue={property.addressLine1 ?? ''}
+              maxLength={200}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
+            District
+            <input
+              className="input mt-1 w-full"
+              name="district"
+              defaultValue={property.district ?? ''}
+              maxLength={100}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
+            Neighborhood
+            <input
+              className="input mt-1 w-full"
+              name="neighborhood"
+              defaultValue={property.neighborhood ?? ''}
+              maxLength={100}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+            Landmark
+            <input
+              className="input mt-1 w-full"
+              name="landmark"
+              defaultValue={property.landmark ?? ''}
+              maxLength={200}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+            Description
+            <textarea
+              className="input mt-1 w-full"
+              name="description"
+              defaultValue={property.description ?? ''}
+              rows={4}
+              maxLength={2000}
+            />
+          </label>
+        </form>
+      ) : null}
+    </WorkspaceFormDrawer>
+  );
+}
 
 function RemoveUnitDrawer({
   unit,
@@ -129,10 +250,7 @@ function UnitsHierarchyPanel({
   canAdd: boolean;
   canRemove: boolean;
 }) {
-  const roots = spaces.filter((space) => {
-    const activeParent = (space.childRelations ?? []).find((relation) => !relation.effectiveTo);
-    return !activeParent?.parent?.id;
-  });
+  const activeSpaces = spaces.filter((space) => space.status !== 'RETIRED');
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -151,84 +269,88 @@ function UnitsHierarchyPanel({
           </button>
         ) : null}
       </div>
-      {roots.length ? (
-        <div className="divide-y divide-slate-100">
-          {roots.map((space) => {
-            const rooms = (space.parentRelations ?? [])
-              .filter((relation) => !relation.effectiveTo && relation.child)
-              .map((relation) => relation.child!)
-              .map((child) => spaces.find((item) => item.id === child.id) ?? child);
-            const rentedRooms = rooms.filter((room) => isRented(room as SpaceNode)).length;
-            const rent = spaceAskingRent(space);
-            const rented = isRented(space);
-            return (
-              <div key={space.id} className="p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{space.name}</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {rooms.length
-                        ? `${rooms.length} rooms · ${rentedRooms} rented / ${rooms.length - rentedRooms} available`
-                        : rented
-                          ? 'Rented'
-                          : 'Available'}
-                      {rent ? ` · ${spaceCurrency(space)} ${rent}/month` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge value={rented ? 'RENTED' : space.status} />
-                    <TableActionButton tone="open" href={'/portfolio/rentable-spaces/' + space.id}>
-                      Open Unit
-                    </TableActionButton>
-                    {canRemove && space.status !== 'RETIRED' ? (
-                      <TableActionButton tone="danger" onClick={() => onRemoveUnit(space)}>
-                        Remove Unit
-                      </TableActionButton>
-                    ) : null}
-                  </div>
-                </div>
-                {rooms.length ? (
-                  <ul className="mt-3 space-y-2 border-l-2 border-slate-200 pl-4">
-                    {rooms.map((room) => {
-                      const roomNode = room as SpaceNode;
-                      const roomRent = spaceAskingRent(roomNode);
-                      const roomRented = isRented(roomNode);
-                      return (
-                        <li
-                          key={roomNode.id}
-                          className="flex flex-wrap items-center justify-between gap-2 text-sm"
+      {activeSpaces.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1080px] text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <tr>
+                {[
+                  'Unit',
+                  'Type',
+                  'Floor',
+                  'Bedrooms',
+                  'Bathrooms',
+                  'Rent',
+                  'Occupancy',
+                  'Availability',
+                  'Actions',
+                ].map((heading) => (
+                  <th key={heading} className="px-4 py-3">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {activeSpaces.map((space) => {
+                const version = space.versions?.[0];
+                const rent = spaceAskingRent(space);
+                const rented = isRented(space);
+                return (
+                  <tr key={space.id} className="border-b border-slate-100 last:border-0">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-900">{space.name}</p>
+                      <p className="text-xs text-slate-500">{space.spaceCode}</p>
+                    </td>
+                    <td className="px-4 py-3">{space.type?.name ?? '—'}</td>
+                    <td className="px-4 py-3">{version?.floorNumber ?? '—'}</td>
+                    <td className="px-4 py-3">{space.residentialProfile?.bedrooms ?? '—'}</td>
+                    <td className="px-4 py-3">{space.residentialProfile?.bathrooms ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      {rent ? `${spaceCurrency(space)} ${rent}` : 'Not set'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge value={rented ? 'RENTED' : 'VACANT'} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        value={
+                          space.status === 'ACTIVE' && !rented
+                            ? 'AVAILABLE'
+                            : rented
+                              ? 'OCCUPIED'
+                              : space.status
+                        }
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <TableActionGroup>
+                        <TableActionButton
+                          tone="open"
+                          href={`/portfolio/rentable-spaces/${space.id}`}
                         >
-                          <div>
-                            <span className="font-medium text-slate-800">{roomNode.name}</span>
-                            <span className="ml-2 text-slate-500">
-                              {roomRented ? 'Rented' : 'Available'}
-                              {roomRent ? ` · ${spaceCurrency(roomNode)} ${roomRent}/month` : ''}
-                            </span>
-                          </div>
-                          <TableActionGroup>
-                            <TableActionButton
-                              tone="open"
-                              href={'/portfolio/rentable-spaces/' + roomNode.id}
-                            >
-                              Open
-                            </TableActionButton>
-                            {canRemove && roomNode.status !== 'RETIRED' ? (
-                              <TableActionButton
-                                tone="danger"
-                                onClick={() => onRemoveUnit(roomNode)}
-                              >
-                                Remove
-                              </TableActionButton>
-                            ) : null}
-                          </TableActionGroup>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-              </div>
-            );
-          })}
+                          View
+                        </TableActionButton>
+                        {canRemove ? (
+                          <TableActionButton
+                            tone="manage"
+                            href={`/portfolio/rentable-spaces/${space.id}?edit=1`}
+                          >
+                            Edit
+                          </TableActionButton>
+                        ) : null}
+                        {canRemove ? (
+                          <TableActionButton tone="danger" onClick={() => onRemoveUnit(space)}>
+                            Remove
+                          </TableActionButton>
+                        ) : null}
+                      </TableActionGroup>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="p-5">
@@ -277,6 +399,8 @@ export function PropertyDetailWorkspace() {
   const [savingOwnership, setSavingOwnership] = useState(false);
   const [unitToRemove, setUnitToRemove] = useState<SpaceNode | null>(null);
   const [removingUnit, setRemovingUnit] = useState(false);
+  const [editingProperty, setEditingProperty] = useState(false);
+  const [savingProperty, setSavingProperty] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -381,6 +505,22 @@ export function PropertyDetailWorkspace() {
   const { createOpen, openCreate, closeCreate } = useCreateDrawerState('addUnit');
   const canAddUnit = Boolean(principal?.permissions.includes('portfolio.space.create'));
   const canRemoveUnit = Boolean(principal?.permissions.includes('portfolio.space.update'));
+  const canEditProperty = Boolean(principal?.permissions.includes('portfolio.property.update'));
+
+  async function saveProperty(input: Record<string, string | undefined>) {
+    if (!record) return;
+    setSavingProperty(true);
+    try {
+      await api(`/properties/${record.id}`, { method: 'PATCH', body: JSON.stringify(input) });
+      toast.success('Property updated.');
+      setEditingProperty(false);
+      await load();
+    } catch (cause) {
+      toast.error(userFacingError(cause, 'The property could not be updated.'));
+    } finally {
+      setSavingProperty(false);
+    }
+  }
 
   async function removeUnit(reason: string) {
     if (!unitToRemove || !principal) return;
@@ -412,6 +552,8 @@ export function PropertyDetailWorkspace() {
       principal={principal}
       activeItem="properties"
       breadcrumbs={['Portfolio', 'Properties', record?.name ?? 'Property']}
+      backHref="/rental/properties"
+      backLabel="Back to Properties"
     >
       {sessionError ? <ErrorState message={sessionError} /> : null}
       {loading ? <LoadingState label="Loading Property details" /> : null}
@@ -451,6 +593,16 @@ export function PropertyDetailWorkspace() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge value={record.status} />
+                {canEditProperty ? (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() => setEditingProperty(true)}
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                    Edit Property
+                  </button>
+                ) : null}
               </div>
             </div>
           </header>
@@ -736,6 +888,12 @@ export function PropertyDetailWorkspace() {
             />
           ) : null}
           {tab === 'activity' ? <PropertyActivity property={record} /> : null}
+          <EditPropertyDrawer
+            property={editingProperty ? record : null}
+            busy={savingProperty}
+            onClose={() => setEditingProperty(false)}
+            onSave={(input) => void saveProperty(input)}
+          />
           {editingOwnership && record ? (
             <div
               className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4"

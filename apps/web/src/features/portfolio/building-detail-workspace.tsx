@@ -168,6 +168,8 @@ export function BuildingDetailWorkspace() {
       principal={principal}
       activeItem="properties:buildings"
       breadcrumbs={['Portfolio', 'Properties', 'Buildings', record?.name ?? 'Building']}
+      backHref={record?.property.id ? `/portfolio/properties/${record.property.id}` : '/rental/properties'}
+      backLabel={`Back to ${record?.property.name ?? 'Properties'}`}
     >
       {sessionError ? <ErrorState message={sessionError} /> : null}
       {loading ? <LoadingState label="Loading Building details" /> : null}

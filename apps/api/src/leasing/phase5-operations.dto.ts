@@ -85,6 +85,7 @@ export class RescheduleViewingDto extends VersionedTransitionDto {
 export class CompleteViewingDto extends VersionedTransitionDto {
   @IsEnum(ViewingStatus) status!: ViewingStatus;
   @IsOptional() @IsString() @MaxLength(1000) outcome?: string;
+  @IsOptional() @IsUUID() selectedRentableSpaceId?: string;
 }
 
 export class ApplicationQueryDto extends CursorPageQueryDto {

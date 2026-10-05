@@ -1,7 +1,14 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type UIEvent,
+} from 'react';
 
 const SIZE_CLASS = {
   md: 'max-w-md',
@@ -54,6 +61,15 @@ export function WorkspaceFormDrawer({
 
   function onBodyScroll(event: UIEvent<HTMLDivElement>) {
     updateScrollFades(event.currentTarget);
+  }
+
+  function onInvalidCapture(event: FormEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      target.focus({ preventScroll: true });
+    });
   }
 
   useEffect(() => {
@@ -170,6 +186,7 @@ export function WorkspaceFormDrawer({
           <div
             ref={bodyRef}
             onScroll={onBodyScroll}
+            onInvalidCapture={onInvalidCapture}
             className={
               'workspace-form-drawer-body min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 ' +
               (isCompact ? 'max-h-[calc(100dvh-12rem)] flex-none' : 'flex-1')

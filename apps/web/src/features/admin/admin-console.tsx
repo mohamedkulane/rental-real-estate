@@ -54,7 +54,6 @@ import {
   canPerformInBranch,
   hasCompanyPermission,
   hasPermission,
-  pageItems,
   type CursorPage,
   userFacingError,
 } from '@/lib/phase3-api';
@@ -329,47 +328,15 @@ export function AdminConsole() {
     let summary: DashboardSummary | undefined;
     if (hasPermission(current, 'dashboard.read')) {
       try {
-        summary = await apiCached<DashboardSummary>('/dashboard/summary');
+        summary = await api<DashboardSummary>('/dashboard/summary');
       } catch {
-        /* fall back to legacy dashboard loads */
+        summary = undefined;
       }
     }
-    const request = async (permission: string, path: string) =>
-      hasPermission(current, permission)
-        ? apiCached<Row[] | CursorPage<Row>>(path)
-            .then(pageItems)
-            .catch(() => [])
-        : [];
-    const [branches, employees, owners, properties, spaces, activity, renewals, operations] =
-      await Promise.all([
-      request('organization.branch.read', '/branches'),
-      request('identity.employee.read', '/employees'),
-      request('owner.read', '/owners'),
-      request('portfolio.property.read', '/properties'),
-      request('portfolio.space.read', '/rentable-spaces'),
-      request('governance.audit.read', '/audit'),
-      request('renewal.read', '/renewals?limit=5'),
-      hasPermission(current, 'operations.overview.read')
-        ? apiCached<{
-            openMaintenance: number;
-            highPriorityIssues: number;
-            workOrdersInProgress: number;
-            upcomingInspections: number;
-            overdueTasks: number;
-          }>('/operations/overview').catch(() => null)
-        : Promise.resolve(null),
-    ]);
     setDashboard({
       ...emptyDashboard,
       ...(summary ? { summary } : {}),
-      branches,
-      employees,
-      owners,
-      properties,
-      spaces,
-      activity,
-      renewals,
-      operations,
+      branches: current.branches,
     });
     setDashboardLoading(false);
   }, []);

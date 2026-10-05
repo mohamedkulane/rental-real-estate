@@ -1,5 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ExpenseResponsibility, ExpenseStatus, PayoutStatus, Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ApprovalStatus,
+  ExpenseResponsibility,
+  ExpenseStatus,
+  PaymentStatus,
+  PayoutStatus,
+  Prisma,
+} from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { cursorPage } from '../common/cursor-pagination';
 import { nextRecordNumber } from '../common/record-number';
@@ -22,6 +34,11 @@ import type {
 } from './finance.dto';
 
 const isoDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+const OWNER_PAYOUT_APPROVAL_ACTION = 'OWNER_PAYOUT';
+const OWNER_PAYOUT_TARGET = 'OwnerPayout';
+
+const validCorrelationId = (value?: string): string | null =>
+  value && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
 
 @Injectable()
 export class OwnerPayoutService {
@@ -45,9 +62,7 @@ export class OwnerPayoutService {
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.ownerPartyId ? { ownerPartyId: query.ownerPartyId } : {}),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.search
-        ? { payoutNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { payoutNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.ownerPayout.findMany({
@@ -59,7 +74,11 @@ export class OwnerPayoutService {
     return cursorPage(rows, query.limit, (row) => row.id);
   }
 
-  async create(principal: AuthenticatedPrincipal, input: CreateOwnerPayoutDto, correlationId?: string) {
+  async create(
+    principal: AuthenticatedPrincipal,
+    input: CreateOwnerPayoutDto,
+    correlationId?: string,
+  ) {
     const periodStart = isoDate(input.periodStart);
     const periodEnd = isoDate(input.periodEnd);
     if (periodEnd <= periodStart) {
@@ -77,9 +96,20 @@ export class OwnerPayoutService {
     const collectedIncome = await this.db.paymentAllocation.aggregate({
       where: {
         reversedAt: null,
+        payment: {
+          status: {
+            in: [
+              PaymentStatus.POSTED,
+              PaymentStatus.PARTIALLY_ALLOCATED,
+              PaymentStatus.FULLY_ALLOCATED,
+            ],
+          },
+        },
         charge: {
           companyId: principal.companyId,
           propertyId: input.propertyId,
+          serviceEngagementId: input.serviceEngagementId,
+          commissionSide: null,
           businessDate: { gte: periodStart, lte: periodEnd },
         },
       },
@@ -185,7 +215,221 @@ export class OwnerPayoutService {
     if (!current) throw new NotFoundException('Owner payout not found.');
     this.auth.assertBranchPermission(principal, 'payout.manage', current.branchId);
     assertLifecycleTransition(current.status, input.status, payoutTransitions);
+
+    if (current.status === PayoutStatus.DRAFT && input.status === PayoutStatus.REVIEW) {
+      this.auth.assertBranchPermission(
+        principal,
+        'governance.approval.request',
+        current.branchId,
+      );
+    }
+    if (
+      current.status === PayoutStatus.REVIEW &&
+      [PayoutStatus.APPROVED, PayoutStatus.REJECTED].includes(input.status)
+    ) {
+      this.auth.assertBranchPermission(
+        principal,
+        'governance.approval.decide',
+        current.branchId,
+      );
+    }
+
     return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM owner_payouts WHERE id = ${payoutId}::uuid FOR UPDATE`,
+      );
+      const locked = await tx.ownerPayout.findFirst({
+        where: { id: payoutId, companyId: principal.companyId },
+      });
+      if (!locked) throw new NotFoundException('Owner payout not found.');
+      assertLifecycleTransition(locked.status, input.status, payoutTransitions);
+
+      if (locked.status === PayoutStatus.DRAFT && input.status === PayoutStatus.REVIEW) {
+        const businessDate = isoDate(principal.businessDate);
+        const policy = await tx.approvalPolicy.findFirst({
+          where: {
+            companyId: principal.companyId,
+            active: true,
+            effectiveFrom: { lte: businessDate },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: businessDate } }],
+            rules: { some: { actionType: OWNER_PAYOUT_APPROVAL_ACTION } },
+          },
+          include: {
+            rules: {
+              where: { actionType: OWNER_PAYOUT_APPROVAL_ACTION },
+              orderBy: { sequence: 'asc' },
+            },
+          },
+          orderBy: { effectiveFrom: 'desc' },
+        });
+        const applicableRules = (policy?.rules ?? []).filter(
+          (rule) =>
+            (!rule.currency || rule.currency === locked.currency) &&
+            (!rule.minAmount || locked.netPayable.gte(rule.minAmount)) &&
+            (!rule.maxAmount || locked.netPayable.lte(rule.maxAmount)),
+        );
+        if (!policy || !applicableRules.length) {
+          throw new ConflictException(
+            'Owner payout review requires an active approval policy for this amount and currency.',
+          );
+        }
+        const approval = await tx.approvalRequest.create({
+          data: {
+            id: uuidv7(),
+            policyId: policy.id,
+            makerEmployeeId: principal.employeeId,
+            branchId: locked.branchId,
+            actionType: OWNER_PAYOUT_APPROVAL_ACTION,
+            targetType: OWNER_PAYOUT_TARGET,
+            targetId: locked.id,
+            amount: locked.netPayable,
+            currency: locked.currency,
+            status: ApprovalStatus.PENDING,
+            correlationId: validCorrelationId(correlationId),
+            steps: {
+              create: applicableRules.map((rule) => ({
+                id: uuidv7(),
+                sequence: rule.sequence,
+                status: 'PENDING',
+              })),
+            },
+          },
+        });
+        const row = await tx.ownerPayout.update({
+          where: { id: payoutId },
+          data: { status: PayoutStatus.REVIEW, approvalRequestId: approval.id },
+          include: { lines: true },
+        });
+        await this.audit.write(tx, {
+          actorUserId: principal.userId,
+          action: 'governance.approval.requested',
+          entityType: 'ApprovalRequest',
+          entityId: approval.id,
+          branchId: locked.branchId,
+          correlationId,
+          after: {
+            actionType: OWNER_PAYOUT_APPROVAL_ACTION,
+            targetType: OWNER_PAYOUT_TARGET,
+            targetId: locked.id,
+            amount: locked.netPayable.toString(),
+          },
+        });
+        await this.audit.write(tx, {
+          actorUserId: principal.userId,
+          action: 'owner-payout.transitioned',
+          entityType: OWNER_PAYOUT_TARGET,
+          entityId: payoutId,
+          branchId: locked.branchId,
+          correlationId,
+          reason: input.reason,
+          before: { status: locked.status },
+          after: { status: row.status, approvalRequestId: approval.id },
+        });
+        return row;
+      }
+
+      if (
+        locked.status === PayoutStatus.REVIEW &&
+        [PayoutStatus.APPROVED, PayoutStatus.REJECTED].includes(input.status)
+      ) {
+        if (!locked.approvalRequestId) {
+          throw new ConflictException('Owner payout review is missing its approval request.');
+        }
+        const approval = await tx.approvalRequest.findFirst({
+          where: {
+            id: locked.approvalRequestId,
+            targetType: OWNER_PAYOUT_TARGET,
+            targetId: locked.id,
+          },
+          include: {
+            policy: { include: { rules: true } },
+            steps: { orderBy: { sequence: 'asc' } },
+          },
+        });
+        if (!approval || approval.status !== ApprovalStatus.PENDING) {
+          throw new ConflictException('Owner payout approval request is not pending.');
+        }
+        const step = approval.steps.find((candidate) => candidate.status === 'PENDING');
+        if (!step) throw new ConflictException('Owner payout has no pending approval step.');
+        const rule = approval.policy.rules.find(
+          (candidate) =>
+            candidate.actionType === approval.actionType &&
+            candidate.sequence === step.sequence,
+        );
+        if (!rule) throw new ConflictException('Owner payout approval rule is unavailable.');
+        if (rule.makerChecker && approval.makerEmployeeId === principal.employeeId) {
+          throw new BadRequestException('The payout preparer cannot approve their own payout.');
+        }
+
+        const outcome =
+          input.status === PayoutStatus.REJECTED ? 'REJECTED' : 'APPROVED';
+        const decision = await tx.approvalDecision.create({
+          data: {
+            id: uuidv7(),
+            stepId: step.id,
+            approverEmployeeId: principal.employeeId,
+            outcome,
+            reason: input.reason,
+          },
+        });
+        await tx.approvalStep.update({
+          where: { id: step.id },
+          data: { status: outcome },
+        });
+
+        const hasRemainingSteps =
+          outcome === 'APPROVED' &&
+          approval.steps.some(
+            (candidate) => candidate.id !== step.id && candidate.status === 'PENDING',
+          );
+        const approvalStatus =
+          outcome === 'REJECTED'
+            ? ApprovalStatus.REJECTED
+            : hasRemainingSteps
+              ? ApprovalStatus.PENDING
+              : ApprovalStatus.APPROVED;
+        await tx.approvalRequest.update({
+          where: { id: approval.id },
+          data: { status: approvalStatus },
+        });
+
+        const nextPayoutStatus =
+          outcome === 'REJECTED'
+            ? PayoutStatus.REJECTED
+            : hasRemainingSteps
+              ? PayoutStatus.REVIEW
+              : PayoutStatus.APPROVED;
+        const row = await tx.ownerPayout.update({
+          where: { id: payoutId },
+          data: { status: nextPayoutStatus },
+          include: { lines: true },
+        });
+        await this.audit.write(tx, {
+          actorUserId: principal.userId,
+          action: `governance.approval.${outcome.toLowerCase()}`,
+          entityType: 'ApprovalRequest',
+          entityId: approval.id,
+          branchId: locked.branchId,
+          correlationId,
+          reason: input.reason,
+          after: { decisionId: decision.id, outcome, stepSequence: step.sequence },
+        });
+        if (nextPayoutStatus !== locked.status) {
+          await this.audit.write(tx, {
+            actorUserId: principal.userId,
+            action: 'owner-payout.transitioned',
+            entityType: OWNER_PAYOUT_TARGET,
+            entityId: payoutId,
+            branchId: locked.branchId,
+            correlationId,
+            reason: input.reason,
+            before: { status: locked.status },
+            after: { status: row.status, approvalRequestId: approval.id },
+          });
+        }
+        return row;
+      }
+
       const row = await tx.ownerPayout.update({
         where: { id: payoutId },
         data: { status: input.status },
@@ -196,10 +440,10 @@ export class OwnerPayoutService {
         action: 'owner-payout.transitioned',
         entityType: 'OwnerPayout',
         entityId: payoutId,
-        branchId: current.branchId,
+        branchId: locked.branchId,
         correlationId,
         reason: input.reason,
-        before: { status: current.status },
+        before: { status: locked.status },
         after: { status: row.status },
       });
       return row;

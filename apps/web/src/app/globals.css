@@ -3113,17 +3113,23 @@ details[open] > :not(summary) {
 }
 @media (max-width: 639px) {
   .workspace-form-drawer-overlay {
-    align-items: center;
-    overflow-y: auto;
-    padding: 12px;
+    align-items: stretch;
+    overflow: hidden;
+    padding: 0;
   }
   .workspace-form-drawer-panel {
-    height: min(90dvh, 760px);
-    max-height: calc(100dvh - 24px);
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: none;
+    border: 0;
+    border-radius: 0 !important;
   }
   .workspace-form-drawer-panel.workspace-form-drawer-compact {
     height: auto;
-    max-height: calc(100dvh - 24px);
+    max-height: 100dvh;
+    margin: auto 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md) !important;
   }
   .workspace-form-drawer-body {
     padding: 12px;

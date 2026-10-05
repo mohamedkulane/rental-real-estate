@@ -58,6 +58,7 @@ export class ListingMatchController {
 export class ViewingController {
   constructor(private readonly leasing: LeasingService) {}
   @Get() @RequirePermissions('viewing.read') list(@Req() req: AuthenticatedRequest, @Query() query: ViewingQueryDto) { return this.leasing.listViewings(req.principal, query); }
+  @Get(':id/available-units') @RequirePermissions('viewing.complete') availableUnits(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) { return this.leasing.listAvailableViewingUnits(req.principal, id); }
   @Post() @RequirePermissions('viewing.create') create(@Req() req: AuthenticatedRequest, @Body() input: CreateViewingDto) { return this.leasing.createViewing(req.principal, input, req.correlationId); }
   @Post(':id/reschedule') @RequirePermissions('viewing.update') reschedule(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string, @Body() input: RescheduleViewingDto) { return this.leasing.rescheduleViewing(req.principal, id, input, req.correlationId); }
   @Post(':id/transition') @RequirePermissions('viewing.complete') transition(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string, @Body() input: CompleteViewingDto) { return this.leasing.completeViewing(req.principal, id, input, req.correlationId); }

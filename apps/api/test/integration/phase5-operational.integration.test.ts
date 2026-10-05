@@ -57,6 +57,7 @@ describe.skipIf(!url)('Phase 5 operational workflows', () => {
   let leadId: string;
   let secondLeadId: string;
   let applicantPartyId: string;
+  let spaceIds: string[] = [];
   const publishedListingIds: string[] = [];
   let activeLeaseId = '';
   const suffix = randomUUID().slice(0, 8).toUpperCase();
@@ -88,6 +89,7 @@ describe.skipIf(!url)('Phase 5 operational workflows', () => {
     const spaces = await Promise.all(Array.from({ length: 4 }, (_, index) => database.rentableSpace.create({ data: {
       id: uuidv7(), propertyId, typeId: type.id, spaceCode: `P5-${suffix}-${index + 1}`, name: `Phase 5 Space ${index + 1}`, status: 'ACTIVE',
     } })));
+    spaceIds = spaces.map((space) => space.id);
     await database.serviceEngagement.create({ data: {
       id: engagementId, companyId, engagementNumber: `ENG-P5-${suffix}`, serviceModel: ServiceModel.COMPANY_OWNED,
       status: 'ACTIVE', propertyId, effectiveFrom: new Date('2026-01-01'), createdByUserId: userId,
@@ -163,6 +165,296 @@ describe.skipIf(!url)('Phase 5 operational workflows', () => {
     const approved = await leasing.transitionApplication(principal, application.id, { expectedVersion: passed.version, status: ApplicationStatus.APPROVED, reason: 'Application approved' });
     expect(approved.status).toBe(ApplicationStatus.APPROVED);
   });
+
+  it('supports every canonical Viewing target and selects a rental unit after a property visit', async () => {
+    const type = await database.rentableSpaceType.findFirstOrThrow({ where: { active: true } });
+    const source = await database.leadSource.findFirstOrThrow({
+      where: { companyId, status: 'ACTIVE' },
+    });
+    const rentalPropertyId = uuidv7();
+    await database.property.create({
+      data: {
+        id: rentalPropertyId,
+        companyId,
+        propertyCode: `P5-MULTI-${suffix}`,
+        name: `Multi Unit ${suffix}`,
+        propertyType: 'APARTMENT_BUILDING',
+        status: 'ACTIVE',
+        serviceIntent: 'FULL_MANAGEMENT',
+        city: 'Mogadishu',
+        branchAssignments: {
+          create: { id: uuidv7(), branchId, effectiveFrom: new Date('2026-01-01') },
+        },
+      },
+    });
+    const multiSpaces = await Promise.all(
+      Array.from({ length: 5 }, (_, index) =>
+        database.rentableSpace.create({
+          data: {
+            id: uuidv7(),
+            propertyId: rentalPropertyId,
+            typeId: type.id,
+            spaceCode: `MULTI-${suffix}-${index + 1}`,
+            name: `Unit ${index + 1}`,
+            status: 'ACTIVE',
+          },
+        }),
+      ),
+    );
+    const managementEngagement = await database.serviceEngagement.create({
+      data: {
+        id: uuidv7(),
+        companyId,
+        engagementNumber: `ENG-MULTI-${suffix}`,
+        serviceModel: 'FULL_MANAGEMENT',
+        status: 'ACTIVE',
+        propertyId: rentalPropertyId,
+        rentableSpaceId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        createdByUserId: userId,
+      },
+    });
+    const fullManagementMatches = await listings.match(principal, { leadId, limit: 25 });
+    expect(
+      fullManagementMatches.items.filter(
+        (item) =>
+          'rentableSpace' in item.listing &&
+          item.listing.rentableSpace.property.id === rentalPropertyId,
+      ),
+    ).toHaveLength(5);
+    await database.lease.create({
+      data: {
+        id: uuidv7(),
+        companyId,
+        branchId,
+        leaseNumber: `LEASE-MULTI-${suffix}`,
+        rentableSpaceId: multiSpaces[0]!.id,
+        serviceEngagementId: managementEngagement.id,
+        status: 'ACTIVE',
+        leaseStartDate: new Date('2026-09-01'),
+        leaseEndDate: null,
+        rentAmount: '1000',
+        currency: 'USD',
+        createdByUserId: userId,
+      },
+    });
+    const remainingMatches = await listings.match(principal, { leadId, limit: 25 });
+    expect(
+      remainingMatches.items.filter(
+        (item) =>
+          'rentableSpace' in item.listing &&
+          item.listing.rentableSpace.property.id === rentalPropertyId,
+      ),
+    ).toHaveLength(4);
+
+    const propertyViewing = await leasing.createViewing(principal, {
+      leadId,
+      propertyId: rentalPropertyId,
+      assignedEmployeeId: employeeId,
+      scheduledAt: '2026-09-11T09:00:00.000Z',
+    });
+    expect(propertyViewing.propertyId).toBe(rentalPropertyId);
+    expect(propertyViewing.rentableSpaceId).toBeNull();
+    expect(await leasing.listAvailableViewingUnits(principal, propertyViewing.id)).toHaveLength(4);
+    const propertyConfirmed = await leasing.completeViewing(principal, propertyViewing.id, {
+      expectedVersion: propertyViewing.version,
+      status: ViewingStatus.CONFIRMED,
+      reason: 'Property visit confirmed',
+    });
+    const propertyCompleted = await leasing.completeViewing(principal, propertyViewing.id, {
+      expectedVersion: propertyConfirmed.version,
+      status: ViewingStatus.COMPLETED,
+      reason: 'Customer selected Unit 4',
+      outcome: 'INTERESTED',
+      selectedRentableSpaceId: multiSpaces[3]!.id,
+    });
+    expect(propertyCompleted.selectedRentableSpaceId).toBe(multiSpaces[3]!.id);
+
+    const brokeragePropertyId = uuidv7();
+    await database.property.create({
+      data: {
+        id: brokeragePropertyId,
+        companyId,
+        propertyCode: `P5-BROKER-${suffix}`,
+        name: `Brokerage Scope ${suffix}`,
+        propertyType: 'APARTMENT_BUILDING',
+        status: 'ACTIVE',
+        serviceIntent: 'RENTAL_BROKERAGE',
+        city: 'Mogadishu',
+        branchAssignments: {
+          create: { id: uuidv7(), branchId, effectiveFrom: new Date('2026-01-01') },
+        },
+      },
+    });
+    const brokerageSpaces = await Promise.all(
+      ['A', 'B'].map((label) =>
+        database.rentableSpace.create({
+          data: {
+            id: uuidv7(),
+            propertyId: brokeragePropertyId,
+            typeId: type.id,
+            spaceCode: `BROKER-${suffix}-${label}`,
+            name: `Brokerage Unit ${label}`,
+            status: 'ACTIVE',
+          },
+        }),
+      ),
+    );
+    const scopedEngagement = await database.serviceEngagement.create({
+      data: {
+        id: uuidv7(),
+        companyId,
+        engagementNumber: `ENG-SCOPED-${suffix}`,
+        serviceModel: 'RENTAL_BROKERAGE',
+        status: 'ACTIVE',
+        propertyId: brokeragePropertyId,
+        rentableSpaceId: brokerageSpaces[0]!.id,
+        effectiveFrom: new Date('2026-01-01'),
+        createdByUserId: userId,
+      },
+    });
+    const scopedMatches = await listings.match(principal, { leadId, limit: 25 });
+    expect(
+      scopedMatches.items.filter(
+        (item) =>
+          'rentableSpace' in item.listing &&
+          item.listing.rentableSpace.property.id === brokeragePropertyId,
+      ),
+    ).toHaveLength(1);
+    await database.serviceEngagement.update({
+      where: { id: scopedEngagement.id },
+      data: { status: 'INACTIVE', effectiveTo: new Date('2026-09-03') },
+    });
+    const inactiveMatches = await listings.match(principal, { leadId, limit: 25 });
+    expect(
+      inactiveMatches.items.filter(
+        (item) =>
+          'rentableSpace' in item.listing &&
+          item.listing.rentableSpace.property.id === brokeragePropertyId,
+      ),
+    ).toHaveLength(0);
+    await database.serviceEngagement.create({
+      data: {
+        id: uuidv7(),
+        companyId,
+        engagementNumber: `ENG-WHOLE-${suffix}`,
+        serviceModel: 'RENTAL_BROKERAGE',
+        status: 'ACTIVE',
+        propertyId: brokeragePropertyId,
+        rentableSpaceId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        createdByUserId: userId,
+      },
+    });
+    const wholePropertyMatches = await listings.match(principal, { leadId, limit: 25 });
+    expect(
+      wholePropertyMatches.items.filter(
+        (item) =>
+          'rentableSpace' in item.listing &&
+          item.listing.rentableSpace.property.id === brokeragePropertyId,
+      ),
+    ).toHaveLength(2);
+
+    const directSpaceViewing = await leasing.createViewing(principal, {
+      leadId: secondLeadId,
+      rentableSpaceId: spaceIds[3]!,
+      assignedEmployeeId: employeeId,
+      scheduledAt: '2026-09-12T09:00:00.000Z',
+    });
+    expect(directSpaceViewing.rentableSpaceId).toBe(spaceIds[3]);
+
+    const salePropertyId = uuidv7();
+    await database.property.create({
+      data: {
+        id: salePropertyId,
+        companyId,
+        propertyCode: `P5-SALE-${suffix}`,
+        name: `Sale Property ${suffix}`,
+        propertyType: 'VILLA',
+        status: 'ACTIVE',
+        serviceIntent: 'SALE',
+        salePrice: '250000',
+        salePriceCurrency: 'USD',
+        city: 'Mogadishu',
+        branchAssignments: {
+          create: { id: uuidv7(), branchId, effectiveFrom: new Date('2026-01-01') },
+        },
+      },
+    });
+    const saleEngagement = await database.serviceEngagement.create({
+      data: {
+        id: uuidv7(),
+        companyId,
+        engagementNumber: `ENG-SALE-${suffix}`,
+        serviceModel: 'SALE_BROKERAGE',
+        status: 'ACTIVE',
+        propertyId: salePropertyId,
+        effectiveFrom: new Date('2026-01-01'),
+        createdByUserId: userId,
+      },
+    });
+    const buyer = await database.lead.create({
+      data: {
+        id: uuidv7(),
+        companyId,
+        leadNumber: `BUY-P5-${suffix}`,
+        intent: 'BUY',
+        sourceId: source.id,
+        responsibleBranchId: branchId,
+        currentAssigneeEmployeeId: employeeId,
+        partyId: applicantPartyId,
+        displayName: `Buyer ${suffix}`,
+        createdByUserId: userId,
+      },
+    });
+    const saleDraft = await listings.createSale(principal, {
+      propertyId: salePropertyId,
+      serviceEngagementId: saleEngagement.id,
+      title: `Sale Listing ${suffix}`,
+      askingPrice: '250000',
+      currency: 'USD',
+    });
+    const saleSubmitted = await listings.transitionSale(
+      principal,
+      saleDraft.id,
+      ListingStatus.PENDING_REVIEW,
+      { expectedVersion: saleDraft.version, reason: 'Ready for sale review' },
+    );
+    const salePublished = await listings.transitionSale(
+      principal,
+      saleDraft.id,
+      ListingStatus.PUBLISHED,
+      { expectedVersion: saleSubmitted.version, reason: 'Publish sale listing' },
+    );
+    const saleListingViewing = await leasing.createViewing(principal, {
+      leadId: buyer.id,
+      saleListingId: salePublished.id,
+      assignedEmployeeId: employeeId,
+      scheduledAt: '2026-09-13T09:00:00.000Z',
+    });
+    expect(saleListingViewing.saleListingId).toBe(salePublished.id);
+    const buyerPropertyViewing = await leasing.createViewing(principal, {
+      leadId: buyer.id,
+      propertyId: salePropertyId,
+      assignedEmployeeId: employeeId,
+      scheduledAt: '2026-09-14T09:00:00.000Z',
+    });
+    expect(buyerPropertyViewing.propertyId).toBe(salePropertyId);
+
+    const rentalListingViewing = await database.viewing.findFirstOrThrow({
+      where: { leadId, rentalListingId: publishedListingIds[0]! },
+    });
+    for (const row of [
+      rentalListingViewing,
+      saleListingViewing,
+      buyerPropertyViewing,
+      directSpaceViewing,
+    ]) {
+      expect(
+        [row.rentalListingId, row.saleListingId, row.propertyId, row.rentableSpaceId].filter(Boolean),
+      ).toHaveLength(1);
+    }
+  }, 60_000);
 
   it('prevents concurrent Reservations and reuses canonical Party for Tenant', async () => {
     const application = await database.rentalApplication.findFirstOrThrow({ where: { leadId, rentalListingId: publishedListingIds[0]! } });
