@@ -34,7 +34,9 @@ describe.skipIf(!(databaseUrl && adminEmail && adminPassword))('Phase 8 operatio
       .expect(201);
     token = sessionToken(login);
     const company = await database.company.findFirstOrThrow();
-    const branches = await database.branch.findMany({ where: { companyId: company.id, active: true } });
+    const branches = await database.branch.findMany({
+      where: { companyId: company.id, active: true },
+    });
     branchId = branches[0]!.id;
     otherBranchId = branches[1]?.id ?? branches[0]!.id;
     const property = await database.property.findFirst({

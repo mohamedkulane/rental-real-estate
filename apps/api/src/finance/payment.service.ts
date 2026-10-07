@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ChargeStatus, PaymentStatus, Prisma, ReceiptStatus } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { cursorPage } from '../common/cursor-pagination';
@@ -38,9 +43,7 @@ export class PaymentService {
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.status ? { status: query.status } : {}),
       ...(query.payerPartyId ? { payerPartyId: query.payerPartyId } : {}),
-      ...(query.search
-        ? { paymentNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { paymentNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.payment.findMany({
@@ -103,9 +106,7 @@ export class PaymentService {
       select: { id: true },
     });
     if (!account) {
-      throw new ConflictException(
-        'Receiving account must be Cash on Hand, Bank, or Mobile Money.',
-      );
+      throw new ConflictException('Receiving account must be Cash on Hand, Bank, or Mobile Money.');
     }
     const amount = new Prisma.Decimal(input.amount);
     if (amount.lte(0)) throw new BadRequestException('Payment amount must be positive.');
@@ -140,9 +141,7 @@ export class PaymentService {
             currency: input.currency.toUpperCase(),
             amount,
             verifiedAmount: amount,
-            status: contextualCharge
-              ? PaymentStatus.FULLY_ALLOCATED
-              : PaymentStatus.CAPTURED,
+            status: contextualCharge ? PaymentStatus.FULLY_ALLOCATED : PaymentStatus.CAPTURED,
             externalRef: input.externalRef?.trim() || null,
             idempotencyKey: input.idempotencyKey ?? null,
             receivedAt: isoInstant(input.receivedAt),
@@ -231,7 +230,10 @@ export class PaymentService {
       );
       const payment = await tx.payment.findFirst({
         where: { id: paymentId, companyId: principal.companyId },
-        include: { allocations: { where: { reversedAt: null }, include: { charge: true } }, receipt: true },
+        include: {
+          allocations: { where: { reversedAt: null }, include: { charge: true } },
+          receipt: true,
+        },
       });
       if (!payment) throw new NotFoundException('Payment not found.');
       this.auth.assertBranchPermission(principal, 'payment.allocate', payment.branchId);
@@ -256,7 +258,10 @@ export class PaymentService {
         });
       }
       if (payment.receipt) {
-        await tx.receipt.update({ where: { id: payment.receipt.id }, data: { status: ReceiptStatus.VOIDED } });
+        await tx.receipt.update({
+          where: { id: payment.receipt.id },
+          data: { status: ReceiptStatus.VOIDED },
+        });
       }
       const reversed = await tx.payment.update({
         where: { id: payment.id },
@@ -336,7 +341,9 @@ export class PaymentService {
           throw new BadRequestException('Allocation amounts must be positive.');
         }
         if (amount.gt(charge.outstandingAmount)) {
-          throw new BadRequestException(`Allocation exceeds outstanding amount for ${charge.chargeNumber}.`);
+          throw new BadRequestException(
+            `Allocation exceeds outstanding amount for ${charge.chargeNumber}.`,
+          );
         }
       }
       const now = new Date();
@@ -357,9 +364,7 @@ export class PaymentService {
           where: { id: charge.id },
           data: {
             outstandingAmount: outstanding,
-            status: outstanding.isZero()
-              ? ChargeStatus.PAID
-              : ChargeStatus.PARTIALLY_PAID,
+            status: outstanding.isZero() ? ChargeStatus.PAID : ChargeStatus.PARTIALLY_PAID,
           },
         });
       }
@@ -428,7 +433,11 @@ export class PaymentService {
         payer: { select: { displayName: true, partyNumber: true } },
         method: { select: { code: true, name: true } },
         receivingAccount: { select: { code: true, name: true } },
-        allocations: { include: { charge: { select: { chargeNumber: true, outstandingAmount: true, currency: true } } } },
+        allocations: {
+          include: {
+            charge: { select: { chargeNumber: true, outstandingAmount: true, currency: true } },
+          },
+        },
         receipt: true,
       },
     });

@@ -48,10 +48,7 @@ export class SearchService {
     const companyId = principal.companyId;
     const perType = Math.max(2, Math.ceil(limit / 6));
     const normalizedTerm = normalizeSearchTerm(term);
-    const propertyBranchIds = this.auth.authorizedBranchIds(
-      principal,
-      'portfolio.property.read',
-    );
+    const propertyBranchIds = this.auth.authorizedBranchIds(principal, 'portfolio.property.read');
     if (branchId) {
       this.auth.assertBranchPermission(principal, 'portfolio.property.read', branchId);
     }
@@ -65,7 +62,11 @@ export class SearchService {
         ? { branchId }
         : this.auth.authorizedBranchIds(principal, 'crm.lead.read') === null
           ? {}
-          : { branchId: { in: [...(this.auth.authorizedBranchIds(principal, 'crm.lead.read') ?? [])] } };
+          : {
+              branchId: {
+                in: [...(this.auth.authorizedBranchIds(principal, 'crm.lead.read') ?? [])],
+              },
+            };
 
     const [properties, owners, tenants, leads, leases, listings, invoices] = await Promise.all([
       this.auth.hasPermission(principal, 'portfolio.property.read')
@@ -277,9 +278,7 @@ export class SearchService {
     const propertyMatches = items.filter((item) => item.type === 'Property');
     const closestMatches =
       propertyMatches.length > 0 &&
-      propertyMatches.every(
-        (item) => item.matchKind === 'TOKEN' || item.matchKind === 'FUZZY',
-      );
+      propertyMatches.every((item) => item.matchKind === 'TOKEN' || item.matchKind === 'FUZZY');
     return { items, closestMatches };
   }
 

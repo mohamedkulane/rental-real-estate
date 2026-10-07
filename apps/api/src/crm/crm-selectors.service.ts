@@ -4,7 +4,11 @@ import type { AuthenticatedPrincipal } from '../security/security.types';
 import { resolveCapabilitySet } from '../commercial/service-engagement.policy';
 import { CrmSupportService } from './crm-support.service';
 import { CrmReadService, branchSql, clauses, matchText } from './crm-read.service';
-import { BranchSelectorPurpose, EmployeeSelectorPurpose, ReferenceSelectorPurpose } from './crm.dto';
+import {
+  BranchSelectorPurpose,
+  EmployeeSelectorPurpose,
+  ReferenceSelectorPurpose,
+} from './crm.dto';
 import type {
   BranchSelectorQueryDto,
   EmployeeSelectorQueryDto,
@@ -40,7 +44,10 @@ export class CrmSelectorsService {
       Prisma.sql`b."companyId"=${principal.companyId}::uuid`,
       branchSql(Prisma.sql`b.id`, this.support.branches(principal, permissions)),
     ];
-    if (query.purpose === BranchSelectorPurpose.CREATE_LEAD || query.purpose === BranchSelectorPurpose.TRANSFER_LEAD)
+    if (
+      query.purpose === BranchSelectorPurpose.CREATE_LEAD ||
+      query.purpose === BranchSelectorPurpose.TRANSFER_LEAD
+    )
       filters.push(Prisma.sql`b.active=TRUE`);
     if (sourceBranch) filters.push(Prisma.sql`b.id<>${sourceBranch}::uuid`);
     if (query.search?.trim()) {
@@ -202,7 +209,7 @@ export class CrmSelectorsService {
     const resourcePermissions = [
       'portfolio.property.read',
       ...(space ? ['portfolio.space.read'] : []),
-      ...(intent !== 'CONSTRUCTION_SERVICE' ? ['service-engagement.capability.read'] : []),
+      'service-engagement.capability.read',
     ];
     const branches = this.support.branches(principal, resourcePermissions);
     const at = principal.businessDate;
@@ -233,11 +240,6 @@ export class CrmSelectorsService {
         context,
       ),
     );
-    if (intent === 'CONSTRUCTION_SERVICE')
-      return {
-        ...page,
-        items: page.items.map((item) => ({ ...item, capability: null, capabilityAllowed: null })),
-      };
     const propertyIds = [
       ...new Set(page.items.map((item) => String(space ? item.propertyId : item.id))),
     ];

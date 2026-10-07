@@ -1,6 +1,10 @@
 import { ApplicationStatus, LeaseStatus, ListingStatus, RenewalStatus } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { applicationTransitions, leaseTransitions, renewalTransitions } from '../../src/leasing/leasing.service';
+import {
+  applicationTransitions,
+  leaseTransitions,
+  renewalTransitions,
+} from '../../src/leasing/leasing.service';
 import { listingTransitions } from '../../src/leasing/listing.service';
 
 describe('Phase 5 lifecycle policies', () => {
@@ -11,8 +15,12 @@ describe('Phase 5 lifecycle policies', () => {
   });
 
   it('requires screening review before an Application decision', () => {
-    expect(applicationTransitions[ApplicationStatus.DRAFT]).not.toContain(ApplicationStatus.APPROVED);
-    expect(applicationTransitions[ApplicationStatus.UNDER_REVIEW]).toContain(ApplicationStatus.APPROVED);
+    expect(applicationTransitions[ApplicationStatus.DRAFT]).not.toContain(
+      ApplicationStatus.APPROVED,
+    );
+    expect(applicationTransitions[ApplicationStatus.UNDER_REVIEW]).toContain(
+      ApplicationStatus.APPROVED,
+    );
   });
 
   it('approves a lease straight into Active without Signed steps', () => {
@@ -26,7 +34,10 @@ describe('Phase 5 lifecycle policies', () => {
   });
 
   it('creates a successor only after a signed Renewal', () => {
-    expect(renewalTransitions[RenewalStatus.APPROVED]).toEqual([RenewalStatus.SIGNED, RenewalStatus.REJECTED]);
+    expect(renewalTransitions[RenewalStatus.APPROVED]).toEqual([
+      RenewalStatus.SIGNED,
+      RenewalStatus.REJECTED,
+    ]);
     expect(renewalTransitions[RenewalStatus.SIGNED]).toEqual([RenewalStatus.ACTIVATED]);
   });
 });

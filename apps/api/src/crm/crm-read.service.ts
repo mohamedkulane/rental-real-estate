@@ -238,18 +238,17 @@ export class CrmReadService {
       );
       if (!row) throw new BadRequestException('CRM_NOT_FOUND');
       // Convert exact numeric JSON values to strings in PostgreSQL, before JavaScript parsing.
-      const [version] = await tx.$queryRaw<Array<{preference:JsonRow}>>(Prisma.sql`
+      const [version] = await tx.$queryRaw<Array<{ preference: JsonRow }>>(Prisma.sql`
         SELECT jsonb_build_object('intent',v.intent,'preferredAreaText',v."preferredAreaText",'notes',v.notes,'desiredByDate',v."desiredByDate") ||
           (SELECT jsonb_object_agg(e.key,CASE WHEN e.key IN ('minRent','maxRent','minBudget','maxBudget','expectedMinPrice','askingPrice','estimatedMinBudget','estimatedMaxBudget','minArea','maxArea','plotArea','floorArea','minBathrooms','maxBathrooms') AND e.value <> 'null'::jsonb THEN to_jsonb(e.value::text) ELSE e.value END)
-           FROM jsonb_each(COALESCE(to_jsonb(r),to_jsonb(b),to_jsonb(s),to_jsonb(c))-'preferenceVersionId') e) AS preference
+           FROM jsonb_each(COALESCE(to_jsonb(r),to_jsonb(b),to_jsonb(s))-'preferenceVersionId') e) AS preference
         FROM lead_preference_versions v JOIN leads l ON l.id=v."leadId"
         LEFT JOIN rent_lead_preferences r ON r."preferenceVersionId"=v.id
         LEFT JOIN buy_lead_preferences b ON b."preferenceVersionId"=v.id
         LEFT JOIN sell_lead_preferences s ON s."preferenceVersionId"=v.id
-        LEFT JOIN construction_service_lead_preferences c ON c."preferenceVersionId"=v.id
         WHERE v."leadId"=${id}::uuid AND l."companyId"=${principal.companyId}::uuid AND v."effectiveTo" IS NULL`);
       if (!version?.preference) throw new BadRequestException('CRM_NOT_FOUND');
-      const preference=version.preference;
+      const preference = version.preference;
       const asset = await this.support.asset(
         principal,
         fresh.intent,

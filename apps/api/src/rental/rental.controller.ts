@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
@@ -58,19 +68,13 @@ export class RentalCommandController {
     'service-engagement.create',
     'service-engagement.activate',
   )
-  addOwnerAndProperty(
-    @Req() request: AuthenticatedRequest,
-    @Body() input: AddOwnerAndPropertyDto,
-  ) {
+  addOwnerAndProperty(@Req() request: AuthenticatedRequest, @Body() input: AddOwnerAndPropertyDto) {
     return this.rental.addOwnerAndProperty(request.principal, input, request.correlationId);
   }
 
   @Post('add-rental-customer')
   @RequirePermissions('crm.lead.create', 'party.create')
-  addRentalCustomer(
-    @Req() request: AuthenticatedRequest,
-    @Body() input: AddRentalCustomerDto,
-  ) {
+  addRentalCustomer(@Req() request: AuthenticatedRequest, @Body() input: AddRentalCustomerDto) {
     return this.rental.addRentalCustomer(request.principal, input, request.correlationId);
   }
 
@@ -139,8 +143,17 @@ export class RentalCommandController {
 
   @Post('sale-agreements/:agreementId/confirm')
   @RequirePermissions('sale-offer.manage')
-  confirmSaleAgreement(@Req() request: AuthenticatedRequest, @Param('agreementId', ParseUUIDPipe) agreementId: string, @Body() input: AgreementTransitionDto) {
-    return this.agreements.confirmSale(request.principal, agreementId, input, request.correlationId);
+  confirmSaleAgreement(
+    @Req() request: AuthenticatedRequest,
+    @Param('agreementId', ParseUUIDPipe) agreementId: string,
+    @Body() input: AgreementTransitionDto,
+  ) {
+    return this.agreements.confirmSale(
+      request.principal,
+      agreementId,
+      input,
+      request.correlationId,
+    );
   }
 
   @Post('start-rental-brokerage')
@@ -154,10 +167,7 @@ export class RentalCommandController {
 
   @Post('start-full-management')
   @RequirePermissions('service-engagement.create', 'service-engagement.activate')
-  startFullManagement(
-    @Req() request: AuthenticatedRequest,
-    @Body() input: StartFullManagementDto,
-  ) {
+  startFullManagement(@Req() request: AuthenticatedRequest, @Body() input: StartFullManagementDto) {
     return this.rental.startFullManagement(request.principal, input, request.correlationId);
   }
 }

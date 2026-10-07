@@ -37,15 +37,23 @@ function ensureWorkspacePackages() {
     ['packages/config/dist/index.js', 'packages/config/src'],
     ['packages/database/dist/index.js', 'packages/database/src'],
   ];
-  const stale = packages.some(([output, source]) =>
-    !outputIsFresh(join(repoRoot, output), join(repoRoot, source)),
+  const stale = packages.some(
+    ([output, source]) => !outputIsFresh(join(repoRoot, output), join(repoRoot, source)),
   );
   if (!stale) return;
 
   console.log('[api dev] Building workspace packages...');
   const build = spawnSync(
     'pnpm',
-    ['--filter', '@rerms/shared', '--filter', '@rerms/config', '--filter', '@rerms/database', 'build'],
+    [
+      '--filter',
+      '@rerms/shared',
+      '--filter',
+      '@rerms/config',
+      '--filter',
+      '@rerms/database',
+      'build',
+    ],
     { cwd: repoRoot, stdio: 'inherit', env: process.env, shell: true },
   );
   if (build.error) throw build.error;
@@ -102,7 +110,14 @@ function startWatchers() {
 
   const compiler = spawn(
     process.execPath,
-    [typescriptCompiler, '-p', 'tsconfig.build.json', '--incremental', '--watch', '--preserveWatchOutput'],
+    [
+      typescriptCompiler,
+      '-p',
+      'tsconfig.build.json',
+      '--incremental',
+      '--watch',
+      '--preserveWatchOutput',
+    ],
     { cwd: appDirectory, env: process.env, stdio: 'inherit' },
   );
 

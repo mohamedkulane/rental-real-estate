@@ -267,7 +267,12 @@ export class PartyService {
     };
   }
 
-  async create(principal: AuthenticatedPrincipal, input: CreatePartyDto, correlationId?: string, checkpoint?: CommandCheckpoint) {
+  async create(
+    principal: AuthenticatedPrincipal,
+    input: CreatePartyDto,
+    correlationId?: string,
+    checkpoint?: CommandCheckpoint,
+  ) {
     this.authorization.assertBranchPermission(principal, 'party.create', input.branchId);
     if (input.kind === PartyKind.PERSON && (!input.person || input.organization))
       throw new BadRequestException('PERSON requires only a person profile.');

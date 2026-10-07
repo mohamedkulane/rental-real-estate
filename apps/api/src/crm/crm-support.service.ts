@@ -43,7 +43,9 @@ export class CrmSupportService {
         const allowedIds = allowed;
         if (result === null) result = new Set<string>(allowedIds);
         else {
-          const intersection: string[] = Array.from(result).filter((id: string) => allowedIds.has(id));
+          const intersection: string[] = Array.from(result).filter((id: string) =>
+            allowedIds.has(id),
+          );
           result = new Set<string>(intersection);
         }
       }
@@ -221,7 +223,7 @@ export class CrmSupportService {
     const permissions = [
       'portfolio.property.read',
       ...(spaceId ? ['portfolio.space.read'] : []),
-      ...(intent !== 'CONSTRUCTION_SERVICE' ? ['service-engagement.capability.read'] : []),
+      'service-engagement.capability.read',
     ];
     if (
       !property ||
@@ -235,7 +237,7 @@ export class CrmSupportService {
       if (required) throw new NotFoundException('CRM_NOT_FOUND');
       return null;
     }
-    if (required && intent !== 'CONSTRUCTION_SERVICE') {
+    if (required) {
       const engagements = await tx.serviceEngagement.findMany({
         where: {
           companyId: principal.companyId,

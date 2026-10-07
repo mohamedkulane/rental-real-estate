@@ -17,16 +17,14 @@ import type { AuthenticatedPrincipal } from '../security/security.types';
 const isoDate = (value: string | Date): Date =>
   value instanceof Date ? value : new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
 
-export const brokerageDealTransitions: Record<
-  BrokerageDealStatus,
-  readonly BrokerageDealStatus[]
-> = {
-  DRAFT: [BrokerageDealStatus.NEGOTIATING, BrokerageDealStatus.CANCELLED],
-  NEGOTIATING: [BrokerageDealStatus.CONFIRMED, BrokerageDealStatus.CANCELLED],
-  CONFIRMED: [BrokerageDealStatus.CLOSED, BrokerageDealStatus.CANCELLED],
-  CLOSED: [],
-  CANCELLED: [],
-};
+export const brokerageDealTransitions: Record<BrokerageDealStatus, readonly BrokerageDealStatus[]> =
+  {
+    DRAFT: [BrokerageDealStatus.NEGOTIATING, BrokerageDealStatus.CANCELLED],
+    NEGOTIATING: [BrokerageDealStatus.CONFIRMED, BrokerageDealStatus.CANCELLED],
+    CONFIRMED: [BrokerageDealStatus.CLOSED, BrokerageDealStatus.CANCELLED],
+    CLOSED: [],
+    CANCELLED: [],
+  };
 
 export const saleOfferTransitions: Record<SaleOfferStatus, readonly SaleOfferStatus[]> = {
   DRAFT: [SaleOfferStatus.SUBMITTED, SaleOfferStatus.WITHDRAWN],
@@ -65,10 +63,14 @@ export const payoutTransitions: Record<PayoutStatus, readonly PayoutStatus[]> = 
 
 export function assertRecurringBillingModel(serviceModel: ServiceModel): void {
   if (serviceModel === ServiceModel.RENTAL_BROKERAGE) {
-    throw new ConflictException('Rental Brokerage engagements cannot receive recurring rent billing.');
+    throw new ConflictException(
+      'Rental Brokerage engagements cannot receive recurring rent billing.',
+    );
   }
   if (serviceModel !== ServiceModel.FULL_MANAGEMENT) {
-    throw new ConflictException('Recurring rent billing is limited to Full Management engagements.');
+    throw new ConflictException(
+      'Recurring rent billing is limited to Full Management engagements.',
+    );
   }
 }
 
@@ -381,7 +383,9 @@ export class FinancePolicyService {
   async ownershipAt(
     propertyId: string,
     at: Date,
-  ): Promise<Array<{ ownerPartyId: string; ownershipPercent: Prisma.Decimal; propertyId: string }>> {
+  ): Promise<
+    Array<{ ownerPartyId: string; ownershipPercent: Prisma.Decimal; propertyId: string }>
+  > {
     const rows = await this.database.propertyOwnership.findMany({
       where: {
         propertyId,

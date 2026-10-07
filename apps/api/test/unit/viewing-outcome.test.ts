@@ -16,8 +16,6 @@ describe('viewing outcome helpers', () => {
   });
 
   it('rejects vague completion notes', () => {
-    expect(isInterestedViewingOutcome('Customer reviewing interest with owner terms')).toBe(
-      false,
-    );
+    expect(isInterestedViewingOutcome('Customer reviewing interest with owner terms')).toBe(false);
   });
 });

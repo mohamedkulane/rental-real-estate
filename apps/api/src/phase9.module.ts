@@ -2,10 +2,7 @@ import { Module } from '@nestjs/common';
 import { Phase3Module } from './phase3.module';
 import { Phase6Module } from './phase6.module';
 import { Phase8Module } from './phase8.module';
-import {
-  PortalOwnerController,
-  PortalTenantController,
-} from './portals/portal.controller';
+import { PortalOwnerController, PortalTenantController } from './portals/portal.controller';
 import { PortalAdminController } from './portals/portal-admin.controller';
 import { PortalAdminService } from './portals/portal-admin.service';
 import { PortalAuthorizationService } from './portals/portal-authorization.service';

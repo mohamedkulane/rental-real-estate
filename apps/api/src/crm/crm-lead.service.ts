@@ -77,43 +77,10 @@ export const preferenceFields: Record<LeadIntent, string[]> = {
     'desiredSaleDate',
     'sellerRelationship',
   ],
-  CONSTRUCTION_SERVICE: [
-    'projectBrief',
-    'propertyId',
-    'siteLocation',
-    'category',
-    'estimatedMinBudget',
-    'estimatedMaxBudget',
-    'currency',
-    'targetStartDate',
-    'targetCompletionDate',
-    'plotArea',
-    'floorArea',
-    'areaUnit',
-    'bedrooms',
-    'floors',
-    'siteControl',
-  ],
 };
-const DATES = new Set([
-  'desiredByDate',
-  'moveInDate',
-  'targetPurchaseDate',
-  'desiredSaleDate',
-  'targetStartDate',
-  'targetCompletionDate',
-]);
-const MONEY = [
-  'minRent',
-  'maxRent',
-  'minBudget',
-  'maxBudget',
-  'expectedMinPrice',
-  'askingPrice',
-  'estimatedMinBudget',
-  'estimatedMaxBudget',
-];
-const AREAS = ['minArea', 'maxArea', 'plotArea', 'floorArea'];
+const DATES = new Set(['desiredByDate', 'moveInDate', 'targetPurchaseDate', 'desiredSaleDate']);
+const MONEY = ['minRent', 'maxRent', 'minBudget', 'maxBudget', 'expectedMinPrice', 'askingPrice'];
+const AREAS = ['minArea', 'maxArea'];
 const FIELDS = (preference: LeadPreferenceDto) => preference as Record<string, unknown>;
 
 export function validatePreference(intent: LeadIntent, preference: LeadPreferenceDto) {
@@ -175,17 +142,6 @@ export function validatePreference(intent: LeadIntent, preference: LeadPreferenc
     throw new BadRequestException('CRM_VALIDATION_FAILED');
   if (AREAS.some((key) => value[key] !== undefined) && !preference.areaUnit)
     throw new BadRequestException('CRM_VALIDATION_FAILED');
-  if (
-    intent === 'CONSTRUCTION_SERVICE' &&
-    (!preference.projectBrief?.trim() || !preference.category)
-  )
-    throw new BadRequestException('CRM_VALIDATION_FAILED');
-  if (
-    preference.targetStartDate &&
-    preference.targetCompletionDate &&
-    preference.targetCompletionDate < preference.targetStartDate
-  )
-    throw new BadRequestException('CRM_VALIDATION_FAILED');
 }
 
 export function qualified(intent: LeadIntent, value: Record<string, unknown>) {
@@ -208,11 +164,7 @@ export function qualified(intent: LeadIntent, value: Record<string, unknown>) {
       (has('propertyId') || (has('subjectDescription') && has('subjectLocation'))) &&
       ['askingPrice', 'currency', 'desiredSaleDate', 'sellerRelationship'].every(has)
     );
-  return (
-    has('projectBrief') &&
-    (has('propertyId') || has('siteLocation')) &&
-    ['estimatedMaxBudget', 'currency', 'targetStartDate'].every(has)
-  );
+  return false;
 }
 
 @Injectable()
@@ -224,10 +176,10 @@ export class CrmLeadService {
   private async currentPreference(tx: CrmTx, lead: Lead) {
     const current = await tx.leadPreferenceVersion.findFirst({
       where: { leadId: lead.id, lead: { companyId: lead.companyId }, effectiveTo: null },
-      include: { rent: true, buy: true, sell: true, constructionService: true },
+      include: { rent: true, buy: true, sell: true },
     });
     if (!current) throw new ConflictException('CRM_DATA_CONFLICT');
-    const variant = current.rent ?? current.buy ?? current.sell ?? current.constructionService!;
+    const variant = current.rent ?? current.buy ?? current.sell;
     const value: Record<string, unknown> = {
       preferredAreaText: current.preferredAreaText,
       notes: current.notes,
@@ -319,12 +271,7 @@ export class CrmLeadService {
                     scalar as Prisma.SellLeadPreferenceUncheckedCreateWithoutPreferenceVersionInput,
                 },
               }
-            : {
-                constructionService: {
-                  create:
-                    scalar as Prisma.ConstructionServiceLeadPreferenceUncheckedCreateWithoutPreferenceVersionInput,
-                },
-              };
+            : null;
     await tx.leadPreferenceVersion.create({
       data: {
         id: uuidv7(),
@@ -338,7 +285,7 @@ export class CrmLeadService {
         actorUserId: principal.userId,
         reason,
         correlationId: correlation(correlationId),
-        ...variant,
+        ...(variant ?? {}),
       },
     });
     if (prior)

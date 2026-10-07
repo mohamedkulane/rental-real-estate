@@ -150,7 +150,12 @@ export class CreateLeaseDto {
   @IsDateString() leaseEndDate!: string;
   @IsNumberString() rentAmount!: string;
   @IsString() @Length(3, 3) currency!: string;
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => LeasePartyInputDto) parties!: LeasePartyInputDto[];
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => LeasePartyInputDto)
+  parties!: LeasePartyInputDto[];
 }
 
 export class LeaseTransitionDto extends VersionedTransitionDto {

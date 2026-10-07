@@ -7,7 +7,11 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import { assertLifecycleTransition, FinancePolicyService, saleOfferTransitions } from './finance.policy';
+import {
+  assertLifecycleTransition,
+  FinancePolicyService,
+  saleOfferTransitions,
+} from './finance.policy';
 import type { CreateSaleOfferDto, SaleOfferQueryDto, SaleOfferTransitionDto } from './finance.dto';
 
 const isoDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
@@ -34,9 +38,7 @@ export class SaleOfferService {
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.status ? { status: query.status } : {}),
       ...(query.propertyId ? { propertyId: query.propertyId } : {}),
-      ...(query.search
-        ? { offerNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { offerNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.saleOffer.findMany({
@@ -48,7 +50,11 @@ export class SaleOfferService {
     return cursorPage(rows, query.limit, (row) => row.id);
   }
 
-  async create(principal: AuthenticatedPrincipal, input: CreateSaleOfferDto, correlationId?: string) {
+  async create(
+    principal: AuthenticatedPrincipal,
+    input: CreateSaleOfferDto,
+    correlationId?: string,
+  ) {
     const context = await this.policy.activeEngagement(
       principal,
       input.serviceEngagementId,

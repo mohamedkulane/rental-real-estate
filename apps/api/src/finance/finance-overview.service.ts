@@ -26,58 +26,101 @@ export class FinanceOverviewService {
 
   async overview(principal: AuthenticatedPrincipal) {
     const companyId = principal.companyId;
-    const [openInvoices, unallocatedPayments, pendingOwnerPayouts, openExpenses, draftJournals, recentInvoices, recentPayments] =
-      await Promise.all([
-        this.db.invoice.count({
-          where: {
-            companyId,
-            status: InvoiceStatus.ISSUED,
-            ...this.branchFilter(principal, 'invoice.read'),
+    const [
+      openInvoices,
+      unallocatedPayments,
+      pendingOwnerPayouts,
+      openExpenses,
+      draftJournals,
+      recentInvoices,
+      recentPayments,
+    ] = await Promise.all([
+      this.db.invoice.count({
+        where: {
+          companyId,
+          status: InvoiceStatus.ISSUED,
+          ...this.branchFilter(principal, 'invoice.read'),
+        },
+      }),
+      this.db.payment.count({
+        where: {
+          companyId,
+          status: {
+            in: [
+              PaymentStatus.CAPTURED,
+              PaymentStatus.VERIFIED,
+              PaymentStatus.POSTED,
+              PaymentStatus.PARTIALLY_ALLOCATED,
+            ],
           },
-        }),
-        this.db.payment.count({
-          where: {
-            companyId,
-            status: { in: [PaymentStatus.CAPTURED, PaymentStatus.VERIFIED, PaymentStatus.POSTED, PaymentStatus.PARTIALLY_ALLOCATED] },
-            ...this.branchFilter(principal, 'payment.read'),
+          ...this.branchFilter(principal, 'payment.read'),
+        },
+      }),
+      this.db.ownerPayout.count({
+        where: {
+          companyId,
+          status: {
+            in: [
+              PayoutStatus.DRAFT,
+              PayoutStatus.REVIEW,
+              PayoutStatus.APPROVED,
+              PayoutStatus.QUEUED,
+            ],
           },
-        }),
-        this.db.ownerPayout.count({
-          where: {
-            companyId,
-            status: { in: [PayoutStatus.DRAFT, PayoutStatus.REVIEW, PayoutStatus.APPROVED, PayoutStatus.QUEUED] },
-            ...this.branchFilter(principal, 'payout.read'),
+          ...this.branchFilter(principal, 'payout.read'),
+        },
+      }),
+      this.db.expense.count({
+        where: {
+          companyId,
+          status: {
+            in: [
+              ExpenseStatus.DRAFT,
+              ExpenseStatus.SUBMITTED,
+              ExpenseStatus.REVIEW,
+              ExpenseStatus.APPROVED,
+            ],
           },
-        }),
-        this.db.expense.count({
-          where: {
-            companyId,
-            status: { in: [ExpenseStatus.DRAFT, ExpenseStatus.SUBMITTED, ExpenseStatus.REVIEW, ExpenseStatus.APPROVED] },
-            ...this.branchFilter(principal, 'expense.read'),
-          },
-        }),
-        this.db.journalEntry.count({
-          where: {
-            companyId,
-            status: JournalStatus.DRAFT,
-            ...this.branchFilter(principal, 'journal.read'),
-          },
-        }),
-        this.db.invoice.findMany({
-          where: { companyId, ...this.branchFilter(principal, 'invoice.read') },
-          orderBy: [{ issueDate: 'desc' }, { id: 'desc' }],
-          take: 5,
-          select: { id: true, invoiceNumber: true, issueDate: true, status: true, currency: true },
-        }),
-        this.db.payment.findMany({
-          where: { companyId, ...this.branchFilter(principal, 'payment.read') },
-          orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }],
-          take: 5,
-          select: { id: true, paymentNumber: true, receivedAt: true, status: true, currency: true, amount: true },
-        }),
-      ]);
+          ...this.branchFilter(principal, 'expense.read'),
+        },
+      }),
+      this.db.journalEntry.count({
+        where: {
+          companyId,
+          status: JournalStatus.DRAFT,
+          ...this.branchFilter(principal, 'journal.read'),
+        },
+      }),
+      this.db.invoice.findMany({
+        where: { companyId, ...this.branchFilter(principal, 'invoice.read') },
+        orderBy: [{ issueDate: 'desc' }, { id: 'desc' }],
+        take: 5,
+        select: { id: true, invoiceNumber: true, issueDate: true, status: true, currency: true },
+      }),
+      this.db.payment.findMany({
+        where: { companyId, ...this.branchFilter(principal, 'payment.read') },
+        orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }],
+        take: 5,
+        select: {
+          id: true,
+          paymentNumber: true,
+          receivedAt: true,
+          status: true,
+          currency: true,
+          amount: true,
+        },
+      }),
+    ]);
 
-    const [brokerage, rentCollected, managementFees, ownerPayouts, ownerPayoutsDue, expensesTotal, activeManagedLeases] = await Promise.all([
+    const [
+      brokerage,
+      rentCollected,
+      managementFees,
+      ownerPayouts,
+      ownerPayoutsDue,
+      expensesTotal,
+      activeManagedLeases,
+    ] = await Promise.all([
       this.brokerageSummary(companyId, principal),
       this.sumAllocatedByChargeTypes(companyId, principal, ['RENT']),
       this.sumManagementFees(companyId, principal),
@@ -226,7 +269,9 @@ export class FinanceOverviewService {
     const result = await this.db.ownerPayout.aggregate({
       where: {
         companyId,
-        status: { in: [PayoutStatus.DRAFT, PayoutStatus.REVIEW, PayoutStatus.APPROVED, PayoutStatus.QUEUED] },
+        status: {
+          in: [PayoutStatus.DRAFT, PayoutStatus.REVIEW, PayoutStatus.APPROVED, PayoutStatus.QUEUED],
+        },
         ...this.branchFilter(principal, 'payout.read'),
       },
       _sum: { netPayable: true },
@@ -243,7 +288,12 @@ export class FinanceOverviewService {
         companyId,
         businessDate: { gte: since },
         status: {
-          in: [ExpenseStatus.APPROVED, ExpenseStatus.POSTED, ExpenseStatus.PAID, ExpenseStatus.RECONCILED],
+          in: [
+            ExpenseStatus.APPROVED,
+            ExpenseStatus.POSTED,
+            ExpenseStatus.PAID,
+            ExpenseStatus.RECONCILED,
+          ],
         },
         ...this.branchFilter(principal, 'expense.read'),
       },

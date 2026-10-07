@@ -45,7 +45,9 @@ describe('finance.policy recurring billing', () => {
 
 describe('finance.policy manual payments', () => {
   it('rejects auto-capture payments', () => {
-    expect(() => assertManualPaymentOnly(true)).toThrow('Only manual payment capture is supported.');
+    expect(() => assertManualPaymentOnly(true)).toThrow(
+      'Only manual payment capture is supported.',
+    );
   });
 
   it('accepts manual capture', () => {
@@ -71,19 +73,13 @@ describe('finance.policy journals', () => {
 
   it('rejects unbalanced journals', () => {
     expect(() =>
-      assertBalancedJournal([
-        { signedAmount: '100.0000' },
-        { signedAmount: '-50.0000' },
-      ]),
+      assertBalancedJournal([{ signedAmount: '100.0000' }, { signedAmount: '-50.0000' }]),
     ).toThrow('Journal lines must balance to zero before posting.');
   });
 
   it('accepts balanced journals', () => {
     expect(() =>
-      assertBalancedJournal([
-        { signedAmount: '100.0000' },
-        { signedAmount: '-100.0000' },
-      ]),
+      assertBalancedJournal([{ signedAmount: '100.0000' }, { signedAmount: '-100.0000' }]),
     ).not.toThrow();
   });
 });
@@ -191,9 +187,9 @@ describe('finance.policy owner statements', () => {
       'PAYOUT',
       'CLOSING_BALANCE',
     ]);
-    expect(assembled.lines.find((line) => line.lineCode === 'MANAGEMENT_FEE')?.amount.toString()).toBe(
-      '-60',
-    );
+    expect(
+      assembled.lines.find((line) => line.lineCode === 'MANAGEMENT_FEE')?.amount.toString(),
+    ).toBe('-60');
   });
 
   it('builds a stable owner-statement idempotency key', () => {

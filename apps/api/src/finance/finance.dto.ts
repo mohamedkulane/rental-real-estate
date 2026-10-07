@@ -120,7 +120,10 @@ export class PaymentAllocationLineDto {
 }
 
 export class AllocatePaymentDto {
-  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => PaymentAllocationLineDto)
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => PaymentAllocationLineDto)
   allocations!: PaymentAllocationLineDto[];
 }
 
@@ -191,7 +194,10 @@ export class CreateJournalDto {
   @IsDateString() businessDate!: string;
   @IsString() @Length(3, 3) currency!: string;
   @IsString() @Length(3, 300) description!: string;
-  @IsArray() @ArrayMinSize(2) @ValidateNested({ each: true }) @Type(() => JournalLineInputDto)
+  @IsArray()
+  @ArrayMinSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => JournalLineInputDto)
   lines!: JournalLineInputDto[];
 }
 

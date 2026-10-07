@@ -97,7 +97,9 @@ export class DashboardReadModelService {
       salesInProgress,
       paymentMethods,
     ] = await Promise.all([
-      this.db.property.count({ where: { companyId, status: PropertyStatus.ACTIVE, ...propertyBranchFilter } }),
+      this.db.property.count({
+        where: { companyId, status: PropertyStatus.ACTIVE, ...propertyBranchFilter },
+      }),
       this.db.rentableSpace.count({ where: inventoryWhere }),
       this.db.rentableSpace.count({
         where: {
@@ -151,9 +153,15 @@ export class DashboardReadModelService {
         },
       }),
       this.db.tenantProfile.count({ where: { companyId, status: 'ACTIVE' } }),
-      this.db.lease.count({ where: { companyId, status: LeaseStatus.ACTIVE, ...leaseBranchFilter } }),
+      this.db.lease.count({
+        where: { companyId, status: LeaseStatus.ACTIVE, ...leaseBranchFilter },
+      }),
       this.db.rentalApplication.count({
-        where: { companyId, ...branchFilter, status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW] } },
+        where: {
+          companyId,
+          ...branchFilter,
+          status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW] },
+        },
       }),
       this.db.maintenanceRequest.count({
         where: {
@@ -175,7 +183,9 @@ export class DashboardReadModelService {
           companyId,
           ...this.branchFilter(principal, 'payment.read', branchId),
           receivedAt: { gte: monthStart, lt: tomorrow },
-          status: { in: [PaymentStatus.POSTED, PaymentStatus.VERIFIED, PaymentStatus.PARTIALLY_ALLOCATED] },
+          status: {
+            in: [PaymentStatus.POSTED, PaymentStatus.VERIFIED, PaymentStatus.PARTIALLY_ALLOCATED],
+          },
         },
         _sum: { amount: true },
       }),
@@ -197,7 +207,14 @@ export class DashboardReadModelService {
         where: {
           companyId,
           ...this.branchFilter(principal, 'payout.read', branchId),
-          status: { in: [PayoutStatus.DRAFT, PayoutStatus.REVIEW, PayoutStatus.APPROVED, PayoutStatus.QUEUED] },
+          status: {
+            in: [
+              PayoutStatus.DRAFT,
+              PayoutStatus.REVIEW,
+              PayoutStatus.APPROVED,
+              PayoutStatus.QUEUED,
+            ],
+          },
         },
       }),
       this.db.viewing.count({
@@ -255,7 +272,9 @@ export class DashboardReadModelService {
           companyId,
           ...this.branchFilter(principal, 'payment.read', branchId),
           receivedAt: { gte: monthStart, lt: tomorrow },
-          status: { in: [PaymentStatus.POSTED, PaymentStatus.VERIFIED, PaymentStatus.PARTIALLY_ALLOCATED] },
+          status: {
+            in: [PaymentStatus.POSTED, PaymentStatus.VERIFIED, PaymentStatus.PARTIALLY_ALLOCATED],
+          },
         },
         _sum: { amount: true },
       }),
@@ -268,7 +287,11 @@ export class DashboardReadModelService {
       : [];
     const methodNameById = new Map(methodNames.map((method) => [method.id, method.name]));
     const paymentBranchIds = this.auth.authorizedBranchIds(principal, 'payment.read');
-    const scopedPaymentBranchIds = branchId ? [branchId] : paymentBranchIds === null ? null : [...paymentBranchIds];
+    const scopedPaymentBranchIds = branchId
+      ? [branchId]
+      : paymentBranchIds === null
+        ? null
+        : [...paymentBranchIds];
     const collectionsByMonth = await this.db.$queryRaw<Array<{ month: string; amount: string }>>`
       SELECT to_char(date_trunc('month', p."receivedAt"), 'YYYY-MM') AS month,
              COALESCE(SUM(p.amount), 0)::text AS amount
@@ -289,7 +312,9 @@ export class DashboardReadModelService {
         availableUnits,
         occupiedUnits,
         unavailableUnits: Math.max(0, rentableSpaces - occupiedUnits - availableUnits),
-        occupancyRate: rentableSpaces ? Number(((occupiedUnits / rentableSpaces) * 100).toFixed(1)) : 0,
+        occupancyRate: rentableSpaces
+          ? Number(((occupiedUnits / rentableSpaces) * 100).toFixed(1))
+          : 0,
         activeTenants,
         activeLeases,
         openApplications,
@@ -366,7 +391,9 @@ export class DashboardReadModelService {
         href: `/operations/maintenance/${row.id}`,
       })),
     ]
-      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())
+      .sort(
+        (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
+      )
       .slice(0, 8);
   }
 }

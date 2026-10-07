@@ -226,7 +226,8 @@ export class PortalTenantService {
           title: input.title,
           description: input.description,
           categoryCode: input.categoryCode ?? 'GENERAL',
-          priority: (input.priority as MaintenancePriority | undefined) ?? MaintenancePriority.MEDIUM,
+          priority:
+            (input.priority as MaintenancePriority | undefined) ?? MaintenancePriority.MEDIUM,
           reportedAt: new Date(),
         },
         select: {
@@ -284,7 +285,10 @@ export class PortalTenantService {
           select: {
             leaseNumber: true,
             rentableSpace: {
-              select: { name: true, property: { select: { name: true, addressLine1: true, city: true } } },
+              select: {
+                name: true,
+                property: { select: { name: true, addressLine1: true, city: true } },
+              },
             },
           },
         },

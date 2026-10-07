@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   BillingScheduleStatus,
   ChargeStatus,
@@ -37,7 +42,10 @@ function addMonths(date: Date, months: number): Date {
   return next;
 }
 
-function periodForRun(runDate: Date, billingDayOfMonth: number): { start: Date; end: Date; due: Date } {
+function periodForRun(
+  runDate: Date,
+  billingDayOfMonth: number,
+): { start: Date; end: Date; due: Date } {
   const year = runDate.getUTCFullYear();
   const month = runDate.getUTCMonth();
   const day = Math.min(billingDayOfMonth, 28);
@@ -154,7 +162,11 @@ export class BillingService {
     });
   }
 
-  async runBilling(principal: AuthenticatedPrincipal, input: RunBillingDto, correlationId?: string) {
+  async runBilling(
+    principal: AuthenticatedPrincipal,
+    input: RunBillingDto,
+    correlationId?: string,
+  ) {
     const runDate = input.runDate ? isoDate(input.runDate) : isoDate(principal.businessDate);
     const branchIds = this.branches(principal, 'billing.manage');
     const schedules = await this.db.billingSchedule.findMany({
@@ -263,9 +275,7 @@ export class BillingService {
       ...(query.status ? { status: query.status } : {}),
       ...(query.leaseId ? { leaseId: query.leaseId } : {}),
       ...(query.debtorPartyId ? { debtorPartyId: query.debtorPartyId } : {}),
-      ...(query.search
-        ? { chargeNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { chargeNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.charge.findMany({
@@ -289,9 +299,7 @@ export class BillingService {
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.status ? { status: query.status } : {}),
       ...(query.debtorPartyId ? { debtorPartyId: query.debtorPartyId } : {}),
-      ...(query.search
-        ? { invoiceNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { invoiceNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.invoice.findMany({
@@ -337,7 +345,11 @@ export class BillingService {
       }
       const branchId = charges[0]!.branchId;
       this.auth.assertBranchPermission(principal, 'invoice.manage', branchId);
-      if (charges.some((row) => row.branchId !== branchId || row.currency !== input.currency.toUpperCase())) {
+      if (
+        charges.some(
+          (row) => row.branchId !== branchId || row.currency !== input.currency.toUpperCase(),
+        )
+      ) {
         throw new ConflictException('All invoice charges must share branch and currency.');
       }
       const invoice = await tx.invoice.create({
@@ -379,7 +391,11 @@ export class BillingService {
       where: { id: invoiceId, companyId: principal.companyId },
       include: {
         debtor: { select: { displayName: true, partyNumber: true } },
-        lines: { include: { charge: { select: { chargeNumber: true, status: true, outstandingAmount: true } } } },
+        lines: {
+          include: {
+            charge: { select: { chargeNumber: true, status: true, outstandingAmount: true } },
+          },
+        },
       },
     });
     if (!invoice) throw new NotFoundException('Invoice not found.');

@@ -63,18 +63,11 @@ export class CrmCursorService {
       const tag = decodeCanonical(parts[2]!);
       const ciphertext = decodeCanonical(parts[3]!);
       if (iv.length !== 12 || tag.length !== 16 || ciphertext.length === 0) throw new Error();
-      const decipher = createDecipheriv(
-        'aes-256-gcm',
-        this.key,
-        iv,
-      );
+      const decipher = createDecipheriv('aes-256-gcm', this.key, iv);
       decipher.setAAD(Buffer.from('crm-cursor:v1'));
       decipher.setAuthTag(tag);
       const payload = JSON.parse(
-        Buffer.concat([
-          decipher.update(ciphertext),
-          decipher.final(),
-        ]).toString('utf8'),
+        Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8'),
       ) as Record<string, unknown>;
       if (
         payload.v !== 1 ||

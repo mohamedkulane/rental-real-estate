@@ -60,7 +60,10 @@ export class CreateVendorDto {
   @IsString() @Length(2, 240) displayName!: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
   @IsArray() @ArrayMinSize(1) @IsUUID('all', { each: true }) branchIds!: string[];
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => CreateVendorServiceDto)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateVendorServiceDto)
   services?: CreateVendorServiceDto[];
 }
 
@@ -68,7 +71,10 @@ export class UpdateVendorDto {
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
   @IsOptional() @IsBoolean() active?: boolean;
   @IsOptional() @IsArray() @IsUUID('all', { each: true }) branchIds?: string[];
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => CreateVendorServiceDto)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateVendorServiceDto)
   services?: CreateVendorServiceDto[];
 }
 
@@ -142,14 +148,21 @@ export class CreateInspectionDto {
   @IsOptional() @IsUUID() inspectorEmployeeId?: string;
   @IsDateString() scheduledAt!: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => CreateInspectionItemDto)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInspectionItemDto)
   items?: CreateInspectionItemDto[];
 }
 
 export class InspectionTransitionDto {
   @IsEnum(InspectionStatus) status!: InspectionStatus;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
-  @IsOptional() @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => CreateInspectionItemDto)
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateInspectionItemDto)
   items?: CreateInspectionItemDto[];
 }
 

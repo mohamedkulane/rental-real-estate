@@ -20,10 +20,7 @@ import type { AuthenticatedPrincipal } from '../security/security.types';
 
 export type RentalMarketStatus = 'AVAILABLE' | 'RENTED' | 'UNAVAILABLE';
 export type RentalOccupancyState =
-  | 'VACANT'
-  | 'PARTIALLY_OCCUPIED'
-  | 'FULLY_OCCUPIED'
-  | 'UNAVAILABLE';
+  'VACANT' | 'PARTIALLY_OCCUPIED' | 'FULLY_OCCUPIED' | 'UNAVAILABLE';
 
 @Injectable()
 export class RentalPresentationService {
@@ -258,7 +255,9 @@ export class RentalPresentationService {
             },
             rentalListings: {
               where: {
-                status: { in: [ListingStatus.DRAFT, ListingStatus.PUBLISHED, ListingStatus.PAUSED] },
+                status: {
+                  in: [ListingStatus.DRAFT, ListingStatus.PUBLISHED, ListingStatus.PAUSED],
+                },
               },
               orderBy: { createdAt: 'desc' },
               select: { askingRent: true, currency: true },
@@ -314,8 +313,7 @@ export class RentalPresentationService {
           !hasStateInHierarchy(
             space.id,
             (candidate) => candidate.leases.length > 0 || candidate.leasePossessions.length > 0,
-          ) &&
-          hasStateInHierarchy(space.id, (candidate) => candidate.reservations.length > 0),
+          ) && hasStateInHierarchy(space.id, (candidate) => candidate.reservations.length > 0),
       ).length;
       const totalUnits = inventory.length;
       const availableUnits = Math.max(0, totalUnits - occupiedUnits - unavailableUnits);
@@ -330,7 +328,11 @@ export class RentalPresentationService {
                 ? 'VACANT'
                 : 'UNAVAILABLE';
       const rentalStatus: RentalMarketStatus =
-        availableUnits > 0 ? 'AVAILABLE' : occupiedUnits === totalUnits && totalUnits > 0 ? 'RENTED' : 'UNAVAILABLE';
+        availableUnits > 0
+          ? 'AVAILABLE'
+          : occupiedUnits === totalUnits && totalUnits > 0
+            ? 'RENTED'
+            : 'UNAVAILABLE';
       const pricedSpace = inventory.find(
         (space) => space.rentalListings[0]?.askingRent || space.versions[0]?.attributes,
       );
@@ -370,7 +372,7 @@ export class RentalPresentationService {
       items,
       pageInfo: {
         hasNextPage: rows.length > limit,
-        nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
+        nextCursor: rows.length > limit ? (page[page.length - 1]?.id ?? null) : null,
       },
     };
   }
@@ -446,7 +448,7 @@ export class RentalPresentationService {
       }),
       pageInfo: {
         hasNextPage: rows.length > limit,
-        nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
+        nextCursor: rows.length > limit ? (page[page.length - 1]?.id ?? null) : null,
       },
     };
   }
@@ -493,13 +495,27 @@ export class RentalPresentationService {
       take: limit + 1,
       include: {
         serviceEngagements: {
-          where: { status: ServiceEngagementStatus.ACTIVE, effectiveFrom: { lte: at }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }] },
+          where: {
+            status: ServiceEngagementStatus.ACTIVE,
+            effectiveFrom: { lte: at },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
+          },
           select: { id: true, serviceModel: true, status: true },
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
-        ownerships: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1, select: { owner: { select: { displayName: true } } } },
-        branchAssignments: { where: { effectiveTo: null }, orderBy: { effectiveFrom: 'desc' }, take: 1, select: { branchId: true } },
+        ownerships: {
+          where: { effectiveTo: null },
+          orderBy: { effectiveFrom: 'desc' },
+          take: 1,
+          select: { owner: { select: { displayName: true } } },
+        },
+        branchAssignments: {
+          where: { effectiveTo: null },
+          orderBy: { effectiveFrom: 'desc' },
+          take: 1,
+          select: { branchId: true },
+        },
       },
     });
     const items = rows.slice(0, limit).map((row) => ({
@@ -515,7 +531,13 @@ export class RentalPresentationService {
       branchId: row.branchAssignments[0]?.branchId ?? null,
       status: row.status,
     }));
-    return { items, pageInfo: { hasNextPage: rows.length > limit, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null } };
+    return {
+      items,
+      pageInfo: {
+        hasNextPage: rows.length > limit,
+        nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null,
+      },
+    };
   }
 
   async listBuyers(
@@ -587,7 +609,7 @@ export class RentalPresentationService {
       }),
       pageInfo: {
         hasNextPage: rows.length > limit,
-        nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
+        nextCursor: rows.length > limit ? (page[page.length - 1]?.id ?? null) : null,
       },
     };
   }

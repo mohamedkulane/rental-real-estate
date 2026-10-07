@@ -1,10 +1,19 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { PermissionGuard } from '../security/permission.guard';
 import { RequirePermissions } from '../security/security.decorators';
 import { SessionAuthGuard } from '../security/session-auth.guard';
 import type { AuthenticatedRequest } from '../security/security.types';
 import {
-  AttachDevelopmentConstructionDto,
   ConvertDevelopmentPlotDto,
   CreateDevelopmentBlockDto,
   CreateDevelopmentPlotDto,
@@ -14,7 +23,7 @@ import {
   DevelopmentProjectTransitionDto,
   RecordDevelopmentCostDto,
   UpsertDevelopmentBudgetLineDto,
-} from './construction.dto';
+} from './development.dto';
 import { DevelopmentService } from './development.service';
 
 @UseGuards(SessionAuthGuard, PermissionGuard)
@@ -90,14 +99,12 @@ export class DevelopmentController {
     return this.development.recordCost(req.principal, input, req.correlationId);
   }
 
-  @Post('construction')
-  @RequirePermissions('construction.manage')
-  attach(@Req() req: AuthenticatedRequest, @Body() input: AttachDevelopmentConstructionDto) {
-    return this.development.attachConstruction(req.principal, input, req.correlationId);
-  }
-
   @Post('convert-plot')
-  @RequirePermissions('development.manage', 'portfolio.property.create', 'service-engagement.create')
+  @RequirePermissions(
+    'development.manage',
+    'portfolio.property.create',
+    'service-engagement.create',
+  )
   convert(@Req() req: AuthenticatedRequest, @Body() input: ConvertDevelopmentPlotDto) {
     return this.development.convertPlot(req.principal, input, req.correlationId);
   }

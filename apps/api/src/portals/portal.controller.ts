@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../security/session-auth.guard';
 import type { AuthenticatedRequest } from '../security/security.types';
 import { PortalMaintenanceRequestDto } from './portal.dto';
@@ -85,7 +77,10 @@ export class PortalTenantController {
   }
 
   @Post('maintenance')
-  createMaintenance(@Req() request: AuthenticatedRequest, @Body() body: PortalMaintenanceRequestDto) {
+  createMaintenance(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: PortalMaintenanceRequestDto,
+  ) {
     return this.tenantPortal.createMaintenance(request.principal, body);
   }
 

@@ -15,12 +15,8 @@ describe('Prisma operational schema boundary', () => {
     expect(schema).toContain('model BrokerageDeal');
     expect(schema).toContain('model SaleOffer');
     expect(schema).toContain('model SaleSettlement');
-    expect(schema).toContain('model ConstructionProject');
-    expect(schema).toContain('model ConstructionContract');
     expect(schema).toContain('model DevelopmentProject');
-    expect(schema).not.toMatch(
-      /model\s+(Listing|Matching|SaleDeal|ConstructionAgreement)\s*\{/,
-    );
+    expect(schema).not.toMatch(/model\s+(Listing|Matching|SaleDeal)\s*\{/);
     expect(schema).not.toMatch(/model\s+Unit\s*\{/);
     expect(schema).not.toMatch(/\bFloat\b/);
   });

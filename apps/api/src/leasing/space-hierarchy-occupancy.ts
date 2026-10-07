@@ -4,7 +4,9 @@ import { LeaseStatus, Prisma, ReservationStatus } from '@prisma/client';
 type DbClient = {
   $queryRaw: <T = unknown>(query: Prisma.Sql) => Promise<T>;
   lease: {
-    findFirst: (args: Prisma.LeaseFindFirstArgs) => Promise<{ id: string; leaseNumber: string } | null>;
+    findFirst: (
+      args: Prisma.LeaseFindFirstArgs,
+    ) => Promise<{ id: string; leaseNumber: string } | null>;
   };
   reservation: {
     findFirst: (

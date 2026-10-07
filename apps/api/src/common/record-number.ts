@@ -1,14 +1,38 @@
 import { Prisma } from '@prisma/client';
 
 export type RecordNumberKind =
-  | 'BRANCH' | 'EMPLOYEE' | 'PARTY' | 'OWNER' | 'PROPERTY' | 'BUILDING' | 'SPACE'
-  | 'ENGAGEMENT' | 'RENTAL_LISTING' | 'SALE_LISTING' | 'APPLICATION'
-  | 'RESERVATION' | 'TENANT' | 'LEASE'
-  | 'CHARGE' | 'INVOICE' | 'PAYMENT' | 'RECEIPT' | 'EXPENSE' | 'PAYOUT'
-  | 'STATEMENT' | 'JOURNAL' | 'BROKERAGE_DEAL' | 'SALE_OFFER' | 'SALE_SETTLEMENT'
-  | 'RENTAL_AGREEMENT' | 'SALE_AGREEMENT'
-  | 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'INSPECTION' | 'DEFECT'
-  | 'CONSTRUCTION_PROJECT' | 'CONSTRUCTION_CONTRACT' | 'DEVELOPMENT_PROJECT';
+  | 'BRANCH'
+  | 'EMPLOYEE'
+  | 'PARTY'
+  | 'OWNER'
+  | 'PROPERTY'
+  | 'BUILDING'
+  | 'SPACE'
+  | 'ENGAGEMENT'
+  | 'RENTAL_LISTING'
+  | 'SALE_LISTING'
+  | 'APPLICATION'
+  | 'RESERVATION'
+  | 'TENANT'
+  | 'LEASE'
+  | 'CHARGE'
+  | 'INVOICE'
+  | 'PAYMENT'
+  | 'RECEIPT'
+  | 'EXPENSE'
+  | 'PAYOUT'
+  | 'STATEMENT'
+  | 'JOURNAL'
+  | 'BROKERAGE_DEAL'
+  | 'SALE_OFFER'
+  | 'SALE_SETTLEMENT'
+  | 'RENTAL_AGREEMENT'
+  | 'SALE_AGREEMENT'
+  | 'MAINTENANCE_REQUEST'
+  | 'WORK_ORDER'
+  | 'INSPECTION'
+  | 'DEFECT'
+  | 'DEVELOPMENT_PROJECT';
 
 const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; width: number }> = {
   BRANCH: { prefix: 'BR', sequence: 'public.branch_record_number_seq', width: 3 },
@@ -40,15 +64,25 @@ const definitions: Record<RecordNumberKind, { prefix: string; sequence: string; 
   BROKERAGE_DEAL: { prefix: 'BD', sequence: 'public.brokerage_deal_record_number_seq', width: 6 },
   SALE_OFFER: { prefix: 'SO', sequence: 'public.sale_offer_record_number_seq', width: 6 },
   SALE_SETTLEMENT: { prefix: 'SS', sequence: 'public.sale_settlement_record_number_seq', width: 6 },
-  RENTAL_AGREEMENT: { prefix: 'RA', sequence: 'public.rental_agreement_record_number_seq', width: 6 },
+  RENTAL_AGREEMENT: {
+    prefix: 'RA',
+    sequence: 'public.rental_agreement_record_number_seq',
+    width: 6,
+  },
   SALE_AGREEMENT: { prefix: 'SA', sequence: 'public.sale_agreement_record_number_seq', width: 6 },
-  MAINTENANCE_REQUEST: { prefix: 'MR', sequence: 'public.maintenance_request_record_number_seq', width: 6 },
+  MAINTENANCE_REQUEST: {
+    prefix: 'MR',
+    sequence: 'public.maintenance_request_record_number_seq',
+    width: 6,
+  },
   WORK_ORDER: { prefix: 'WO', sequence: 'public.work_order_record_number_seq', width: 6 },
   INSPECTION: { prefix: 'INSP', sequence: 'public.inspection_record_number_seq', width: 6 },
   DEFECT: { prefix: 'DEF', sequence: 'public.defect_issue_record_number_seq', width: 6 },
-  CONSTRUCTION_PROJECT: { prefix: 'CP', sequence: 'public.construction_project_record_number_seq', width: 6 },
-  CONSTRUCTION_CONTRACT: { prefix: 'CC', sequence: 'public.construction_contract_record_number_seq', width: 6 },
-  DEVELOPMENT_PROJECT: { prefix: 'DP', sequence: 'public.development_project_record_number_seq', width: 6 },
+  DEVELOPMENT_PROJECT: {
+    prefix: 'DP',
+    sequence: 'public.development_project_record_number_seq',
+    width: 6,
+  },
 };
 
 export async function nextRecordNumber(

@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import {
   AreaUnit,
-  ConstructionEconomicModel,
   DevelopmentPlotStatus,
   DevelopmentProjectStatus,
   ExpenseResponsibility,
@@ -26,10 +25,8 @@ import { replayIdempotentRecord } from '../finance/finance.policy';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import { assertSaleablePlotHasProperty } from './construction.policy';
-import { ConstructionService } from './construction.service';
+import { assertSaleablePlotHasProperty } from './development.policy';
 import type {
-  AttachDevelopmentConstructionDto,
   ConvertDevelopmentPlotDto,
   CreateDevelopmentBlockDto,
   CreateDevelopmentPlotDto,
@@ -39,14 +36,25 @@ import type {
   DevelopmentProjectTransitionDto,
   RecordDevelopmentCostDto,
   UpsertDevelopmentBudgetLineDto,
-} from './construction.dto';
+} from './development.dto';
 
 const isoDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
 
-const developmentTransitions: Record<DevelopmentProjectStatus, readonly DevelopmentProjectStatus[]> = {
+const developmentTransitions: Record<
+  DevelopmentProjectStatus,
+  readonly DevelopmentProjectStatus[]
+> = {
   PLANNING: [DevelopmentProjectStatus.APPROVED, DevelopmentProjectStatus.CANCELLED],
-  APPROVED: [DevelopmentProjectStatus.ACTIVE, DevelopmentProjectStatus.ON_HOLD, DevelopmentProjectStatus.CANCELLED],
-  ACTIVE: [DevelopmentProjectStatus.ON_HOLD, DevelopmentProjectStatus.COMPLETED, DevelopmentProjectStatus.CANCELLED],
+  APPROVED: [
+    DevelopmentProjectStatus.ACTIVE,
+    DevelopmentProjectStatus.ON_HOLD,
+    DevelopmentProjectStatus.CANCELLED,
+  ],
+  ACTIVE: [
+    DevelopmentProjectStatus.ON_HOLD,
+    DevelopmentProjectStatus.COMPLETED,
+    DevelopmentProjectStatus.CANCELLED,
+  ],
   ON_HOLD: [DevelopmentProjectStatus.ACTIVE, DevelopmentProjectStatus.CANCELLED],
   COMPLETED: [],
   CANCELLED: [],
@@ -58,7 +66,6 @@ export class DevelopmentService {
     private readonly db: DatabaseService,
     private readonly auth: AuthorizationService,
     private readonly audit: AuditService,
-    private readonly construction: ConstructionService,
   ) {}
 
   private branches(principal: AuthenticatedPrincipal, permission: string, branchId?: string) {
@@ -74,28 +81,21 @@ export class DevelopmentService {
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
     };
     const [activeDevelopments, plots, completedAssets, saleReady, costs, area] = await Promise.all([
-      this.db.developmentProject.count({ where: { ...scope, status: DevelopmentProjectStatus.ACTIVE } }),
+      this.db.developmentProject.count({
+        where: { ...scope, status: DevelopmentProjectStatus.ACTIVE },
+      }),
       this.db.developmentPlot.count({ where: { project: scope } }),
       this.db.developmentOutputAsset.count({ where: { project: scope } }),
       this.db.developmentOutputAsset.count({ where: { project: scope, saleReady: true } }),
       this.db.developmentCost.aggregate({ where: { project: scope }, _sum: { amount: true } }),
       this.db.developmentProject.aggregate({ where: scope, _sum: { totalArea: true } }),
     ]);
-    const construction = await this.db.constructionProject.aggregate({
-      where: {
-        companyId: principal.companyId,
-        economicModel: ConstructionEconomicModel.COMPANY_DEVELOPMENT,
-        ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
-      },
-      _avg: { actualPercent: true },
-    });
     return {
       widgets: {
         activeDevelopments,
         totalPlannedArea: area._sum.totalArea?.toString() ?? '0',
         plots,
         completedAssets,
-        constructionProgress: Number(construction._avg.actualPercent ?? 0),
         totalDevelopmentCost: costs._sum.amount?.toString() ?? '0',
         saleReadyAssets: saleReady,
       },
@@ -131,7 +131,6 @@ export class DevelopmentService {
       where: { id, companyId: principal.companyId },
       include: {
         sourceProperty: { select: { id: true, name: true, propertyCode: true, city: true } },
-        constructionProject: true,
         blocks: { include: { plots: true } },
         plots: true,
         budgetLines: true,
@@ -199,7 +198,9 @@ export class DevelopmentService {
     if (!current) throw new NotFoundException('Development project not found.');
     this.auth.assertBranchPermission(principal, 'development.manage', current.branchId);
     if (!developmentTransitions[current.status].includes(input.status)) {
-      throw new ConflictException(`Development cannot transition from ${current.status} to ${input.status}.`);
+      throw new ConflictException(
+        `Development cannot transition from ${current.status} to ${input.status}.`,
+      );
     }
     const row = await this.db.developmentProject.update({
       where: { id },
@@ -271,7 +272,10 @@ export class DevelopmentService {
     if (!plot) throw new NotFoundException('Development plot not found.');
     this.auth.assertBranchPermission(principal, 'development.manage', plot.project.branchId);
     assertSaleablePlotHasProperty(input.status, Boolean(plot.outputAsset));
-    return this.db.developmentPlot.update({ where: { id: plotId }, data: { status: input.status } });
+    return this.db.developmentPlot.update({
+      where: { id: plotId },
+      data: { status: input.status },
+    });
   }
 
   async upsertBudgetLine(principal: AuthenticatedPrincipal, input: UpsertDevelopmentBudgetLineDto) {
@@ -357,29 +361,6 @@ export class DevelopmentService {
     });
   }
 
-  async attachConstruction(
-    principal: AuthenticatedPrincipal,
-    input: AttachDevelopmentConstructionDto,
-    correlationId?: string,
-  ) {
-    const project = await this.getProject(principal, input.developmentProjectId);
-    this.auth.assertBranchPermission(principal, 'construction.manage', project.branchId);
-    if (project.constructionProject) {
-      throw new ConflictException('This development already has a linked construction project.');
-    }
-    return this.construction.createProject(
-      principal,
-      {
-        branchId: project.branchId,
-        name: input.name,
-        economicModel: ConstructionEconomicModel.COMPANY_DEVELOPMENT,
-        propertyId: project.sourcePropertyId,
-        developmentProjectId: project.id,
-      },
-      correlationId,
-    );
-  }
-
   async convertPlot(
     principal: AuthenticatedPrincipal,
     input: ConvertDevelopmentPlotDto,
@@ -396,12 +377,14 @@ export class DevelopmentService {
     if (input.createSaleListing) {
       this.auth.assertBranchPermission(principal, 'listing.create', plot.project.branchId);
     }
-    if (plot.outputAsset) throw new ConflictException('This plot already has a canonical Property.');
+    if (plot.outputAsset)
+      throw new ConflictException('This plot already has a canonical Property.');
     const company = await this.db.company.findFirstOrThrow({
       where: { id: principal.companyId },
       select: { legalPartyId: true },
     });
-    if (!company.legalPartyId) throw new ConflictException('Company legal party is required for development ownership.');
+    if (!company.legalPartyId)
+      throw new ConflictException('Company legal party is required for development ownership.');
     const effectiveFrom = new Date(`${principal.businessDate}T00:00:00.000Z`);
     return this.db.$transaction(async (tx) => {
       const property = await tx.property.create({
@@ -415,7 +398,7 @@ export class DevelopmentService {
           city: input.city?.trim() || plot.project.sourceProperty.city || 'Unknown',
           plotArea: plot.plannedArea,
           plotAreaUnit: plot.plannedArea
-            ? plot.project.sourceProperty.plotAreaUnit ?? AreaUnit.SQM
+            ? (plot.project.sourceProperty.plotAreaUnit ?? AreaUnit.SQM)
             : null,
           propertyLifecycleHistories: {
             create: {

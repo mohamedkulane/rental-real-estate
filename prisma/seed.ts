@@ -367,8 +367,6 @@ const permissions = [
   ['report.read', 'Read reporting workspaces and exports'],
   ['dashboard.read', 'Read aggregated dashboard read models'],
   ['search.read', 'Use authorized global search'],
-  ['construction.read', 'Read client construction projects'],
-  ['construction.manage', 'Create and progress client construction projects'],
   ['development.read', 'Read company development projects'],
   ['development.manage', 'Create and progress company development projects'],
 ] as const;
@@ -531,8 +529,6 @@ const rolePermissions: Record<string, readonly string[]> = {
     'workflow.draft.complete',
     ...phase5OperationsPermissions,
     ...phase8OperationsPermissions,
-    'construction.read',
-    'construction.manage',
     'development.read',
     'development.manage',
     'report.read',
@@ -839,7 +835,6 @@ async function seed(): Promise<void> {
     ['OWNER_COMMISSION', 'Owner brokerage commission'],
     ['TENANT_COMMISSION', 'Tenant brokerage commission'],
     ['OTHER', 'Other'],
-    ['CONSTRUCTION', 'Construction contract billing'],
   ] as const;
   for (const [code, name] of chargeTypes) {
     await database.chargeType.upsert({

@@ -5,23 +5,12 @@
 BEGIN;
 
 TRUNCATE TABLE
-  construction_work_package_dependencies,
-  construction_progress_entries,
-  construction_billing_events,
-  construction_costs,
-  construction_work_packages,
-  construction_milestones,
-  construction_budget_lines,
-  construction_payment_terms,
-  construction_contracts,
-  construction_projects,
   development_output_assets,
   development_costs,
   development_budget_lines,
   development_plots,
   development_blocks,
   development_projects,
-  construction_service_lead_preferences,
   rent_lead_preferences,
   buy_lead_preferences,
   sell_lead_preferences,

@@ -41,9 +41,7 @@ export class BrokerageDealService {
       companyId: principal.companyId,
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.search
-        ? { dealNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { dealNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.brokerageDeal.findMany({
@@ -100,7 +98,11 @@ export class BrokerageDealService {
     };
   }
 
-  async create(principal: AuthenticatedPrincipal, input: CreateBrokerageDealDto, correlationId?: string) {
+  async create(
+    principal: AuthenticatedPrincipal,
+    input: CreateBrokerageDealDto,
+    correlationId?: string,
+  ) {
     const space = await this.db.rentableSpace.findFirst({
       where: { id: input.rentableSpaceId, property: { companyId: principal.companyId } },
       select: { id: true, propertyId: true },
@@ -142,7 +144,9 @@ export class BrokerageDealService {
             status: BrokerageDealStatus.DRAFT,
             rentBasis: input.rentBasis ? new Prisma.Decimal(input.rentBasis) : null,
             grossCommission: new Prisma.Decimal(input.grossCommission),
-            agentCommission: input.agentCommission ? new Prisma.Decimal(input.agentCommission) : null,
+            agentCommission: input.agentCommission
+              ? new Prisma.Decimal(input.agentCommission)
+              : null,
             currency: input.currency.toUpperCase(),
             idempotencyKey: input.idempotencyKey ?? null,
           },
@@ -159,7 +163,11 @@ export class BrokerageDealService {
         return deal;
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && input.idempotencyKey) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        input.idempotencyKey
+      ) {
         const existing = replayIdempotentRecord(
           await this.db.brokerageDeal.findUnique({
             where: { idempotencyKey: input.idempotencyKey },
@@ -260,7 +268,9 @@ export class BrokerageDealService {
       LeaseStatus.PENDING_SIGNATURE,
     ];
     if (!linkableStatuses.includes(lease.status)) {
-      throw new ConflictException('Lease must be signed or active before linking to a brokerage deal.');
+      throw new ConflictException(
+        'Lease must be signed or active before linking to a brokerage deal.',
+      );
     }
 
     return this.db.$transaction(async (tx) => {
@@ -288,7 +298,9 @@ export class BrokerageDealService {
       where: { id: dealId, companyId: principal.companyId },
       include: {
         lease: { include: { moveIn: true } },
-        rentableSpace: { include: { property: { select: { id: true, propertyCode: true, name: true } } } },
+        rentableSpace: {
+          include: { property: { select: { id: true, propertyCode: true, name: true } } },
+        },
         rentalAgreement: {
           include: {
             owner: { select: { id: true, displayName: true } },

@@ -8,7 +8,6 @@ import {
   ApplicationStatus,
   AreaUnit,
   CommissionMethod,
-  ConstructionEconomicModel,
   LeadIntent,
   LeasePartyRole,
   ListingStatus,
@@ -26,7 +25,6 @@ import {
 } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { BusinessDateService } from '../common/business-date.service';
-import { nextRecordNumber } from '../common/record-number';
 import { CrmContactService } from '../crm/crm-contact.service';
 import { ServiceEngagementService } from '../commercial/service-engagement.service';
 import { ListingService } from '../leasing/listing.service';
@@ -258,15 +256,6 @@ export class RentalOrchestrationService {
       .slice(0, 10);
     const hasMultipleUnits = input.hasMultipleUnits === 'true';
     const units = input.units ?? [];
-    const isConstruction = input.serviceIntent === PropertyServiceIntent.CONSTRUCTION;
-    if (isConstruction) {
-      this.auth.assertBranchPermission(principal, 'construction.manage', branchId);
-      if (units.length || hasMultipleUnits) {
-        throw new BadRequestException(
-          'Construction onboarding creates a project site, not rental units. Add units after the project is completed.',
-        );
-      }
-    }
     if (hasMultipleUnits && units.length < 2) {
       throw new BadRequestException(
         'Add at least two units when the property has multiple rentals.',
@@ -329,65 +318,6 @@ export class RentalOrchestrationService {
         correlationId,
       );
       buildingId = building.id;
-    }
-
-    if (isConstruction) {
-      await this.db.property.update({
-        where: { id: property.id },
-        data: { serviceIntent: PropertyServiceIntent.CONSTRUCTION },
-      });
-      const activated = await this.portfolio.transitionProperty(
-        principal,
-        property.id,
-        PropertyStatus.ACTIVE,
-        { reason: 'Construction site ready for project setup' },
-        correlationId,
-      );
-      const constructionProject = await this.db.$transaction(async (tx) => {
-        const project = await tx.constructionProject.create({
-          data: {
-            id: uuidv7(),
-            companyId: principal.companyId,
-            branchId,
-            projectNumber: await nextRecordNumber(tx, 'CONSTRUCTION_PROJECT'),
-            name: input.name.trim(),
-            economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
-            clientPartyId: input.ownerPartyId,
-            propertyId: property.id,
-            scope: input.description?.trim() || null,
-            currency: (input.currency ?? 'USD').toUpperCase(),
-          },
-        });
-        await this.audit.write(tx, {
-          actorUserId: principal.userId,
-          action: 'construction.project.created_from_property_onboarding',
-          entityType: 'ConstructionProject',
-          entityId: project.id,
-          branchId,
-          correlationId,
-          after: {
-            projectNumber: project.projectNumber,
-            propertyId: property.id,
-            clientPartyId: input.ownerPartyId,
-            economicModel: project.economicModel,
-          },
-        });
-        return project;
-      });
-
-      return {
-        propertyId: activated.id,
-        propertyCode: activated.propertyCode,
-        name: activated.name,
-        status: 'Active',
-        rentalStatus: 'UNAVAILABLE' as const,
-        branchId,
-        buildingId: buildingId ?? null,
-        spaces: [],
-        serviceIntent: PropertyServiceIntent.CONSTRUCTION,
-        serviceEngagementId: null,
-        constructionProjectId: constructionProject.id,
-      };
     }
 
     type CreatedSpace = {
@@ -613,7 +543,6 @@ export class RentalOrchestrationService {
           : {}),
       },
     });
-    if (serviceIntent === PropertyServiceIntent.CONSTRUCTION) return null;
     const effectiveFrom =
       input.input.effectiveFrom ??
       (await this.businessDate.today(principal.companyId)).toISOString().slice(0, 10);
@@ -969,7 +898,6 @@ export class RentalOrchestrationService {
         ? PropertyServiceIntent.SALE
         : PropertyServiceIntent.RENTAL_BROKERAGE);
     const isSale = serviceIntent === PropertyServiceIntent.SALE;
-    const isConstruction = serviceIntent === PropertyServiceIntent.CONSTRUCTION;
     const hasMultipleUnits = input.hasMultipleUnits === 'true';
     const monthlyRent = isSale
       ? (input.askingPrice ?? input.monthlyRent ?? '0')
@@ -978,11 +906,11 @@ export class RentalOrchestrationService {
       if (!monthlyRent || monthlyRent === '0') {
         throw new BadRequestException('Asking price is required.');
       }
-    } else if (!isConstruction && (hasMultipleUnits || (input.units?.length ?? 0) > 0)) {
+    } else if (hasMultipleUnits || (input.units?.length ?? 0) > 0) {
       if (!input.units?.length) {
         throw new BadRequestException('Add at least one rental unit.');
       }
-    } else if (!isConstruction && (!monthlyRent || monthlyRent === '0')) {
+    } else if (!monthlyRent || monthlyRent === '0') {
       throw new BadRequestException('Monthly rent is required.');
     }
     const property = await this.addProperty(

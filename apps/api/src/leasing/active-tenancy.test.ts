@@ -18,7 +18,11 @@ describe('active residential tenancy invariant', () => {
   };
 
   it('blocks a second active residential lease for the same tenant', async () => {
-    const db = database([[{ residential: true }], [{ lock: null }], [{ leaseNumber: 'LEASE-0001' }]]);
+    const db = database([
+      [{ residential: true }],
+      [{ lock: null }],
+      [{ leaseNumber: 'LEASE-0001' }],
+    ]);
 
     await expect(assertActiveResidentialTenancyAvailable(db, input)).rejects.toEqual(
       new ConflictException(ACTIVE_RESIDENTIAL_TENANCY_MESSAGE),

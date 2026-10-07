@@ -217,21 +217,13 @@ export class OwnerPayoutService {
     assertLifecycleTransition(current.status, input.status, payoutTransitions);
 
     if (current.status === PayoutStatus.DRAFT && input.status === PayoutStatus.REVIEW) {
-      this.auth.assertBranchPermission(
-        principal,
-        'governance.approval.request',
-        current.branchId,
-      );
+      this.auth.assertBranchPermission(principal, 'governance.approval.request', current.branchId);
     }
     if (
       current.status === PayoutStatus.REVIEW &&
-      [PayoutStatus.APPROVED, PayoutStatus.REJECTED].includes(input.status)
+      (input.status === PayoutStatus.APPROVED || input.status === PayoutStatus.REJECTED)
     ) {
-      this.auth.assertBranchPermission(
-        principal,
-        'governance.approval.decide',
-        current.branchId,
-      );
+      this.auth.assertBranchPermission(principal, 'governance.approval.decide', current.branchId);
     }
 
     return this.db.$transaction(async (tx) => {
@@ -330,7 +322,7 @@ export class OwnerPayoutService {
 
       if (
         locked.status === PayoutStatus.REVIEW &&
-        [PayoutStatus.APPROVED, PayoutStatus.REJECTED].includes(input.status)
+        (input.status === PayoutStatus.APPROVED || input.status === PayoutStatus.REJECTED)
       ) {
         if (!locked.approvalRequestId) {
           throw new ConflictException('Owner payout review is missing its approval request.');
@@ -353,16 +345,14 @@ export class OwnerPayoutService {
         if (!step) throw new ConflictException('Owner payout has no pending approval step.');
         const rule = approval.policy.rules.find(
           (candidate) =>
-            candidate.actionType === approval.actionType &&
-            candidate.sequence === step.sequence,
+            candidate.actionType === approval.actionType && candidate.sequence === step.sequence,
         );
         if (!rule) throw new ConflictException('Owner payout approval rule is unavailable.');
         if (rule.makerChecker && approval.makerEmployeeId === principal.employeeId) {
           throw new BadRequestException('The payout preparer cannot approve their own payout.');
         }
 
-        const outcome =
-          input.status === PayoutStatus.REJECTED ? 'REJECTED' : 'APPROVED';
+        const outcome = input.status === PayoutStatus.REJECTED ? 'REJECTED' : 'APPROVED';
         const decision = await tx.approvalDecision.create({
           data: {
             id: uuidv7(),

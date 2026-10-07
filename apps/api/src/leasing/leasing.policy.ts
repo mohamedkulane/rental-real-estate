@@ -1,11 +1,9 @@
 import { ConflictException } from '@nestjs/common';
 import { LeasePartyRole } from '@prisma/client';
 
-export const SELF_RENTAL_CONFLICT_MESSAGE =
-  'A property owner cannot rent their own property.';
+export const SELF_RENTAL_CONFLICT_MESSAGE = 'A property owner cannot rent their own property.';
 
-export const LEASE_PARTY_OVERLAP_MESSAGE =
-  'The Tenant and Landlord must be different parties.';
+export const LEASE_PARTY_OVERLAP_MESSAGE = 'The Tenant and Landlord must be different parties.';
 
 type OwnershipLookup = {
   findFirst(args: {

@@ -17,12 +17,10 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength,
   ValidateNested,
 } from 'class-validator';
 import {
   AreaUnit,
-  ConstructionCategory,
   FinancingReadiness,
   FurnishedPreference,
   LeadActivityDirection,
@@ -34,7 +32,6 @@ import {
   LeadSourceStatus,
   LeadStage,
   SellerRelationship,
-  SiteControl,
 } from '@prisma/client';
 
 const arrayInput = ({ value }: { value: unknown }) =>
@@ -124,18 +121,6 @@ export class LeadPreferenceDto {
   @IsOptional() @IsString() @Matches(DECIMAL) askingPrice?: string;
   @IsOptional() @IsDateString({ strict: true }) desiredSaleDate?: string;
   @IsOptional() @IsEnum(SellerRelationship) sellerRelationship?: SellerRelationship;
-  @IsOptional() @IsString() @MinLength(3) @MaxLength(2000) projectBrief?: string;
-  @IsOptional() @IsString() @MaxLength(300) siteLocation?: string;
-  @IsOptional() @IsEnum(ConstructionCategory) category?: ConstructionCategory;
-  @IsOptional() @IsString() @Matches(DECIMAL) estimatedMinBudget?: string;
-  @IsOptional() @IsString() @Matches(DECIMAL) estimatedMaxBudget?: string;
-  @IsOptional() @IsDateString({ strict: true }) targetStartDate?: string;
-  @IsOptional() @IsDateString({ strict: true }) targetCompletionDate?: string;
-  @IsOptional() @IsString() @Matches(DECIMAL) plotArea?: string;
-  @IsOptional() @IsString() @Matches(DECIMAL) floorArea?: string;
-  @IsOptional() @IsInt() @Min(0) @Max(100) bedrooms?: number;
-  @IsOptional() @IsInt() @Min(0) @Max(200) floors?: number;
-  @IsOptional() @IsEnum(SiteControl) siteControl?: SiteControl;
 }
 
 export class CreateLeadDto {

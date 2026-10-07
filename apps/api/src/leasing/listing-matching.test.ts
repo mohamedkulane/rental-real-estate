@@ -14,10 +14,7 @@ describe('rental property type matching', () => {
 
   it('accepts one of the customer preferred types', () => {
     expect(
-      propertyTypeMatchesPreference(PropertyType.VILLA, [
-        PropertyType.HOUSE,
-        PropertyType.VILLA,
-      ]),
+      propertyTypeMatchesPreference(PropertyType.VILLA, [PropertyType.HOUSE, PropertyType.VILLA]),
     ).toBe(true);
   });
 

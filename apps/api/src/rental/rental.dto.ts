@@ -43,7 +43,9 @@ export class RentalUnitInputDto {
   @IsNumberString()
   monthlyRent?: string;
   @IsOptional() @IsIn(['WHOLE', 'BY_ROOMS']) rentMode?: 'WHOLE' | 'BY_ROOMS';
-  @IsOptional() @IsString() @IsIn(['APARTMENT', 'ROOM', 'SHOP', 'OFFICE', 'OTHER', 'ENTIRE_PROPERTY'])
+  @IsOptional()
+  @IsString()
+  @IsIn(['APARTMENT', 'ROOM', 'SHOP', 'OFFICE', 'OTHER', 'ENTIRE_PROPERTY'])
   typeCode?: 'APARTMENT' | 'ROOM' | 'SHOP' | 'OFFICE' | 'OTHER' | 'ENTIRE_PROPERTY';
   @IsOptional() @IsNumberString() bedrooms?: string;
   @IsOptional() @IsNumberString() bathrooms?: string;
@@ -80,10 +82,14 @@ export class AddRentalPropertyDto {
   @IsNumberString() monthlyRent!: string;
   @IsOptional() @IsEnum(PropertyServiceIntent) serviceIntent?: PropertyServiceIntent;
   @IsOptional() @IsNumberString() askingPrice?: string;
-  @ValidateIf((dto: AddRentalPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @ValidateIf(
+    (dto: AddRentalPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT,
+  )
   @IsNumberString()
   managementFeePercent?: string;
-  @ValidateIf((dto: AddRentalPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @ValidateIf(
+    (dto: AddRentalPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT,
+  )
   @IsDateString({ strict: true })
   effectiveFrom?: string;
   @IsOptional() @IsUUID() branchId?: string;
@@ -116,9 +122,7 @@ export class AddOwnerAndPropertyDto {
   @IsString() @Length(2, 100) location!: string;
   @ValidateIf(
     (dto: AddOwnerAndPropertyDto) =>
-      (dto.serviceIntent ?? (dto.purpose === 'SALE' ? 'SALE' : 'RENTAL_BROKERAGE')) !== 'SALE' &&
-      (dto.serviceIntent ?? (dto.purpose === 'SALE' ? 'SALE' : 'RENTAL_BROKERAGE')) !==
-        'CONSTRUCTION',
+      (dto.serviceIntent ?? (dto.purpose === 'SALE' ? 'SALE' : 'RENTAL_BROKERAGE')) !== 'SALE',
   )
   @IsNumberString()
   monthlyRent?: string;
@@ -130,10 +134,14 @@ export class AddOwnerAndPropertyDto {
   askingPrice?: string;
   @IsOptional() @IsEnum(PropertyServiceIntent) serviceIntent?: PropertyServiceIntent;
   @IsOptional() @IsIn(['RENTAL', 'SALE']) purpose?: 'RENTAL' | 'SALE';
-  @ValidateIf((dto: AddOwnerAndPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @ValidateIf(
+    (dto: AddOwnerAndPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT,
+  )
   @IsNumberString()
   managementFeePercent?: string;
-  @ValidateIf((dto: AddOwnerAndPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT)
+  @ValidateIf(
+    (dto: AddOwnerAndPropertyDto) => dto.serviceIntent === PropertyServiceIntent.FULL_MANAGEMENT,
+  )
   @IsDateString({ strict: true })
   effectiveFrom?: string;
   @IsOptional() @IsUUID() branchId?: string;
@@ -244,8 +252,12 @@ export class CreateRentalLeaseDto {
   @IsOptional() @IsUUID() agreementId?: string;
   @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsUUID() leadId!: string;
   @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsUUID() propertyId!: string;
-  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsNumberString() monthlyRent!: string;
-  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId) @IsDateString({ strict: true }) leaseStartDate!: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId)
+  @IsNumberString()
+  monthlyRent!: string;
+  @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId)
+  @IsDateString({ strict: true })
+  leaseStartDate!: string;
   @ValidateIf((dto: CreateRentalLeaseDto) => !dto.agreementId && dto.leaseEndDate !== undefined)
   @IsDateString({ strict: true })
   leaseEndDate?: string;
@@ -267,8 +279,14 @@ export class CreateRentalAgreementDto {
   @IsOptional() @IsDateString({ strict: true }) leaseEndDate?: string;
   @IsNumberString() finalRent!: string;
   @IsOptional() @IsNumberString() depositAmount?: string;
-  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) ownerCommission?: CommissionTermsDto;
-  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) tenantCommission?: CommissionTermsDto;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CommissionTermsDto)
+  ownerCommission?: CommissionTermsDto;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CommissionTermsDto)
+  tenantCommission?: CommissionTermsDto;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
@@ -277,8 +295,14 @@ export class CreateSaleAgreementDto {
   @IsUUID() leadId!: string;
   @IsUUID() propertyId!: string;
   @IsNumberString() finalSalePrice!: string;
-  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) sellerCommission?: CommissionTermsDto;
-  @IsOptional() @ValidateNested() @Type(() => CommissionTermsDto) buyerCommission?: CommissionTermsDto;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CommissionTermsDto)
+  sellerCommission?: CommissionTermsDto;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CommissionTermsDto)
+  buyerCommission?: CommissionTermsDto;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 

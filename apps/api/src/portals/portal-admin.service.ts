@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { ConstructionProjectStatus, LeaseStatus, PortalType, Prisma, ServiceModel, UserStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { LeaseStatus, PortalType, Prisma, ServiceModel, UserStatus } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { cursorPage } from '../common/cursor-pagination';
 import { BusinessDateService } from '../common/business-date.service';
@@ -197,27 +193,19 @@ export class PortalAdminService {
       throw new BadRequestException('Portal type TENANT requires a tenant profile for this party.');
 
     if (input.portalType === PortalType.OWNER) {
-      const [management, construction] = await Promise.all([
-        this.database.serviceEngagement.findFirst({
-          where: {
-            companyId: principal.companyId,
-            serviceModel: ServiceModel.FULL_MANAGEMENT,
-            status: 'ACTIVE',
-            property: { ownerships: { some: { ownerPartyId: party.id, effectiveTo: null } } },
-          },
-          select: { id: true },
-        }),
-        this.database.constructionProject.findFirst({
-          where: {
-            companyId: principal.companyId,
-            clientPartyId: party.id,
-            status: { in: [ConstructionProjectStatus.DRAFT, ConstructionProjectStatus.PLANNING, ConstructionProjectStatus.ACTIVE, ConstructionProjectStatus.ON_HOLD] },
-          },
-          select: { id: true },
-        }),
-      ]);
-      if (!management && !construction)
-        throw new BadRequestException('Owner portal access requires active Full Management or Construction work.');
+      const management = await this.database.serviceEngagement.findFirst({
+        where: {
+          companyId: principal.companyId,
+          serviceModel: ServiceModel.FULL_MANAGEMENT,
+          status: 'ACTIVE',
+          property: { ownerships: { some: { ownerPartyId: party.id, effectiveTo: null } } },
+        },
+        select: { id: true },
+      });
+      if (!management)
+        throw new BadRequestException(
+          'Owner portal access requires an active Full Management engagement.',
+        );
     }
 
     if (input.portalType === PortalType.TENANT) {
@@ -231,7 +219,9 @@ export class PortalAdminService {
         select: { id: true },
       });
       if (!managedLease)
-        throw new BadRequestException('Tenant portal access requires an active Full Management lease.');
+        throw new BadRequestException(
+          'Tenant portal access requires an active Full Management lease.',
+        );
     }
 
     await this.assertPortalPermission(principal, party.id, 'portal.account.create');

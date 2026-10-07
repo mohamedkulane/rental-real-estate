@@ -74,7 +74,9 @@ const workOrderInclude = {
   vendor: { include: { party: { select: { displayName: true } } } },
   assignedEmployee: { select: { id: true, employeeNumber: true } },
   events: { orderBy: { occurredAt: 'asc' } },
-  expenses: { select: { id: true, expenseNumber: true, status: true, amount: true, currency: true } },
+  expenses: {
+    select: { id: true, expenseNumber: true, status: true, amount: true, currency: true },
+  },
 } satisfies Prisma.WorkOrderInclude;
 
 const inspectionInclude = {
@@ -113,7 +115,8 @@ export class OperationsService {
     });
     if (!property) throw new NotFoundException('Property not found.');
     const assigned = property.branchAssignments.some((row) => row.branchId === branchId);
-    if (!assigned) throw new BadRequestException('Property is not assigned to the requested branch.');
+    if (!assigned)
+      throw new BadRequestException('Property is not assigned to the requested branch.');
     if (spaceId) {
       const space = await this.db.rentableSpace.findFirst({ where: { id: spaceId, propertyId } });
       if (!space) throw new BadRequestException('Rentable space does not belong to the property.');
@@ -192,7 +195,12 @@ export class OperationsService {
         party: { companyId: principal.companyId },
         ...(query.active === undefined ? {} : { active: query.active }),
         ...(query.search
-          ? { party: { displayName: { contains: query.search, mode: 'insensitive' }, companyId: principal.companyId } }
+          ? {
+              party: {
+                displayName: { contains: query.search, mode: 'insensitive' },
+                companyId: principal.companyId,
+              },
+            }
           : {}),
         ...(branchIds === null
           ? {}
@@ -227,7 +235,11 @@ export class OperationsService {
     return vendor;
   }
 
-  async createVendor(principal: AuthenticatedPrincipal, input: CreateVendorDto, correlationId?: string) {
+  async createVendor(
+    principal: AuthenticatedPrincipal,
+    input: CreateVendorDto,
+    correlationId?: string,
+  ) {
     for (const branchId of input.branchIds) {
       this.auth.assertBranchPermission(principal, 'vendor.manage', branchId);
     }
@@ -303,7 +315,11 @@ export class OperationsService {
         }
         await tx.vendorBranchAvailability.deleteMany({ where: { vendorPartyId: partyId } });
         await tx.vendorBranchAvailability.createMany({
-          data: input.branchIds.map((branchId) => ({ id: uuidv7(), vendorPartyId: partyId, branchId })),
+          data: input.branchIds.map((branchId) => ({
+            id: uuidv7(),
+            vendorPartyId: partyId,
+            branchId,
+          })),
         });
       }
       const vendor = await tx.vendorProfile.update({
@@ -435,7 +451,12 @@ export class OperationsService {
   ) {
     const current = await this.getMaintenance(principal, id);
     this.auth.assertBranchPermission(principal, 'maintenance.manage', current.branchId);
-    assertLifecycleTransition(maintenanceRequestTransitions, current.status, input.status, 'Maintenance request');
+    assertLifecycleTransition(
+      maintenanceRequestTransitions,
+      current.status,
+      input.status,
+      'Maintenance request',
+    );
     return this.db.$transaction(async (tx) => {
       const row = await tx.maintenanceRequest.update({
         where: { id },
@@ -503,7 +524,11 @@ export class OperationsService {
     return row;
   }
 
-  async createWorkOrder(principal: AuthenticatedPrincipal, input: CreateWorkOrderDto, correlationId?: string) {
+  async createWorkOrder(
+    principal: AuthenticatedPrincipal,
+    input: CreateWorkOrderDto,
+    correlationId?: string,
+  ) {
     this.auth.assertBranchPermission(principal, 'work-order.manage', input.branchId);
     let propertyId = input.propertyId;
     let rentableSpaceId = input.rentableSpaceId ?? null;
@@ -515,7 +540,12 @@ export class OperationsService {
       branchId = request.branchId;
       this.auth.assertBranchPermission(principal, 'work-order.manage', branchId);
     }
-    await this.assertPropertyBranch(principal.companyId, propertyId, branchId, rentableSpaceId ?? undefined);
+    await this.assertPropertyBranch(
+      principal.companyId,
+      propertyId,
+      branchId,
+      rentableSpaceId ?? undefined,
+    );
     return this.db.$transaction(async (tx) => {
       const row = await tx.workOrder.create({
         data: {
@@ -609,7 +639,9 @@ export class OperationsService {
       await this.audit.write(tx, {
         actorUserId: principal.userId,
         action:
-          nextStatus === WorkOrderStatus.COMPLETED ? 'work-order.completed' : 'work-order.transitioned',
+          nextStatus === WorkOrderStatus.COMPLETED
+            ? 'work-order.completed'
+            : 'work-order.transitioned',
         entityType: 'WorkOrder',
         entityId: id,
         branchId: current.branchId,
@@ -633,7 +665,9 @@ export class OperationsService {
     }
     const actualCost = workOrder.actualCost;
     if (!actualCost || actualCost.lte(0)) {
-      throw new BadRequestException('Actual cost is required before creating a maintenance expense.');
+      throw new BadRequestException(
+        'Actual cost is required before creating a maintenance expense.',
+      );
     }
     const idempotencyKey = workOrderExpenseIdempotencyKey(workOrder.id);
     const existing = await this.db.expense.findFirst({
@@ -718,7 +752,11 @@ export class OperationsService {
     return row;
   }
 
-  async createInspection(principal: AuthenticatedPrincipal, input: CreateInspectionDto, correlationId?: string) {
+  async createInspection(
+    principal: AuthenticatedPrincipal,
+    input: CreateInspectionDto,
+    correlationId?: string,
+  ) {
     this.auth.assertBranchPermission(principal, 'inspection.manage', input.branchId);
     await this.assertPropertyBranch(
       principal.companyId,
@@ -797,7 +835,8 @@ export class OperationsService {
         data: {
           status: input.status,
           notes: input.notes ?? current.notes,
-          completedAt: input.status === InspectionStatus.COMPLETED ? new Date() : current.completedAt,
+          completedAt:
+            input.status === InspectionStatus.COMPLETED ? new Date() : current.completedAt,
         },
         include: inspectionInclude,
       });
@@ -815,7 +854,11 @@ export class OperationsService {
     });
   }
 
-  async createDefect(principal: AuthenticatedPrincipal, input: CreateDefectDto, correlationId?: string) {
+  async createDefect(
+    principal: AuthenticatedPrincipal,
+    input: CreateDefectDto,
+    correlationId?: string,
+  ) {
     this.auth.assertBranchPermission(principal, 'defect.manage', input.branchId);
     await this.assertPropertyBranch(
       principal.companyId,

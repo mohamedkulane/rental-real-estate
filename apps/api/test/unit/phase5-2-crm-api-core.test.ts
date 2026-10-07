@@ -99,14 +99,6 @@ describe('Phase 5.2 CRM API core', () => {
     };
     expect(() => validatePreference(LeadIntent.RENT, rent)).not.toThrow();
     expect(qualified(LeadIntent.RENT, rent)).toBe(true);
-    expect(
-      qualified(LeadIntent.CONSTRUCTION_SERVICE, {
-        projectBrief: 'House',
-        siteLocation: 'Nairobi',
-        estimatedMaxBudget: '1',
-        currency: 'USD',
-      }),
-    ).toBe(false);
   });
 
   it('rejects closing the last OPEN Follow-up of a NURTURING Lead', async () => {
@@ -121,14 +113,12 @@ describe('Phase 5.2 CRM API core', () => {
     };
     const support = {
       database: { $transaction: transaction },
-      lockedLead: vi
-        .fn()
-        .mockResolvedValue({
-          id: 'lead',
-          companyId: 'c',
-          responsibleBranchId: 'b',
-          stage: 'NURTURING',
-        }),
+      lockedLead: vi.fn().mockResolvedValue({
+        id: 'lead',
+        companyId: 'c',
+        responsibleBranchId: 'b',
+        stage: 'NURTURING',
+      }),
     };
     const operations = new CrmOperationsService(support as never);
     await expect(
@@ -161,14 +151,12 @@ describe('Phase 5.2 CRM API core', () => {
     };
     const support = {
       database: { $transaction: vi.fn((fn: (value: typeof tx) => unknown) => fn(tx)) },
-      lockedLead: vi
-        .fn()
-        .mockResolvedValue({
-          id: 'lead',
-          companyId: 'c',
-          responsibleBranchId: 'b',
-          stage: 'NURTURING',
-        }),
+      lockedLead: vi.fn().mockResolvedValue({
+        id: 'lead',
+        companyId: 'c',
+        responsibleBranchId: 'b',
+        stage: 'NURTURING',
+      }),
       instant: vi.fn().mockResolvedValue(new Date()),
       audit: vi.fn(),
     };

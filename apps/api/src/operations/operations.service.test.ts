@@ -1,4 +1,9 @@
-import { BranchAccessMode, ExpenseStatus, WorkOrderApprovalStatus, WorkOrderStatus } from '@prisma/client';
+import {
+  BranchAccessMode,
+  ExpenseStatus,
+  WorkOrderApprovalStatus,
+  WorkOrderStatus,
+} from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthorizationService } from '../security/authorization.service';
@@ -54,7 +59,12 @@ describe('operations expense idempotency', () => {
   });
 
   it('returns the existing expense instead of creating a duplicate', async () => {
-    const existing = { id: 'exp-1', companyId: 'company-a', expenseNumber: 'EXP-1', status: ExpenseStatus.APPROVED };
+    const existing = {
+      id: 'exp-1',
+      companyId: 'company-a',
+      expenseNumber: 'EXP-1',
+      status: ExpenseStatus.APPROVED,
+    };
     db.expense.findFirst.mockResolvedValue(existing);
     const result = await service.createWorkOrderExpense(principal(), 'wo-1');
     expect(result).toEqual(existing);

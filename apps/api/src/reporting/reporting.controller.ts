@@ -1,4 +1,15 @@
-import { Controller, Get, Header, Param, Post, Query, Req, Res, StreamableFile, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { ReportExportQueryDto } from '../portals/portal.dto';
 import { RequirePermissions } from '../security/security.decorators';
@@ -24,7 +35,11 @@ export class ReportingController {
 
   @RequirePermissions('report.read')
   @Get('detail/:section')
-  detail(@Req() request: AuthenticatedRequest, @Param('section') section: string, @Query() query: ReportExportQueryDto) {
+  detail(
+    @Req() request: AuthenticatedRequest,
+    @Param('section') section: string,
+    @Query() query: ReportExportQueryDto,
+  ) {
     return this.reporting.detailSection(request.principal, section, query);
   }
 

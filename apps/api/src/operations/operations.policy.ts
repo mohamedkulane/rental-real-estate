@@ -11,11 +11,31 @@ export const maintenanceRequestTransitions: Record<
   MaintenanceRequestStatus,
   readonly MaintenanceRequestStatus[]
 > = {
-  NEW: [MaintenanceRequestStatus.TRIAGED, MaintenanceRequestStatus.ASSIGNED, MaintenanceRequestStatus.CANCELLED],
-  TRIAGED: [MaintenanceRequestStatus.ASSIGNED, MaintenanceRequestStatus.ON_HOLD, MaintenanceRequestStatus.CANCELLED],
-  ASSIGNED: [MaintenanceRequestStatus.IN_PROGRESS, MaintenanceRequestStatus.ON_HOLD, MaintenanceRequestStatus.CANCELLED],
-  IN_PROGRESS: [MaintenanceRequestStatus.ON_HOLD, MaintenanceRequestStatus.COMPLETED, MaintenanceRequestStatus.CANCELLED],
-  ON_HOLD: [MaintenanceRequestStatus.ASSIGNED, MaintenanceRequestStatus.IN_PROGRESS, MaintenanceRequestStatus.CANCELLED],
+  NEW: [
+    MaintenanceRequestStatus.TRIAGED,
+    MaintenanceRequestStatus.ASSIGNED,
+    MaintenanceRequestStatus.CANCELLED,
+  ],
+  TRIAGED: [
+    MaintenanceRequestStatus.ASSIGNED,
+    MaintenanceRequestStatus.ON_HOLD,
+    MaintenanceRequestStatus.CANCELLED,
+  ],
+  ASSIGNED: [
+    MaintenanceRequestStatus.IN_PROGRESS,
+    MaintenanceRequestStatus.ON_HOLD,
+    MaintenanceRequestStatus.CANCELLED,
+  ],
+  IN_PROGRESS: [
+    MaintenanceRequestStatus.ON_HOLD,
+    MaintenanceRequestStatus.COMPLETED,
+    MaintenanceRequestStatus.CANCELLED,
+  ],
+  ON_HOLD: [
+    MaintenanceRequestStatus.ASSIGNED,
+    MaintenanceRequestStatus.IN_PROGRESS,
+    MaintenanceRequestStatus.CANCELLED,
+  ],
   COMPLETED: [],
   CANCELLED: [],
 };

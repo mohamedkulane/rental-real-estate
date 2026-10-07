@@ -2293,10 +2293,7 @@ export class PortfolioService {
           name: after.name,
           typeCode: after.type.code,
           buildingId: after.buildingId,
-          version:
-            versionChange === null
-              ? null
-              : (versionChange as Prisma.InputJsonValue),
+          version: versionChange === null ? null : (versionChange as Prisma.InputJsonValue),
           residential:
             input.residential === undefined
               ? null

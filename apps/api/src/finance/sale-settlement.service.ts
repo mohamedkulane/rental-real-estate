@@ -7,7 +7,11 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import { computeSaleSettlementAmounts, FinancePolicyService, replayIdempotentRecord } from './finance.policy';
+import {
+  computeSaleSettlementAmounts,
+  FinancePolicyService,
+  replayIdempotentRecord,
+} from './finance.policy';
 import type {
   CreateSaleSettlementDto,
   SaleSettlementQueryDto,
@@ -58,8 +62,16 @@ export class SaleSettlementService {
     correlationId?: string,
   ) {
     const offer = await this.db.saleOffer.findFirst({
-      where: { id: input.saleOfferId, companyId: principal.companyId, status: SaleOfferStatus.ACCEPTED },
-      include: { engagement: { select: { serviceModel: true } }, settlement: { select: { id: true } }, saleAgreement: true },
+      where: {
+        id: input.saleOfferId,
+        companyId: principal.companyId,
+        status: SaleOfferStatus.ACCEPTED,
+      },
+      include: {
+        engagement: { select: { serviceModel: true } },
+        settlement: { select: { id: true } },
+        saleAgreement: true,
+      },
     });
     if (!offer) throw new ConflictException('An accepted sale offer is required.');
     this.auth.assertBranchPermission(principal, 'sale-settlement.manage', offer.branchId);
@@ -73,19 +85,45 @@ export class SaleSettlementService {
     }
     const salePrice = offer.saleAgreement?.finalSalePrice ?? new Prisma.Decimal(input.salePrice!);
     const approvedDeductions = new Prisma.Decimal(input.approvedDeductions ?? 0);
-    const commissionFromAgreement = (method: 'FIXED' | 'PERCENT' | null | undefined, value: Prisma.Decimal | null | undefined) =>
-      !method || !value ? new Prisma.Decimal(0) : method === 'PERCENT' ? salePrice.mul(value).div(100) : value;
+    const commissionFromAgreement = (
+      method: 'FIXED' | 'PERCENT' | null | undefined,
+      value: Prisma.Decimal | null | undefined,
+    ) =>
+      !method || !value
+        ? new Prisma.Decimal(0)
+        : method === 'PERCENT'
+          ? salePrice.mul(value).div(100)
+          : value;
     const sellerCommission = offer.saleAgreement
-      ? commissionFromAgreement(offer.saleAgreement.sellerCommissionMethod, offer.saleAgreement.sellerCommissionValue)
+      ? commissionFromAgreement(
+          offer.saleAgreement.sellerCommissionMethod,
+          offer.saleAgreement.sellerCommissionValue,
+        )
       : null;
     const buyerCommission = offer.saleAgreement
-      ? commissionFromAgreement(offer.saleAgreement.buyerCommissionMethod, offer.saleAgreement.buyerCommissionValue)
+      ? commissionFromAgreement(
+          offer.saleAgreement.buyerCommissionMethod,
+          offer.saleAgreement.buyerCommissionValue,
+        )
       : null;
     const amounts = offer.saleAgreement
       ? offer.saleAgreement.companyOwned
-        ? { grossCommission: new Prisma.Decimal(0), sellerProceeds: new Prisma.Decimal(0), companyProceeds: salePrice.minus(approvedDeductions) }
-        : { grossCommission: sellerCommission!.plus(buyerCommission!), sellerProceeds: salePrice.minus(sellerCommission!).minus(approvedDeductions), companyProceeds: sellerCommission!.plus(buyerCommission!) }
-      : computeSaleSettlementAmounts({ serviceModel: offer.engagement.serviceModel, salePrice, commissionPercent: terms?.commissionPercent ?? null, approvedDeductions });
+        ? {
+            grossCommission: new Prisma.Decimal(0),
+            sellerProceeds: new Prisma.Decimal(0),
+            companyProceeds: salePrice.minus(approvedDeductions),
+          }
+        : {
+            grossCommission: sellerCommission!.plus(buyerCommission!),
+            sellerProceeds: salePrice.minus(sellerCommission!).minus(approvedDeductions),
+            companyProceeds: sellerCommission!.plus(buyerCommission!),
+          }
+      : computeSaleSettlementAmounts({
+          serviceModel: offer.engagement.serviceModel,
+          salePrice,
+          commissionPercent: terms?.commissionPercent ?? null,
+          approvedDeductions,
+        });
     try {
       return await this.db.$transaction(async (tx) => {
         if (input.idempotencyKey) {
@@ -135,7 +173,11 @@ export class SaleSettlementService {
         return settlement;
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && input.idempotencyKey) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        input.idempotencyKey
+      ) {
         const existing = replayIdempotentRecord(
           await this.db.saleSettlement.findUnique({
             where: { idempotencyKey: input.idempotencyKey },
@@ -166,18 +208,28 @@ export class SaleSettlementService {
       CANCELLED: [],
     };
     if (!allowed[current.status].includes(input.status)) {
-      throw new ConflictException(`Settlement cannot transition from ${current.status} to ${input.status}.`);
+      throw new ConflictException(
+        `Settlement cannot transition from ${current.status} to ${input.status}.`,
+      );
     }
     return this.db.$transaction(async (tx) => {
       const changed = await tx.saleSettlement.updateMany({
         where: { id: settlementId, status: current.status },
-        data: { status: input.status, settledAt: input.status === SaleSettlementStatus.SETTLED ? new Date() : current.settledAt },
+        data: {
+          status: input.status,
+          settledAt: input.status === SaleSettlementStatus.SETTLED ? new Date() : current.settledAt,
+        },
       });
-      if (changed.count !== 1) throw new ConflictException('Settlement is stale or has already changed.');
+      if (changed.count !== 1)
+        throw new ConflictException('Settlement is stale or has already changed.');
       const row = await tx.saleSettlement.findUniqueOrThrow({ where: { id: settlementId } });
       if (input.status === SaleSettlementStatus.SETTLED) {
-        const propertyChanged = await tx.property.updateMany({ where: { id: current.propertyId, status: 'ACTIVE' }, data: { status: 'SOLD' } });
-        if (propertyChanged.count !== 1) throw new ConflictException('Property is no longer available for sale.');
+        const propertyChanged = await tx.property.updateMany({
+          where: { id: current.propertyId, status: 'ACTIVE' },
+          data: { status: 'SOLD' },
+        });
+        if (propertyChanged.count !== 1)
+          throw new ConflictException('Property is no longer available for sale.');
       }
       await this.audit.write(tx, {
         actorUserId: principal.userId,

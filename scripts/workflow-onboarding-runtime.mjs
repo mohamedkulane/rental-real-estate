@@ -88,13 +88,11 @@ try {
   await step('Documents');
   await page.getByRole('button', { name: 'Upload document', exact: true }).first().click();
   await page.getByLabel('Document title').fill('Ownership intake note');
-  await page
-    .getByLabel('File', { exact: true })
-    .setInputFiles({
-      name: 'onboarding.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('Disposable onboarding acceptance evidence.'),
-    });
+  await page.getByLabel('File', { exact: true }).setInputFiles({
+    name: 'onboarding.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Disposable onboarding acceptance evidence.'),
+  });
   await page
     .locator('form')
     .filter({ has: page.getByLabel('Document title') })
@@ -116,7 +114,11 @@ try {
   await page.getByRole('heading', { name: 'Browser Villa ' + suffix, exact: true }).waitFor();
   stage = 'cancel-workflow';
   await page.goto(baseURL + '/workflows/new?type=PROPERTY_ONBOARDING');
-  await page.getByLabel('Operating Branch', { exact: true }).locator('option').nth(1).waitFor({ state: 'attached' });
+  await page
+    .getByLabel('Operating Branch', { exact: true })
+    .locator('option')
+    .nth(1)
+    .waitFor({ state: 'attached' });
   await page.getByLabel('Operating Branch', { exact: true }).selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Start Workflow', exact: true }).click();
   await step('Owner / Party');
@@ -125,8 +127,14 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'Cancel workflow', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Reason').fill('Disposable cancellation acceptance test');
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel workflow', exact: true }).click();
+  await page
+    .getByRole('dialog')
+    .getByLabel('Reason')
+    .fill('Disposable cancellation acceptance test');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Cancel workflow', exact: true })
+    .click();
   await page.getByText('This workflow is no longer editable.', { exact: true }).waitFor();
   await page.getByText('Cancelled', { exact: true }).waitFor();
   console.log('PROPERTY ONBOARDING BROWSER FLOW: PASS');
@@ -140,14 +148,12 @@ try {
   console.error(
     'Select labels: ' +
       JSON.stringify(
-        await page
-          .locator('select')
-          .evaluateAll((selects) =>
-            selects.map((select) => ({
-              labels: [...select.labels].map((label) => label.textContent),
-              options: select.options.length,
-            })),
-          ),
+        await page.locator('select').evaluateAll((selects) =>
+          selects.map((select) => ({
+            labels: [...select.labels].map((label) => label.textContent),
+            options: select.options.length,
+          })),
+        ),
       ),
   );
   console.error(error.message);

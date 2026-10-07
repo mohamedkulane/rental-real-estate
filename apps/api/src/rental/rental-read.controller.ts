@@ -96,19 +96,13 @@ export class RentalReadController {
 
   @Get('buyers/:leadId')
   @RequirePermissions('crm.lead.read')
-  getBuyer(
-    @Req() request: AuthenticatedRequest,
-    @Param('leadId', ParseUUIDPipe) leadId: string,
-  ) {
+  getBuyer(@Req() request: AuthenticatedRequest, @Param('leadId', ParseUUIDPipe) leadId: string) {
     return this.crm.get(request.principal, leadId, request.correlationId);
   }
 
   @Get('leases/:leaseId')
   @RequirePermissions('lease.read')
-  getLease(
-    @Req() request: AuthenticatedRequest,
-    @Param('leaseId', ParseUUIDPipe) leaseId: string,
-  ) {
+  getLease(@Req() request: AuthenticatedRequest, @Param('leaseId', ParseUUIDPipe) leaseId: string) {
     return this.leasing.getLease(request.principal, leaseId);
   }
 }

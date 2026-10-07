@@ -38,7 +38,9 @@ export class PortalOwnerService {
             where: { ownerPartyId },
             select: { ownershipPercent: true, effectiveFrom: true, effectiveTo: true },
           },
-          branchAssignments: { select: { branch: { select: { id: true, code: true, name: true } } } },
+          branchAssignments: {
+            select: { branch: { select: { id: true, code: true, name: true } } },
+          },
         },
         orderBy: { name: 'asc' },
       }),
@@ -164,7 +166,14 @@ export class PortalOwnerService {
       where: {
         companyId: principal.companyId,
         ownerPartyId,
-        status: { in: [PayoutStatus.APPROVED, PayoutStatus.QUEUED, PayoutStatus.PAID, PayoutStatus.RECONCILED] },
+        status: {
+          in: [
+            PayoutStatus.APPROVED,
+            PayoutStatus.QUEUED,
+            PayoutStatus.PAID,
+            PayoutStatus.RECONCILED,
+          ],
+        },
       },
       orderBy: [{ periodEnd: 'desc' }, { id: 'desc' }],
       take: limit,

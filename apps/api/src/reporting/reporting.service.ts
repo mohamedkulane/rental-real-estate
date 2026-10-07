@@ -2,8 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import {
   ChargeStatus,
-  ConstructionEconomicModel,
-  ConstructionProjectStatus,
   DevelopmentProjectStatus,
   InvoiceStatus,
   LeadFollowUpState,
@@ -39,7 +37,6 @@ const REPORT_TITLES: Record<string, string> = {
   sales: 'Sales',
   finance: 'Finance',
   operations: 'Operations',
-  construction: 'Construction',
   development: 'Development',
 };
 
@@ -83,7 +80,6 @@ export class ReportingService {
     const sales = await this.salesReport(principal, branchId);
     const operations = await this.operationsReport(principal, branchId);
     const finance = await this.financeReport(principal, branchId);
-    const construction = await this.constructionReport(principal, branchId);
     const development = await this.developmentReport(principal, branchId);
     const branch = branchId
       ? { selectedBranchId: branchId, comparisonAvailable: false }
@@ -96,7 +92,6 @@ export class ReportingService {
       sales,
       operations,
       finance,
-      construction,
       development,
       branch,
       companyId,
@@ -139,7 +134,10 @@ export class ReportingService {
     };
   }
 
-  private async crmReport(principal: AuthenticatedPrincipal, branchId?: string): Promise<ReportSection> {
+  private async crmReport(
+    principal: AuthenticatedPrincipal,
+    branchId?: string,
+  ): Promise<ReportSection> {
     const companyId = principal.companyId;
     const leadBranchFilter = branchId
       ? { responsibleBranchId: branchId }
@@ -169,7 +167,10 @@ export class ReportingService {
     };
   }
 
-  private async rentalReport(principal: AuthenticatedPrincipal, branchId?: string): Promise<ReportSection> {
+  private async rentalReport(
+    principal: AuthenticatedPrincipal,
+    branchId?: string,
+  ): Promise<ReportSection> {
     const companyId = principal.companyId;
     const branchFilter = this.branchFilter(principal, 'lease.read', branchId);
     const [listings, viewings, applications, reservations, leases, renewals] = await Promise.all([
@@ -202,7 +203,9 @@ export class ReportingService {
       where: {
         companyId,
         ...branchFilter,
-        status: { in: [PaymentStatus.POSTED, PaymentStatus.PARTIALLY_ALLOCATED, PaymentStatus.VERIFIED] },
+        status: {
+          in: [PaymentStatus.POSTED, PaymentStatus.PARTIALLY_ALLOCATED, PaymentStatus.VERIFIED],
+        },
       },
       _sum: { amount: true },
     });
@@ -212,7 +215,14 @@ export class ReportingService {
         where: {
           companyId,
           ...branchFilter,
-          status: { in: [PayoutStatus.APPROVED, PayoutStatus.QUEUED, PayoutStatus.PAID, PayoutStatus.RECONCILED] },
+          status: {
+            in: [
+              PayoutStatus.APPROVED,
+              PayoutStatus.QUEUED,
+              PayoutStatus.PAID,
+              PayoutStatus.RECONCILED,
+            ],
+          },
         },
       }),
     ]);
@@ -225,7 +235,10 @@ export class ReportingService {
     };
   }
 
-  private async salesReport(principal: AuthenticatedPrincipal, branchId?: string): Promise<ReportSection> {
+  private async salesReport(
+    principal: AuthenticatedPrincipal,
+    branchId?: string,
+  ): Promise<ReportSection> {
     const companyId = principal.companyId;
     const branchFilter = this.branchFilter(principal, 'sale-offer.read', branchId);
     const [listings, offers, settlements] = await Promise.all([
@@ -266,10 +279,19 @@ export class ReportingService {
         },
       }),
     ]);
-    return { maintenanceRequests: requests, workOrders, inspections, defects, highPriorityIssues: highPriority };
+    return {
+      maintenanceRequests: requests,
+      workOrders,
+      inspections,
+      defects,
+      highPriorityIssues: highPriority,
+    };
   }
 
-  private async financeReport(principal: AuthenticatedPrincipal, branchId?: string): Promise<ReportSection> {
+  private async financeReport(
+    principal: AuthenticatedPrincipal,
+    branchId?: string,
+  ): Promise<ReportSection> {
     const companyId = principal.companyId;
     const branchFilter = this.branchFilter(principal, 'invoice.read', branchId);
     const [invoices, payments, statements, payouts, expenses, outstanding] = await Promise.all([
@@ -297,67 +319,6 @@ export class ReportingService {
       openInvoices: await this.db.invoice.count({
         where: { companyId, ...branchFilter, status: InvoiceStatus.ISSUED },
       }),
-    };
-  }
-
-  private async constructionReport(
-    principal: AuthenticatedPrincipal,
-    branchId?: string,
-  ): Promise<ReportSection> {
-    const companyId = principal.companyId;
-    const branchFilter = this.branchFilter(principal, 'construction.read', branchId);
-    const today = new Date();
-    const [activeProjects, delayedProjects, costs] = await Promise.all([
-      this.db.constructionProject.count({
-        where: {
-          companyId,
-          ...branchFilter,
-          economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
-          status: ConstructionProjectStatus.ACTIVE,
-        },
-      }),
-      this.db.constructionProject.count({
-        where: {
-          companyId,
-          ...branchFilter,
-          economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
-          status: ConstructionProjectStatus.ACTIVE,
-          expectedEndDate: { lt: today },
-        },
-      }),
-      this.db.constructionCost.aggregate({
-        where: { project: { companyId, ...branchFilter } },
-        _sum: { amount: true },
-      }),
-    ]);
-    const progress = await this.db.constructionProject.aggregate({
-      where: {
-        companyId,
-        ...branchFilter,
-        economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
-      },
-      _avg: { actualPercent: true },
-    });
-    const receivables = await this.db.charge.aggregate({
-      where: {
-        companyId,
-        ...branchFilter,
-        constructionBilling: { isNot: null },
-        status: { in: [ChargeStatus.OPEN, ChargeStatus.PARTIALLY_PAID] },
-      },
-      _sum: { outstandingAmount: true },
-    });
-    const budget = await this.db.constructionBudgetLine.aggregate({
-      where: { project: { companyId, ...branchFilter, economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT } },
-      _sum: { budgetAmount: true, actualAmount: true },
-    });
-    return {
-      activeProjects,
-      delayedProjects,
-      completionPercent: Number(progress._avg.actualPercent ?? 0),
-      budgetAmount: budget._sum.budgetAmount?.toString() ?? '0',
-      actualCosts: costs._sum.amount?.toString() ?? '0',
-      clientReceivables: receivables._sum.outstandingAmount?.toString() ?? '0',
     };
   }
 
@@ -389,20 +350,11 @@ export class ReportingService {
       },
       _sum: { companyProceeds: true },
     });
-    const construction = await this.db.constructionProject.aggregate({
-      where: {
-        companyId,
-        ...branchFilter,
-        economicModel: ConstructionEconomicModel.COMPANY_DEVELOPMENT,
-      },
-      _avg: { actualPercent: true },
-    });
     return {
       activeDevelopments,
       plots,
       outputProperties: outputs,
       saleReadyAssets: saleReady,
-      constructionProgress: Number(construction._avg.actualPercent ?? 0),
       totalCosts: costs._sum.amount?.toString() ?? '0',
       realizedSaleProceeds: proceeds._sum.companyProceeds?.toString() ?? '0',
     };
@@ -439,7 +391,8 @@ export class ReportingService {
 
     if (section === 'portfolio') {
       const authorized = this.auth.authorizedBranchIds(principal, 'portfolio.property.read');
-      if (query.branchId) this.auth.assertBranchPermission(principal, 'portfolio.property.read', query.branchId);
+      if (query.branchId)
+        this.auth.assertBranchPermission(principal, 'portfolio.property.read', query.branchId);
       const records = await this.db.property.findMany({
         where: {
           companyId,
@@ -447,7 +400,11 @@ export class ReportingService {
             ? { branchAssignments: { some: { branchId: query.branchId, effectiveTo: null } } }
             : authorized === null
               ? {}
-              : { branchAssignments: { some: { branchId: { in: [...authorized] }, effectiveTo: null } } }),
+              : {
+                  branchAssignments: {
+                    some: { branchId: { in: [...authorized] }, effectiveTo: null },
+                  },
+                }),
           ...(query.status ? { status: query.status as never } : {}),
           ...(hasDateRange ? { createdAt: dateRange } : {}),
           ...(search
@@ -574,7 +531,11 @@ export class ReportingService {
                 OR: [
                   { leaseNumber: { contains: search, mode: 'insensitive' as const } },
                   { rentableSpace: { name: { contains: search, mode: 'insensitive' as const } } },
-                  { rentableSpace: { property: { name: { contains: search, mode: 'insensitive' as const } } } },
+                  {
+                    rentableSpace: {
+                      property: { name: { contains: search, mode: 'insensitive' as const } },
+                    },
+                  },
                 ],
               }
             : {}),
@@ -637,7 +598,9 @@ export class ReportingService {
       ];
       rows = records.map((row) => {
         const collected = row.charges.reduce(
-          (total, charge) => total + charge.allocations.reduce((sum, allocation) => sum + Number(allocation.amount), 0),
+          (total, charge) =>
+            total +
+            charge.allocations.reduce((sum, allocation) => sum + Number(allocation.amount), 0),
           0,
         );
         const expenses = row.expenses.reduce((total, expense) => total + Number(expense.amount), 0);
@@ -689,7 +652,9 @@ export class ReportingService {
           sellerCommissionValue: true,
           buyerCommissionValue: true,
           status: true,
-          saleOffer: { select: { settlement: { select: { settlementNumber: true, status: true } } } },
+          saleOffer: {
+            select: { settlement: { select: { settlementNumber: true, status: true } } },
+          },
         },
       });
       columns = [
@@ -710,7 +675,9 @@ export class ReportingService {
         agreement: row.agreementNumber,
         askingPrice: `${row.currency} ${row.originalAskingPrice.toString()}`,
         finalPrice: `${row.currency} ${row.finalSalePrice.toString()}`,
-        commissions: [row.sellerCommissionValue?.toString(), row.buyerCommissionValue?.toString()].filter(Boolean).join(' + '),
+        commissions: [row.sellerCommissionValue?.toString(), row.buyerCommissionValue?.toString()]
+          .filter(Boolean)
+          .join(' + '),
         settlement: row.saleOffer?.settlement?.settlementNumber ?? '',
         status: row.saleOffer?.settlement?.status ?? row.status,
       }));
@@ -776,7 +743,14 @@ export class ReportingService {
           paymentNumber: row.paymentNumber,
           payer: row.payer.displayName,
           businessSource: charge?.chargeType.name ?? '',
-          property: [charge?.property ? `${charge.property.propertyCode} — ${charge.property.name}` : '', charge?.rentableSpace ? `${charge.rentableSpace.spaceCode} — ${charge.rentableSpace.name}` : ''].filter(Boolean).join(' / '),
+          property: [
+            charge?.property ? `${charge.property.propertyCode} — ${charge.property.name}` : '',
+            charge?.rentableSpace
+              ? `${charge.rentableSpace.spaceCode} — ${charge.rentableSpace.name}`
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' / '),
           amount: `${row.currency} ${row.amount.toString()}`,
           method: row.method.name,
           reference: row.externalRef ?? '',
@@ -809,7 +783,9 @@ export class ReportingService {
           property: { select: { propertyCode: true, name: true } },
           rentableSpace: { select: { spaceCode: true, name: true } },
           selectedRentableSpace: { select: { spaceCode: true, name: true } },
-          assignedEmployee: { select: { employeeNumber: true, party: { select: { displayName: true } } } },
+          assignedEmployee: {
+            select: { employeeNumber: true, party: { select: { displayName: true } } },
+          },
           status: true,
           outcome: true,
         },
@@ -837,57 +813,6 @@ export class ReportingService {
           outcome: row.outcome ?? '',
         };
       });
-    } else if (section === 'construction') {
-      const branch = this.branchFilter(principal, 'construction.read', query.branchId);
-      const records = await this.db.constructionProject.findMany({
-        where: {
-          companyId,
-          ...branch,
-          economicModel: ConstructionEconomicModel.CONSTRUCTION_FOR_CLIENT,
-          ...(query.status ? { status: query.status as never } : {}),
-          ...(hasDateRange ? { createdAt: dateRange } : {}),
-          ...(search ? { OR: [{ projectNumber: { contains: search, mode: 'insensitive' as const } }, { name: { contains: search, mode: 'insensitive' as const } }] } : {}),
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        select: {
-          projectNumber: true,
-          name: true,
-          client: { select: { displayName: true } },
-          property: { select: { propertyCode: true, name: true } },
-          branch: { select: { name: true } },
-          startDate: true,
-          expectedEndDate: true,
-          actualPercent: true,
-          contractValue: true,
-          currency: true,
-          status: true,
-        },
-      });
-      columns = [
-        { key: 'projectNumber', label: 'Project Number' },
-        { key: 'project', label: 'Project' },
-        { key: 'client', label: 'Client' },
-        { key: 'property', label: 'Property / Site' },
-        { key: 'branch', label: 'Branch' },
-        { key: 'start', label: 'Start' },
-        { key: 'expectedEnd', label: 'Expected End' },
-        { key: 'progress', label: 'Progress' },
-        { key: 'contractValue', label: 'Contract Value' },
-        { key: 'status', label: 'Status' },
-      ];
-      rows = records.map((row) => ({
-        projectNumber: row.projectNumber,
-        project: row.name,
-        client: row.client?.displayName ?? '',
-        property: row.property ? `${row.property.propertyCode} — ${row.property.name}` : '',
-        branch: row.branch.name,
-        start: dateText(row.startDate),
-        expectedEnd: dateText(row.expectedEndDate),
-        progress: `${row.actualPercent.toString()}%`,
-        contractValue: row.contractValue ? `${row.currency} ${row.contractValue.toString()}` : '',
-        status: row.status,
-      }));
     } else {
       const branch = this.branchFilter(principal, 'development.read', query.branchId);
       const records = await this.db.developmentProject.findMany({
@@ -896,7 +821,14 @@ export class ReportingService {
           ...branch,
           ...(query.status ? { status: query.status as never } : {}),
           ...(hasDateRange ? { createdAt: dateRange } : {}),
-          ...(search ? { OR: [{ projectNumber: { contains: search, mode: 'insensitive' as const } }, { name: { contains: search, mode: 'insensitive' as const } }] } : {}),
+          ...(search
+            ? {
+                OR: [
+                  { projectNumber: { contains: search, mode: 'insensitive' as const } },
+                  { name: { contains: search, mode: 'insensitive' as const } },
+                ],
+              }
+            : {}),
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -931,7 +863,9 @@ export class ReportingService {
         projectNumber: row.projectNumber,
         project: row.name,
         type: row.developmentType,
-        sourceProperty: row.sourceProperty ? `${row.sourceProperty.propertyCode} — ${row.sourceProperty.name}` : '',
+        sourceProperty: row.sourceProperty
+          ? `${row.sourceProperty.propertyCode} — ${row.sourceProperty.name}`
+          : '',
         branch: row.branch.name,
         plots: row._count.plots,
         outputs: row._count.outputAssets,
@@ -962,7 +896,9 @@ export class ReportingService {
       const escape = (value: ReportCell) => `"${String(value ?? '').replaceAll('"', '""')}"`;
       const csv = [
         report.columns.map((column) => escape(column.label)).join(','),
-        ...report.rows.map((row) => report.columns.map((column) => escape(row[column.key] ?? '')).join(',')),
+        ...report.rows.map((row) =>
+          report.columns.map((column) => escape(row[column.key] ?? '')).join(','),
+        ),
       ].join('\r\n');
       return {
         body: Buffer.from(`\uFEFF${csv}`, 'utf8'),

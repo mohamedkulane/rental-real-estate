@@ -55,7 +55,10 @@ export class NotificationService {
     });
     const timezone = company?.timezone ?? 'Africa/Nairobi';
     const scheduleItems = viewings.map((viewing) => {
-      const minutesUntil = Math.max(0, Math.round((viewing.scheduledAt.getTime() - now.getTime()) / 60000));
+      const minutesUntil = Math.max(
+        0,
+        Math.round((viewing.scheduledAt.getTime() - now.getTime()) / 60000),
+      );
       const localParts = new Intl.DateTimeFormat('en-CA', {
         timeZone: timezone,
         year: 'numeric',
@@ -65,11 +68,13 @@ export class NotificationService {
         minute: '2-digit',
         hour12: false,
       }).formatToParts(viewing.scheduledAt);
-      const part = (type: Intl.DateTimeFormatPartTypes) => localParts.find((item) => item.type === type)?.value ?? '';
+      const part = (type: Intl.DateTimeFormatPartTypes) =>
+        localParts.find((item) => item.type === type)?.value ?? '';
       const localDate = `${part('year')}-${part('month')}-${part('day')}`;
       const localTime = `${part('hour')}:${part('minute')}`;
       const dayLabel = localDate === principal.businessDate ? 'Today' : 'Tomorrow';
-      const propertyName = viewing.rentableSpace?.property.name ?? viewing.saleListing?.property.name ?? 'Property';
+      const propertyName =
+        viewing.rentableSpace?.property.name ?? viewing.saleListing?.property.name ?? 'Property';
       const reminder = minutesUntil <= 60;
       return {
         id: `viewing-schedule:${viewing.id}`,
@@ -88,10 +93,16 @@ export class NotificationService {
         createdAt: viewing.scheduledAt,
       };
     });
-    const combined = [...scheduleItems, ...items].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    const combined = [...scheduleItems, ...items]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
     const reminderCount = scheduleItems.filter((item) => item.status === 'UNREAD').length;
     const unreadCount = await this.db.notification.count({
-      where: { userId: principal.userId, companyId: principal.companyId, status: NotificationStatus.UNREAD },
+      where: {
+        userId: principal.userId,
+        companyId: principal.companyId,
+        status: NotificationStatus.UNREAD,
+      },
     });
     return { items: combined, unreadCount: unreadCount + reminderCount };
   }
@@ -101,7 +112,11 @@ export class NotificationService {
     await this.db.notification.updateMany({
       where: notificationId
         ? { id: notificationId, userId: principal.userId, companyId: principal.companyId }
-        : { userId: principal.userId, companyId: principal.companyId, status: NotificationStatus.UNREAD },
+        : {
+            userId: principal.userId,
+            companyId: principal.companyId,
+            status: NotificationStatus.UNREAD,
+          },
       data: { status: NotificationStatus.READ, readAt: new Date() },
     });
     return { success: true as const };

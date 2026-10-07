@@ -25,7 +25,11 @@ export class PortalAuthorizationService {
     return principal.partyId;
   }
 
-  async ownerPropertyIds(ownerPartyId: string, companyId: string, businessDate: string): Promise<string[]> {
+  async ownerPropertyIds(
+    ownerPartyId: string,
+    companyId: string,
+    businessDate: string,
+  ): Promise<string[]> {
     const at = new Date(businessDate);
     const rows = await this.db.propertyOwnership.findMany({
       where: {
@@ -70,7 +74,11 @@ export class PortalAuthorizationService {
     if (!leaseIds.includes(leaseId)) throw new NotFoundException('Lease not found.');
   }
 
-  async assertOwnerStatement(ownerPartyId: string, companyId: string, statementId: string): Promise<void> {
+  async assertOwnerStatement(
+    ownerPartyId: string,
+    companyId: string,
+    statementId: string,
+  ): Promise<void> {
     const statement = await this.db.ownerStatement.findFirst({
       where: {
         id: statementId,
@@ -83,13 +91,24 @@ export class PortalAuthorizationService {
     if (!statement) throw new NotFoundException('Owner statement not found.');
   }
 
-  async assertOwnerPayout(ownerPartyId: string, companyId: string, payoutId: string): Promise<void> {
+  async assertOwnerPayout(
+    ownerPartyId: string,
+    companyId: string,
+    payoutId: string,
+  ): Promise<void> {
     const payout = await this.db.ownerPayout.findFirst({
       where: {
         id: payoutId,
         companyId,
         ownerPartyId,
-        status: { in: [PayoutStatus.APPROVED, PayoutStatus.QUEUED, PayoutStatus.PAID, PayoutStatus.RECONCILED] },
+        status: {
+          in: [
+            PayoutStatus.APPROVED,
+            PayoutStatus.QUEUED,
+            PayoutStatus.PAID,
+            PayoutStatus.RECONCILED,
+          ],
+        },
       },
       select: { id: true },
     });

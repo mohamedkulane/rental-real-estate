@@ -3,7 +3,8 @@ import { assertHierarchyOccupancyAvailable } from './space-hierarchy-occupancy';
 
 function db(overrides: { lease?: unknown; reservation?: unknown } = {}) {
   return {
-    $queryRaw: vi.fn()
+    $queryRaw: vi
+      .fn()
       .mockResolvedValueOnce([{ id: 'parent-space' }])
       .mockResolvedValueOnce([]),
     lease: { findFirst: vi.fn().mockResolvedValue(overrides.lease ?? null) },
@@ -22,9 +23,9 @@ describe('space hierarchy occupancy', () => {
 
   it('rejects a child lease while a parent lease overlaps the period', async () => {
     const database = db({ lease: { leaseNumber: 'L-1' } });
-    await expect(
-      assertHierarchyOccupancyAvailable(database, base),
-    ).rejects.toThrow('parent unit lease L-1');
+    await expect(assertHierarchyOccupancyAvailable(database, base)).rejects.toThrow(
+      'parent unit lease L-1',
+    );
     expect(database.lease.findFirst.mock.calls[0]?.[0].where.OR).toEqual([
       { leaseEndDate: null },
       { leaseEndDate: { gte: new Date('2026-09-19T00:00:00.000Z') } },

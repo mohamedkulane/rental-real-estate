@@ -7,11 +7,7 @@ import { DatabaseService } from '../database/database.service';
 import { AuditService } from '../governance/audit.service';
 import { AuthorizationService } from '../security/authorization.service';
 import type { AuthenticatedPrincipal } from '../security/security.types';
-import {
-  assertBalancedJournal,
-  assertJournalDraft,
-  assertJournalPosted,
-} from './finance.policy';
+import { assertBalancedJournal, assertJournalDraft, assertJournalPosted } from './finance.policy';
 import type { CreateJournalDto, JournalQueryDto, ReverseJournalDto } from './finance.dto';
 
 const isoDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
@@ -64,9 +60,7 @@ export class AccountingService {
       companyId: principal.companyId,
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.search
-        ? { journalNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { journalNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.journalEntry.findMany({
@@ -85,7 +79,12 @@ export class AccountingService {
     assertBalancedJournal(input.lines);
     const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
     const accounts = await this.db.account.findMany({
-      where: { id: { in: accountIds }, companyId: principal.companyId, active: true, postingAllowed: true },
+      where: {
+        id: { in: accountIds },
+        companyId: principal.companyId,
+        active: true,
+        postingAllowed: true,
+      },
       select: { id: true },
     });
     if (accounts.length !== accountIds.length) {
@@ -238,7 +237,10 @@ export class AccountingService {
     const journal = await this.db.journalEntry.findFirst({
       where: { id: journalId, companyId: principal.companyId },
       include: {
-        lines: { include: { account: { select: { code: true, name: true } } }, orderBy: { lineNo: 'asc' } },
+        lines: {
+          include: { account: { select: { code: true, name: true } } },
+          orderBy: { lineNo: 'asc' },
+        },
         reversalOf: true,
         reversals: true,
       },

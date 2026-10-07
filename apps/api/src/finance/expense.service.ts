@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ExpenseResponsibility, ExpenseStatus, Prisma } from '@prisma/client';
 import { uuidv7 } from '@rerms/shared';
 import { cursorPage } from '../common/cursor-pagination';
@@ -45,9 +50,7 @@ export class ExpenseService {
       ...(branchIds === null ? {} : { branchId: { in: branchIds } }),
       ...(query.status ? { status: query.status } : {}),
       ...(query.propertyId ? { propertyId: query.propertyId } : {}),
-      ...(query.search
-        ? { expenseNumber: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { expenseNumber: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     };
     const rows = await this.db.expense.findMany({
@@ -113,7 +116,9 @@ export class ExpenseService {
     const permission = input.status === ExpenseStatus.APPROVED ? 'expense.manage' : 'expense.read';
     this.auth.assertBranchPermission(principal, permission, current.branchId);
     if (!expenseTransitions[current.status].includes(input.status)) {
-      throw new ConflictException(`Expense cannot transition from ${current.status} to ${input.status}.`);
+      throw new ConflictException(
+        `Expense cannot transition from ${current.status} to ${input.status}.`,
+      );
     }
     return this.db.$transaction(async (tx) => {
       const row = await tx.expense.update({

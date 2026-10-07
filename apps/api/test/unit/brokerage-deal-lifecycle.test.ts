@@ -25,11 +25,10 @@ describe('brokerage deal close guard', () => {
     });
 
     await expect(
-      service.transition(
-        { companyId: 'company-1' } as never,
-        'deal-1',
-        { status: BrokerageDealStatus.CLOSED, reason: 'Placement completed' },
-      ),
+      service.transition({ companyId: 'company-1' } as never, 'deal-1', {
+        status: BrokerageDealStatus.CLOSED,
+        reason: 'Placement completed',
+      }),
     ).rejects.toThrow(
       'Owner and tenant commissions must be fully collected before closing the brokerage deal.',
     );
@@ -46,11 +45,10 @@ describe('brokerage deal close guard', () => {
     });
 
     await expect(
-      service.transition(
-        { companyId: 'company-1' } as never,
-        'deal-1',
-        { status: BrokerageDealStatus.CLOSED, reason: 'Placement completed' },
-      ),
+      service.transition({ companyId: 'company-1' } as never, 'deal-1', {
+        status: BrokerageDealStatus.CLOSED,
+        reason: 'Placement completed',
+      }),
     ).rejects.toThrow('A linked lease is required before closing a brokerage deal.');
   });
 });
