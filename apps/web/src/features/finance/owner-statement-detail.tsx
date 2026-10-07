@@ -3,7 +3,16 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeaderCell, DataTableRow, DataTableScroll, DataTableSurface } from '@/components/shared/data-table';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+  DataTableScroll,
+  DataTableSurface,
+} from '@/components/shared/data-table';
 import { PageSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
@@ -20,7 +29,13 @@ type Statement = {
   periodEnd: string;
   owner?: { displayName?: string };
   property?: { name?: string; propertyCode?: string } | null;
-  lines: Array<{ id: string; lineNo: number; lineCode: string; description: string; amount: string }>;
+  lines: Array<{
+    id: string;
+    lineNo: number;
+    lineCode: string;
+    description: string;
+    amount: string;
+  }>;
 };
 
 export function OwnerStatementDetail() {
@@ -34,7 +49,11 @@ export function OwnerStatementDetail() {
   });
 
   return (
-    <FinanceShell principal={principal} principalError={error} activeItem="finance:owner-statements">
+    <FinanceShell
+      principal={principal}
+      principalError={error}
+      activeItem="finance:owner-statements"
+    >
       <PageHeader
         eyebrow="Finance"
         title={query.data?.statementNumber ?? 'Owner Statement'}
@@ -44,7 +63,10 @@ export function OwnerStatementDetail() {
             <button className="button secondary" type="button" onClick={() => window.print()}>
               Print / Export
             </button>
-            <Link className="text-sm font-semibold text-emerald-700" href="/finance/owner-statements">
+            <Link
+              className="text-sm font-semibold text-emerald-700"
+              href="/finance/owner-statements"
+            >
               Back to register
             </Link>
           </div>

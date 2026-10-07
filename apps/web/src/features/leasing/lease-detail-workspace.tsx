@@ -10,7 +10,10 @@ import { DetailTabs } from '@/components/shared/detail-tabs';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { OperationsShell, useOperationsPrincipal } from '@/features/leasing/operations-shell';
-import { RecordPaymentDrawer, type RentPaymentContext } from '@/features/finance/record-payment-drawer';
+import {
+  RecordPaymentDrawer,
+  type RentPaymentContext,
+} from '@/features/finance/record-payment-drawer';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
 
@@ -61,7 +64,13 @@ type LeaseDetail = {
     property: { id: string; propertyCode: string; name: string; city: string };
   };
   parties: Array<{ role: string; party: { id: string; displayName: string } }>;
-  moveIn: { id: string; status: string; version: number; scheduledDate: string; completedDate: string | null } | null;
+  moveIn: {
+    id: string;
+    status: string;
+    version: number;
+    scheduledDate: string;
+    completedDate: string | null;
+  } | null;
   application: {
     id: string;
     applicationNumber: string;
@@ -149,7 +158,15 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
     onError: (cause) => toast.error(userFacingError(cause)),
   });
   const transitionRenewal = useMutation({
-    mutationFn: ({ renewalId, status, version }: { renewalId: string; status: string; version: number }) =>
+    mutationFn: ({
+      renewalId,
+      status,
+      version,
+    }: {
+      renewalId: string;
+      status: string;
+      version: number;
+    }) =>
       api(`/renewals/${renewalId}/transition`, {
         method: 'POST',
         body: JSON.stringify({
@@ -175,14 +192,24 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
     onError: (cause) => toast.error(userFacingError(cause)),
   });
   const transitionMoveIn = useMutation({
-    mutationFn: ({ moveInId, status, version }: { moveInId: string; status: string; version: number }) =>
+    mutationFn: ({
+      moveInId,
+      status,
+      version,
+    }: {
+      moveInId: string;
+      status: string;
+      version: number;
+    }) =>
       api(`/move-ins/${moveInId}/transition`, {
         method: 'POST',
         body: JSON.stringify({
           status,
           expectedVersion: version,
           reason: `${humanize(status)} from Lease Detail`,
-          ...(status === 'COMPLETED' ? { completedDate: new Date().toISOString().slice(0, 10) } : {}),
+          ...(status === 'COMPLETED'
+            ? { completedDate: new Date().toISOString().slice(0, 10) }
+            : {}),
         }),
       }),
     onSuccess: () => {
@@ -241,7 +268,9 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
     <OperationsShell principal={principal} error={error} activeItem="leases">
       {query.isLoading ? <TableSkeleton columns={1} /> : null}
       {query.isError ? (
-        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{userFacingError(query.error)}</p>
+        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {userFacingError(query.error)}
+        </p>
       ) : null}
       {lease ? (
         <>
@@ -281,18 +310,51 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                 <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
                   <div>
                     <p className="eyebrow">Lease Operations</p>
-                    <h2 id="move-out-title" className="mt-1 text-xl font-bold text-slate-900">Move Out</h2>
-                    <p className="mt-1 text-sm text-slate-600">End this tenancy and record the physical handover.</p>
+                    <h2 id="move-out-title" className="mt-1 text-xl font-bold text-slate-900">
+                      Move Out
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      End this tenancy and record the physical handover.
+                    </p>
                   </div>
-                  <button className="button ghost !p-2" type="button" onClick={() => setMoveOutOpen(false)} aria-label="Close Move-Out dialog">
+                  <button
+                    className="button ghost !p-2"
+                    type="button"
+                    onClick={() => setMoveOutOpen(false)}
+                    aria-label="Close Move-Out dialog"
+                  >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
                 <dl className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm sm:grid-cols-2">
-                  <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lease</dt><dd className="mt-1 font-semibold text-slate-900">{lease.leaseNumber}</dd></div>
-                  <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tenant</dt><dd className="mt-1 text-slate-900">{tenants.map((tenant) => tenant.party.displayName).join(', ') || '—'}</dd></div>
-                  <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Property</dt><dd className="mt-1 text-slate-900">{lease.rentableSpace.property.name}</dd></div>
-                  <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unit</dt><dd className="mt-1 text-slate-900">{lease.rentableSpace.spaceCode} — {lease.rentableSpace.name}</dd></div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Lease
+                    </dt>
+                    <dd className="mt-1 font-semibold text-slate-900">{lease.leaseNumber}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Tenant
+                    </dt>
+                    <dd className="mt-1 text-slate-900">
+                      {tenants.map((tenant) => tenant.party.displayName).join(', ') || '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Property
+                    </dt>
+                    <dd className="mt-1 text-slate-900">{lease.rentableSpace.property.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Unit
+                    </dt>
+                    <dd className="mt-1 text-slate-900">
+                      {lease.rentableSpace.spaceCode} — {lease.rentableSpace.name}
+                    </dd>
+                  </div>
                 </dl>
                 <form
                   className="mt-5 grid gap-4"
@@ -309,19 +371,48 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                 >
                   <label className="text-sm font-semibold text-slate-700">
                     Move-out date
-                    <input name="moveOutDate" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2" />
+                    <input
+                      name="moveOutDate"
+                      type="date"
+                      required
+                      defaultValue={new Date().toISOString().slice(0, 10)}
+                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2"
+                    />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
                     Reason
-                    <input name="reason" required minLength={3} maxLength={500} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2" placeholder="Tenant moved out" />
+                    <input
+                      name="reason"
+                      required
+                      minLength={3}
+                      maxLength={500}
+                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2"
+                      placeholder="Tenant moved out"
+                    />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
                     Notes <span className="font-normal text-slate-500">(optional)</span>
-                    <textarea name="notes" maxLength={2000} rows={3} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2" placeholder="Handover or inspection notes" />
+                    <textarea
+                      name="notes"
+                      maxLength={2000}
+                      rows={3}
+                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2"
+                      placeholder="Handover or inspection notes"
+                    />
                   </label>
-                  {moveOut.isError ? <p className="feedback feedback-error" role="alert">{userFacingError(moveOut.error)}</p> : null}
+                  {moveOut.isError ? (
+                    <p className="feedback feedback-error" role="alert">
+                      {userFacingError(moveOut.error)}
+                    </p>
+                  ) : null}
                   <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
-                    <button className="button ghost" type="button" onClick={() => setMoveOutOpen(false)}>Cancel</button>
+                    <button
+                      className="button ghost"
+                      type="button"
+                      onClick={() => setMoveOutOpen(false)}
+                    >
+                      Cancel
+                    </button>
                     <button className="button primary" type="submit" disabled={moveOut.isPending}>
                       {moveOut.isPending ? 'Saving...' : 'Confirm Move Out'}
                     </button>
@@ -337,7 +428,9 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
           {tab === 'overview' ? (
             <section className="mt-6 grid gap-4 md:grid-cols-3">
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Property</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  Property
+                </p>
                 <Link
                   className="mt-2 block text-sm font-semibold text-emerald-700"
                   href={`/rental/properties/${lease.rentableSpace.property.id}`}
@@ -354,18 +447,24 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Term</p>
                 <p className="mt-2 text-sm font-semibold">
-                  {lease.leaseStartDate.slice(0, 10)} → {lease.leaseEndDate ? lease.leaseEndDate.slice(0, 10) : 'Open-ended'}
+                  {lease.leaseStartDate.slice(0, 10)} →{' '}
+                  {lease.leaseEndDate ? lease.leaseEndDate.slice(0, 10) : 'Open-ended'}
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Tenants</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  Tenants
+                </p>
                 <p className="mt-2 text-sm">
                   {tenants.map((tenant) => tenant.party.displayName).join(', ') || '—'}
                 </p>
                 {lease.application?.lead ? (
                   <p className="mt-2 text-sm text-slate-600">
                     Customer:{' '}
-                    <Link className="text-emerald-700 underline" href={`/rental/customers/${lease.application.lead.id}`}>
+                    <Link
+                      className="text-emerald-700 underline"
+                      href={`/rental/customers/${lease.application.lead.id}`}
+                    >
                       {lease.application.lead.displayName}
                     </Link>
                   </p>
@@ -382,13 +481,20 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                   lease.rentReceivables.length ? (
                     <div className="mt-4 grid gap-3">
                       {lease.rentReceivables.map((receivable) => (
-                        <div key={receivable.id} className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div
+                          key={receivable.id}
+                          className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold text-slate-900">{receivable.chargeNumber}</p>
+                              <p className="font-semibold text-slate-900">
+                                {receivable.chargeNumber}
+                              </p>
                               <StatusBadge value={receivable.status} />
                             </div>
-                            <p className="mt-1 text-sm text-slate-600">{receivable.payerName} · Due {receivable.dueDate.slice(0, 10)}</p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {receivable.payerName} · Due {receivable.dueDate.slice(0, 10)}
+                            </p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">
                               {receivable.currency} {receivable.outstanding} outstanding
                             </p>
@@ -397,22 +503,24 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                             <button
                               className="button primary"
                               type="button"
-                              onClick={() => setRentPaymentContext({
-                                kind: 'RENT',
-                                chargeId: receivable.id,
-                                branchId: receivable.branchId,
-                                payerPartyId: receivable.payerPartyId,
-                                payerName: receivable.payerName,
-                                propertyName: lease.rentableSpace.property.name,
-                                unitName: `${lease.rentableSpace.spaceCode} — ${lease.rentableSpace.name}`,
-                                leaseNumber: lease.leaseNumber,
-                                chargeNumber: receivable.chargeNumber,
-                                dueDate: receivable.dueDate,
-                                currency: receivable.currency,
-                                expected: receivable.expected,
-                                received: receivable.received,
-                                outstanding: receivable.outstanding,
-                              })}
+                              onClick={() =>
+                                setRentPaymentContext({
+                                  kind: 'RENT',
+                                  chargeId: receivable.id,
+                                  branchId: receivable.branchId,
+                                  payerPartyId: receivable.payerPartyId,
+                                  payerName: receivable.payerName,
+                                  propertyName: lease.rentableSpace.property.name,
+                                  unitName: `${lease.rentableSpace.spaceCode} — ${lease.rentableSpace.name}`,
+                                  leaseNumber: lease.leaseNumber,
+                                  chargeNumber: receivable.chargeNumber,
+                                  dueDate: receivable.dueDate,
+                                  currency: receivable.currency,
+                                  expected: receivable.expected,
+                                  received: receivable.received,
+                                  outstanding: receivable.outstanding,
+                                })
+                              }
                             >
                               Record Rent
                             </button>
@@ -421,42 +529,75 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-2 text-sm text-slate-600">No rent is currently due for this lease.</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      No rent is currently due for this lease.
+                    </p>
                   )
                 ) : (
                   <p className="mt-2 text-sm text-slate-600">
-                    Rent is paid directly to the owner under Rental Brokerage. This company records only the placement commissions shown below.
+                    Rent is paid directly to the owner under Rental Brokerage. This company records
+                    only the placement commissions shown below.
                   </p>
                 )}
               </div>
               {(lease.brokerageDeals ?? []).map((deal) => (
-                <div key={deal.id} className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-6 shadow-sm">
+                <div
+                  key={deal.id}
+                  className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-6 shadow-sm"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Placement commissions</p>
-                      <h2 className="mt-1 text-base font-semibold text-slate-900">{deal.dealNumber}</h2>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">
+                        Placement commissions
+                      </p>
+                      <h2 className="mt-1 text-base font-semibold text-slate-900">
+                        {deal.dealNumber}
+                      </h2>
                       <p className="mt-1 text-sm text-slate-600">
                         Owner and tenant commission are separate receivables from the lease rent.
                       </p>
                     </div>
-                    <Link className="button secondary" href={`/commercial/rental-brokerage/${deal.id}`}>
+                    <Link
+                      className="button secondary"
+                      href={`/commercial/rental-brokerage/${deal.id}`}
+                    >
                       Open brokerage deal
                     </Link>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {deal.commissionReceivables.map((receivable) => (
-                      <div key={receivable.id} className="rounded-lg border border-emerald-100 bg-white p-4">
+                      <div
+                        key={receivable.id}
+                        className="rounded-lg border border-emerald-100 bg-white p-4"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-slate-900">
                             {receivable.side === 'OWNER' ? 'Owner commission' : 'Tenant commission'}
                           </p>
                           <StatusBadge value={receivable.status} />
                         </div>
-                        <p className="mt-2 text-sm text-slate-600">{receivable.debtor.displayName}</p>
+                        <p className="mt-2 text-sm text-slate-600">
+                          {receivable.debtor.displayName}
+                        </p>
                         <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                          <div><dt className="text-slate-500">Expected</dt><dd className="mt-1 font-semibold text-slate-900">{deal.currency} {receivable.expected}</dd></div>
-                          <div><dt className="text-slate-500">Received</dt><dd className="mt-1 font-semibold text-slate-900">{deal.currency} {receivable.received}</dd></div>
-                          <div><dt className="text-slate-500">Outstanding</dt><dd className="mt-1 font-semibold text-slate-900">{deal.currency} {receivable.outstanding}</dd></div>
+                          <div>
+                            <dt className="text-slate-500">Expected</dt>
+                            <dd className="mt-1 font-semibold text-slate-900">
+                              {deal.currency} {receivable.expected}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-slate-500">Received</dt>
+                            <dd className="mt-1 font-semibold text-slate-900">
+                              {deal.currency} {receivable.received}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-slate-500">Outstanding</dt>
+                            <dd className="mt-1 font-semibold text-slate-900">
+                              {deal.currency} {receivable.outstanding}
+                            </dd>
+                          </div>
                         </dl>
                       </div>
                     ))}
@@ -471,29 +612,43 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
               {lease.renewals.length ? (
                 <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white px-4 text-sm shadow-sm">
                   {lease.renewals.map((renewal) => (
-                    <li key={renewal.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <li
+                      key={renewal.id}
+                      className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-slate-900">{renewal.proposedStartDate.slice(0, 10)} → {renewal.proposedEndDate.slice(0, 10)}</span>
+                          <span className="font-semibold text-slate-900">
+                            {renewal.proposedStartDate.slice(0, 10)} →{' '}
+                            {renewal.proposedEndDate.slice(0, 10)}
+                          </span>
                           <StatusBadge value={renewal.status} />
                         </div>
-                        <p className="mt-1 text-slate-600">{renewal.currency} {renewal.proposedRent}</p>
+                        <p className="mt-1 text-slate-600">
+                          {renewal.currency} {renewal.proposedRent}
+                        </p>
                         {renewal.successorLease ? (
-                          <Link className="mt-1 inline-block font-semibold text-emerald-700" href={`/leasing/leases/${renewal.successorLease.id}`}>
+                          <Link
+                            className="mt-1 inline-block font-semibold text-emerald-700"
+                            href={`/leasing/leases/${renewal.successorLease.id}`}
+                          >
                             Open {renewal.successorLease.leaseNumber}
                           </Link>
                         ) : null}
                       </div>
-                      {hasPermission(principal, 'renewal.manage') && renewalNextStatus[renewal.status] ? (
+                      {hasPermission(principal, 'renewal.manage') &&
+                      renewalNextStatus[renewal.status] ? (
                         <button
                           className="button secondary"
                           type="button"
                           disabled={transitionRenewal.isPending}
-                          onClick={() => transitionRenewal.mutate({
-                            renewalId: renewal.id,
-                            status: renewalNextStatus[renewal.status]!,
-                            version: renewal.version,
-                          })}
+                          onClick={() =>
+                            transitionRenewal.mutate({
+                              renewalId: renewal.id,
+                              status: renewalNextStatus[renewal.status]!,
+                              version: renewal.version,
+                            })
+                          }
                         >
                           {renewalActionLabel[renewalNextStatus[renewal.status]!]}
                         </button>
@@ -550,7 +705,11 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                       defaultValue={String(lease.rentAmount)}
                     />
                   </label>
-                  <button className="button secondary" type="submit" disabled={startRenewal.isPending}>
+                  <button
+                    className="button secondary"
+                    type="submit"
+                    disabled={startRenewal.isPending}
+                  >
                     {startRenewal.isPending ? 'Saving...' : 'Start Renewal'}
                   </button>
                 </form>
@@ -566,13 +725,20 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                     Scheduled: {lease.moveIn.scheduledDate.slice(0, 10)} ·{' '}
                     <StatusBadge value={lease.moveIn.status} />
                   </p>
-                  {lease.moveIn.status === 'SCHEDULED' && hasPermission(principal, 'move-in.manage') ? (
+                  {lease.moveIn.status === 'SCHEDULED' &&
+                  hasPermission(principal, 'move-in.manage') ? (
                     <div className="flex flex-wrap gap-2">
                       <button
                         className="button primary"
                         type="button"
                         disabled={transitionMoveIn.isPending || lease.status !== 'ACTIVE'}
-                        onClick={() => transitionMoveIn.mutate({ moveInId: lease.moveIn!.id, status: 'COMPLETED', version: lease.moveIn!.version })}
+                        onClick={() =>
+                          transitionMoveIn.mutate({
+                            moveInId: lease.moveIn!.id,
+                            status: 'COMPLETED',
+                            version: lease.moveIn!.version,
+                          })
+                        }
                       >
                         Complete Move-In
                       </button>
@@ -580,11 +746,21 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                         className="button secondary"
                         type="button"
                         disabled={transitionMoveIn.isPending}
-                        onClick={() => transitionMoveIn.mutate({ moveInId: lease.moveIn!.id, status: 'CANCELLED', version: lease.moveIn!.version })}
+                        onClick={() =>
+                          transitionMoveIn.mutate({
+                            moveInId: lease.moveIn!.id,
+                            status: 'CANCELLED',
+                            version: lease.moveIn!.version,
+                          })
+                        }
                       >
                         Cancel Move-In
                       </button>
-                      {lease.status !== 'ACTIVE' ? <p className="w-full text-xs text-amber-700">Activate the lease before completing move-in.</p> : null}
+                      {lease.status !== 'ACTIVE' ? (
+                        <p className="w-full text-xs text-amber-700">
+                          Activate the lease before completing move-in.
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                 </>
@@ -613,7 +789,11 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
                       defaultValue={lease.leaseStartDate.slice(0, 10)}
                     />
                   </label>
-                  <button className="button secondary" type="submit" disabled={scheduleMoveIn.isPending}>
+                  <button
+                    className="button secondary"
+                    type="submit"
+                    disabled={scheduleMoveIn.isPending}
+                  >
                     {scheduleMoveIn.isPending ? 'Saving...' : 'Schedule Move-In'}
                   </button>
                 </form>

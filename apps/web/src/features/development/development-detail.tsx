@@ -13,7 +13,14 @@ import {
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
 import { useClientReady } from '@/lib/client-ready';
-import { api, apiCached, clearApiCache, hasPermission, type Principal, userFacingError } from '@/lib/phase3-api';
+import {
+  api,
+  apiCached,
+  clearApiCache,
+  hasPermission,
+  type Principal,
+  userFacingError,
+} from '@/lib/phase3-api';
 
 type Detail = {
   id: string;
@@ -21,7 +28,6 @@ type Detail = {
   name: string;
   status: string;
   branchId: string;
-  constructionProject?: { id: string; projectNumber: string } | null;
   blocks: Array<{ id: string; code: string; name: string }>;
   plots: Array<{ id: string; plotNumber: string; status: string }>;
   outputAssets: Array<{ id: string; property?: { propertyCode?: string; name?: string } }>;
@@ -171,14 +177,17 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
         });
       }}
     >
-      <Link className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:underline" href="/development">
+      <Link
+        className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:underline"
+        href="/development"
+      >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to Development
       </Link>
       <PageHeader
         eyebrow="Company development"
         title={`${project.projectNumber} — ${project.name}`}
-        description="Blocks, plots, construction, and conversion to saleable Property records."
+        description="Blocks, plots, costs, and conversion to saleable Property records."
         action={<StatusBadge value={project.status} />}
       />
       {error ? <ErrorState message={error} /> : null}
@@ -207,28 +216,7 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
             <Plus className="h-4 w-4" aria-hidden="true" />
             Convert plot
           </button>
-          {!project.constructionProject ? (
-            <button
-              type="button"
-              className="button primary"
-              onClick={() =>
-                void post(
-                  '/development/construction',
-                  { developmentProjectId: project.id, name: `${project.name} construction` },
-                  'Construction attached',
-                )
-              }
-            >
-              Start construction
-            </button>
-          ) : null}
         </div>
-      ) : null}
-
-      {project.constructionProject ? (
-        <p className="mt-4 text-sm text-slate-600">
-          Linked construction {project.constructionProject.projectNumber}
-        </p>
       ) : null}
 
       {canManage && copy ? (
@@ -290,7 +278,9 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
             ) : null}
             {drawer === 'plot' ? (
               <label className="block">
-                <span className="mb-1 block text-[12px] font-semibold text-slate-500">Plot number</span>
+                <span className="mb-1 block text-[12px] font-semibold text-slate-500">
+                  Plot number
+                </span>
                 <input
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
                   value={plotNumber}
@@ -321,7 +311,9 @@ export function DevelopmentDetail({ projectId }: { projectId: string }) {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[12px] font-semibold text-slate-500">Property name</span>
+                  <span className="mb-1 block text-[12px] font-semibold text-slate-500">
+                    Property name
+                  </span>
                   <input
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
                     value={propertyName}

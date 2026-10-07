@@ -172,7 +172,6 @@ export function LeadRegister() {
     RENT: { title: 'Rental Leads', active: 'crm:rental-leads' },
     BUY: { title: 'Buyer Leads', active: 'crm:buyer-leads' },
     SELL: { title: 'Seller Leads', active: 'crm:seller-leads' },
-    CONSTRUCTION_SERVICE: { title: 'Construction Enquiries', active: 'crm:construction-enquiries' },
   }[intentFilter ?? ''];
   return (
     <CrmShell

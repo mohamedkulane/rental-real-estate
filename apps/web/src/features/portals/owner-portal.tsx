@@ -77,13 +77,17 @@ export function OwnerPortal({ initialTab = 'overview' }: { initialTab?: OwnerTab
         const data = await api<OverviewData>('/portal/owner/overview');
         setOverview(data);
       } else if (tab === 'statements') {
-        const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/owner/statements');
+        const data = await api<{ items: Array<Record<string, unknown>> }>(
+          '/portal/owner/statements',
+        );
         setStatements(data.items);
       } else if (tab === 'payouts') {
         const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/owner/payouts');
         setPayouts(data.items);
       } else if (tab === 'maintenance') {
-        const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/owner/maintenance');
+        const data = await api<{ items: Array<Record<string, unknown>> }>(
+          '/portal/owner/maintenance',
+        );
         setMaintenance(data.items);
       } else if (tab === 'activity') {
         const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/owner/activity');
@@ -118,13 +122,15 @@ export function OwnerPortal({ initialTab = 'overview' }: { initialTab?: OwnerTab
       />
       {loadError ? <ErrorState message={loadError} /> : null}
       {loading ? <PageSkeleton /> : null}
-      {!loading && !loadError ? renderTab(activeTab, {
-        overview,
-        statements,
-        payouts,
-        maintenance,
-        activity,
-      }) : null}
+      {!loading && !loadError
+        ? renderTab(activeTab, {
+            overview,
+            statements,
+            payouts,
+            maintenance,
+            activity,
+          })
+        : null}
     </PortalShell>
   );
 }
@@ -159,7 +165,8 @@ function renderTab(
                   <div>
                     <p className="font-medium text-slate-900">{String(service.engagementNumber)}</p>
                     <p className="text-sm text-slate-500">
-                      {humanize(String(service.serviceModel))} · {String((service.property as { name?: string })?.name ?? 'Property')}
+                      {humanize(String(service.serviceModel))} ·{' '}
+                      {String((service.property as { name?: string })?.name ?? 'Property')}
                     </p>
                   </div>
                   <StatusBadge value="ACTIVE" />

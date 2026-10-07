@@ -1,6 +1,6 @@
 import type { CursorPage } from '@/lib/phase3-api';
 
-export type LeadIntent = 'RENT' | 'BUY' | 'SELL' | 'CONSTRUCTION_SERVICE';
+export type LeadIntent = 'RENT' | 'BUY' | 'SELL';
 export type LeadStage =
   'NEW' | 'CONTACTED' | 'QUALIFIED' | 'MATCHING' | 'NURTURING' | 'CONVERTED' | 'LOST';
 
@@ -122,24 +122,6 @@ export type PreferenceResponse = CommonPreferences &
         desiredSaleDate: string | null;
         sellerRelationship: 'OWNER' | 'AUTHORIZED_REPRESENTATIVE' | 'OTHER_UNVERIFIED' | null;
       }
-    | {
-        intent: 'CONSTRUCTION_SERVICE';
-        projectBrief: string;
-        category: 'NEW_BUILD' | 'EXTENSION' | 'RENOVATION' | 'OTHER';
-        propertyId: string | null;
-        siteLocation: string | null;
-        estimatedMinBudget: string | null;
-        estimatedMaxBudget: string | null;
-        currency: string | null;
-        targetStartDate: string | null;
-        targetCompletionDate: string | null;
-        plotArea: string | null;
-        floorArea: string | null;
-        areaUnit: 'SQM' | 'SQFT' | 'HECTARE' | 'ACRE' | null;
-        bedrooms: number | null;
-        floors: number | null;
-        siteControl: 'OWNS_SITE' | 'AUTHORIZED_TO_BUILD' | 'SEEKING_SITE' | 'UNKNOWN' | null;
-      }
   );
 
 export interface LeadSourceRecord {
@@ -230,11 +212,6 @@ export const leadIntents: Array<{ value: LeadIntent; label: string; description:
   { value: 'RENT', label: 'Rent', description: 'Rental need and move-in preferences' },
   { value: 'BUY', label: 'Buy', description: 'Property purchase enquiry' },
   { value: 'SELL', label: 'Sell', description: 'Property sale enquiry' },
-  {
-    value: 'CONSTRUCTION_SERVICE',
-    label: 'Construction Service',
-    description: 'Construction service intake only; no project is created',
-  },
 ];
 
 export const leadStages: LeadStage[] = [

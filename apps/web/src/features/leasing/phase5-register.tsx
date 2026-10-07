@@ -104,7 +104,15 @@ const config: Record<
     permission: 'listing.read',
     endpoint: '/sale-listings',
     empty: 'No Sale Listings are available in your authorized branches.',
-    statuses: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'PAUSED', 'UNPUBLISHED', 'CLOSED', 'ARCHIVED'],
+    statuses: [
+      'DRAFT',
+      'PENDING_REVIEW',
+      'PUBLISHED',
+      'PAUSED',
+      'UNPUBLISHED',
+      'CLOSED',
+      'ARCHIVED',
+    ],
     columns: [
       { label: 'Listing', value: (row) => row.listingNumber as string },
       { label: 'Title', value: (row) => row.title as string },
@@ -159,7 +167,8 @@ const config: Record<
       {
         label: 'Applicant',
         value: (row) =>
-          text(nested(row, 'applicantParty', 'displayName')) || text(nested(row, 'lead', 'displayName')),
+          text(nested(row, 'applicantParty', 'displayName')) ||
+          text(nested(row, 'lead', 'displayName')),
       },
       { label: 'Listing', value: (row) => text(nested(row, 'rentalListing', 'title')) },
       { label: 'Screening', value: (row) => text(row.screeningStatus) },
@@ -208,14 +217,7 @@ const config: Record<
     permission: 'lease.read',
     endpoint: '/leases',
     empty: 'No Lease Contracts match the current filters.',
-    statuses: [
-      'DRAFT',
-      'PENDING_APPROVAL',
-      'ACTIVE',
-      'ENDED',
-      'TERMINATED',
-      'ARCHIVED',
-    ],
+    statuses: ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'ENDED', 'TERMINATED', 'ARCHIVED'],
     columns: [
       { label: 'Lease', value: (row) => text(row.leaseNumber) },
       {
@@ -251,7 +253,10 @@ const config: Record<
     empty: 'No Renewal workflows match the current filters.',
     statuses: ['DRAFT', 'PROPOSED', 'APPROVED', 'SIGNED', 'ACTIVATED', 'REJECTED', 'CANCELLED'],
     columns: [
-      { label: 'Existing Lease', value: (row) => text(nested(row, 'originalLease', 'leaseNumber')) },
+      {
+        label: 'Existing Lease',
+        value: (row) => text(nested(row, 'originalLease', 'leaseNumber')),
+      },
       {
         label: 'Rentable Space',
         value: (row) => text(nested(row, 'originalLease', 'rentableSpace', 'name')),
@@ -283,7 +288,8 @@ const config: Record<
       {
         label: 'Tenant',
         value: (row) => {
-          const parties = nested(row, 'lease', 'parties') as Array<Record<string, unknown>> | undefined;
+          const parties = nested(row, 'lease', 'parties') as
+            Array<Record<string, unknown>> | undefined;
           return (
             parties
               ?.filter((party) => party.role === 'TENANT')
@@ -357,7 +363,11 @@ export function Phase5Register({ mode }: { mode: Mode }) {
               </Link>
             ) : null}
             {principal && mode !== 'leases' ? (
-              <Phase5CreateAction mode={mode} principal={principal} onSuccess={() => void query.refetch()} />
+              <Phase5CreateAction
+                mode={mode}
+                principal={principal}
+                onSuccess={() => void query.refetch()}
+              />
             ) : null}
           </div>
         }
@@ -429,7 +439,11 @@ export function Phase5Register({ mode }: { mode: Mode }) {
                           Open
                         </TableActionButton>
                       ) : null}
-                      <Phase5RowAction mode={mode} row={row} onSuccess={() => void query.refetch()} />
+                      <Phase5RowAction
+                        mode={mode}
+                        row={row}
+                        onSuccess={() => void query.refetch()}
+                      />
                     </div>
                   }
                 />
@@ -452,7 +466,9 @@ export function Phase5Register({ mode }: { mode: Mode }) {
                     {query.data.items.map((row) => (
                       <DataTableRow key={row.id}>
                         {definition.columns.map((column) => (
-                          <DataTableCell key={column.label}>{column.value(row) ?? '—'}</DataTableCell>
+                          <DataTableCell key={column.label}>
+                            {column.value(row) ?? '—'}
+                          </DataTableCell>
                         ))}
                         <DataTableCell>
                           <StatusBadge value={row.status ?? 'ACTIVE'} />

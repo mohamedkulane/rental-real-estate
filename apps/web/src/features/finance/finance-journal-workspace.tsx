@@ -83,7 +83,11 @@ export function JournalCreateWorkspace() {
   });
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:accounting">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:accounting"
+    >
       <PageHeader
         eyebrow="Finance"
         title="Create Journal"
@@ -102,7 +106,11 @@ export function JournalCreateWorkspace() {
           description="Each line needs one account and either a debit or a credit. Totals must balance before saving."
           submitLabel={totals.balanced ? 'Save draft' : 'Debits must equal credits'}
           busy={create.isPending}
-          disabled={!totals.balanced || !description.trim() || lines.filter((line) => line.accountId).length < 2}
+          disabled={
+            !totals.balanced ||
+            !description.trim() ||
+            lines.filter((line) => line.accountId).length < 2
+          }
           onSubmit={() => {
             if (!totals.balanced) {
               toast.error('Journal is not balanced.');
@@ -137,7 +145,10 @@ export function JournalCreateWorkspace() {
           />
           <div className="full space-y-3">
             {lines.map((line, index) => (
-              <div key={index} className="grid gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-4">
+              <div
+                key={index}
+                className="grid gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-4"
+              >
                 <FinanceReferencePicker
                   label={`Account ${index + 1}`}
                   path="/finance/selectors/accounts"
@@ -271,7 +282,11 @@ export function JournalDetailWorkspace() {
   const status = financeText(query.data?.status);
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:accounting">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:accounting"
+    >
       <PageHeader
         eyebrow="Finance"
         title={financeText(query.data?.journalNumber) || 'Journal'}
@@ -293,9 +308,13 @@ export function JournalDetailWorkspace() {
           <FormSection title="Journal entry">
             <div className="mb-4 flex items-center justify-between gap-3">
               <StatusBadge value={status} />
-              <span className="text-[13px] text-slate-500">{formatDate(query.data?.businessDate)}</span>
+              <span className="text-[13px] text-slate-500">
+                {formatDate(query.data?.businessDate)}
+              </span>
             </div>
-            <p className="mb-4 text-[14px] text-slate-800">{financeText(query.data?.description)}</p>
+            <p className="mb-4 text-[14px] text-slate-800">
+              {financeText(query.data?.description)}
+            </p>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-left text-[14px]">
                 <thead className="bg-slate-50 text-[12px] uppercase tracking-wide text-slate-500">
@@ -315,7 +334,9 @@ export function JournalDetailWorkspace() {
                           {financeText(financeNested(line, 'account', 'name'))}
                         </td>
                         <td className="px-4 py-2">{amount > 0 ? amount.toFixed(2) : '—'}</td>
-                        <td className="px-4 py-2">{amount < 0 ? Math.abs(amount).toFixed(2) : '—'}</td>
+                        <td className="px-4 py-2">
+                          {amount < 0 ? Math.abs(amount).toFixed(2) : '—'}
+                        </td>
                       </tr>
                     );
                   })}

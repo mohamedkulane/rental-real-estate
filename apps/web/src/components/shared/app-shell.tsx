@@ -2,23 +2,13 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
-import {
-  ChevronsLeft,
-  ChevronsRight,
-  Home,
-  Menu,
-  MoreHorizontal,
-  X,
-} from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, Home, Menu, MoreHorizontal, X } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { humanize } from '@/lib/presentation';
 import { api } from '@/lib/phase3-api';
 import { AppHeader } from './app-header';
-import {
-  normalizeActiveItem,
-  type NavigationItem,
-} from './navigation-model';
+import { normalizeActiveItem, type NavigationItem } from './navigation-model';
 import { SidebarAccordion, useSidebarLayoutState } from './sidebar-accordion';
 import { buildSidebarAccordion } from './sidebar-navigation';
 
@@ -237,7 +227,9 @@ export function AppShell({
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
-        <div className={'border-b border-slate-200/80 py-4 ' + (sidebarCollapsed ? 'px-2' : 'px-3')}>
+        <div
+          className={'border-b border-slate-200/80 py-4 ' + (sidebarCollapsed ? 'px-2' : 'px-3')}
+        >
           <div
             className={'flex items-center gap-2.5 ' + (accordionCollapsed ? 'justify-center' : '')}
           >

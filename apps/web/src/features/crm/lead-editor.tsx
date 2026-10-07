@@ -305,12 +305,6 @@ function LeadEditor({ principal, lead }: { principal: Principal; lead?: LeadDeta
                 />
               ) : null}
             </div>
-            {intent === 'CONSTRUCTION_SERVICE' ? (
-              <p className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-                Construction Service is intake only. No project, agreement, payment plan, or
-                milestone is created.
-              </p>
-            ) : null}
           </section>
         ) : null}
         {lead ? (

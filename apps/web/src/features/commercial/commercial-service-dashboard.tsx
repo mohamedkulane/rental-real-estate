@@ -2,7 +2,17 @@
 
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Building2, CalendarDays, Handshake, KeyRound, MapPin, MoreHorizontal, Receipt, ShoppingBag, Wallet } from 'lucide-react';
+import {
+  Building2,
+  CalendarDays,
+  Handshake,
+  KeyRound,
+  MapPin,
+  MoreHorizontal,
+  Receipt,
+  ShoppingBag,
+  Wallet,
+} from 'lucide-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -76,7 +86,12 @@ type BrokeragePlacementRow = {
     owner: { displayName: string };
     customer: { displayName: string };
   } | null;
-  lease: { id: string; leaseNumber: string; status: string; moveIn: { status: string } | null } | null;
+  lease: {
+    id: string;
+    leaseNumber: string;
+    status: string;
+    moveIn: { status: string } | null;
+  } | null;
   commissionReceivables: Array<{
     id: string;
     side: string | null;
@@ -133,8 +148,7 @@ function managedRentPosition(row: EngagementRecord) {
   if (!lease) return { received: 0, outstanding: 0, currency: 'USD' };
   return lease.charges.reduce(
     (totals, charge) => ({
-      received:
-        totals.received + Number(charge.originalAmount) - Number(charge.outstandingAmount),
+      received: totals.received + Number(charge.originalAmount) - Number(charge.outstandingAmount),
       outstanding: totals.outstanding + Number(charge.outstandingAmount),
       currency: charge.currency || totals.currency,
     }),
@@ -217,7 +231,8 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
     [engagementRows],
   );
   const filteredEngagementRows = engagementRows.filter((row) => {
-    const searchable = `${propertyLabel(row)} ${spaceLabel(row)} ${row.engagementNumber} ${currentBranch(row)}`.toLowerCase();
+    const searchable =
+      `${propertyLabel(row)} ${spaceLabel(row)} ${row.engagementNumber} ${currentBranch(row)}`.toLowerCase();
     return (
       (!search.trim() || searchable.includes(search.trim().toLowerCase())) &&
       (!branch || currentBranch(row) === branch)
@@ -244,11 +259,7 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
       ) : null}
       {config.metrics.slice(1).map((metric, index) => {
         const query = metricQueries[index];
-        if (
-          principal &&
-          metric.permission &&
-          !hasPermission(principal, metric.permission)
-        ) {
+        if (principal && metric.permission && !hasPermission(principal, metric.permission)) {
           return null;
         }
         return (
@@ -266,7 +277,13 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
 
   return (
     <CommercialShell principal={principal} activeItem={config.activeItem}>
-      <div className={config.premiumLayout ? 'service-dashboard service-dashboard--premium' : 'service-dashboard'}>
+      <div
+        className={
+          config.premiumLayout
+            ? 'service-dashboard service-dashboard--premium'
+            : 'service-dashboard'
+        }
+      >
         <PageHeader
           eyebrow="Commercial"
           title={config.title}
@@ -314,10 +331,7 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
               {engagementsQuery.isFetching && !engagementsQuery.data ? (
                 <TableSkeleton columns={config.showSpaceColumn ? 6 : 5} />
               ) : !engagementRows.length ? (
-                <DataTableEmpty
-                  title={config.emptyTitle}
-                  description={config.emptyDescription}
-                />
+                <DataTableEmpty title={config.emptyTitle} description={config.emptyDescription} />
               ) : !filteredEngagementRows.length ? (
                 <DataTableEmpty
                   title="No matching properties"
@@ -334,14 +348,31 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                         <DataTableMobileCard
                           key={row.id}
                           title={propertyLabel(row)}
-                          subtitle={fullManagement ? row.property.ownerships?.[0]?.owner.displayName ?? 'Owner not recorded' : row.engagementNumber}
+                          subtitle={
+                            fullManagement
+                              ? (row.property.ownerships?.[0]?.owner.displayName ??
+                                'Owner not recorded')
+                              : row.engagementNumber
+                          }
                           rows={
                             fullManagement
                               ? [
-                                  { label: 'Current tenant', value: lease?.parties[0]?.party.displayName ?? 'Vacant' },
-                                  { label: 'Lease', value: lease?.leaseNumber ?? 'No active lease' },
-                                  { label: 'Rent received', value: `${rent.currency} ${rent.received.toFixed(2)}` },
-                                  { label: 'Outstanding rent', value: `${rent.currency} ${rent.outstanding.toFixed(2)}` },
+                                  {
+                                    label: 'Current tenant',
+                                    value: lease?.parties[0]?.party.displayName ?? 'Vacant',
+                                  },
+                                  {
+                                    label: 'Lease',
+                                    value: lease?.leaseNumber ?? 'No active lease',
+                                  },
+                                  {
+                                    label: 'Rent received',
+                                    value: `${rent.currency} ${rent.received.toFixed(2)}`,
+                                  },
+                                  {
+                                    label: 'Outstanding rent',
+                                    value: `${rent.currency} ${rent.outstanding.toFixed(2)}`,
+                                  },
                                   { label: 'Management fee', value: managementFeeLabel(row) },
                                   { label: 'Status', value: <StatusBadge value={row.status} /> },
                                 ]
@@ -356,15 +387,24 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                           }
                           actions={
                             <TableActionGroup>
-                              <TableActionButton tone="property" href={`/portfolio/properties/${row.property.id}`}>
+                              <TableActionButton
+                                tone="property"
+                                href={`/portfolio/properties/${row.property.id}`}
+                              >
                                 Open Property
                               </TableActionButton>
                               {fullManagement && lease ? (
-                                <TableActionButton tone="open" href={`/leasing/leases/${lease.id}?tab=payments`}>
+                                <TableActionButton
+                                  tone="open"
+                                  href={`/leasing/leases/${lease.id}?tab=payments`}
+                                >
                                   Open Lease
                                 </TableActionButton>
                               ) : !fullManagement ? (
-                                <TableActionButton tone="agreement" href={`/commercial/service-engagements/${row.id}`}>
+                                <TableActionButton
+                                  tone="agreement"
+                                  href={`/commercial/service-engagements/${row.id}`}
+                                >
                                   Open Agreement
                                 </TableActionButton>
                               ) : null}
@@ -391,7 +431,9 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                               </>
                             ) : (
                               <>
-                                {config.showSpaceColumn ? <DataTableHeaderCell>Rentable Space</DataTableHeaderCell> : null}
+                                {config.showSpaceColumn ? (
+                                  <DataTableHeaderCell>Rentable Space</DataTableHeaderCell>
+                                ) : null}
                                 <DataTableHeaderCell>Service Agreement</DataTableHeaderCell>
                                 <DataTableHeaderCell>Operating Branch</DataTableHeaderCell>
                                 <DataTableHeaderCell>Effective From</DataTableHeaderCell>
@@ -408,89 +450,162 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                             const fullManagement = config.serviceModel === 'FULL_MANAGEMENT';
                             const statement = row.property.ownerStatements?.[0];
                             const payout = row.property.ownerPayouts?.[0];
-                            return <DataTableRow key={row.id}>
-                              <DataTableCell>
-                                <Link
-                                  className="inline-flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                                  href={`/portfolio/properties/${row.property.id}`}
-                                >
-                                  <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                  {propertyLabel(row)}
-                                </Link>
-                              </DataTableCell>
-                              {fullManagement ? (
-                                <>
-                                  <DataTableCell>
-                                    <span className="block font-medium text-slate-900">{row.property.ownerships?.[0]?.owner.displayName ?? 'Owner not recorded'}</span>
-                                    <span className="mt-1 block text-xs text-slate-500">{lease?.parties[0]?.party.displayName ?? 'Vacant'}</span>
-                                  </DataTableCell>
-                                  <DataTableCell>
-                                    {lease ? <Link className="font-semibold text-[var(--primary)]" href={`/leasing/leases/${lease.id}`}>{lease.leaseNumber}</Link> : 'No active lease'}
-                                  </DataTableCell>
-                                  <DataTableCell>
-                                    <span className="block text-xs text-slate-600">Received: {rent.currency} {rent.received.toFixed(2)}</span>
-                                    <span className="mt-1 block font-semibold text-slate-900">Outstanding: {rent.currency} {rent.outstanding.toFixed(2)}</span>
-                                  </DataTableCell>
-                                  <DataTableCell>{managementFeeLabel(row)}</DataTableCell>
-                                  <DataTableCell>
-                                    <span className="block text-xs text-slate-600">Statement: {statement?.status ?? 'Not generated'}</span>
-                                    <span className="mt-1 block text-xs text-slate-600">Payout: {payout?.status ?? 'Not prepared'}</span>
-                                  </DataTableCell>
-                                </>
-                              ) : config.showSpaceColumn ? (
+                            return (
+                              <DataTableRow key={row.id}>
                                 <DataTableCell>
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <Building2 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
-                                    {spaceLabel(row)}
-                                  </span>
-                                </DataTableCell>
-                              ) : null}
-                              {!fullManagement ? <>
-                                <DataTableCell>{row.engagementNumber}</DataTableCell>
-                                <DataTableCell>
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
-                                    {currentBranch(row)}
-                                  </span>
-                                </DataTableCell>
-                                <DataTableCell>
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
-                                    {formatDate(row.effectiveFrom)}
-                                  </span>
-                                </DataTableCell>
-                              </> : null}
-                              <DataTableCell>
-                                <StatusBadge value={row.status} />
-                              </DataTableCell>
-                              <DataTableCell align="right">
-                                <TableActionGroup>
-                                  <TableActionButton
-                                    tone="property"
+                                  <Link
+                                    className="inline-flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
                                     href={`/portfolio/properties/${row.property.id}`}
                                   >
-                                    Property
-                                  </TableActionButton>
-                                  {fullManagement && lease ? <>
-                                    <TableActionButton tone="open" href={`/leasing/leases/${lease.id}?tab=payments&recordRent=1`}>Record Rent</TableActionButton>
-                                    <TableActionButton tone="edit" href={`/finance/expenses/new?propertyId=${row.property.id}&serviceEngagementId=${row.id}`}>Add Expense</TableActionButton>
-                                    <details className="relative">
-                                      <summary className="inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" title="More property actions">
-                                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                                        <span className="sr-only">More property actions</span>
-                                      </summary>
-                                      <div className="absolute right-0 z-20 mt-1 grid min-w-44 gap-1 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-md">
-                                        <Link className="rounded-md px-3 py-2 text-sm hover:bg-slate-50" href={`/operations/maintenance?propertyId=${row.property.id}`}>Maintenance</Link>
-                                        <Link className="rounded-md px-3 py-2 text-sm hover:bg-slate-50" href={`/finance/owner-statements?propertyId=${row.property.id}`}>Owner Statement</Link>
-                                        <Link className="rounded-md px-3 py-2 text-sm hover:bg-slate-50" href={`/finance/owner-payouts?propertyId=${row.property.id}`}>Owner Payout</Link>
-                                      </div>
-                                    </details>
-                                  </> : !fullManagement ? (
-                                    <TableActionButton tone="agreement" href={`/commercial/service-engagements/${row.id}`}>Agreement</TableActionButton>
-                                  ) : null}
-                                </TableActionGroup>
-                              </DataTableCell>
-                            </DataTableRow>;
+                                    <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                    {propertyLabel(row)}
+                                  </Link>
+                                </DataTableCell>
+                                {fullManagement ? (
+                                  <>
+                                    <DataTableCell>
+                                      <span className="block font-medium text-slate-900">
+                                        {row.property.ownerships?.[0]?.owner.displayName ??
+                                          'Owner not recorded'}
+                                      </span>
+                                      <span className="mt-1 block text-xs text-slate-500">
+                                        {lease?.parties[0]?.party.displayName ?? 'Vacant'}
+                                      </span>
+                                    </DataTableCell>
+                                    <DataTableCell>
+                                      {lease ? (
+                                        <Link
+                                          className="font-semibold text-[var(--primary)]"
+                                          href={`/leasing/leases/${lease.id}`}
+                                        >
+                                          {lease.leaseNumber}
+                                        </Link>
+                                      ) : (
+                                        'No active lease'
+                                      )}
+                                    </DataTableCell>
+                                    <DataTableCell>
+                                      <span className="block text-xs text-slate-600">
+                                        Received: {rent.currency} {rent.received.toFixed(2)}
+                                      </span>
+                                      <span className="mt-1 block font-semibold text-slate-900">
+                                        Outstanding: {rent.currency} {rent.outstanding.toFixed(2)}
+                                      </span>
+                                    </DataTableCell>
+                                    <DataTableCell>{managementFeeLabel(row)}</DataTableCell>
+                                    <DataTableCell>
+                                      <span className="block text-xs text-slate-600">
+                                        Statement: {statement?.status ?? 'Not generated'}
+                                      </span>
+                                      <span className="mt-1 block text-xs text-slate-600">
+                                        Payout: {payout?.status ?? 'Not prepared'}
+                                      </span>
+                                    </DataTableCell>
+                                  </>
+                                ) : config.showSpaceColumn ? (
+                                  <DataTableCell>
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Building2
+                                        className="h-3.5 w-3.5 text-[var(--primary)]"
+                                        aria-hidden="true"
+                                      />
+                                      {spaceLabel(row)}
+                                    </span>
+                                  </DataTableCell>
+                                ) : null}
+                                {!fullManagement ? (
+                                  <>
+                                    <DataTableCell>{row.engagementNumber}</DataTableCell>
+                                    <DataTableCell>
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <MapPin
+                                          className="h-3.5 w-3.5 text-[var(--primary)]"
+                                          aria-hidden="true"
+                                        />
+                                        {currentBranch(row)}
+                                      </span>
+                                    </DataTableCell>
+                                    <DataTableCell>
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <CalendarDays
+                                          className="h-3.5 w-3.5 text-[var(--primary)]"
+                                          aria-hidden="true"
+                                        />
+                                        {formatDate(row.effectiveFrom)}
+                                      </span>
+                                    </DataTableCell>
+                                  </>
+                                ) : null}
+                                <DataTableCell>
+                                  <StatusBadge value={row.status} />
+                                </DataTableCell>
+                                <DataTableCell align="right">
+                                  <TableActionGroup>
+                                    <TableActionButton
+                                      tone="property"
+                                      href={`/portfolio/properties/${row.property.id}`}
+                                    >
+                                      Property
+                                    </TableActionButton>
+                                    {fullManagement && lease ? (
+                                      <>
+                                        <TableActionButton
+                                          tone="open"
+                                          href={`/leasing/leases/${lease.id}?tab=payments&recordRent=1`}
+                                        >
+                                          Record Rent
+                                        </TableActionButton>
+                                        <TableActionButton
+                                          tone="edit"
+                                          href={`/finance/expenses/new?propertyId=${row.property.id}&serviceEngagementId=${row.id}`}
+                                        >
+                                          Add Expense
+                                        </TableActionButton>
+                                        <details className="relative">
+                                          <summary
+                                            className="inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                            title="More property actions"
+                                          >
+                                            <MoreHorizontal
+                                              className="h-4 w-4"
+                                              aria-hidden="true"
+                                            />
+                                            <span className="sr-only">More property actions</span>
+                                          </summary>
+                                          <div className="absolute right-0 z-20 mt-1 grid min-w-44 gap-1 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-md">
+                                            <Link
+                                              className="rounded-md px-3 py-2 text-sm hover:bg-slate-50"
+                                              href={`/operations/maintenance?propertyId=${row.property.id}`}
+                                            >
+                                              Maintenance
+                                            </Link>
+                                            <Link
+                                              className="rounded-md px-3 py-2 text-sm hover:bg-slate-50"
+                                              href={`/finance/owner-statements?propertyId=${row.property.id}`}
+                                            >
+                                              Owner Statement
+                                            </Link>
+                                            <Link
+                                              className="rounded-md px-3 py-2 text-sm hover:bg-slate-50"
+                                              href={`/finance/owner-payouts?propertyId=${row.property.id}`}
+                                            >
+                                              Owner Payout
+                                            </Link>
+                                          </div>
+                                        </details>
+                                      </>
+                                    ) : !fullManagement ? (
+                                      <TableActionButton
+                                        tone="agreement"
+                                        href={`/commercial/service-engagements/${row.id}`}
+                                      >
+                                        Agreement
+                                      </TableActionButton>
+                                    ) : null}
+                                  </TableActionGroup>
+                                </DataTableCell>
+                              </DataTableRow>
+                            );
                           })}
                         </DataTableBody>
                       </DataTable>
@@ -505,9 +620,12 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
             hasPermission(principal, 'brokerage-deal.read') ? (
               <DataTableSurface>
                 <header className="border-b border-slate-100 px-5 py-4">
-                  <h2 className="text-[15px] font-semibold text-slate-900">Placements and commission collection</h2>
+                  <h2 className="text-[15px] font-semibold text-slate-900">
+                    Placements and commission collection
+                  </h2>
                   <p className="mt-1 text-[13px] text-slate-500">
-                    Confirmed agreements automatically create placements. Leases link automatically when created.
+                    Confirmed agreements automatically create placements. Leases link automatically
+                    when created.
                   </p>
                 </header>
                 {placementsQuery.isLoading ? (
@@ -535,8 +653,12 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                       </DataTableHead>
                       <DataTableBody>
                         {(placementsQuery.data?.items ?? []).map((deal) => {
-                          const owner = deal.commissionReceivables.find((item) => item.side === 'OWNER');
-                          const tenant = deal.commissionReceivables.find((item) => item.side === 'TENANT');
+                          const owner = deal.commissionReceivables.find(
+                            (item) => item.side === 'OWNER',
+                          );
+                          const tenant = deal.commissionReceivables.find(
+                            (item) => item.side === 'TENANT',
+                          );
                           const commissionText = (item: typeof owner) =>
                             item
                               ? `${deal.currency} ${item.received} received · ${item.outstanding} outstanding`
@@ -544,24 +666,55 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                           return (
                             <DataTableRow key={deal.id}>
                               <DataTableCell>
-                                <Link className="font-semibold text-[var(--primary)]" href={`/portfolio/properties/${deal.rentableSpace.property.id}`}>
-                                  {deal.rentableSpace.property.propertyCode} — {deal.rentableSpace.property.name}
+                                <Link
+                                  className="font-semibold text-[var(--primary)]"
+                                  href={`/portfolio/properties/${deal.rentableSpace.property.id}`}
+                                >
+                                  {deal.rentableSpace.property.propertyCode} —{' '}
+                                  {deal.rentableSpace.property.name}
                                 </Link>
-                                <span className="mt-1 block text-xs text-slate-500">{deal.rentableSpace.spaceCode} — {deal.rentableSpace.name}</span>
+                                <span className="mt-1 block text-xs text-slate-500">
+                                  {deal.rentableSpace.spaceCode} — {deal.rentableSpace.name}
+                                </span>
                               </DataTableCell>
                               <DataTableCell>
-                                <span className="block font-medium text-slate-900">{deal.rentalAgreement?.owner.displayName ?? 'Owner not recorded'}</span>
-                                <span className="mt-1 block text-xs text-slate-500">{deal.rentalAgreement?.customer.displayName ?? 'Customer not recorded'}</span>
+                                <span className="block font-medium text-slate-900">
+                                  {deal.rentalAgreement?.owner.displayName ?? 'Owner not recorded'}
+                                </span>
+                                <span className="mt-1 block text-xs text-slate-500">
+                                  {deal.rentalAgreement?.customer.displayName ??
+                                    'Customer not recorded'}
+                                </span>
                               </DataTableCell>
                               <DataTableCell>
-                                <span className="block font-medium text-slate-900">{deal.rentalAgreement?.agreementNumber ?? 'Agreement not recorded'}</span>
-                                <span className="mt-1 block text-xs text-slate-500">{deal.lease?.leaseNumber ?? 'Lease pending'}</span>
+                                <span className="block font-medium text-slate-900">
+                                  {deal.rentalAgreement?.agreementNumber ??
+                                    'Agreement not recorded'}
+                                </span>
+                                <span className="mt-1 block text-xs text-slate-500">
+                                  {deal.lease?.leaseNumber ?? 'Lease pending'}
+                                </span>
                               </DataTableCell>
-                              <DataTableCell><span className="text-xs text-slate-700">{commissionText(owner)}</span></DataTableCell>
-                              <DataTableCell><span className="text-xs text-slate-700">{commissionText(tenant)}</span></DataTableCell>
-                              <DataTableCell><StatusBadge value={deal.status} /></DataTableCell>
+                              <DataTableCell>
+                                <span className="text-xs text-slate-700">
+                                  {commissionText(owner)}
+                                </span>
+                              </DataTableCell>
+                              <DataTableCell>
+                                <span className="text-xs text-slate-700">
+                                  {commissionText(tenant)}
+                                </span>
+                              </DataTableCell>
+                              <DataTableCell>
+                                <StatusBadge value={deal.status} />
+                              </DataTableCell>
                               <DataTableCell align="right">
-                                <TableActionButton tone="open" href={`/commercial/rental-brokerage/${deal.id}`}>Open Placement</TableActionButton>
+                                <TableActionButton
+                                  tone="open"
+                                  href={`/commercial/rental-brokerage/${deal.id}`}
+                                >
+                                  Open Placement
+                                </TableActionButton>
                               </DataTableCell>
                             </DataTableRow>
                           );
@@ -572,11 +725,9 @@ function CommercialServiceDashboard({ config }: { config: ServiceDashboardConfig
                 )}
               </DataTableSurface>
             ) : null}
-
           </div>
         )}
       </div>
-
     </CommercialShell>
   );
 }
@@ -611,7 +762,9 @@ const fullManagementConfig: ServiceDashboardConfig = {
       permission: 'finance.overview.read',
       queryKey: ['full-management-active-leases'],
       queryFn: async () => {
-        const overview = await api<{ summary?: { activeManagedLeases?: number } }>('/finance/overview');
+        const overview = await api<{ summary?: { activeManagedLeases?: number } }>(
+          '/finance/overview',
+        );
         return overview.summary?.activeManagedLeases ?? 0;
       },
     },
@@ -635,7 +788,9 @@ const fullManagementConfig: ServiceDashboardConfig = {
       permission: 'finance.overview.read',
       queryKey: ['full-management-pending-payouts'],
       queryFn: async () => {
-        const overview = await api<{ summary?: { pendingOwnerPayouts?: number } }>('/finance/overview');
+        const overview = await api<{ summary?: { pendingOwnerPayouts?: number } }>(
+          '/finance/overview',
+        );
         return overview.summary?.pendingOwnerPayouts ?? 0;
       },
     },

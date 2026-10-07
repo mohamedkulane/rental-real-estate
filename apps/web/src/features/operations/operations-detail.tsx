@@ -64,9 +64,15 @@ export function OperationsDetail({ mode }: { mode: OperationsDetailMode }) {
     queryKey: ['condition-history', query.data?.propertyId],
     enabled: typeof query.data?.propertyId === 'string',
     queryFn: () =>
-      api<{ events: Array<{ kind: string; number: string; status: string; title: string; occurredAt: string }> }>(
-        `/operations/properties/${String(query.data?.propertyId)}/condition-history`,
-      ),
+      api<{
+        events: Array<{
+          kind: string;
+          number: string;
+          status: string;
+          title: string;
+          occurredAt: string;
+        }>;
+      }>(`/operations/properties/${String(query.data?.propertyId)}/condition-history`),
   });
 
   const nested = (...keys: string[]) =>
@@ -91,7 +97,13 @@ export function OperationsDetail({ mode }: { mode: OperationsDetailMode }) {
     <OperationsShell principal={principal} activeItem={activeItems[mode]}>
       <PageHeader
         eyebrow="Operations"
-        title={text(query.data?.requestNumber ?? query.data?.workOrderNumber ?? query.data?.inspectionNumber) || titles[mode]}
+        title={
+          text(
+            query.data?.requestNumber ??
+              query.data?.workOrderNumber ??
+              query.data?.inspectionNumber,
+          ) || titles[mode]
+        }
         description={titles[mode]}
         action={
           <Link className="button secondary" href={back[mode]}>
@@ -108,25 +120,39 @@ export function OperationsDetail({ mode }: { mode: OperationsDetailMode }) {
           <FormSection title="Summary">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">Status</p>
+                <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
+                  Status
+                </p>
                 <div className="mt-1">
                   <StatusBadge value={text(query.data?.status)} />
                 </div>
               </div>
               <Field label="Property" value={text(nested('property', 'name'))} />
-              {mode === 'maintenance' ? <Field label="Title" value={text(query.data?.title)} /> : null}
-              {mode === 'maintenance' ? <Field label="Priority" value={humanize(text(query.data?.priority))} /> : null}
+              {mode === 'maintenance' ? (
+                <Field label="Title" value={text(query.data?.title)} />
+              ) : null}
+              {mode === 'maintenance' ? (
+                <Field label="Priority" value={humanize(text(query.data?.priority))} />
+              ) : null}
               {mode === 'work-orders' ? (
                 <Field label="Approval" value={humanize(text(query.data?.approvalStatus))} />
               ) : null}
-              {mode === 'inspections' ? <Field label="Type" value={humanize(text(query.data?.type))} /> : null}
-              {mode === 'vendors' ? <Field label="Name" value={text(nested('party', 'displayName'))} /> : null}
+              {mode === 'inspections' ? (
+                <Field label="Type" value={humanize(text(query.data?.type))} />
+              ) : null}
+              {mode === 'vendors' ? (
+                <Field label="Name" value={text(nested('party', 'displayName'))} />
+              ) : null}
               <Field
                 label="Reported / scheduled"
-                value={formatDate(query.data?.reportedAt ?? query.data?.scheduledAt ?? query.data?.createdAt)}
+                value={formatDate(
+                  query.data?.reportedAt ?? query.data?.scheduledAt ?? query.data?.createdAt,
+                )}
               />
             </div>
-            {mode === 'maintenance' && principal && hasPermission(principal, 'maintenance.manage') ? (
+            {mode === 'maintenance' &&
+            principal &&
+            hasPermission(principal, 'maintenance.manage') ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {['TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map((status) => (
                   <button
@@ -139,11 +165,17 @@ export function OperationsDetail({ mode }: { mode: OperationsDetailMode }) {
                   </button>
                 ))}
                 {hasPermission(principal, 'work-order.manage') ? (
-                  <CreateWorkOrderFromRequest requestId={id} propertyId={text(query.data?.propertyId)} branchId={text(query.data?.branchId)} />
+                  <CreateWorkOrderFromRequest
+                    requestId={id}
+                    propertyId={text(query.data?.propertyId)}
+                    branchId={text(query.data?.branchId)}
+                  />
                 ) : null}
               </div>
             ) : null}
-            {mode === 'work-orders' && principal && hasPermission(principal, 'work-order.manage') ? (
+            {mode === 'work-orders' &&
+            principal &&
+            hasPermission(principal, 'work-order.manage') ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {['SCHEDULED', 'IN_PROGRESS', 'COMPLETED'].map((status) => (
                   <button
@@ -166,9 +198,15 @@ export function OperationsDetail({ mode }: { mode: OperationsDetailMode }) {
                 ) : null}
               </div>
             ) : null}
-            {mode === 'inspections' && principal && hasPermission(principal, 'inspection.manage') ? (
+            {mode === 'inspections' &&
+            principal &&
+            hasPermission(principal, 'inspection.manage') ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="button secondary" type="button" onClick={() => transition.mutate({ status: 'IN_PROGRESS' })}>
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => transition.mutate({ status: 'IN_PROGRESS' })}
+                >
                   Start
                 </button>
                 <button
@@ -177,7 +215,14 @@ export function OperationsDetail({ mode }: { mode: OperationsDetailMode }) {
                   onClick={() =>
                     transition.mutate({
                       status: 'COMPLETED',
-                      items: [{ area: 'Kitchen', item: 'Cabinets', condition: 'DAMAGED', severity: 'HIGH' }],
+                      items: [
+                        {
+                          area: 'Kitchen',
+                          item: 'Cabinets',
+                          condition: 'DAMAGED',
+                          severity: 'HIGH',
+                        },
+                      ],
                     })
                   }
                 >
@@ -257,7 +302,8 @@ function CreateWorkOrderFromRequest({
 
 function PostExpenseButton({ workOrderId }: { workOrderId: string }) {
   const mutation = useMutation({
-    mutationFn: () => api(`/work-orders/${workOrderId}/expense`, { method: 'POST', body: JSON.stringify({}) }),
+    mutationFn: () =>
+      api(`/work-orders/${workOrderId}/expense`, { method: 'POST', body: JSON.stringify({}) }),
     onSuccess: () => toast.success('Maintenance expense recorded.'),
     onError: (cause) => toast.error(userFacingError(cause)),
   });

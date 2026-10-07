@@ -4,7 +4,13 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DataTableEmpty, DataTableSurface, DataTableToolbar, TableActionButton, TableActionGroup } from '@/components/shared/data-table';
+import {
+  DataTableEmpty,
+  DataTableSurface,
+  DataTableToolbar,
+  TableActionButton,
+  TableActionGroup,
+} from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
 import { CommercialShell, useCommercialPrincipal } from '@/features/commercial/commercial-shell';
@@ -26,7 +32,11 @@ type SaleDeal = {
   buyer: { displayName: string };
   seller: { displayName: string };
   property: { id: string; propertyCode: string; name: string };
-  saleOffer: { id: string; status: string; settlement: { id: string; status: string } | null } | null;
+  saleOffer: {
+    id: string;
+    status: string;
+    settlement: { id: string; status: string } | null;
+  } | null;
 };
 
 export function SalesDealsWorkspace() {
@@ -38,10 +48,20 @@ export function SalesDealsWorkspace() {
   const query = useQuery({
     queryKey: ['sales-deals', search],
     enabled: canRead,
-    queryFn: () => api<CursorPage<SaleDeal>>(`/rental/commands/sale-agreements?limit=50${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`),
+    queryFn: () =>
+      api<CursorPage<SaleDeal>>(
+        `/rental/commands/sale-agreements?limit=50${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`,
+      ),
   });
   const confirm = useMutation({
-    mutationFn: (deal: SaleDeal) => api(`/rental/commands/sale-agreements/${deal.id}/confirm`, { method: 'POST', body: JSON.stringify({ expectedVersion: deal.version, reason: 'Confirmed from Sales Deals workspace' }) }),
+    mutationFn: (deal: SaleDeal) =>
+      api(`/rental/commands/sale-agreements/${deal.id}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          expectedVersion: deal.version,
+          reason: 'Confirmed from Sales Deals workspace',
+        }),
+      }),
     onSuccess: () => {
       toast.success('Sale agreement confirmed.');
       void queryClient.invalidateQueries({ queryKey: ['sales-deals'] });
@@ -51,41 +71,119 @@ export function SalesDealsWorkspace() {
 
   return (
     <CommercialShell principal={principal} activeItem="sales:deals">
-      <PageHeader eyebrow="Sales" title="Sales Deals" description="Manage each agreement through settlement and completion without leaving Sales." />
+      <PageHeader
+        eyebrow="Sales"
+        title="Sales Deals"
+        description="Manage each agreement through settlement and completion without leaving Sales."
+      />
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-      {!canRead ? <ErrorState message="Sales deal access requires sale-offer.read permission." /> : (
+      {!canRead ? (
+        <ErrorState message="Sales deal access requires sale-offer.read permission." />
+      ) : (
         <DataTableSurface className="mt-6">
           <DataTableToolbar>
             <label className="block min-w-0 flex-1">
-              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search deals</span>
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">
+                Search deals
+              </span>
               <div className="relative max-w-md">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input className="input w-full pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Agreement, buyer, or property" />
+                <input
+                  className="input w-full pl-10"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Agreement, buyer, or property"
+                />
               </div>
             </label>
           </DataTableToolbar>
-          {query.isLoading ? <TableSkeleton columns={8} /> : query.isError ? <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} /> : !query.data?.items.length ? <DataTableEmpty title="No sale agreements" description="Interested buyer viewings can become sale agreements here." /> : (
+          {query.isLoading ? (
+            <TableSkeleton columns={8} />
+          ) : query.isError ? (
+            <ErrorState
+              message={userFacingError(query.error)}
+              onRetry={() => void query.refetch()}
+            />
+          ) : !query.data?.items.length ? (
+            <DataTableEmpty
+              title="No sale agreements"
+              description="Interested buyer viewings can become sale agreements here."
+            />
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50">
-                  <tr>{['Agreement', 'Buyer', 'Seller', 'Property', 'Final price', 'Status', 'Settlement', 'Actions'].map((header) => <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">{header}</th>)}</tr>
+                  <tr>
+                    {[
+                      'Agreement',
+                      'Buyer',
+                      'Seller',
+                      'Property',
+                      'Final price',
+                      'Status',
+                      'Settlement',
+                      'Actions',
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
                   {query.data.items.map((deal) => (
                     <tr key={deal.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-3"><Link className="font-semibold text-emerald-700" href={`/sales/deals/${deal.id}`}>{deal.agreementNumber}</Link></td>
+                      <td className="px-4 py-3">
+                        <Link
+                          className="font-semibold text-emerald-700"
+                          href={`/sales/deals/${deal.id}`}
+                        >
+                          {deal.agreementNumber}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">{deal.buyer.displayName}</td>
                       <td className="px-4 py-3">{deal.seller.displayName}</td>
-                      <td className="px-4 py-3"><Link className="font-medium text-emerald-700" href={`/portfolio/properties/${deal.property.id}`}>{deal.property.propertyCode} — {deal.property.name}</Link></td>
-                      <td className="px-4 py-3">{deal.currency} {deal.finalSalePrice}</td>
-                      <td className="px-4 py-3"><StatusBadge value={humanize(deal.status)} /></td>
-                      <td className="px-4 py-3">{deal.saleOffer?.settlement ? humanize(deal.saleOffer.settlement.status) : 'Not started'}</td>
-                      <td className="px-4 py-3"><TableActionGroup className="justify-start">
-                        {deal.status === 'DRAFT' && canManage ? <TableActionButton tone="manage" disabled={confirm.isPending} onClick={() => confirm.mutate(deal)}>Confirm</TableActionButton> : null}
-                        <TableActionButton tone={deal.saleOffer?.settlement ? 'agreement' : 'open'} href={`/sales/deals/${deal.id}`}>
-                          {deal.saleOffer?.settlement ? 'Settlement' : 'Open'}
-                        </TableActionButton>
-                      </TableActionGroup></td>
+                      <td className="px-4 py-3">
+                        <Link
+                          className="font-medium text-emerald-700"
+                          href={`/portfolio/properties/${deal.property.id}`}
+                        >
+                          {deal.property.propertyCode} — {deal.property.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        {deal.currency} {deal.finalSalePrice}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge value={humanize(deal.status)} />
+                      </td>
+                      <td className="px-4 py-3">
+                        {deal.saleOffer?.settlement
+                          ? humanize(deal.saleOffer.settlement.status)
+                          : 'Not started'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TableActionGroup className="justify-start">
+                          {deal.status === 'DRAFT' && canManage ? (
+                            <TableActionButton
+                              tone="manage"
+                              disabled={confirm.isPending}
+                              onClick={() => confirm.mutate(deal)}
+                            >
+                              Confirm
+                            </TableActionButton>
+                          ) : null}
+                          <TableActionButton
+                            tone={deal.saleOffer?.settlement ? 'agreement' : 'open'}
+                            href={`/sales/deals/${deal.id}`}
+                          >
+                            {deal.saleOffer?.settlement ? 'Settlement' : 'Open'}
+                          </TableActionButton>
+                        </TableActionGroup>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

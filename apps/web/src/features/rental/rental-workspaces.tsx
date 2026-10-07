@@ -3,7 +3,20 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Building2, Clock3, DoorOpen, Handshake, KeyRound, MapPin, Plus, Search, SearchCheck, Users, Wallet } from 'lucide-react';
+import {
+  ArrowRight,
+  Building2,
+  Clock3,
+  DoorOpen,
+  Handshake,
+  KeyRound,
+  MapPin,
+  Plus,
+  Search,
+  SearchCheck,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   DataTableFilter,
@@ -16,10 +29,7 @@ import { TableSkeleton } from '@/components/shared/loading-system';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { api, hasPermission, type CursorPage } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
-import {
-  AddRentalCustomerDrawer,
-  AddRentalPropertyDrawer,
-} from './rental-create-drawers';
+import { AddRentalCustomerDrawer, AddRentalPropertyDrawer } from './rental-create-drawers';
 import { WorkspaceFormDrawer } from '@/components/shared/workspace-form-drawer';
 import { RentalShell, useRentalPrincipal } from './rental-shell';
 import { useCreateDrawerState } from './use-create-drawer-state';
@@ -112,29 +122,35 @@ export function RentalPropertyRegister() {
       <DataTableSurface className="mt-6">
         <DataTableToolbar>
           <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
-          <label className="block min-w-[220px] flex-1">
-            <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                className={inputClass + ' pl-10'}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search properties"
-              />
-            </div>
-          </label>
+            <label className="block min-w-[220px] flex-1">
+              <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  className={inputClass + ' pl-10'}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search properties"
+                />
+              </div>
+            </label>
             <DataTableFilter
               label="Type"
               value={propertyType}
               onChange={setPropertyType}
-              options={[{ value: '', label: 'All property types' }, ...propertyTypes.map((value) => ({ value, label: humanize(value) }))]}
+              options={[
+                { value: '', label: 'All property types' },
+                ...propertyTypes.map((value) => ({ value, label: humanize(value) })),
+              ]}
             />
             <DataTableFilter
               label="Status"
               value={propertyStatus}
               onChange={setPropertyStatus}
-              options={[{ value: '', label: 'All statuses' }, ...propertyStatuses.map((value) => ({ value, label: rentalStatusLabel(value) }))]}
+              options={[
+                { value: '', label: 'All statuses' },
+                ...propertyStatuses.map((value) => ({ value, label: rentalStatusLabel(value) })),
+              ]}
             />
           </div>
         </DataTableToolbar>
@@ -157,8 +173,19 @@ export function RentalPropertyRegister() {
             <table className="w-full min-w-[720px] text-left">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
-                  {['Property', 'Type', 'Location', 'Inventory', 'Rent', 'Occupancy', 'Actions'].map((header) => (
-                    <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  {[
+                    'Property',
+                    'Type',
+                    'Location',
+                    'Inventory',
+                    'Rent',
+                    'Occupancy',
+                    'Actions',
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500"
+                    >
                       {header}
                     </th>
                   ))}
@@ -168,27 +195,62 @@ export function RentalPropertyRegister() {
                 {filteredPropertyRows.map((row) => (
                   <tr key={row.id} className="border-b border-slate-100">
                     <td className="px-4 py-3">
-                      <Link className="flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]" href={`/rental/properties/${row.id}`}>
+                      <Link
+                        className="flex items-center gap-2 font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                        href={`/rental/properties/${row.id}`}
+                      >
                         <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        <span>{row.propertyCode} — {row.name}</span>
+                        <span>
+                          {row.propertyCode} — {row.name}
+                        </span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{humanize(row.propertyType)}</span></td>
-                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{row.location}</span></td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2
+                          className="h-3.5 w-3.5 text-[var(--primary)]"
+                          aria-hidden="true"
+                        />
+                        {humanize(row.propertyType)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                        {row.location}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-start gap-2">
-                        <DoorOpen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                        <DoorOpen
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]"
+                          aria-hidden="true"
+                        />
                         <div>
-                          <div className="font-semibold text-slate-800">{row.totalUnits} {row.totalUnits === 1 ? 'Unit' : 'Units'}</div>
-                          <div className="mt-0.5 text-xs text-slate-500">{row.occupiedUnits} rented · {row.availableUnits} available{row.unavailableUnits ? ` · ${row.unavailableUnits} held` : ''}</div>
+                          <div className="font-semibold text-slate-800">
+                            {row.totalUnits} {row.totalUnits === 1 ? 'Unit' : 'Units'}
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {row.occupiedUnits} rented · {row.availableUnits} available
+                            {row.unavailableUnits ? ` · ${row.unavailableUnits} held` : ''}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{row.monthlyRent ? `${row.currency} ${row.monthlyRent}` : '—'}</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Wallet className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                        {row.monthlyRent ? `${row.currency} ${row.monthlyRent}` : '—'}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge value={row.totalUnits === 1 ? rentalStatusLabel(row.rentalStatus) : occupancyLabel(row.occupancyState)} />
+                      <StatusBadge
+                        value={
+                          row.totalUnits === 1
+                            ? rentalStatusLabel(row.rentalStatus)
+                            : occupancyLabel(row.occupancyState)
+                        }
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <TableActionButton tone="open" href={`/rental/properties/${row.id}`}>
@@ -211,9 +273,6 @@ export function RentalPropertyRegister() {
             closeCreate();
             void queryClient.invalidateQueries({ queryKey: ['rental-properties'] });
             if (result.serviceIntent === 'SALE') router.push('/sales/properties');
-            if (result.constructionProjectId) {
-              router.push(`/construction/projects/${result.constructionProjectId}`);
-            }
           }}
         />
       ) : null}
@@ -345,100 +404,146 @@ export function RentalCustomerRegister() {
           ))}
         </section>
 
-      <DataTableSurface className="rental-customer-table-surface">
-        <DataTableToolbar>
-          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
-          <label className="block min-w-[220px] flex-1">
-            <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                className={inputClass + ' pl-10'}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search customers by name, phone or lead number..."
+        <DataTableSurface className="rental-customer-table-surface">
+          <DataTableToolbar>
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+              <label className="block min-w-[220px] flex-1">
+                <span className="mb-1 block text-[12px] font-semibold text-slate-500">Search</span>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    className={inputClass + ' pl-10'}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search customers by name, phone or lead number..."
+                  />
+                </div>
+              </label>
+              <DataTableFilter
+                label="Wanted type"
+                value={wantedType}
+                onChange={setWantedType}
+                options={[
+                  { value: '', label: 'All wanted types' },
+                  ...wantedTypes.map((value) => ({ value, label: humanize(value) })),
+                ]}
+              />
+              <DataTableFilter
+                label="Location"
+                value={location}
+                onChange={setLocation}
+                options={[
+                  { value: '', label: 'All locations' },
+                  ...locations.map((value) => ({ value, label: value })),
+                ]}
+              />
+              <DataTableFilter
+                label="Match status"
+                value={stage}
+                onChange={setStage}
+                options={[
+                  { value: '', label: 'All match statuses' },
+                  ...stages.map((value) => ({ value, label: humanize(value) })),
+                ]}
               />
             </div>
-          </label>
-            <DataTableFilter label="Wanted type" value={wantedType} onChange={setWantedType} options={[{ value: '', label: 'All wanted types' }, ...wantedTypes.map((value) => ({ value, label: humanize(value) }))]} />
-            <DataTableFilter label="Location" value={location} onChange={setLocation} options={[{ value: '', label: 'All locations' }, ...locations.map((value) => ({ value, label: value }))]} />
-            <DataTableFilter label="Match status" value={stage} onChange={setStage} options={[{ value: '', label: 'All match statuses' }, ...stages.map((value) => ({ value, label: humanize(value) }))]} />
-          </div>
-        </DataTableToolbar>
-        {query.isLoading ? (
-          <TableSkeleton columns={5} />
-        ) : !filteredCustomerRows.length ? (
-          <DataTableEmpty
-            title="No rental customers yet"
-            description="Add someone looking for a property to start matching."
-            action={
-              canCreate ? (
-                <button type="button" className="button primary" onClick={openCreate}>
-                  Add Rental Customer
-                </button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="rental-customer-table w-full min-w-[900px] text-left">
-              <thead className="border-b border-slate-200 bg-slate-50">
-                <tr>
-                  {['Customer', 'Wanted Type', 'Location', 'Budget', 'Match Status', 'Added On', 'Actions'].map(
-                    (header) => (
+          </DataTableToolbar>
+          {query.isLoading ? (
+            <TableSkeleton columns={5} />
+          ) : !filteredCustomerRows.length ? (
+            <DataTableEmpty
+              title="No rental customers yet"
+              description="Add someone looking for a property to start matching."
+              action={
+                canCreate ? (
+                  <button type="button" className="button primary" onClick={openCreate}>
+                    Add Rental Customer
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="rental-customer-table w-full min-w-[900px] text-left">
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr>
+                    {[
+                      'Customer',
+                      'Wanted Type',
+                      'Location',
+                      'Budget',
+                      'Match Status',
+                      'Added On',
+                      'Actions',
+                    ].map((header) => (
                       <th
                         key={header}
                         className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500"
                       >
                         {header}
                       </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCustomerRows.map((lead) => (
-                  <tr key={lead.id} className="border-b border-slate-100 text-sm">
-                    <td className="px-4 py-3">
-                      <Link className="font-semibold text-slate-900 hover:text-[var(--primary)]" href={`/rental/customers/${lead.id}`}>
-                        {lead.displayName}
-                      </Link>
-                      <span className="mt-1 block text-xs text-slate-500">{lead.leadNumber}</span>
-                    </td>
-                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary-soft)] px-2 py-1 text-xs font-medium text-[var(--primary)]"><Building2 className="h-3.5 w-3.5" aria-hidden="true" />{lead.wantedType ? humanize(lead.wantedType) : 'Not specified'}</span></td>
-                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />{lead.preferredLocation ?? '—'}</span></td>
-                    <td className="px-4 py-3">
-                      {lead.minRentBudget
-                        ? `${lead.currency} ${lead.minRentBudget}${
-                            lead.maxRentBudget && lead.maxRentBudget !== lead.minRentBudget
-                              ? ` – ${lead.maxRentBudget}`
-                              : ''
-                          }`
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge value={humanize(lead.stage)} />
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {formatDate(lead.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        <TableActionButton tone="view" href={`/rental/customers/${lead.id}`}>
-                          View
-                        </TableActionButton>
-                        <TableActionButton tone="open" href={`/rental/customers/${lead.id}`}>
-                          Open
-                        </TableActionButton>
-                      </div>
-                    </td>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </DataTableSurface>
+                </thead>
+                <tbody>
+                  {filteredCustomerRows.map((lead) => (
+                    <tr key={lead.id} className="border-b border-slate-100 text-sm">
+                      <td className="px-4 py-3">
+                        <Link
+                          className="font-semibold text-slate-900 hover:text-[var(--primary)]"
+                          href={`/rental/customers/${lead.id}`}
+                        >
+                          {lead.displayName}
+                        </Link>
+                        <span className="mt-1 block text-xs text-slate-500">{lead.leadNumber}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary-soft)] px-2 py-1 text-xs font-medium text-[var(--primary)]">
+                          <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          {lead.wantedType ? humanize(lead.wantedType) : 'Not specified'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin
+                            className="h-3.5 w-3.5 text-[var(--primary)]"
+                            aria-hidden="true"
+                          />
+                          {lead.preferredLocation ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {lead.minRentBudget
+                          ? `${lead.currency} ${lead.minRentBudget}${
+                              lead.maxRentBudget && lead.maxRentBudget !== lead.minRentBudget
+                                ? ` – ${lead.maxRentBudget}`
+                                : ''
+                            }`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge value={humanize(lead.stage)} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {formatDate(lead.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          <TableActionButton tone="view" href={`/rental/customers/${lead.id}`}>
+                            View
+                          </TableActionButton>
+                          <TableActionButton tone="open" href={`/rental/customers/${lead.id}`}>
+                            Open
+                          </TableActionButton>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DataTableSurface>
       </div>
       {principal && canCreate ? (
         <AddRentalCustomerDrawer
@@ -474,12 +579,17 @@ export function RentalCustomerRegister() {
                 <KeyRound className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="workspace-choice-card-title block text-sm font-semibold text-slate-900">Rent</span>
+                <span className="workspace-choice-card-title block text-sm font-semibold text-slate-900">
+                  Rent
+                </span>
                 <span className="workspace-choice-card-description mt-0.5 block text-xs text-slate-500">
                   Register a customer looking for a rental property.
                 </span>
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--primary)]" aria-hidden="true" />
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--primary)]"
+                aria-hidden="true"
+              />
             </button>
             <button
               type="button"
@@ -490,12 +600,17 @@ export function RentalCustomerRegister() {
                 <Building2 className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="workspace-choice-card-title block text-sm font-semibold text-slate-900">Buy</span>
+                <span className="workspace-choice-card-title block text-sm font-semibold text-slate-900">
+                  Buy
+                </span>
                 <span className="workspace-choice-card-description mt-0.5 block text-xs text-slate-500">
                   Open the buyer form for a property purchase.
                 </span>
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--primary)]" aria-hidden="true" />
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--primary)]"
+                aria-hidden="true"
+              />
             </button>
           </div>
         </WorkspaceFormDrawer>

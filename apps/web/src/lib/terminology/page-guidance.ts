@@ -1,7 +1,10 @@
 import type { TermKey } from './types';
 
 export const financePageTerms: Partial<
-  Record<'invoices' | 'payments' | 'owner-statements' | 'owner-payouts' | 'expenses' | 'accounting', TermKey>
+  Record<
+    'invoices' | 'payments' | 'owner-statements' | 'owner-payouts' | 'expenses' | 'accounting',
+    TermKey
+  >
 > = {
   invoices: 'invoice',
   payments: 'payment',

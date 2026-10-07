@@ -13,11 +13,23 @@ import {
   TableActionGroup,
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
-import { EmptyState, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/shared/ui';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  StatusBadge,
+} from '@/components/shared/ui';
 import { CommercialShell, useCommercialPrincipal } from '@/features/commercial/commercial-shell';
 import { AsyncSelect, can, requestPath } from '@/features/crm/crm-data';
 import type { LeadDetail } from '@/features/crm/crm-types';
-import { api, hasPermission, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';
+import {
+  api,
+  hasPermission,
+  type CursorPage,
+  type Principal,
+  userFacingError,
+} from '@/lib/phase3-api';
 import { humanize } from '@/lib/presentation';
 import { AddBuyerDrawer } from './buyer-form';
 import { useCreateDrawerState } from './use-create-drawer-state';
@@ -71,7 +83,13 @@ type MatchItem = {
       id: string;
       spaceCode: string;
       name: string;
-      property?: { id: string; name: string; propertyCode: string; city?: string; propertyType?: string };
+      property?: {
+        id: string;
+        name: string;
+        propertyCode: string;
+        city?: string;
+        propertyType?: string;
+      };
     };
   };
 };
@@ -255,18 +273,10 @@ export function BuyerRegister() {
   );
 }
 
-export function BuyerMatches({
-  lead,
-  principal,
-}: {
-  lead: LeadDetail;
-  principal: Principal;
-}) {
+export function BuyerMatches({ lead, principal }: { lead: LeadDetail; principal: Principal }) {
   const queryClient = useQueryClient();
   const [viewingFor, setViewingFor] = useState<MatchItem | null>(null);
-  const [assignedAgentId, setAssignedAgentId] = useState(
-    () => lead.currentAssignee?.id ?? '',
-  );
+  const [assignedAgentId, setAssignedAgentId] = useState(() => lead.currentAssignee?.id ?? '');
   const allowed = can(principal, 'listing.match', lead.responsibleBranch.id);
   const query = useQuery({
     queryKey: ['buyer-listing-matches', lead.id],
@@ -317,7 +327,9 @@ export function BuyerMatches({
   }
   if (query.isPending) return <LoadingState label="Finding matching sale properties" />;
   if (query.isError) {
-    return <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} />;
+    return (
+      <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} />
+    );
   }
 
   const items = query.data?.items ?? [];
@@ -364,7 +376,10 @@ export function BuyerMatches({
                 const property = matchProperty(item);
                 const propertyId = property?.id;
                 return (
-                  <tr key={item.listing.id} className="border-b border-slate-100 text-sm last:border-0">
+                  <tr
+                    key={item.listing.id}
+                    className="border-b border-slate-100 text-sm last:border-0"
+                  >
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-900">
                         {property?.name ?? item.listing.title}
@@ -460,7 +475,11 @@ export function BuyerMatches({
                 assignedEmployeeId: assignedAgentId,
                 scheduledAt: formText(form, 'scheduledAt'),
                 notes: formText(form, 'notes').trim() || undefined,
-                ...(spaceId ? { rentableSpaceId: spaceId } : propertyId ? { propertyId } : { saleListingId: viewingFor.listing.id }),
+                ...(spaceId
+                  ? { rentableSpaceId: spaceId }
+                  : propertyId
+                    ? { propertyId }
+                    : { saleListingId: viewingFor.listing.id }),
               });
             }}
           >
@@ -522,7 +541,9 @@ export function BuyerDetailWorkspace({ leadId }: { leadId: string }) {
       {error ? <p className="mb-4 text-sm text-red-600">{error}</p> : null}
       {query.isLoading ? <TableSkeleton columns={1} /> : null}
       {query.isError ? (
-        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{userFacingError(query.error)}</p>
+        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {userFacingError(query.error)}
+        </p>
       ) : null}
       {lead && prefs ? (
         <>

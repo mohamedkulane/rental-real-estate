@@ -32,17 +32,31 @@ export function SalesPropertiesWorkspace() {
   const query = useQuery({
     queryKey: ['sale-property-inventory', search],
     enabled: Boolean(principal && hasPermission(principal, 'portfolio.property.read')),
-    queryFn: () => api<CursorPage<SaleProperty>>(`/rental/sale-properties?limit=50${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`),
+    queryFn: () =>
+      api<CursorPage<SaleProperty>>(
+        `/rental/sale-properties?limit=50${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`,
+      ),
   });
 
   return (
     <CommercialShell principal={principal} activeItem="sales:properties">
-      <PageHeader eyebrow="Sales" title="Properties for Sale" description="Available sale-intent property inventory." />
+      <PageHeader
+        eyebrow="Sales"
+        title="Properties for Sale"
+        description="Available sale-intent property inventory."
+      />
       <DataTableSurface className="mt-6">
         <DataTableToolbar>
-          <input className="input max-w-sm" placeholder="Search properties" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input
+            className="input max-w-sm"
+            placeholder="Search properties"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
         </DataTableToolbar>
-        {!principal || query.isLoading ? <TableSkeleton columns={5} /> : query.isError ? (
+        {!principal || query.isLoading ? (
+          <TableSkeleton columns={5} />
+        ) : query.isError ? (
           <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} />
         ) : query.data?.items.length ? (
           <div className="overflow-x-auto">
@@ -50,7 +64,10 @@ export function SalesPropertiesWorkspace() {
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
                   {['Property', 'Type', 'Location', 'Sale price', 'Actions'].map((header) => (
-                    <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    <th
+                      key={header}
+                      className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500"
+                    >
                       {header}
                     </th>
                   ))}
@@ -58,11 +75,19 @@ export function SalesPropertiesWorkspace() {
               </thead>
               <tbody>
                 {query.data.items.map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
-                    <td className="px-4 py-3"><div className="font-semibold text-slate-900">{row.name}</div><div className="text-xs text-slate-500">{row.propertyCode}</div></td>
+                  <tr
+                    key={row.id}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-900">{row.name}</div>
+                      <div className="text-xs text-slate-500">{row.propertyCode}</div>
+                    </td>
                     <td className="px-4 py-3">{humanize(row.propertyType)}</td>
                     <td className="px-4 py-3">{row.location || 'Not set'}</td>
-                    <td className="px-4 py-3 font-medium">{row.salePrice ? `${row.currency} ${row.salePrice}` : 'Not set'}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {row.salePrice ? `${row.currency} ${row.salePrice}` : 'Not set'}
+                    </td>
                     <td className="px-4 py-3">
                       <TableActionGroup className="justify-start">
                         <TableActionButton tone="open" href={`/portfolio/properties/${row.id}`}>
@@ -75,7 +100,12 @@ export function SalesPropertiesWorkspace() {
               </tbody>
             </table>
           </div>
-        ) : <DataTableEmpty title="No sale properties" description="Owner properties with Sale service intent will appear here." />}
+        ) : (
+          <DataTableEmpty
+            title="No sale properties"
+            description="Owner properties with Sale service intent will appear here."
+          />
+        )}
       </DataTableSurface>
     </CommercialShell>
   );

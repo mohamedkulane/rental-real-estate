@@ -9,8 +9,14 @@ import {
   WorkspaceFormDrawer,
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
-import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/shared/ui';
-import { api, hasPermission, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/ui';
+import {
+  api,
+  hasPermission,
+  type CursorPage,
+  type Principal,
+  userFacingError,
+} from '@/lib/phase3-api';
 import { AsyncSelect, can, requestPath } from '@/features/crm/crm-data';
 import type { LeadDetail } from '@/features/crm/crm-types';
 import {
@@ -44,7 +50,7 @@ type MatchItem = {
         propertyCode: string;
         city?: string;
         district?: string | null;
-        serviceIntent?: 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE' | 'CONSTRUCTION' | null;
+        serviceIntent?: 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE' | null;
       };
     };
   };
@@ -59,10 +65,20 @@ type ViewingRow = {
   propertyId?: string | null;
   rentableSpaceId?: string | null;
   selectedRentableSpaceId?: string | null;
-  rentalListing?: { id: string; listingNumber: string; title: string; rentableSpaceId?: string } | null;
+  rentalListing?: {
+    id: string;
+    listingNumber: string;
+    title: string;
+    rentableSpaceId?: string;
+  } | null;
   property?: { id: string; propertyCode: string; name: string } | null;
   rentableSpace?: { id: string; spaceCode: string; name: string; propertyId: string } | null;
-  selectedRentableSpace?: { id: string; spaceCode: string; name: string; propertyId: string } | null;
+  selectedRentableSpace?: {
+    id: string;
+    spaceCode: string;
+    name: string;
+    propertyId: string;
+  } | null;
 };
 
 type PropertyMatchGroup = {
@@ -120,19 +136,18 @@ function groupMatches(items: MatchItem[]): PropertyMatchGroup[] {
     });
   }
   return [...groups.values()].sort(
-    (left, right) => right.score - left.score || left.property.name.localeCompare(right.property.name),
+    (left, right) =>
+      right.score - left.score || left.property.name.localeCompare(right.property.name),
   );
 }
 
 function PipelineSteps({ active }: { active: PlacementStep }) {
   if (active === 'declined') {
-    return <p className="mt-2 text-xs font-semibold text-slate-500">Not interested — try another unit</p>;
+    return (
+      <p className="mt-2 text-xs font-semibold text-slate-500">Not interested — try another unit</p>
+    );
   }
-  const order: Array<Exclude<PlacementStep, 'declined'>> = [
-    'viewing',
-    'agreement',
-    'lease',
-  ];
+  const order: Array<Exclude<PlacementStep, 'declined'>> = ['viewing', 'agreement', 'lease'];
   const activeIndex = order.indexOf(active);
   return (
     <ol className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide">
@@ -172,9 +187,7 @@ export function RentalCustomerMatches({
     viewing: ViewingRow;
   } | null>(null);
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(() => new Set());
-  const [assignedAgentId, setAssignedAgentId] = useState(
-    () => lead.currentAssignee?.id ?? '',
-  );
+  const [assignedAgentId, setAssignedAgentId] = useState(() => lead.currentAssignee?.id ?? '');
   const [feesFor, setFeesFor] = useState<MatchItem | null>(null);
 
   const allowed = can(principal, 'listing.match', lead.responsibleBranch.id);
@@ -371,7 +384,9 @@ export function RentalCustomerMatches({
   }
   if (query.isPending) return <LoadingState label="Finding matching properties" />;
   if (query.isError) {
-    return <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} />;
+    return (
+      <ErrorState message={userFacingError(query.error)} onRetry={() => void query.refetch()} />
+    );
   }
 
   const items = query.data?.items ?? [];
@@ -453,7 +468,8 @@ export function RentalCustomerMatches({
                       <td className="px-4 py-3">
                         <p className="font-semibold text-slate-900">{property.name}</p>
                         <p className="text-slate-500">
-                          {group.units.length} available {group.units.length === 1 ? 'unit' : 'units'}
+                          {group.units.length} available{' '}
+                          {group.units.length === 1 ? 'unit' : 'units'}
                         </p>
                         {selectedItem ? (
                           <p className="mt-1 text-xs font-medium text-emerald-700">
@@ -791,12 +807,7 @@ export function RentalCustomerMatches({
             <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
               <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
                 Lease start
-                <input
-                  name="leaseStartDate"
-                  type="date"
-                  required
-                  className={dateInputClass}
-                />
+                <input name="leaseStartDate" type="date" required className={dateInputClass} />
               </label>
               <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
                 Lease end (optional)
@@ -811,24 +822,50 @@ export function RentalCustomerMatches({
                 <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
                   Owner commission
                   <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
-                    <input name="ownerCommission" required inputMode="decimal" className={inputClass} placeholder="40" />
-                    <select name="ownerCommissionMethod" defaultValue="FIXED" className={inputClass} aria-label="Owner commission method">
+                    <input
+                      name="ownerCommission"
+                      required
+                      inputMode="decimal"
+                      className={inputClass}
+                      placeholder="40"
+                    />
+                    <select
+                      name="ownerCommissionMethod"
+                      defaultValue="FIXED"
+                      className={inputClass}
+                      aria-label="Owner commission method"
+                    >
                       <option value="FIXED">Fixed USD</option>
                       <option value="PERCENT">Percent</option>
                     </select>
                   </div>
-                  <span className="block text-xs font-normal text-slate-500">Choose Fixed USD for an agreed amount such as USD 40.</span>
+                  <span className="block text-xs font-normal text-slate-500">
+                    Choose Fixed USD for an agreed amount such as USD 40.
+                  </span>
                 </label>
                 <label className="block min-w-0 space-y-1.5 text-sm font-semibold text-slate-700">
                   Tenant commission
                   <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
-                    <input name="tenantCommission" required inputMode="decimal" className={inputClass} placeholder="35" />
-                    <select name="tenantCommissionMethod" defaultValue="FIXED" className={inputClass} aria-label="Tenant commission method">
+                    <input
+                      name="tenantCommission"
+                      required
+                      inputMode="decimal"
+                      className={inputClass}
+                      placeholder="35"
+                    />
+                    <select
+                      name="tenantCommissionMethod"
+                      defaultValue="FIXED"
+                      className={inputClass}
+                      aria-label="Tenant commission method"
+                    >
                       <option value="FIXED">Fixed USD</option>
                       <option value="PERCENT">Percent</option>
                     </select>
                   </div>
-                  <span className="block text-xs font-normal text-slate-500">Fixed USD keeps the agreed tenant fee separate from monthly rent.</span>
+                  <span className="block text-xs font-normal text-slate-500">
+                    Fixed USD keeps the agreed tenant fee separate from monthly rent.
+                  </span>
                 </label>
               </div>
             ) : (
@@ -836,7 +873,12 @@ export function RentalCustomerMatches({
                 Tenant brokerage fee (optional)
                 <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
                   <input name="tenantCommission" inputMode="decimal" className={inputClass} />
-                  <select name="tenantCommissionMethod" defaultValue="FIXED" className={inputClass} aria-label="Tenant brokerage fee method">
+                  <select
+                    name="tenantCommissionMethod"
+                    defaultValue="FIXED"
+                    className={inputClass}
+                    aria-label="Tenant brokerage fee method"
+                  >
                     <option value="FIXED">Fixed USD</option>
                     <option value="PERCENT">Percent</option>
                   </select>

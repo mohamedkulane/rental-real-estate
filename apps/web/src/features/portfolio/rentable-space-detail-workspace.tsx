@@ -53,6 +53,9 @@ const formText = (form: FormData, key: string) => {
   return typeof value === 'string' ? value.trim() : '';
 };
 
+const attributeText = (value: unknown, fallback = '') =>
+  typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
+
 export function RentableSpaceDetailWorkspace() {
   const params = useParams<{ spaceId: string }>();
   const router = useRouter();
@@ -222,7 +225,13 @@ export function RentableSpaceDetailWorkspace() {
               />
             }
           >
-            <form id={EDIT_UNIT_FORM_ID} className="grid gap-4 sm:grid-cols-2" onSubmit={saveUnit}>
+            <form
+              id={EDIT_UNIT_FORM_ID}
+              className="grid gap-4 sm:grid-cols-2"
+              onSubmit={(event) => {
+                void saveUnit(event);
+              }}
+            >
               <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
                 Unit name
                 <input
@@ -333,7 +342,7 @@ export function RentableSpaceDetailWorkspace() {
                   type="number"
                   min="0"
                   step="0.01"
-                  defaultValue={String(attributes.askingRent ?? '')}
+                  defaultValue={attributeText(attributes.askingRent)}
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
@@ -341,7 +350,7 @@ export function RentableSpaceDetailWorkspace() {
                 <input
                   className="input mt-1 w-full uppercase"
                   name="currency"
-                  defaultValue={String(attributes.currency ?? 'USD')}
+                  defaultValue={attributeText(attributes.currency, 'USD')}
                   minLength={3}
                   maxLength={3}
                 />
@@ -352,7 +361,7 @@ export function RentableSpaceDetailWorkspace() {
                   className="input mt-1 w-full"
                   name="description"
                   rows={3}
-                  defaultValue={String(attributes.description ?? '')}
+                  defaultValue={attributeText(attributes.description)}
                   maxLength={2000}
                 />
               </label>

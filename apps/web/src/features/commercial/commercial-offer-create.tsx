@@ -122,7 +122,13 @@ export function SaleOfferCreateWorkspace() {
             maxLength={3}
             required
           />
-          <FinanceTextField label="Offer date" type="date" value={offerDate} onChange={setOfferDate} required />
+          <FinanceTextField
+            label="Offer date"
+            type="date"
+            value={offerDate}
+            onChange={setOfferDate}
+            required
+          />
           <FinanceTextField label="Expires" type="date" value={expiresAt} onChange={setExpiresAt} />
           <FinanceTextArea label="Terms notes" value={termsNotes} onChange={setTermsNotes} />
         </FinanceFormPanel>

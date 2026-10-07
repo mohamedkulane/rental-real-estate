@@ -457,146 +457,140 @@ export function OwnerDirectory({
               Loading owner details…
             </p>
           ) : (
-          <form
-            key={selected.partyId + ':' + (selected.party.displayName ?? '')}
-            className="space-y-4"
-            onSubmit={(event: FormEvent<HTMLFormElement>) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const displayName = value(form, 'displayName');
-              const phone = value(form, 'phone');
-              const email = value(form, 'email');
-              const names = splitDisplayName(displayName);
-              const existingContacts = selected.party.contacts ?? [];
-              const contactsMasked = existingContacts.some((contact) => contact.masked);
-              const preserved = existingContacts
-                .filter((contact) => contact.type !== 'PHONE' && contact.type !== 'EMAIL')
-                .filter((contact) => contact.value?.trim())
-                .map((contact) => ({
-                  type: contact.type,
-                  value: contact.value!.trim(),
-                  primary: contact.primary,
-                }));
-              const contacts = [
-                ...preserved,
-                ...(phone ? [{ type: 'PHONE' as const, value: phone, primary: true }] : []),
-                ...(email
-                  ? [{ type: 'EMAIL' as const, value: email, primary: !phone }]
-                  : []),
-              ];
-              void onUpdate(selected.partyId, {
-                displayName,
-                ...(selected.party.kind === 'PERSON'
-                  ? {
-                      person: {
-                        givenName: names.givenName || displayName,
-                        familyName: names.familyName || displayName,
-                      },
-                    }
-                  : {
-                      organization: {
-                        legalName: displayName,
-                        tradingName: displayName,
-                      },
-                    }),
-                ...(!contactsMasked && (phone || email || preserved.length)
-                  ? { contacts }
-                  : !contactsMasked && existingContacts.length
-                    ? { contacts: preserved }
-                    : {}),
-                status: value(form, 'status'),
-                communicationPreference: value(form, 'communicationPreference') || undefined,
-                notes: value(form, 'notes') || undefined,
-              })
-                .then(close)
-                .catch(() => undefined);
-            }}
-          >
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Owner number
-              <input
-                value={selected.ownerNumber}
-                disabled
-                className={inputClass + ' bg-slate-50 text-slate-500'}
-              />
-            </label>
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Display name
-              <input
-                name="displayName"
-                required
-                minLength={2}
-                defaultValue={selected.party.displayName}
-                className={inputClass}
-                autoFocus
-              />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-                Phone
-                <input
-                  name="phone"
-                  defaultValue={primaryContact(selected.party.contacts, 'PHONE')}
-                  className={inputClass}
-                  placeholder="+25261..."
-                />
-              </label>
-              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-                Email
-                <input
-                  name="email"
-                  type="email"
-                  defaultValue={primaryContact(selected.party.contacts, 'EMAIL')}
-                  className={inputClass}
-                  placeholder="name@example.com"
-                />
-              </label>
-            </div>
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Status
-              <SearchableSelect
-                searchable={false}
-                name="status"
-                defaultValue={selected.status}
-                className={inputClass}
-              >
-                {['PROSPECTIVE', 'ACTIVE', 'SUSPENDED', 'INACTIVE'].map((item) => (
-                  <option key={item} value={item}>
-                    {humanize(item)}
-                  </option>
-                ))}
-              </SearchableSelect>
-            </label>
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Preferred communication
-              <SearchableSelect
-                name="communicationPreference"
-                defaultValue={selected.communicationPreference ?? ''}
-                className={inputClass}
-              >
-                <option value="">Not specified</option>
-                <option value="PHONE">Phone</option>
-                <option value="EMAIL">Email</option>
-                <option value="WHATSAPP">WhatsApp</option>
-              </SearchableSelect>
-            </label>
-            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
-              Notes
-              <textarea
-                name="notes"
-                defaultValue={selected.notes ?? ''}
-                rows={3}
-                className={inputClass}
-              />
-            </label>
-            <button
-              disabled={busy}
-              className="button primary w-full"
-              type="submit"
+            <form
+              key={selected.partyId + ':' + (selected.party.displayName ?? '')}
+              className="space-y-4"
+              onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const displayName = value(form, 'displayName');
+                const phone = value(form, 'phone');
+                const email = value(form, 'email');
+                const names = splitDisplayName(displayName);
+                const existingContacts = selected.party.contacts ?? [];
+                const contactsMasked = existingContacts.some((contact) => contact.masked);
+                const preserved = existingContacts
+                  .filter((contact) => contact.type !== 'PHONE' && contact.type !== 'EMAIL')
+                  .filter((contact) => contact.value?.trim())
+                  .map((contact) => ({
+                    type: contact.type,
+                    value: contact.value!.trim(),
+                    primary: contact.primary,
+                  }));
+                const contacts = [
+                  ...preserved,
+                  ...(phone ? [{ type: 'PHONE' as const, value: phone, primary: true }] : []),
+                  ...(email ? [{ type: 'EMAIL' as const, value: email, primary: !phone }] : []),
+                ];
+                void onUpdate(selected.partyId, {
+                  displayName,
+                  ...(selected.party.kind === 'PERSON'
+                    ? {
+                        person: {
+                          givenName: names.givenName || displayName,
+                          familyName: names.familyName || displayName,
+                        },
+                      }
+                    : {
+                        organization: {
+                          legalName: displayName,
+                          tradingName: displayName,
+                        },
+                      }),
+                  ...(!contactsMasked && (phone || email || preserved.length)
+                    ? { contacts }
+                    : !contactsMasked && existingContacts.length
+                      ? { contacts: preserved }
+                      : {}),
+                  status: value(form, 'status'),
+                  communicationPreference: value(form, 'communicationPreference') || undefined,
+                  notes: value(form, 'notes') || undefined,
+                })
+                  .then(close)
+                  .catch(() => undefined);
+              }}
             >
-              {busy ? 'Saving…' : 'Save owner'}
-            </button>
-          </form>
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Owner number
+                <input
+                  value={selected.ownerNumber}
+                  disabled
+                  className={inputClass + ' bg-slate-50 text-slate-500'}
+                />
+              </label>
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Display name
+                <input
+                  name="displayName"
+                  required
+                  minLength={2}
+                  defaultValue={selected.party.displayName}
+                  className={inputClass}
+                  autoFocus
+                />
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                  Phone
+                  <input
+                    name="phone"
+                    defaultValue={primaryContact(selected.party.contacts, 'PHONE')}
+                    className={inputClass}
+                    placeholder="+25261..."
+                  />
+                </label>
+                <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                  Email
+                  <input
+                    name="email"
+                    type="email"
+                    defaultValue={primaryContact(selected.party.contacts, 'EMAIL')}
+                    className={inputClass}
+                    placeholder="name@example.com"
+                  />
+                </label>
+              </div>
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Status
+                <SearchableSelect
+                  searchable={false}
+                  name="status"
+                  defaultValue={selected.status}
+                  className={inputClass}
+                >
+                  {['PROSPECTIVE', 'ACTIVE', 'SUSPENDED', 'INACTIVE'].map((item) => (
+                    <option key={item} value={item}>
+                      {humanize(item)}
+                    </option>
+                  ))}
+                </SearchableSelect>
+              </label>
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Preferred communication
+                <SearchableSelect
+                  name="communicationPreference"
+                  defaultValue={selected.communicationPreference ?? ''}
+                  className={inputClass}
+                >
+                  <option value="">Not specified</option>
+                  <option value="PHONE">Phone</option>
+                  <option value="EMAIL">Email</option>
+                  <option value="WHATSAPP">WhatsApp</option>
+                </SearchableSelect>
+              </label>
+              <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+                Notes
+                <textarea
+                  name="notes"
+                  defaultValue={selected.notes ?? ''}
+                  rows={3}
+                  className={inputClass}
+                />
+              </label>
+              <button disabled={busy} className="button primary w-full" type="submit">
+                {busy ? 'Saving…' : 'Save owner'}
+              </button>
+            </form>
           )}
         </Drawer>
       ) : null}

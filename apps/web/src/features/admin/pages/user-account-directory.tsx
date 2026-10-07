@@ -2,13 +2,7 @@
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
-import {
-  Clock3,
-  KeyRound,
-  Search,
-  UserRound,
-  X,
-} from 'lucide-react';
+import { Clock3, KeyRound, Search, UserRound, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';

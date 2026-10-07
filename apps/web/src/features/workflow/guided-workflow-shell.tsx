@@ -164,16 +164,31 @@ export function GuidedWorkflowFooter({
 }) {
   return (
     <>
-      <button type="button" className="button ghost danger" disabled={cancelDisabled} onClick={onCancel}>
+      <button
+        type="button"
+        className="button ghost danger"
+        disabled={cancelDisabled}
+        onClick={onCancel}
+      >
         Cancel Workflow
       </button>
       <div className="guided-workflow__footer-actions">
         {showBack ? (
-          <button type="button" className="button secondary" disabled={backDisabled} onClick={onBack}>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={backDisabled}
+            onClick={onBack}
+          >
             Back
           </button>
         ) : null}
-        <button type="button" className="button secondary" disabled={draftDisabled} onClick={onSaveDraft}>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={draftDisabled}
+          onClick={onSaveDraft}
+        >
           Save Draft
         </button>
         <button

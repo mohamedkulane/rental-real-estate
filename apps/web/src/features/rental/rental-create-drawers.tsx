@@ -25,11 +25,10 @@ import {
 } from './rental-units-editor';
 
 type OwnerOption = { partyId: string; ownerNumber: string; party: { displayName: string } };
-type PropertyServiceIntent = 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE' | 'CONSTRUCTION';
+type PropertyServiceIntent = 'RENTAL_BROKERAGE' | 'FULL_MANAGEMENT' | 'SALE';
 type CreatedProperty = {
   propertyId: string;
   serviceIntent: PropertyServiceIntent | null;
-  constructionProjectId?: string | null;
 };
 
 const inputClass =
@@ -115,9 +114,7 @@ export function AddRentalPropertyDrawer({
       }),
     onSuccess: (result) => {
       toast.success(
-        serviceIntent === 'CONSTRUCTION'
-          ? 'Construction site and project created.'
-          : isSale
+        isSale
           ? ownerMode === 'new'
             ? 'Owner and property ready for sale.'
             : 'Property ready for sale.'
@@ -190,7 +187,9 @@ export function AddRentalPropertyDrawer({
           const payloadUnits = multi
             ? unitsToPayload(units)
             : supportsUnits && singleUnit.rentMode === 'BY_ROOMS'
-              ? unitsToPayload([{ ...singleUnit, name: singleUnit.name.trim() || 'Whole property' }])
+              ? unitsToPayload([
+                  { ...singleUnit, name: singleUnit.name.trim() || 'Whole property' },
+                ])
               : undefined;
           if (multi) {
             if (!payloadUnits || payloadUnits.length < 1) {
@@ -206,23 +205,16 @@ export function AddRentalPropertyDrawer({
             toast.error('Select an existing owner.');
             return;
           }
-          const wholeRent =
-            isSale
-              ? formText(form, 'askingPrice')
-              : multi
-                ? payloadUnits?.[0]?.monthlyRent ?? '0'
-                : singleUnit.rentMode === 'BY_ROOMS'
-                  ? payloadUnits?.[0]?.monthlyRent ?? '0'
-                  : singleUnit.monthlyRent.trim() || formText(form, 'monthlyRent');
-          const district = showMore
-            ? formText(form, 'district') || undefined
-            : undefined;
-          const addressLine1 = showMore
-            ? formText(form, 'addressLine1') || undefined
-            : undefined;
-          const baseDescription = showMore
-            ? formText(form, 'description') || undefined
-            : undefined;
+          const wholeRent = isSale
+            ? formText(form, 'askingPrice')
+            : multi
+              ? (payloadUnits?.[0]?.monthlyRent ?? '0')
+              : singleUnit.rentMode === 'BY_ROOMS'
+                ? (payloadUnits?.[0]?.monthlyRent ?? '0')
+                : singleUnit.monthlyRent.trim() || formText(form, 'monthlyRent');
+          const district = showMore ? formText(form, 'district') || undefined : undefined;
+          const addressLine1 = showMore ? formText(form, 'addressLine1') || undefined : undefined;
+          const baseDescription = showMore ? formText(form, 'description') || undefined : undefined;
           const moreDetails = showMore
             ? !isLand
               ? {
@@ -249,11 +241,10 @@ export function AddRentalPropertyDrawer({
           };
 
           if (ownerMode === 'existing') {
-            const description =
-              isSale
-                ? [baseDescription, `Asking price: ${wholeRent}`].filter(Boolean).join('\n') ||
-                  undefined
-                : baseDescription;
+            const description = isSale
+              ? [baseDescription, `Asking price: ${wholeRent}`].filter(Boolean).join('\n') ||
+                undefined
+              : baseDescription;
             mutation.mutate({
               endpoint: '/rental/commands/add-property',
               body: {
@@ -365,14 +356,13 @@ export function AddRentalPropertyDrawer({
                   onChange={(event) => {
                     const next = event.target.value as PropertyServiceIntent;
                     setServiceIntent(next);
-                    if (next === 'SALE' || next === 'CONSTRUCTION') setHasMultipleUnits(false);
+                    if (next === 'SALE') setHasMultipleUnits(false);
                     else if (MULTI_UNIT_TYPES.has(propertyType)) setHasMultipleUnits(true);
                   }}
                 >
                   <option value="RENTAL_BROKERAGE">Rental brokerage</option>
                   <option value="FULL_MANAGEMENT">Full management</option>
                   <option value="SALE">Sale</option>
-                  <option value="CONSTRUCTION">Construction</option>
                 </select>
               </label>
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
@@ -415,7 +405,9 @@ export function AddRentalPropertyDrawer({
             ) : null}
             {supportsUnits ? (
               <fieldset className="space-y-3 rounded-lg border border-slate-100 p-3">
-                <legend className="px-1 text-sm font-semibold text-slate-700">Rental structure</legend>
+                <legend className="px-1 text-sm font-semibold text-slate-700">
+                  Rental structure
+                </legend>
                 <ChoiceGroup>
                   <ChoiceOption
                     name="unitMode"
@@ -451,7 +443,7 @@ export function AddRentalPropertyDrawer({
                   </div>
                 )}
               </fieldset>
-            ) : !isSale && serviceIntent !== 'CONSTRUCTION' && isLand ? (
+            ) : !isSale && isLand ? (
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
                 Asking rent (monthly)
                 <input
@@ -477,12 +469,7 @@ export function AddRentalPropertyDrawer({
                 </label>
                 <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
                   Service start date
-                  <input
-                    name="effectiveFrom"
-                    type="date"
-                    required
-                    className={inputClass}
-                  />
+                  <input name="effectiveFrom" type="date" required className={inputClass} />
                 </label>
               </div>
             ) : null}
@@ -624,21 +611,15 @@ export function AddRentalCustomerDrawer({
             ...(branchId ? { branchId } : {}),
             ...(showMore
               ? {
-                  ...(formText(form, 'email')
-                    ? { email: formText(form, 'email') }
-                    : {}),
+                  ...(formText(form, 'email') ? { email: formText(form, 'email') } : {}),
                   ...(formText(form, 'minBedrooms')
                     ? { minBedrooms: formText(form, 'minBedrooms') }
                     : {}),
                   ...(formText(form, 'minBathrooms')
                     ? { minBathrooms: formText(form, 'minBathrooms') }
                     : {}),
-                  ...(formText(form, 'minArea')
-                    ? { minArea: formText(form, 'minArea') }
-                    : {}),
-                  ...(formText(form, 'notes')
-                    ? { notes: formText(form, 'notes') }
-                    : {}),
+                  ...(formText(form, 'minArea') ? { minArea: formText(form, 'minArea') } : {}),
+                  ...(formText(form, 'notes') ? { notes: formText(form, 'notes') } : {}),
                 }
               : {}),
           });
@@ -652,11 +633,22 @@ export function AddRentalCustomerDrawer({
           </label>
           <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
             Phone number
-            <input name="phone" required minLength={5} className={inputClass} placeholder="+25261..." />
+            <input
+              name="phone"
+              required
+              minLength={5}
+              className={inputClass}
+              placeholder="+25261..."
+            />
           </label>
           <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
             Property type wanted
-            <select name="propertyTypeWanted" required className={inputClass} defaultValue="Apartment">
+            <select
+              name="propertyTypeWanted"
+              required
+              className={inputClass}
+              defaultValue="Apartment"
+            >
               <option value="Apartment">Apartment</option>
               <option value="House">House</option>
               <option value="Villa">Villa</option>
@@ -735,7 +727,12 @@ export function AddRentalCustomerDrawer({
                 </label>
                 <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
                   Area (optional)
-                  <input name="minArea" inputMode="decimal" className={inputClass} placeholder="e.g. 130" />
+                  <input
+                    name="minArea"
+                    inputMode="decimal"
+                    className={inputClass}
+                    placeholder="e.g. 130"
+                  />
                 </label>
               </div>
               <label className="block space-y-1.5 text-sm font-semibold text-slate-700">

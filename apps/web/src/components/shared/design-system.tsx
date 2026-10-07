@@ -4,7 +4,11 @@
  */
 export { AppShell, type ShellSection, type ShellSubItem } from './app-shell';
 export { AppHeader } from './app-header';
-export { SearchableSelect, searchableOptionText, matchesSearchableOption } from './searchable-select';
+export {
+  SearchableSelect,
+  searchableOptionText,
+  matchesSearchableOption,
+} from './searchable-select';
 export {
   AccessScopeBadge,
   BrandMark,
@@ -34,4 +38,3 @@ export {
   WorkspaceFormDrawerFooter,
   type WorkspaceFormDrawerSize,
 } from './workspace-form-drawer';
-

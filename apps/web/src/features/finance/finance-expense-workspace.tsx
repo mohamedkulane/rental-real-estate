@@ -85,7 +85,11 @@ export function ExpenseCreateWorkspace() {
   });
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:expenses">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:expenses"
+    >
       <PageHeader
         eyebrow="Finance"
         title="Create Expense"
@@ -107,7 +111,9 @@ export function ExpenseCreateWorkspace() {
           disabled={!ready}
           onSubmit={() => {
             if (!ready) {
-              toast.error('Enter a branch, amount, and owner when the expense is owner-responsible.');
+              toast.error(
+                'Enter a branch, amount, and owner when the expense is owner-responsible.',
+              );
               return;
             }
             create.mutate();
@@ -158,9 +164,16 @@ export function ExpenseCreateWorkspace() {
             value={categoryCode}
             onChange={setCategoryCode}
             required
-            options={['MAINTENANCE', 'UTILITIES', 'VENDOR', 'MARKETING', 'OFFICE', 'PAYROLL', 'BANK_CHARGES', 'OTHER'].map(
-              (code) => ({ value: code, label: humanize(code) }),
-            )}
+            options={[
+              'MAINTENANCE',
+              'UTILITIES',
+              'VENDOR',
+              'MARKETING',
+              'OFFICE',
+              'PAYROLL',
+              'BANK_CHARGES',
+              'OTHER',
+            ].map((code) => ({ value: code, label: humanize(code) }))}
           />
           <FinanceStaticSelect
             label="Responsibility"
@@ -236,7 +249,11 @@ export function ExpenseDetailWorkspace() {
   const nextStatuses = expenseTransitions[status] ?? [];
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:expenses">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:expenses"
+    >
       <PageHeader
         eyebrow="Finance"
         title={financeText(query.data?.expenseNumber) || 'Expense'}
@@ -261,19 +278,36 @@ export function ExpenseDetailWorkspace() {
               <StatusBadge value={status} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FinanceField label="Category" value={humanize(financeText(query.data?.categoryCode))} />
-              <FinanceField label="Amount" value={financeMoney(query.data?.currency, query.data?.amount)} />
+              <FinanceField
+                label="Category"
+                value={humanize(financeText(query.data?.categoryCode))}
+              />
+              <FinanceField
+                label="Amount"
+                value={financeMoney(query.data?.currency, query.data?.amount)}
+              />
               <FinanceField label="Business date" value={formatDate(query.data?.businessDate)} />
-              <FinanceField label="Responsibility" value={humanize(financeText(query.data?.responsibility))} />
+              <FinanceField
+                label="Responsibility"
+                value={humanize(financeText(query.data?.responsibility))}
+              />
               <FinanceField
                 label="Property"
-                value={financeText(financeNested(query.data ?? {}, 'property', 'name')) || 'Not linked'}
+                value={
+                  financeText(financeNested(query.data ?? {}, 'property', 'name')) || 'Not linked'
+                }
               />
               <FinanceField
                 label="Vendor"
-                value={financeText(financeNested(query.data ?? {}, 'vendor', 'displayName')) || 'Not linked'}
+                value={
+                  financeText(financeNested(query.data ?? {}, 'vendor', 'displayName')) ||
+                  'Not linked'
+                }
               />
-              <FinanceField label="Description" value={financeText(query.data?.description) || '—'} />
+              <FinanceField
+                label="Description"
+                value={financeText(query.data?.description) || '—'}
+              />
             </div>
           </section>
           {canManage ? (
@@ -281,7 +315,9 @@ export function ExpenseDetailWorkspace() {
               currentStatus={status}
               transitions={nextStatuses}
               busy={transition.isPending}
-              onTransition={(nextStatus, reason) => transition.mutate({ status: nextStatus, reason })}
+              onTransition={(nextStatus, reason) =>
+                transition.mutate({ status: nextStatus, reason })
+              }
             />
           ) : null}
         </div>

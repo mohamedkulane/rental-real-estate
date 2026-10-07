@@ -1,4 +1,4 @@
-import { DevelopmentDetail } from '@/features/construction/development-detail';
+import { DevelopmentDetail } from '@/features/development/development-detail';
 
 export default async function DevelopmentProjectPage({
   params,

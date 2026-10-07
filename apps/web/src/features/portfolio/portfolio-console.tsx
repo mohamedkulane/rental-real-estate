@@ -205,9 +205,7 @@ export function PortfolioConsole() {
         if (requested === 'spaces' && parameters.get('create') !== '1') {
           const propertyId = parameters.get('propertyId');
           router.replace(
-            propertyId
-              ? `/portfolio/properties/${propertyId}?tab=spaces`
-              : '/rental/properties',
+            propertyId ? `/portfolio/properties/${propertyId}?tab=spaces` : '/rental/properties',
           );
           return;
         }
@@ -1096,7 +1094,10 @@ export function PortfolioConsole() {
   const activeChildLabel =
     active === 'amenities'
       ? 'Amenity Catalog'
-      : active === 'owners' || active === 'properties' || active === 'spaces' || active === 'parties'
+      : active === 'owners' ||
+          active === 'properties' ||
+          active === 'spaces' ||
+          active === 'parties'
         ? (PORTFOLIO_NAVIGATION[active].find((item) => item.key === activeView)?.label ??
           PORTFOLIO_NAVIGATION[active][0].label)
         : 'Portfolio';

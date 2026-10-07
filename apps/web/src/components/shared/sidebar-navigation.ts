@@ -93,7 +93,6 @@ const ACTIVE_GROUP_ALIASES: Record<string, string> = {
   'crm:follow-ups': 'sales',
   'crm:sources': 'administration',
   'crm:buyer-leads': 'sales',
-  'projects:construction': 'projects',
   'projects:development': 'projects',
   'operations:overview': 'operations',
   'operations:maintenance': 'operations',
@@ -118,7 +117,11 @@ export function resolveSidebarGroupId(activeItem: string | undefined): string | 
   if (ACTIVE_GROUP_ALIASES[normalized]) return ACTIVE_GROUP_ALIASES[normalized];
   if (normalized.startsWith('crm:')) return 'sales';
   if (normalized.startsWith('start:')) {
-    if (normalized.includes('rental') || normalized.includes('management') || normalized.includes('property')) {
+    if (
+      normalized.includes('rental') ||
+      normalized.includes('management') ||
+      normalized.includes('property')
+    ) {
       if (normalized.includes('sale') || normalized.includes('buyer')) return 'sales';
       if (normalized.includes('payment')) return 'finance';
       return 'rental';

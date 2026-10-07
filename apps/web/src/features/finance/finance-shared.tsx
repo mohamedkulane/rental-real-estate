@@ -7,10 +7,5 @@ export function FinanceAccessDenied({
 }: {
   description?: string;
 }) {
-  return (
-    <EmptyState
-      title="Access restricted"
-      description={description}
-    />
-  );
+  return <EmptyState title="Access restricted" description={description} />;
 }

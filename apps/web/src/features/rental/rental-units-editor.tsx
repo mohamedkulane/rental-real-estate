@@ -83,7 +83,9 @@ export function unitsToPayload(units: UnitDraft[]) {
         return {
           name: unit.name.trim(),
           rentMode: 'BY_ROOMS' as const,
-          monthlyRent: rooms.reduce((sum, room) => sum + Number(room.monthlyRent || 0), 0).toFixed(2),
+          monthlyRent: rooms
+            .reduce((sum, room) => sum + Number(room.monthlyRent || 0), 0)
+            .toFixed(2),
           ...(unit.bedrooms.trim() ? { bedrooms: unit.bedrooms.trim() } : {}),
           ...(unit.bathrooms.trim() ? { bathrooms: unit.bathrooms.trim() } : {}),
           ...(unit.area.trim() ? { area: unit.area.trim() } : {}),

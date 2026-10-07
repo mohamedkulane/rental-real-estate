@@ -25,10 +25,9 @@ function progressId(id?: string) {
 
 export const notify = {
   confirmation(message: string, options?: Omit<NotifyConfirmationInput, 'message'>) {
-    return toast.custom(
-      (t) => renderCalmConfirmation(t, { message, ...options }),
-      { duration: options?.durationMs ?? DEFAULT_DURATION },
-    );
+    return toast.custom((t) => renderCalmConfirmation(t, { message, ...options }), {
+      duration: options?.durationMs ?? DEFAULT_DURATION,
+    });
   },
 
   payment(input: NotifyPaymentInput) {
@@ -88,4 +87,10 @@ export const notify = {
   dismiss: (toastId?: string) => toast.dismiss(toastId),
 };
 
-export type { NotifyAttentionInput, NotifyConfirmationInput, NotifyPaymentInput, NotifyProgressInput, NotifyUndoInput };
+export type {
+  NotifyAttentionInput,
+  NotifyConfirmationInput,
+  NotifyPaymentInput,
+  NotifyProgressInput,
+  NotifyUndoInput,
+};

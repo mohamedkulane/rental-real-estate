@@ -77,7 +77,12 @@ function Panel({
       aria-modal="true"
       aria-label={title}
     >
-      <button type="button" className="absolute inset-0" aria-label="Close panel" onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0"
+        aria-label="Close panel"
+        onClick={onClose}
+      />
       <section className="relative flex h-full w-full max-w-xl flex-col border-l border-gray-200 bg-white shadow-2xl">
         <header className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
           <div>
@@ -345,19 +350,24 @@ export function RoleManager({
           <table className="w-full min-w-[960px] text-left">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                {['Business role', 'Capabilities', 'Status', 'Users', 'Last updated', 'Actions'].map(
-                  (header) => (
-                    <th
-                      key={header}
-                      className={
-                        'px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 ' +
-                        (header === 'Actions' ? 'text-right' : '')
-                      }
-                    >
-                      {header}
-                    </th>
-                  ),
-                )}
+                {[
+                  'Business role',
+                  'Capabilities',
+                  'Status',
+                  'Users',
+                  'Last updated',
+                  'Actions',
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className={
+                      'px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 ' +
+                      (header === 'Actions' ? 'text-right' : '')
+                    }
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -372,7 +382,9 @@ export function RoleManager({
                         {roleInitials(role.name)}
                       </div>
                       <div className="min-w-0">
-                        <strong className="block text-sm font-semibold text-gray-900">{role.name}</strong>
+                        <strong className="block text-sm font-semibold text-gray-900">
+                          {role.name}
+                        </strong>
                         <span className="mt-0.5 block text-xs text-gray-500">{roleHint(role)}</span>
                       </div>
                     </div>
@@ -401,7 +413,8 @@ export function RoleManager({
                     >
                       <span
                         className={
-                          'h-1.5 w-1.5 rounded-full ' + (role.active ? 'bg-emerald-500' : 'bg-gray-400')
+                          'h-1.5 w-1.5 rounded-full ' +
+                          (role.active ? 'bg-emerald-500' : 'bg-gray-400')
                         }
                       />
                       {role.active ? 'Active' : 'Inactive'}
@@ -409,8 +422,7 @@ export function RoleManager({
                   </td>
                   <td className="px-5 py-4">
                     <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
-                      <Users className="h-3.5 w-3.5" />
-                      —
+                      <Users className="h-3.5 w-3.5" />—
                     </span>
                   </td>
                   <td className="px-5 py-4 text-sm text-gray-500">—</td>
@@ -502,24 +514,24 @@ export function RoleManager({
             >
               <ChevronLeft className="h-4 w-4" /> Previous
             </button>
-            {Array.from({ length: pagination.pageCount }, (_, index) => index + 1).map((pageNumber) => (
-              <button
-                key={pageNumber}
-                type="button"
-                onClick={() => pagination.setPage(pageNumber)}
-                className={
-                  'inline-flex h-9 min-w-9 items-center justify-center rounded-lg text-xs font-bold ' +
-                  (pageNumber === pagination.page
-                    ? 'text-white'
-                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50')
-                }
-                style={
-                  pageNumber === pagination.page ? { backgroundColor: PRIMARY } : undefined
-                }
-              >
-                {pageNumber}
-              </button>
-            ))}
+            {Array.from({ length: pagination.pageCount }, (_, index) => index + 1).map(
+              (pageNumber) => (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  onClick={() => pagination.setPage(pageNumber)}
+                  className={
+                    'inline-flex h-9 min-w-9 items-center justify-center rounded-lg text-xs font-bold ' +
+                    (pageNumber === pagination.page
+                      ? 'text-white'
+                      : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50')
+                  }
+                  style={pageNumber === pagination.page ? { backgroundColor: PRIMARY } : undefined}
+                >
+                  {pageNumber}
+                </button>
+              ),
+            )}
             <button
               type="button"
               disabled={pagination.page >= pagination.pageCount}

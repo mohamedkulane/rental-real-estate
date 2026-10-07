@@ -248,12 +248,6 @@ export const reportingDestinations = [
 
 export const projectsDestinations = [
   {
-    key: 'projects:construction',
-    label: 'Construction',
-    href: '/construction',
-    permission: 'construction.read',
-  },
-  {
     key: 'projects:development',
     label: 'Development',
     href: '/development',
@@ -290,7 +284,6 @@ export const operationsDestinations = [
 
 const ACTIVE_ITEM_ALIASES: Record<string, string[]> = {
   'service-engagements': ['service-engagements', 'engagement-register'],
-  'projects:construction': ['projects:construction', 'crm:construction-enquiries'],
   'incomplete-work': ['incomplete-work', 'workflow-new'],
   'crm:leads': ['crm:leads', 'crm:rental-leads', 'crm:buyer-leads', 'crm:seller-leads'],
   'sales:buyers': ['sales:buyers', 'crm:buyer-leads'],
@@ -536,16 +529,16 @@ export function expandedParentForActive(
   return undefined;
 }
 
-export function navigationItemIsActive(item: NavigationItem, activeItem: string | undefined): boolean {
+export function navigationItemIsActive(
+  item: NavigationItem,
+  activeItem: string | undefined,
+): boolean {
   const normalized = normalizeActiveItem(activeItem);
   if (!normalized) return false;
   if (item.key === normalized) return true;
   return Boolean(item.children?.some((child) => child.key === normalized));
 }
 
-export function nextExpandedParent(
-  current: string | undefined,
-  next: string,
-): string | undefined {
+export function nextExpandedParent(current: string | undefined, next: string): string | undefined {
   return current === next ? undefined : next;
 }

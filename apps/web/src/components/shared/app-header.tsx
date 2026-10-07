@@ -1,23 +1,12 @@
 'use client';
 
 import type { RefObject } from 'react';
-import {
-  Bell,
-  Building2,
-  ChevronDown,
-  LogOut,
-  Plus,
-  Search,
-  X,
-} from 'lucide-react';
+import { Bell, Building2, ChevronDown, LogOut, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { humanize } from '@/lib/presentation';
 import { api } from '@/lib/phase3-api';
-import {
-  startNewDestinations,
-  startNewNavigation,
-} from './navigation-model';
+import { startNewDestinations, startNewNavigation } from './navigation-model';
 
 type SearchResult = {
   type: string;
@@ -132,7 +121,9 @@ export function AppHeader({
     }
     setSearchLoading(true);
     const timer = window.setTimeout(() => {
-      void api<{ items: SearchResult[]; closestMatches?: boolean }>(`/search?q=${encodeURIComponent(trimmed)}`)
+      void api<{ items: SearchResult[]; closestMatches?: boolean }>(
+        `/search?q=${encodeURIComponent(trimmed)}`,
+      )
         .then((data) => {
           setSearchResults(data.items);
           setClosestMatches(Boolean(data.closestMatches));
@@ -269,32 +260,36 @@ export function AppHeader({
                       <p className="px-4 py-3 text-sm text-slate-500">Searching...</p>
                     ) : searchResults.length ? (
                       <>
-                      {closestMatches ? <p className="border-b border-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">Closest matches</p> : null}
-                      <ul>
-                        {searchResults.map((result) => (
-                          <li key={`${result.type}-${result.id}`}>
-                            <button
-                              type="button"
-                              role="option"
-                              className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
-                              onClick={() => selectSearchResult(result)}
-                            >
-                              <span className="mt-0.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                                {humanize(result.type)}
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-semibold text-slate-900">
-                                  {result.label}
+                        {closestMatches ? (
+                          <p className="border-b border-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
+                            Closest matches
+                          </p>
+                        ) : null}
+                        <ul>
+                          {searchResults.map((result) => (
+                            <li key={`${result.type}-${result.id}`}>
+                              <button
+                                type="button"
+                                role="option"
+                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                                onClick={() => selectSearchResult(result)}
+                              >
+                                <span className="mt-0.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                  {humanize(result.type)}
                                 </span>
-                                <span className="block truncate text-xs text-slate-500">
-                                  {result.context}
-                                  {result.branch ? ` · ${result.branch}` : ''}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-semibold text-slate-900">
+                                    {result.label}
+                                  </span>
+                                  <span className="block truncate text-xs text-slate-500">
+                                    {result.context}
+                                    {result.branch ? ` · ${result.branch}` : ''}
+                                  </span>
                                 </span>
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
                       </>
                     ) : (
                       <p className="px-4 py-3 text-sm text-slate-500">No matching records found.</p>
@@ -382,7 +377,9 @@ export function AppHeader({
                               if (item.linkPath) navigate(item.linkPath);
                             }}
                           >
-                            <span className="text-sm font-semibold text-slate-900">{item.title}</span>
+                            <span className="text-sm font-semibold text-slate-900">
+                              {item.title}
+                            </span>
                             <span className="text-xs text-slate-500">{item.body}</span>
                           </button>
                         </li>
@@ -410,7 +407,10 @@ export function AppHeader({
                   <strong>{displayName}</strong>
                   <span>{roleLabel}</span>
                 </span>
-                <ChevronDown className="hidden h-4 w-4 shrink-0 text-slate-400 lg:block" aria-hidden="true" />
+                <ChevronDown
+                  className="hidden h-4 w-4 shrink-0 text-slate-400 lg:block"
+                  aria-hidden="true"
+                />
               </button>
               {profileOpen ? (
                 <div role="menu" className="app-header-profile-menu">
@@ -494,7 +494,9 @@ export function AppHeader({
                       <Plus className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span>
-                      <span className="start-new-item-title block text-sm font-bold text-slate-900">{item.label}</span>
+                      <span className="start-new-item-title block text-sm font-bold text-slate-900">
+                        {item.label}
+                      </span>
                       <span className="start-new-item-description block text-xs text-slate-500">
                         {destination?.description}
                       </span>

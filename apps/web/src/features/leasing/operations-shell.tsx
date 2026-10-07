@@ -13,17 +13,47 @@ export function useOperationsPrincipal() {
   const [error, setError] = useState('');
   useEffect(() => {
     let live = true;
-    void apiCached<Principal>('/auth/me').then((value) => live && setPrincipal(value)).catch((cause) => live && setError(userFacingError(cause)));
-    return () => { live = false; };
+    void apiCached<Principal>('/auth/me')
+      .then((value) => live && setPrincipal(value))
+      .catch((cause) => live && setError(userFacingError(cause)));
+    return () => {
+      live = false;
+    };
   }, []);
   return { principal, error };
 }
 
-export function OperationsShell({ principal, error, activeItem, children }: { principal: Principal | null; error?: string; activeItem: string; children: ReactNode }) {
+export function OperationsShell({
+  principal,
+  error,
+  activeItem,
+  children,
+}: {
+  principal: Principal | null;
+  error?: string;
+  activeItem: string;
+  children: ReactNode;
+}) {
   const router = useRouter();
   const ready = useClientReady();
   if (!ready) return <AppLoadingScreen title="Setting things up..." />;
   if (error) return <ErrorState message={error} />;
   if (!principal) return <AppLoadingScreen title="Setting things up..." />;
-  return <AppShell active="commercial" activeItem={activeItem} accessMode={principal.accessMode} accessBranches={principal.branches} permissions={principal.permissions} onLogout={() => { void api('/auth/logout', { method: 'POST' }).finally(() => { clearApiCache(); router.replace('/login'); }); }}>{children}</AppShell>;
+  return (
+    <AppShell
+      active="commercial"
+      activeItem={activeItem}
+      accessMode={principal.accessMode}
+      accessBranches={principal.branches}
+      permissions={principal.permissions}
+      onLogout={() => {
+        void api('/auth/logout', { method: 'POST' }).finally(() => {
+          clearApiCache();
+          router.replace('/login');
+        });
+      }}
+    >
+      {children}
+    </AppShell>
+  );
 }

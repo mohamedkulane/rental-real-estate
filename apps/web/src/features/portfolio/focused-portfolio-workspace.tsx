@@ -619,9 +619,7 @@ function workspaceCells(workspace: FocusedWorkspace, row: Row): ReactNode[] {
     ];
 
   const spaceLabel = spaceCode ? spaceCode + ' - ' + spaceName : spaceName;
-  const action = spaceId
-    ? actionLink('/portfolio/rentable-spaces/' + spaceId, 'Open Space')
-    : null;
+  const action = spaceId ? actionLink('/portfolio/rentable-spaces/' + spaceId, 'Open Space') : null;
   if (workspace === 'space-hierarchy') {
     const relation = record(list(row.childRelations)[0]);
     return [

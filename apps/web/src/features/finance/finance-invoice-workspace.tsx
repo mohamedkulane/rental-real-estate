@@ -54,7 +54,10 @@ export function InvoiceCreateWorkspace() {
   });
 
   const selectedIds = useMemo(
-    () => Object.entries(selected).filter(([, value]) => value).map(([id]) => id),
+    () =>
+      Object.entries(selected)
+        .filter(([, value]) => value)
+        .map(([id]) => id),
     [selected],
   );
 
@@ -78,7 +81,11 @@ export function InvoiceCreateWorkspace() {
   });
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:invoices">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:invoices"
+    >
       <PageHeader
         eyebrow="Finance"
         title="Create Invoice"
@@ -115,8 +122,20 @@ export function InvoiceCreateWorkspace() {
               required
               emptyHint="No tenant records are available yet."
             />
-            <FinanceTextField label="Issue date" type="date" value={issueDate} onChange={setIssueDate} required />
-            <FinanceTextField label="Due date" type="date" value={dueDate} onChange={setDueDate} required />
+            <FinanceTextField
+              label="Issue date"
+              type="date"
+              value={issueDate}
+              onChange={setIssueDate}
+              required
+            />
+            <FinanceTextField
+              label="Due date"
+              type="date"
+              value={dueDate}
+              onChange={setDueDate}
+              required
+            />
             <FinanceTextField
               label="Currency"
               value={currency}
@@ -126,7 +145,10 @@ export function InvoiceCreateWorkspace() {
             />
           </FinanceFormPanel>
 
-          <FormSection title="Charge lines" description="Select open charges to include on this invoice.">
+          <FormSection
+            title="Charge lines"
+            description="Select open charges to include on this invoice."
+          >
             {!debtor ? (
               <p className="text-[14px] text-slate-500">Choose a tenant to load open charges.</p>
             ) : charges.isLoading ? (
@@ -144,14 +166,20 @@ export function InvoiceCreateWorkspace() {
                         type="checkbox"
                         checked={Boolean(selected[charge.id])}
                         onChange={(event) =>
-                          setSelected((current) => ({ ...current, [charge.id]: event.target.checked }))
+                          setSelected((current) => ({
+                            ...current,
+                            [charge.id]: event.target.checked,
+                          }))
                         }
                       />
                       <span className="truncate text-[14px] font-medium text-slate-900">
-                        {financeText(charge.chargeNumber)} — {financeMoney(charge.currency, charge.outstandingAmount)}
+                        {financeText(charge.chargeNumber)} —{' '}
+                        {financeMoney(charge.currency, charge.outstandingAmount)}
                       </span>
                     </label>
-                    <span className="text-[12px] text-slate-500">Due {formatDate(charge.dueDate)}</span>
+                    <span className="text-[12px] text-slate-500">
+                      Due {formatDate(charge.dueDate)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -180,7 +208,11 @@ export function InvoiceDetailWorkspace() {
   );
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:invoices">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:invoices"
+    >
       <PageHeader
         eyebrow="Finance"
         title={financeText(query.data?.invoiceNumber) || 'Invoice'}
@@ -205,7 +237,13 @@ export function InvoiceDetailWorkspace() {
               <FinanceField label="Total" value={financeMoney(query.data?.currency, total)} />
               <FinanceField label="Issue date" value={formatDate(query.data?.issueDate)} />
               <FinanceField label="Due date" value={formatDate(query.data?.dueDate)} />
-              <FinanceField label="Debtor" value={financeText(financeNested(query.data ?? {}, 'debtor', 'displayName')) || 'Linked tenant'} />
+              <FinanceField
+                label="Debtor"
+                value={
+                  financeText(financeNested(query.data ?? {}, 'debtor', 'displayName')) ||
+                  'Linked tenant'
+                }
+              />
             </div>
             <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-left text-[14px]">
@@ -222,7 +260,9 @@ export function InvoiceDetailWorkspace() {
                       <td className="px-4 py-2">
                         {financeText(financeNested(line, 'charge', 'chargeNumber'))}
                       </td>
-                      <td className="px-4 py-2">{financeMoney(query.data?.currency, line.displayAmount)}</td>
+                      <td className="px-4 py-2">
+                        {financeMoney(query.data?.currency, line.displayAmount)}
+                      </td>
                       <td className="px-4 py-2">
                         {humanize(financeText(financeNested(line, 'charge', 'status')))}
                       </td>

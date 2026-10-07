@@ -53,7 +53,6 @@ describe('hierarchical navigation model', () => {
 
   it('normalizes legacy active item aliases', () => {
     expect(normalizeActiveItem('engagement-register')).toBe('service-engagements');
-    expect(normalizeActiveItem('crm:construction-enquiries')).toBe('projects:construction');
   });
 });
 
@@ -73,7 +72,6 @@ describe('simplified sidebar groups', () => {
     'maintenance.read',
     'viewing.read',
     'inspection.read',
-    'construction.read',
     'development.read',
     'finance.overview.read',
     'payment.read',
@@ -109,19 +107,18 @@ describe('simplified sidebar groups', () => {
         ],
         () => undefined,
       ).map((item) => item.label),
-    ).toEqual([
-      'Overview',
-      'Customers',
-      'Brokerage',
-      'Full Management',
-      'Leases',
-    ]);
+    ).toEqual(['Overview', 'Customers', 'Brokerage', 'Full Management', 'Leases']);
   });
 
   it('lists portfolio owners, properties, and amenities only', () => {
     expect(
       buildSidebarGroups({
-        permissions: ['portfolio.property.read', 'owner.read', 'viewing.read', 'portfolio.amenity.read'],
+        permissions: [
+          'portfolio.property.read',
+          'owner.read',
+          'viewing.read',
+          'portfolio.amenity.read',
+        ],
         navigate: () => undefined,
       })
         .find((group) => group.title === 'PORTFOLIO')
@@ -131,17 +128,22 @@ describe('simplified sidebar groups', () => {
 
   it('lists sales as overview buyers properties deals', () => {
     expect(
-      salesNavigation(
-        ['listing.read', 'crm.lead.read', 'sale-offer.read'],
-        () => undefined,
-      ).map((item) => item.label),
+      salesNavigation(['listing.read', 'crm.lead.read', 'sale-offer.read'], () => undefined).map(
+        (item) => item.label,
+      ),
     ).toEqual(['Overview', 'Buyers', 'Properties for Sale', 'Deals']);
   });
 
   it('keeps finance payments centralized', () => {
     expect(
       financeNavigation(
-        ['finance.overview.read', 'payment.read', 'expense.read', 'owner-statement.read', 'payout.read'],
+        [
+          'finance.overview.read',
+          'payment.read',
+          'expense.read',
+          'owner-statement.read',
+          'payout.read',
+        ],
         () => undefined,
       ).map((item) => item.label),
     ).toEqual(['Overview', 'Payments', 'Expenses', 'Owner Statements', 'Owner Payouts']);
@@ -164,12 +166,10 @@ describe('simplified sidebar groups', () => {
     ).toEqual(['Overview', 'Viewings', 'Maintenance', 'Inspections']);
   });
 
-  it('routes construction and development through projects', () => {
+  it('routes development through projects', () => {
     expect(
-      projectsNavigation(['construction.read', 'development.read'], () => undefined).map(
-        (item) => item.label,
-      ),
-    ).toEqual(['Construction', 'Development']);
+      projectsNavigation(['development.read'], () => undefined).map((item) => item.label),
+    ).toEqual(['Development']);
   });
 
   it('omits empty groups for unauthorized users', () => {

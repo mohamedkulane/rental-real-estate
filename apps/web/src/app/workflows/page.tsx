@@ -1,2 +1,4 @@
 import { WorkflowRegister } from '@/features/workflow/workflow-register';
-export default function Page() { return <WorkflowRegister />; }
+export default function Page() {
+  return <WorkflowRegister />;
+}

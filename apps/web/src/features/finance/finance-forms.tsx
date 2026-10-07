@@ -21,7 +21,10 @@ export const financeText = (value: unknown) => (typeof value === 'string' ? valu
 export const financeScalar = (value: unknown) =>
   typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 
-export const financeNested = (row: FinanceRow | Record<string, unknown>, ...keys: string[]): unknown =>
+export const financeNested = (
+  row: FinanceRow | Record<string, unknown>,
+  ...keys: string[]
+): unknown =>
   keys.reduce<unknown>(
     (value, key) =>
       value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
@@ -308,7 +311,9 @@ export function FinanceRecordSelect({
         }}
       >
         <option value="">{`Select ${label.toLowerCase()}`}</option>
-        {value && !selected ? <option value={value}>{selectedLabel ?? 'Selected record'}</option> : null}
+        {value && !selected ? (
+          <option value={value}>{selectedLabel ?? 'Selected record'}</option>
+        ) : null}
         {options.map((row) => (
           <option key={row.id} value={row.id}>
             {row.label}
@@ -318,12 +323,14 @@ export function FinanceRecordSelect({
       {query.isError ? (
         <p className="text-[12px] text-red-700">{userFacingError(query.error)}</p>
       ) : !enabled ? (
-        emptyHint ? <p className="text-[12px] text-slate-500">{emptyHint}</p> : null
+        emptyHint ? (
+          <p className="text-[12px] text-slate-500">{emptyHint}</p>
+        ) : null
       ) : !query.isFetching && !options.length ? (
         <p className="text-[12px] text-slate-500">
           {term
             ? 'No matching records. Try another search.'
-            : emptyHint ?? `No ${label.toLowerCase()} records are available yet.`}
+            : (emptyHint ?? `No ${label.toLowerCase()} records are available yet.`)}
         </p>
       ) : null}
     </div>
@@ -508,7 +515,10 @@ export function TransitionPanel({
   }, [nextStatus, transitions]);
   if (!transitions.length) return null;
   return (
-    <FormSection title="Lifecycle actions" description="Only approved backend transitions are available.">
+    <FormSection
+      title="Lifecycle actions"
+      description="Only approved backend transitions are available."
+    >
       <div className="grid gap-3">
         <FinanceStaticSelect
           label="Next status"

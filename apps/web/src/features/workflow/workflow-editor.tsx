@@ -490,9 +490,7 @@ export function WorkflowEditor({ workflowId }: { workflowId: string }) {
             continueDisabled={pending}
             continuePending={save.isPending || complete.isPending}
             showBack={step > 1}
-            continueLabel={
-              step < 8 ? 'Continue' : complete.isPending ? 'Completing…' : 'Activate'
-            }
+            continueLabel={step < 8 ? 'Continue' : complete.isPending ? 'Completing…' : 'Activate'}
             onCancel={() => setCancelOpen(true)}
             onSaveDraft={() => save.mutate(step)}
             onBack={() => save.mutate(Math.max(1, step - 1))}

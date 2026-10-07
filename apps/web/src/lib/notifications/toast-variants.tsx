@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  AlertTriangle,
-  CheckCircle2,
-  LoaderCircle,
-  Receipt,
-  RotateCcw,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, LoaderCircle, Receipt, RotateCcw } from 'lucide-react';
 import type { Toast } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { ToastFrame, ToastIcon } from './toast-frame';

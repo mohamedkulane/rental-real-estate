@@ -1,14 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-  type UIEvent,
-} from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type UIEvent } from 'react';
 
 const SIZE_CLASS = {
   md: 'max-w-md',

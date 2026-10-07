@@ -57,7 +57,9 @@ function KpiCard({
 
 export function RentalOverview() {
   const { principal, error } = useRentalPrincipal();
-  const canReadProperties = Boolean(principal && hasPermission(principal, 'portfolio.property.read'));
+  const canReadProperties = Boolean(
+    principal && hasPermission(principal, 'portfolio.property.read'),
+  );
   const canReadLeads = Boolean(principal && hasPermission(principal, 'crm.lead.read'));
   const canReadLeases = Boolean(principal && hasPermission(principal, 'lease.read'));
   const canReadEngagements = Boolean(
@@ -205,7 +207,12 @@ export function RentalOverview() {
           icon={WalletMinimal}
         />
         <KpiCard label="Pending Payments" value={pendingPayments} icon={WalletCards} />
-        <KpiCard label="Upcoming Lease Ends" value={upcomingEnds} hint="Next 45 days" icon={CalendarDays} />
+        <KpiCard
+          label="Upcoming Lease Ends"
+          value={upcomingEnds}
+          hint="Next 45 days"
+          icon={CalendarDays}
+        />
       </section>
 
       <section className="rental-overview-chart-grid mt-6">
@@ -283,8 +290,14 @@ export function RentalOverview() {
               ]}
             />
             <div className="rental-trend-legend">
-              <span><i className="rental-trend-dot rental-trend-dot-primary" />Rent collected</span>
-              <span><i className="rental-trend-dot rental-trend-dot-accent" />Occupancy</span>
+              <span>
+                <i className="rental-trend-dot rental-trend-dot-primary" />
+                Rent collected
+              </span>
+              <span>
+                <i className="rental-trend-dot rental-trend-dot-accent" />
+                Occupancy
+              </span>
             </div>
           </div>
         </div>

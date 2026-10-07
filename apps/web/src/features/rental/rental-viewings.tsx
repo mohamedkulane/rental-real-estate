@@ -40,10 +40,7 @@ import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phas
 import { formatDate, humanize } from '@/lib/presentation';
 import toast from '@/lib/toast';
 import { RentalShell, useRentalPrincipal } from './rental-shell';
-import {
-  isInterestedViewingOutcome,
-  viewingInterestLabel,
-} from './rental-placement';
+import { isInterestedViewingOutcome, viewingInterestLabel } from './rental-placement';
 
 type ViewingRow = {
   id: string;
@@ -95,14 +92,21 @@ function dayRange(date: Date) {
 function targetLabel(row: ViewingRow) {
   if (row.rentableSpace)
     return `${row.rentableSpace.property?.name ? `${row.rentableSpace.property.name} - ` : ''}${row.rentableSpace.spaceCode} - ${row.rentableSpace.name}`;
-  return row.property?.name ?? row.rentalListing?.title ?? row.saleListing?.title ?? 'Property not available';
+  return (
+    row.property?.name ??
+    row.rentalListing?.title ??
+    row.saleListing?.title ??
+    'Property not available'
+  );
 }
 function propertyHref(row: ViewingRow) {
   const propertyId = row.rentableSpace?.propertyId ?? row.rentableSpace?.property?.id;
   if (propertyId) return `/portfolio/properties/${propertyId}`;
   return row.saleListing?.property?.id
     ? `/portfolio/properties/${row.saleListing.property.id}`
-    : row.property?.id ? `/portfolio/properties/${row.property.id}` : null;
+    : row.property?.id
+      ? `/portfolio/properties/${row.property.id}`
+      : null;
 }
 function SummaryCard({
   label,
@@ -290,10 +294,34 @@ export function CentralViewingsWorkspace() {
       {canRead ? (
         <>
           <section className="viewings-kpis mt-6">
-            <SummaryCard label="Today" value={summary.today} hint="Viewings scheduled today" icon={CalendarDays} tone="blue" />
-            <SummaryCard label="Upcoming" value={summary.upcoming} hint="Next scheduled viewings" icon={Clock3} tone="green" />
-            <SummaryCard label="Interested" value={summary.interested} hint="Customers interested" icon={Handshake} tone="amber" />
-            <SummaryCard label="Needs outcome" value={summary.needsOutcome} hint="Viewings pending result" icon={CircleAlert} tone="red" />
+            <SummaryCard
+              label="Today"
+              value={summary.today}
+              hint="Viewings scheduled today"
+              icon={CalendarDays}
+              tone="blue"
+            />
+            <SummaryCard
+              label="Upcoming"
+              value={summary.upcoming}
+              hint="Next scheduled viewings"
+              icon={Clock3}
+              tone="green"
+            />
+            <SummaryCard
+              label="Interested"
+              value={summary.interested}
+              hint="Customers interested"
+              icon={Handshake}
+              tone="amber"
+            />
+            <SummaryCard
+              label="Needs outcome"
+              value={summary.needsOutcome}
+              hint="Viewings pending result"
+              icon={CircleAlert}
+              tone="red"
+            />
           </section>
           <DataTableSurface className="mt-6">
             <DataTableToolbar
@@ -303,7 +331,11 @@ export function CentralViewingsWorkspace() {
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
                     Reset
                   </button>
-                  <button type="button" className="button primary text-[13px]" onClick={() => void query.refetch()}>
+                  <button
+                    type="button"
+                    className="button primary text-[13px]"
+                    onClick={() => void query.refetch()}
+                  >
                     <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                     Filter
                   </button>
@@ -423,19 +455,24 @@ export function CentralViewingsWorkspace() {
                       const outcome = viewingInterestLabel(row.outcome);
                       const needsInterestChoice =
                         canComplete &&
-                        (row.status === 'CONFIRMED' ||
-                          (row.status === 'COMPLETED' && !outcome));
+                        (row.status === 'CONFIRMED' || (row.status === 'COMPLETED' && !outcome));
                       return (
                         <tr key={row.id} className="border-b border-slate-100 align-top">
                           <td className="whitespace-nowrap px-4 py-3">
                             <span className="inline-flex items-center gap-1.5">
-                              <CalendarDays className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                              <CalendarDays
+                                className="h-3.5 w-3.5 text-[var(--primary)]"
+                                aria-hidden="true"
+                              />
                               {formatDate(row.scheduledAt)}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-4 py-3">
                             <span className="inline-flex items-center gap-1.5">
-                              <Clock3 className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                              <Clock3
+                                className="h-3.5 w-3.5 text-[var(--primary)]"
+                                aria-hidden="true"
+                              />
                               {new Date(row.scheduledAt).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
@@ -444,16 +481,24 @@ export function CentralViewingsWorkspace() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-start gap-2">
-                              <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                              <UserRound
+                                className="mt-0.5 h-4 w-4 shrink-0 text-[var(--primary)]"
+                                aria-hidden="true"
+                              />
                               <div>
-                                <p className="font-semibold text-slate-900">{row.lead?.displayName ?? '-'}</p>
+                                <p className="font-semibold text-slate-900">
+                                  {row.lead?.displayName ?? '-'}
+                                </p>
                                 <p className="text-xs text-slate-500">{row.lead?.leadNumber}</p>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-start gap-1.5">
-                              <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                              <Building2
+                                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]"
+                                aria-hidden="true"
+                              />
                               {targetLabel(row)}
                             </span>
                           </td>
@@ -469,7 +514,10 @@ export function CentralViewingsWorkspace() {
                           </td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center gap-1.5">
-                              <UserRound className="h-3.5 w-3.5 text-[var(--primary)]" aria-hidden="true" />
+                              <UserRound
+                                className="h-3.5 w-3.5 text-[var(--primary)]"
+                                aria-hidden="true"
+                              />
                               {row.assignedEmployee?.party?.displayName ??
                                 row.assignedEmployee?.employeeNumber ??
                                 '-'}
@@ -551,7 +599,9 @@ export function CentralViewingsWorkspace() {
                                   </TableActionButton>
                                 </>
                               ) : null}
-                              {row.lead?.intent === 'BUY' && isInterestedViewingOutcome(row.outcome) && row.property?.id ? (
+                              {row.lead?.intent === 'BUY' &&
+                              isInterestedViewingOutcome(row.outcome) &&
+                              row.property?.id ? (
                                 <TableActionButton
                                   tone="agreement"
                                   href={`/sales/deals/new?leadId=${row.lead.id}&propertyId=${row.property.id}&viewingId=${row.id}`}
@@ -599,9 +649,8 @@ export function CentralViewingsWorkspace() {
                   onSubmit={(event) => {
                     event.preventDefault();
                     const form = new FormData(event.currentTarget);
-                    const selectedRentableSpaceId = String(
-                      form.get('selectedRentableSpaceId') ?? '',
-                    );
+                    const selected = form.get('selectedRentableSpaceId');
+                    const selectedRentableSpaceId = typeof selected === 'string' ? selected : '';
                     if (!selectedRentableSpaceId) {
                       toast.error('Choose the unit the customer selected.');
                       return;

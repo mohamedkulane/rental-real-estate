@@ -60,7 +60,10 @@ export function PortfolioDetailShell({
       }}
     >
       {backHref ? (
-        <Link className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:underline" href={backHref}>
+        <Link
+          className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:underline"
+          href={backHref}
+        >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {backLabel ?? 'Back'}
         </Link>

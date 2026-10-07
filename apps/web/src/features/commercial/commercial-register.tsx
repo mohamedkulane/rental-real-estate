@@ -281,7 +281,10 @@ export function CommercialRegister({ mode }: { mode: CommercialRegisterMode }) {
                     ]}
                     actions={
                       definition.detailPath ? (
-                        <Link className="button secondary text-[13px]" href={definition.detailPath(row.id)}>
+                        <Link
+                          className="button secondary text-[13px]"
+                          href={definition.detailPath(row.id)}
+                        >
                           Open
                         </Link>
                       ) : undefined
@@ -296,7 +299,9 @@ export function CommercialRegister({ mode }: { mode: CommercialRegisterMode }) {
                     <DataTableHead>
                       <tr>
                         {definition.columns.map((column) => (
-                          <DataTableHeaderCell key={column.label}>{column.label}</DataTableHeaderCell>
+                          <DataTableHeaderCell key={column.label}>
+                            {column.label}
+                          </DataTableHeaderCell>
                         ))}
                         <DataTableHeaderCell>Status</DataTableHeaderCell>
                         {definition.detailPath ? (
@@ -317,10 +322,7 @@ export function CommercialRegister({ mode }: { mode: CommercialRegisterMode }) {
                           </DataTableCell>
                           {definition.detailPath ? (
                             <DataTableCell align="right">
-                              <TableActionButton
-                                tone="open"
-                                href={definition.detailPath(row.id)}
-                              >
+                              <TableActionButton tone="open" href={definition.detailPath(row.id)}>
                                 Open
                               </TableActionButton>
                             </DataTableCell>

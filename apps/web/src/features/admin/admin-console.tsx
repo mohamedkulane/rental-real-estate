@@ -5,11 +5,7 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 import type { FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  Search,
-  X,
-} from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import toast from '@/lib/toast';
 import { AppShell } from '@/components/shared/app-shell';
 import {
@@ -33,11 +29,7 @@ import {
   type SettingsSectionKey,
 } from './pages/settings-panel';
 import { RoleManager, type PermissionRecord, type RoleRecord } from './pages/role-manager';
-import {
-  StaffDashboard,
-  type DashboardSnapshot,
-  type DashboardSummary,
-} from './staff-dashboard';
+import { StaffDashboard, type DashboardSnapshot, type DashboardSummary } from './staff-dashboard';
 import {
   CursorPaginationControls,
   PaginationControls,
@@ -67,14 +59,7 @@ type Catalog = {
   employeeNumber?: string;
 };
 type SectionKey =
-  | 'profile'
-  | 'branches'
-  | 'employees'
-  | 'roles'
-  | 'permissions'
-  | 'users'
-  | 'audit'
-  | 'settings';
+  'profile' | 'branches' | 'employees' | 'roles' | 'permissions' | 'users' | 'audit' | 'settings';
 type Section = {
   key: SectionKey;
   label: string;
@@ -1055,8 +1040,7 @@ export function AdminConsole() {
   }
 
   if (!bootstrapped || !principal) return <AppLoadingScreen title="Setting things up..." />;
-  const shellActive =
-    active === 'profile' ? 'overview' : 'administration';
+  const shellActive = active === 'profile' ? 'overview' : 'administration';
   const primaryRole = principal.roles[0];
   const workspaceTitle = primaryRole ? `${primaryRole.name} workspace` : 'Staff workspace';
   const workspaceDescription = primaryRole
@@ -1323,36 +1307,34 @@ export function AdminConsole() {
                 const target = visible.find((item) => item.key === section);
                 if (target) void choose(target);
               }}
-              onSave={(input) => mutateAction('/company', 'PATCH', input, 'Company settings saved.')}
+              onSave={(input) =>
+                mutateAction('/company', 'PATCH', input, 'Company settings saved.')
+              }
             />
           )}
         </>
       ) : (
         <>
           {active !== 'profile' ? (
-          <PageHeader
-            eyebrow={
-              active === 'audit'
-                  ? 'Governance'
-                  : 'Organization & access'
-            }
-            title={selected.label}
-            description={selected.description}
-            action={
-              activeForm ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]"
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                  >
-                    <Plus aria-hidden="true" className="h-4 w-4" />
-                    {actionLabel}
-                  </button>
-                </div>
-              ) : undefined
-            }
-          />
+            <PageHeader
+              eyebrow={active === 'audit' ? 'Governance' : 'Organization & access'}
+              title={selected.label}
+              description={selected.description}
+              action={
+                activeForm ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#0D47A1] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0D47A1]"
+                      type="button"
+                      onClick={() => setShowForm(true)}
+                    >
+                      <Plus aria-hidden="true" className="h-4 w-4" />
+                      {actionLabel}
+                    </button>
+                  </div>
+                ) : undefined
+              }
+            />
           ) : null}
           {error ? <Feedback kind="error">{error}</Feedback> : null}
           {success ? <Feedback kind="success">{success}</Feedback> : null}

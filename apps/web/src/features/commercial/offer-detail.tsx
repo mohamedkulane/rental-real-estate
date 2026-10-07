@@ -100,7 +100,10 @@ export function OfferDetail() {
         <ErrorState message={userFacingError(query.error)} />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <FormSection title="Offer Summary" description="Core commercial terms for this buyer offer.">
+          <FormSection
+            title="Offer Summary"
+            description="Core commercial terms for this buyer offer."
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <DetailField label="Status" value={humanize(query.data?.status)} />
               <DetailField
@@ -117,10 +120,7 @@ export function OfferDetail() {
                 label="Property"
                 value={`${text(nested('property', 'propertyCode'))} — ${text(nested('property', 'name'))}`}
               />
-              <DetailField
-                label="Buyer"
-                value={text(nested('buyer', 'displayName'))}
-              />
+              <DetailField label="Buyer" value={text(nested('buyer', 'displayName'))} />
             </div>
             {query.data?.termsNotes ? (
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
@@ -149,9 +149,12 @@ export function OfferDetail() {
 
             {canManage ? (
               <>
-                {text(query.data?.status) === 'SUBMITTED' || text(query.data?.status) === 'COUNTERED' ? (
+                {text(query.data?.status) === 'SUBMITTED' ||
+                text(query.data?.status) === 'COUNTERED' ? (
                   <label className="block">
-                    <span className="mb-1 block text-[12px] font-semibold text-slate-500">Counter amount</span>
+                    <span className="mb-1 block text-[12px] font-semibold text-slate-500">
+                      Counter amount
+                    </span>
                     <input
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[14px]"
                       value={counterAmount}
@@ -163,7 +166,9 @@ export function OfferDetail() {
                   currentStatus={text(query.data?.status)}
                   transitions={offerTransitions[text(query.data?.status)] ?? []}
                   busy={transition.isPending}
-                  onTransition={(nextStatus, reason) => transition.mutate({ status: nextStatus, reason })}
+                  onTransition={(nextStatus, reason) =>
+                    transition.mutate({ status: nextStatus, reason })
+                  }
                 />
               </>
             ) : null}
@@ -179,7 +184,9 @@ export function OfferDetail() {
                       <p className="text-[13px] font-semibold text-slate-900">
                         {humanize(text(event.eventType))}
                       </p>
-                      <p className="text-[12px] text-slate-500">{formatDate(event.occurredAt, true)}</p>
+                      <p className="text-[12px] text-slate-500">
+                        {formatDate(event.occurredAt, true)}
+                      </p>
                       {event.notes ? (
                         <p className="mt-1 text-[13px] text-slate-700">{text(event.notes)}</p>
                       ) : null}

@@ -38,7 +38,10 @@ export function SidebarAccordion({
   collapsed: boolean;
   onNavigate: () => void;
 }) {
-  const activeGroupId = useMemo(() => expandedGroupForActive(groups, activeItem), [groups, activeItem]);
+  const activeGroupId = useMemo(
+    () => expandedGroupForActive(groups, activeItem),
+    [groups, activeItem],
+  );
   const [expandedGroup, setExpandedGroup] = useState<string | undefined>(() => activeGroupId);
   const [flyoutGroup, setFlyoutGroup] = useState<string | undefined>();
 
@@ -101,7 +104,9 @@ export function SidebarAccordion({
                 <Icon
                   className={
                     'ml-1 h-[18px] w-[18px] shrink-0 ' +
-                    (groupActive ? 'text-[var(--primary)]' : 'text-[#0F172A]/55 group-hover:text-[var(--primary)]')
+                    (groupActive
+                      ? 'text-[var(--primary)]'
+                      : 'text-[#0F172A]/55 group-hover:text-[var(--primary)]')
                   }
                   aria-hidden="true"
                 />
@@ -189,7 +194,10 @@ export function SidebarAccordion({
 }
 
 export function useSidebarLayoutState(activeItem?: string, groups: SidebarAccordionGroup[] = []) {
-  const activeGroupId = useMemo(() => expandedGroupForActive(groups, activeItem), [groups, activeItem]);
+  const activeGroupId = useMemo(
+    () => expandedGroupForActive(groups, activeItem),
+    [groups, activeItem],
+  );
   const storedCollapsed = useSyncExternalStore(
     subscribeSidebarCollapsed,
     readCollapsed,

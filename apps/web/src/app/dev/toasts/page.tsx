@@ -11,10 +11,13 @@ export default function ToastPreviewPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8 py-4">
       <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">Development</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+          Development
+        </p>
         <h1 className="text-2xl font-bold text-slate-900">Toast preview</h1>
         <p className="text-sm text-slate-600">
-          Five production toast variants for operational feedback. Use these helpers from application code.
+          Five production toast variants for operational feedback. Use these helpers from
+          application code.
         </p>
       </header>
 
@@ -58,10 +61,24 @@ export default function ToastPreviewPage() {
           label="Background progress"
           onClick={() => {
             const id = `demo-${Date.now()}`;
-            notify.progress({ id, title: 'Generating owner statement', message: 'Collecting ledger lines…', progress: 12 });
-            window.setTimeout(() => notify.updateProgress(id, { progress: 58, message: 'Calculating payout share…' }), 900);
+            notify.progress({
+              id,
+              title: 'Generating owner statement',
+              message: 'Collecting ledger lines…',
+              progress: 12,
+            });
             window.setTimeout(
-              () => notify.completeProgress(id, 'Owner statement is ready to review.', 'Export complete'),
+              () =>
+                notify.updateProgress(id, { progress: 58, message: 'Calculating payout share…' }),
+              900,
+            );
+            window.setTimeout(
+              () =>
+                notify.completeProgress(
+                  id,
+                  'Owner statement is ready to review.',
+                  'Export complete',
+                ),
               1800,
             );
           }}

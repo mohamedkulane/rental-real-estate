@@ -70,30 +70,6 @@ export const preferenceFields: Record<LeadIntent, Field[]> = {
       options: ['OWNER', 'AUTHORIZED_REPRESENTATIVE', 'OTHER_UNVERIFIED'],
     },
   ],
-  CONSTRUCTION_SERVICE: [
-    { name: 'projectBrief', label: 'Requested construction service', type: 'notes' },
-    { name: 'siteLocation', label: 'Site location' },
-    {
-      name: 'category',
-      label: 'Service category',
-      options: ['NEW_BUILD', 'EXTENSION', 'RENOVATION', 'OTHER'],
-    },
-    { name: 'estimatedMinBudget', label: 'Estimated minimum budget', type: 'decimal' },
-    { name: 'estimatedMaxBudget', label: 'Estimated maximum budget', type: 'decimal' },
-    { name: 'currency', label: 'Currency (three-letter code)' },
-    { name: 'targetStartDate', label: 'Target start date', type: 'date' },
-    { name: 'targetCompletionDate', label: 'Target completion date', type: 'date' },
-    { name: 'plotArea', label: 'Plot area', type: 'decimal' },
-    { name: 'floorArea', label: 'Floor area', type: 'decimal' },
-    { name: 'areaUnit', label: 'Area unit', options: ['SQM', 'SQFT', 'HECTARE', 'ACRE'] },
-    { name: 'bedrooms', label: 'Bedrooms', type: 'integer' },
-    { name: 'floors', label: 'Floors', type: 'integer' },
-    {
-      name: 'siteControl',
-      label: 'Site control',
-      options: ['OWNS_SITE', 'AUTHORIZED_TO_BUILD', 'SEEKING_SITE', 'UNKNOWN'],
-    },
-  ],
 };
 
 export function readPreference(intent: LeadIntent, form: FormData): Record<string, unknown> {
@@ -126,7 +102,6 @@ export function preferenceValidation(value: Record<string, unknown>): string | n
     ['minRent', 'maxRent'],
     ['minBudget', 'maxBudget'],
     ['expectedMinPrice', 'askingPrice'],
-    ['estimatedMinBudget', 'estimatedMaxBudget'],
     ['minBedrooms', 'maxBedrooms'],
     ['minBathrooms', 'maxBathrooms'],
     ['minArea', 'maxArea'],
@@ -170,11 +145,7 @@ export function PreferenceFields({
           >
             {field.label}
             {field.options || field.type === 'boolean' ? (
-              <select
-                name={`preference.${field.name}`}
-                defaultValue={initial}
-                required={intent === 'CONSTRUCTION_SERVICE' && field.name === 'category'}
-              >
+              <select name={`preference.${field.name}`} defaultValue={initial}>
                 <option value="">Not recorded</option>
                 {(field.options ?? ['true', 'false']).map((option) => (
                   <option key={option} value={option}>
@@ -187,9 +158,7 @@ export function PreferenceFields({
                 name={`preference.${field.name}`}
                 rows={3}
                 defaultValue={initial}
-                required={field.name === 'projectBrief'}
-                minLength={field.name === 'projectBrief' ? 3 : undefined}
-                maxLength={field.name === 'projectBrief' ? 2000 : 1000}
+                maxLength={1000}
               />
             ) : (
               <input

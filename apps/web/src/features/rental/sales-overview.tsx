@@ -25,7 +25,10 @@ type SaleAgreementItem = {
   id: string;
   status: string;
   finalSalePrice?: string | number | null;
-  saleOffer?: { status: string; settlement?: { status: string; grossCommission?: string | number | null } | null } | null;
+  saleOffer?: {
+    status: string;
+    settlement?: { status: string; grossCommission?: string | number | null } | null;
+  } | null;
 };
 
 function KpiCard({
@@ -211,8 +214,14 @@ export function SalesOverview() {
             occupancy={[35, 42, 48, 55, 62, Math.min(95, 40 + sold.length * 8)]}
           />
           <div className="rental-trend-legend">
-            <span><i className="rental-trend-dot rental-trend-dot-primary" />Sales value</span>
-            <span><i className="rental-trend-dot rental-trend-dot-accent" />Offer activity</span>
+            <span>
+              <i className="rental-trend-dot rental-trend-dot-primary" />
+              Sales value
+            </span>
+            <span>
+              <i className="rental-trend-dot rental-trend-dot-accent" />
+              Offer activity
+            </span>
           </div>
         </div>
       </section>
@@ -220,12 +229,20 @@ export function SalesOverview() {
       <section className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Sales workspaces</h2>
-          <p className="mt-1 text-xs text-slate-500">Move from demand to property and offer operations.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Move from demand to property and offer operations.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link className="button secondary" href="/sales/buyers">Buyers</Link>
-          <Link className="button secondary" href="/sales/properties">Properties for sale</Link>
-          <Link className="button secondary" href="/sales/deals">Deals</Link>
+          <Link className="button secondary" href="/sales/buyers">
+            Buyers
+          </Link>
+          <Link className="button secondary" href="/sales/properties">
+            Properties for sale
+          </Link>
+          <Link className="button secondary" href="/sales/deals">
+            Deals
+          </Link>
         </div>
       </section>
     </CommercialShell>

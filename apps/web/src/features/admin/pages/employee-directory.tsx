@@ -3,15 +3,7 @@
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
 import type { FormEvent, ReactNode } from 'react';
-import {
-  BriefcaseBusiness,
-  ChevronRight,
-  Edit3,
-  Plus,
-  Search,
-  Users,
-  X,
-} from 'lucide-react';
+import { BriefcaseBusiness, ChevronRight, Edit3, Plus, Search, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';

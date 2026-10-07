@@ -36,7 +36,14 @@ export function DonutChart({
   return (
     <div className="staff-donut chart-motion" style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--primary-soft)" strokeWidth="12" />
+        <circle
+          cx="50"
+          cy="50"
+          r={radius}
+          fill="none"
+          stroke="var(--primary-soft)"
+          strokeWidth="12"
+        />
         {total > 0
           ? segments.map((segment) => {
               const length = (segment.value / total) * circumference;
@@ -96,13 +103,7 @@ export function BarChart({
   );
 }
 
-export function TrendChart({
-  revenue,
-  occupancy,
-}: {
-  revenue: number[];
-  occupancy: number[];
-}) {
+export function TrendChart({ revenue, occupancy }: { revenue: number[]; occupancy: number[] }) {
   const width = 640;
   const height = 220;
   const padding = { top: 18, right: 18, bottom: 34, left: 42 };
@@ -123,7 +124,11 @@ export function TrendChart({
   const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
 
   return (
-    <svg className="staff-trend-chart chart-motion" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+    <svg
+      className="staff-trend-chart chart-motion"
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
+    >
       {[0, 1, 2, 3].map((line) => {
         const y = padding.top + (line / 3) * innerHeight;
         return (

@@ -2,7 +2,16 @@
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
-import { BarChart3, CheckCircle2, CircleOff, Grid2X2, Plus, Search, Sparkles, X } from 'lucide-react';
+import {
+  BarChart3,
+  CheckCircle2,
+  CircleOff,
+  Grid2X2,
+  Plus,
+  Search,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionButton, TableActionGroup } from '@/components/shared/data-table';
@@ -95,20 +104,24 @@ export function AmenityDirectory({
     return [...next].sort((left, right) => {
       if (sort === 'name') return left.name.localeCompare(right.name);
       if (sort === 'status') return Number(right.active) - Number(left.active);
-      const leftUse = (left._count?.propertyAssignments ?? 0) + (left._count?.spaceAssignments ?? 0);
-      const rightUse = (right._count?.propertyAssignments ?? 0) + (right._count?.spaceAssignments ?? 0);
+      const leftUse =
+        (left._count?.propertyAssignments ?? 0) + (left._count?.spaceAssignments ?? 0);
+      const rightUse =
+        (right._count?.propertyAssignments ?? 0) + (right._count?.spaceAssignments ?? 0);
       return rightUse - leftUse || left.name.localeCompare(right.name);
     });
   }, [records, query, sort, status]);
   const pagination = usePagination(filtered);
   useEffect(() => pagination.setPage(1), [query, sort, status]);
   const totalAssignments = records.reduce(
-    (sum, item) => sum + (item._count?.propertyAssignments ?? 0) + (item._count?.spaceAssignments ?? 0),
+    (sum, item) =>
+      sum + (item._count?.propertyAssignments ?? 0) + (item._count?.spaceAssignments ?? 0),
     0,
   );
   const mostUsed = [...records].sort(
     (left, right) =>
-      (right._count?.propertyAssignments ?? 0) + (right._count?.spaceAssignments ?? 0) -
+      (right._count?.propertyAssignments ?? 0) +
+      (right._count?.spaceAssignments ?? 0) -
       ((left._count?.propertyAssignments ?? 0) + (left._count?.spaceAssignments ?? 0)),
   )[0];
   const open = (next: Exclude<Panel, null>, item?: AmenityRecord) => {
@@ -132,24 +145,48 @@ export function AmenityDirectory({
           </p>
         </div>
         {canManage ? (
-          <button
-            type="button"
-            onClick={() => open('create')}
-            className="button primary"
-          >
+          <button type="button" onClick={() => open('create')} className="button primary">
             <Plus className="h-4 w-4" /> Add amenity
           </button>
         ) : null}
       </header>
       <section className="amenities-kpis" aria-label="Amenities summary">
         {[
-          { label: 'Total Amenities', value: records.length, meta: `${totalAssignments} assignments`, icon: Grid2X2 },
-          { label: 'Active Amenities', value: records.filter((item) => item.active).length, meta: records.length ? `${Math.round((records.filter((item) => item.active).length / records.length) * 100)}% of total` : '0% of total', icon: CheckCircle2 },
-          { label: 'Inactive Amenities', value: records.filter((item) => !item.active).length, meta: records.length ? `${Math.round((records.filter((item) => !item.active).length / records.length) * 100)}% of total` : '0% of total', icon: CircleOff },
-          { label: 'Most Used', value: mostUsed?.name ?? '—', meta: mostUsed ? `${(mostUsed._count?.propertyAssignments ?? 0) + (mostUsed._count?.spaceAssignments ?? 0)} assignments` : 'No assignments', icon: BarChart3 },
+          {
+            label: 'Total Amenities',
+            value: records.length,
+            meta: `${totalAssignments} assignments`,
+            icon: Grid2X2,
+          },
+          {
+            label: 'Active Amenities',
+            value: records.filter((item) => item.active).length,
+            meta: records.length
+              ? `${Math.round((records.filter((item) => item.active).length / records.length) * 100)}% of total`
+              : '0% of total',
+            icon: CheckCircle2,
+          },
+          {
+            label: 'Inactive Amenities',
+            value: records.filter((item) => !item.active).length,
+            meta: records.length
+              ? `${Math.round((records.filter((item) => !item.active).length / records.length) * 100)}% of total`
+              : '0% of total',
+            icon: CircleOff,
+          },
+          {
+            label: 'Most Used',
+            value: mostUsed?.name ?? '—',
+            meta: mostUsed
+              ? `${(mostUsed._count?.propertyAssignments ?? 0) + (mostUsed._count?.spaceAssignments ?? 0)} assignments`
+              : 'No assignments',
+            icon: BarChart3,
+          },
         ].map(({ label, value, meta, icon: Icon }) => (
           <div className="amenity-kpi" key={label}>
-            <span className="amenity-kpi-icon"><Icon className="h-5 w-5" aria-hidden="true" /></span>
+            <span className="amenity-kpi-icon">
+              <Icon className="h-5 w-5" aria-hidden="true" />
+            </span>
             <div className="min-w-0">
               <p>{label}</p>
               <strong title={String(value)}>{value}</strong>
@@ -307,10 +344,7 @@ export function AmenityDirectory({
                 Stable internal code; users see the amenity name.
               </span>
             </label>
-            <button
-              disabled={busy}
-              className="button primary w-full"
-            >
+            <button disabled={busy} className="button primary w-full">
               {busy ? 'Saving…' : 'Create amenity'}
             </button>
           </form>
@@ -345,10 +379,7 @@ export function AmenityDirectory({
                 className={inputClass}
               />
             </label>
-            <button
-              disabled={busy}
-              className="button primary w-full"
-            >
+            <button disabled={busy} className="button primary w-full">
               {busy ? 'Saving…' : 'Save amenity'}
             </button>
           </form>

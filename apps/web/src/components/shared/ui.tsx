@@ -1,10 +1,7 @@
 import type { ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, Inbox, Landmark, RotateCcw } from 'lucide-react';
 import { humanize, statusTone } from '@/lib/presentation';
-import {
-  AppLoadingScreen,
-  SectionLoading,
-} from './loading-system';
+import { AppLoadingScreen, SectionLoading } from './loading-system';
 
 export {
   AppLoadingScreen,

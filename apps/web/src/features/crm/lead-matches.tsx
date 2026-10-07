@@ -35,13 +35,6 @@ export function LeadMatches({ lead, principal }: { lead: LeadDetail; principal: 
     queryFn: () => api<CursorPage<MatchItem>>(`/listing-matches?leadId=${lead.id}&limit=25`),
   });
 
-  if (lead.intent === 'CONSTRUCTION_SERVICE') {
-    return (
-      <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-        Construction Service is intake only. No project, agreement, or payment plan is created.
-      </p>
-    );
-  }
   if (lead.intent === 'SELL') {
     return (
       <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
@@ -89,9 +82,7 @@ export function LeadMatches({ lead, principal }: { lead: LeadDetail; principal: 
                 ? `${item.listing.rentableSpace?.spaceCode ?? ''} — ${item.listing.rentableSpace?.name ?? item.listing.rentableSpace?.property?.name ?? 'Rentable Space'}`
                 : `${item.listing.property?.propertyCode ?? ''} — ${item.listing.property?.name ?? 'Property'}`;
             const ask =
-              item.listingType === 'RENTAL'
-                ? item.listing.askingRent
-                : item.listing.askingPrice;
+              item.listingType === 'RENTAL' ? item.listing.askingRent : item.listing.askingPrice;
             const href =
               item.listingType === 'RENTAL' ? '/rental/properties' : '/marketing/sale-listings';
             return (
@@ -104,7 +95,9 @@ export function LeadMatches({ lead, principal }: { lead: LeadDetail; principal: 
                 </td>
                 <td className="px-3 py-3">{target}</td>
                 <td className="px-3 py-3">
-                  {ask == null || ask === '' ? 'Not set' : `${item.listing.currency} ${String(ask)}`}
+                  {ask == null || ask === ''
+                    ? 'Not set'
+                    : `${item.listing.currency} ${String(ask)}`}
                 </td>
                 <td className="px-3 py-3">
                   <ul className="list-disc pl-4 text-slate-600">

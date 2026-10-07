@@ -118,8 +118,7 @@ export const terminologyDictionary: Record<TermKey, TermDefinition> = {
   rentalBrokerage: {
     english: 'Rental Brokerage',
     somali: 'Dilaalinta kirada',
-    descriptionSomali:
-      'Shirkaddu waxay heshaa kirayste waxaana ay qaadataa commission hal mar ah.',
+    descriptionSomali: 'Shirkaddu waxay heshaa kirayste waxaana ay qaadataa commission hal mar ah.',
     context: 'commercial',
   },
   fullManagement: {
@@ -333,56 +332,6 @@ export const terminologyDictionary: Record<TermKey, TermDefinition> = {
     somali: 'La dhammeeyey',
     context: 'operations',
   },
-  constructionProject: {
-    english: 'Construction Project',
-    somali: 'Mashruuca dhismaha',
-    context: 'construction',
-  },
-  client: {
-    english: 'Client',
-    somali: 'Macmiil',
-    context: 'construction',
-  },
-  constructionContract: {
-    english: 'Construction Contract',
-    somali: 'Heshiiska dhismaha',
-    context: 'construction',
-  },
-  milestone: {
-    english: 'Milestone',
-    somali: 'Marxalad muhiim ah',
-    context: 'construction',
-  },
-  workPackage: {
-    english: 'Work Package',
-    somali: 'Qayb shaqo',
-    context: 'construction',
-  },
-  projectBudget: {
-    english: 'Project Budget',
-    somali: 'Miisaaniyadda mashruuca',
-    context: 'construction',
-  },
-  actualCost: {
-    english: 'Actual Cost',
-    somali: 'Kharashka dhabta ah',
-    context: 'construction',
-  },
-  budgetVariance: {
-    english: 'Budget Variance',
-    somali: 'Farqiga miisaaniyadda',
-    context: 'construction',
-  },
-  handover: {
-    english: 'Handover',
-    somali: 'Wareejinta mashruuca',
-    context: 'construction',
-  },
-  projectProgress: {
-    english: 'Project Progress',
-    somali: 'Horumarka mashruuca',
-    context: 'construction',
-  },
   developmentProject: {
     english: 'Development Project',
     somali: 'Mashruuca horumarinta dhulka/hantida',
@@ -535,8 +484,7 @@ export const terminologyDictionary: Record<TermKey, TermDefinition> = {
   cancelReservation: {
     english: 'Cancel Reservation',
     somali: 'Jooji qabashada',
-    descriptionSomali:
-      'Qabashadan waa la joojinayaa, space-kuna mar kale wuu bannaan noqon karaa.',
+    descriptionSomali: 'Qabashadan waa la joojinayaa, space-kuna mar kale wuu bannaan noqon karaa.',
     context: 'leasing',
   },
   recordPayment: {

@@ -142,7 +142,12 @@ export function DataTableSurface({
   className?: string;
 }) {
   return (
-    <section className={'data-table-surface overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ' + className}>
+    <section
+      className={
+        'data-table-surface overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ' +
+        className
+      }
+    >
       {children}
     </section>
   );
@@ -157,7 +162,9 @@ export function DataTableToolbar({
 }) {
   return (
     <div className="border-b border-slate-200 bg-white">
-      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-end md:justify-between">{children}</div>
+      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-end md:justify-between">
+        {children}
+      </div>
       {footer ? <div className="border-t border-slate-100 px-4 py-2">{footer}</div> : null}
     </div>
   );
@@ -237,7 +244,13 @@ export function DataTableScroll({ children }: { children: ReactNode }) {
   return <div className="overflow-x-auto">{children}</div>;
 }
 
-export function DataTable({ children, minWidth = 760 }: { children: ReactNode; minWidth?: number }) {
+export function DataTable({
+  children,
+  minWidth = 760,
+}: {
+  children: ReactNode;
+  minWidth?: number;
+}) {
   return (
     <table className="data-table w-full border-collapse" style={{ minWidth }}>
       {children}
@@ -284,7 +297,11 @@ export function DataTableHeaderCell({
   const alignClass =
     align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
   return (
-    <th className={'px-4 py-3 text-[12px] font-semibold text-slate-500 ' + alignClass + ' ' + className}>
+    <th
+      className={
+        'px-4 py-3 text-[12px] font-semibold text-slate-500 ' + alignClass + ' ' + className
+      }
+    >
       {children}
     </th>
   );
@@ -400,13 +417,7 @@ export function DataTableEmpty({
   );
 }
 
-export function DataTableError({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry?: () => void;
-}) {
+export function DataTableError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="px-6 py-10 text-center">
       <p className="text-[14px] font-semibold text-slate-900">We could not load this table</p>
@@ -512,7 +523,10 @@ export function DataTableMobileCard({
       </div>
       <dl className="grid gap-2">
         {rows.map((row) => (
-          <div key={row.label} className="flex flex-col gap-0.5 text-[13px] sm:grid sm:grid-cols-[110px_1fr] sm:gap-2">
+          <div
+            key={row.label}
+            className="flex flex-col gap-0.5 text-[13px] sm:grid sm:grid-cols-[110px_1fr] sm:gap-2"
+          >
             <dt className="font-medium text-slate-500">{row.label}</dt>
             <dd className="text-slate-800">{row.value}</dd>
           </div>

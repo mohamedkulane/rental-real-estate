@@ -14,7 +14,13 @@ import {
   DataTableSurface,
 } from '@/components/shared/data-table';
 import { PageSkeleton } from '@/components/shared/loading-system';
-import { EmptyState, ErrorState, FormSection, PageHeader, StatusBadge } from '@/components/shared/ui';
+import {
+  EmptyState,
+  ErrorState,
+  FormSection,
+  PageHeader,
+  StatusBadge,
+} from '@/components/shared/ui';
 import { api, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
 import { PortalShell, usePortalPrincipal } from './portal-shell';
@@ -68,13 +74,19 @@ export function TenantPortal({ initialTab = 'overview' }: { initialTab?: TenantT
         const data = await api<OverviewData>('/portal/tenant/overview');
         setOverview(data);
       } else if (tab === 'invoices') {
-        const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/tenant/invoices');
+        const data = await api<{ items: Array<Record<string, unknown>> }>(
+          '/portal/tenant/invoices',
+        );
         setInvoices(data.items);
       } else if (tab === 'payments') {
-        const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/tenant/payments');
+        const data = await api<{ items: Array<Record<string, unknown>> }>(
+          '/portal/tenant/payments',
+        );
         setPayments(data.items);
       } else if (tab === 'maintenance') {
-        const data = await api<{ items: Array<Record<string, unknown>> }>('/portal/tenant/maintenance');
+        const data = await api<{ items: Array<Record<string, unknown>> }>(
+          '/portal/tenant/maintenance',
+        );
         setMaintenance(data.items);
       } else if (tab === 'profile') {
         const data = await api<Record<string, unknown>>('/portal/tenant/profile');
@@ -132,18 +144,20 @@ export function TenantPortal({ initialTab = 'overview' }: { initialTab?: TenantT
       />
       {loadError ? <ErrorState message={loadError} /> : null}
       {loading && activeTab !== 'maintenance' ? <PageSkeleton /> : null}
-      {!loadError ? renderTab(activeTab, {
-        loading,
-        overview,
-        invoices,
-        payments,
-        maintenance,
-        profile,
-        submitting,
-        onSubmitMaintenance: (event) => {
-          void submitMaintenance(event);
-        },
-      }) : null}
+      {!loadError
+        ? renderTab(activeTab, {
+            loading,
+            overview,
+            invoices,
+            payments,
+            maintenance,
+            profile,
+            submitting,
+            onSubmitMaintenance: (event) => {
+              void submitMaintenance(event);
+            },
+          })
+        : null}
     </PortalShell>
   );
 }
@@ -163,15 +177,13 @@ function renderTab(
 ) {
   if (tab === 'overview' && ctx.overview && !ctx.loading) {
     const lease = ctx.overview.lease;
-    const space = lease?.space as { name?: string; property?: { name?: string; city?: string } } | undefined;
+    const space = lease?.space as
+      { name?: string; property?: { name?: string; city?: string } } | undefined;
     return (
       <div className="mt-6 space-y-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard label="Open Invoices" value={ctx.overview.summary.openInvoices} />
-          <MetricCard
-            label="Outstanding Balance"
-            value={ctx.overview.summary.outstandingBalance}
-          />
+          <MetricCard label="Outstanding Balance" value={ctx.overview.summary.outstandingBalance} />
           <MetricCard label="Open Maintenance" value={ctx.overview.summary.openMaintenance} />
         </div>
         {lease ? (
@@ -216,12 +228,15 @@ function renderTab(
         />
       );
     }
-    const space = lease.space as {
-      name?: string;
-      spaceCode?: string;
-      property?: { name?: string; propertyCode?: string; city?: string };
-    } | undefined;
-    const renewal = lease.renewal as { status?: string; proposedEndDate?: string } | null | undefined;
+    const space = lease.space as
+      | {
+          name?: string;
+          spaceCode?: string;
+          property?: { name?: string; propertyCode?: string; city?: string };
+        }
+      | undefined;
+    const renewal = lease.renewal as
+      { status?: string; proposedEndDate?: string } | null | undefined;
     return (
       <div className="mt-6 space-y-4">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -266,7 +281,9 @@ function renderTab(
             <p className="text-sm font-semibold text-amber-900">Renewal in progress</p>
             <p className="mt-1 text-sm text-amber-800">
               {humanize(String(renewal.status))}
-              {renewal.proposedEndDate ? ` · proposed end ${formatDate(renewal.proposedEndDate)}` : ''}
+              {renewal.proposedEndDate
+                ? ` · proposed end ${formatDate(renewal.proposedEndDate)}`
+                : ''}
             </p>
           </section>
         ) : null}
@@ -276,9 +293,7 @@ function renderTab(
 
   if (tab === 'invoices' && !ctx.loading) {
     if (!ctx.invoices.length) {
-      return (
-        <EmptyState title="No invoices yet" description="Issued invoices will appear here." />
-      );
+      return <EmptyState title="No invoices yet" description="Issued invoices will appear here." />;
     }
     return (
       <DataTableSurface className="mt-6">
@@ -356,7 +371,10 @@ function renderTab(
     return (
       <div className="mt-6 space-y-6">
         <FormSection title="Submit a maintenance request">
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => void ctx.onSubmitMaintenance(event)}>
+          <form
+            className="grid gap-4 md:grid-cols-2"
+            onSubmit={(event) => void ctx.onSubmitMaintenance(event)}
+          >
             <label className="md:col-span-2">
               Title
               <input name="title" required minLength={3} placeholder="Brief summary of the issue" />
@@ -381,7 +399,12 @@ function renderTab(
               </select>
             </label>
             <div className="flex items-end">
-              <button className="primary" type="submit" disabled={ctx.submitting} aria-busy={ctx.submitting}>
+              <button
+                className="primary"
+                type="submit"
+                disabled={ctx.submitting}
+                aria-busy={ctx.submitting}
+              >
                 {ctx.submitting ? 'Submitting...' : 'Submit request'}
               </button>
             </div>

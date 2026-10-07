@@ -5,12 +5,7 @@ import { ApiError, type Principal } from '@/lib/phase3-api';
 import { can, canReadChild, crmError, requestPath } from './crm-data';
 import { appendCursor, crmWorkspaceState, legalStageActions } from './crm-model';
 import { followUpBody, stageBody } from './lead-commands';
-import {
-  PreferenceFields,
-  preferenceValidation,
-  PreferenceSummary,
-  readPreference,
-} from './crm-preferences';
+import { preferenceValidation, PreferenceSummary, readPreference } from './crm-preferences';
 import { sourceBody } from './lead-sources-workspace';
 import { dateTimeInputValue } from './follow-ups-workspace';
 import { LeadCards, WorkspaceBody } from './crm-shared';
@@ -47,7 +42,7 @@ const lead: LeadSummary = {
   id: 'internal-lead-id',
   leadNumber: 'LEAD-001',
   displayName: 'Amina',
-  intent: 'CONSTRUCTION_SERVICE',
+  intent: 'RENT',
   stage: 'NEW',
   version: 2,
   createdAt: '2026-08-31T08:00:00Z',
@@ -153,7 +148,7 @@ describe('closed Lead lifecycle', () => {
       expect(legalStageActions('CONTACTED', intent.value)).toEqual(['qualified', 'lost']);
     });
   }
-  it.each(['SELL', 'CONSTRUCTION_SERVICE'])('never offers Matching to %s', (intent) => {
+  it.each(['SELL'])('never offers Matching to %s', (intent) => {
     for (const stage of leadStages)
       expect(legalStageActions(stage, intent)).not.toContain('matching');
   });
@@ -259,15 +254,6 @@ describe('typed preference forms', () => {
     expect(preferenceValidation({ minRent: '500', maxRent: '400' })).not.toBeNull();
     expect(preferenceValidation({ minRent: '400', maxRent: '500' })).toBeNull();
   });
-  it('renders the construction brief and category as required without rental fields', () => {
-    const html = renderToStaticMarkup(
-      createElement(PreferenceFields, { intent: 'CONSTRUCTION_SERVICE' }),
-    );
-    expect(html).toContain('name="preference.projectBrief"');
-    expect(html).toContain('name="preference.category"');
-    expect(html).not.toContain('name="preference.maxRent"');
-    expect(html).toContain('required');
-  });
   it('does not change user narrative casing or expose private preference fields', () => {
     const html = renderToStaticMarkup(
       createElement(PreferenceSummary, {
@@ -311,11 +297,10 @@ describe('Source and safe display contracts', () => {
   it('shows business labels and historical inactive Source without raw IDs in text', () => {
     const html = renderToStaticMarkup(createElement(LeadCards, { items: [lead] }));
     const textOnly = html.replace(/<[^>]*>/g, '');
-    expect(textOnly).toContain('Construction Service');
+    expect(textOnly).toContain('Rent');
     expect(textOnly).toContain('Website enquiry (Inactive)');
     expect(textOnly).toContain('Unassigned');
     expect(textOnly).not.toContain('internal-');
-    expect(textOnly).not.toContain('CONSTRUCTION_SERVICE');
   });
   it.each([400, 403, 404, 409, 500])('does not echo sensitive errors for HTTP %s', (status) => {
     expect(crmError(new ApiError('private database text 555-1234', status))).not.toContain(

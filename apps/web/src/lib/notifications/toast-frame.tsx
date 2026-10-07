@@ -90,7 +90,10 @@ export function ToastFrame({
         </button>
       </div>
       {showProgress ? (
-        <div className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-slate-100" aria-hidden="true">
+        <div
+          className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-slate-100"
+          aria-hidden="true"
+        >
           <span
             className={cn(
               'toast-progress-bar block h-full origin-left',

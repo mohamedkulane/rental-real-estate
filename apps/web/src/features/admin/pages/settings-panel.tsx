@@ -67,7 +67,9 @@ export const SETTINGS_SECTIONS: Array<{
   },
 ];
 
-export function isSettingsSectionKey(value: string | null | undefined): value is SettingsSectionKey {
+export function isSettingsSectionKey(
+  value: string | null | undefined,
+): value is SettingsSectionKey {
   return Boolean(value && SETTINGS_SECTIONS.some((section) => section.key === value));
 }
 
@@ -211,7 +213,8 @@ export function SettingsPanel({
         </div>
         <h1 className="text-2xl font-bold sm:text-3xl">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Company identity and operating preferences live here — one primary place for administrators.
+          Company identity and operating preferences live here — one primary place for
+          administrators.
         </p>
       </header>
 
@@ -252,329 +255,348 @@ export function SettingsPanel({
           }
         >
           <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">{selected.label}</h2>
-            <p className="mt-1 text-sm text-slate-500">{selected.description}</p>
-          </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">{selected.label}</h2>
+              <p className="mt-1 text-sm text-slate-500">{selected.description}</p>
+            </div>
 
-          {selected.key === 'company' ? (
-            <form
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-              onSubmit={(event: FormEvent<HTMLFormElement>) => {
-                event.preventDefault();
-                const nextMetadata = {
-                  ...metadata,
-                  url: formState.logoUrl.trim() || undefined,
-                  primaryColor: formState.primaryColor,
-                  accentColor: formState.accentColor,
-                };
-                void onSave({
-                  legalName: formState.legalName.trim(),
-                  displayName: formState.displayName.trim(),
-                  ...(formState.phone.trim() ? { phone: formState.phone.trim() } : {}),
-                  ...(formState.email.trim() ? { email: formState.email.trim() } : {}),
-                  ...(formState.address.trim()
-                    ? { address: { ...(company.address ?? {}), line1: formState.address.trim() } }
-                    : {}),
-                  logoMetadata: nextMetadata,
-                  defaultCurrency: formState.defaultCurrency.trim().toUpperCase(),
-                  timezone: formState.timezone.trim(),
-                }).catch(() => undefined);
-              }}
-            >
-              <div className="border-b border-slate-200 px-5 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-lg bg-[#E6F4F1] p-2 text-[#0F766E]">
-                      <Building2 className="h-5 w-5" />
-                    </span>
+            {selected.key === 'company' ? (
+              <form
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                  event.preventDefault();
+                  const nextMetadata = {
+                    ...metadata,
+                    url: formState.logoUrl.trim() || undefined,
+                    primaryColor: formState.primaryColor,
+                    accentColor: formState.accentColor,
+                  };
+                  void onSave({
+                    legalName: formState.legalName.trim(),
+                    displayName: formState.displayName.trim(),
+                    ...(formState.phone.trim() ? { phone: formState.phone.trim() } : {}),
+                    ...(formState.email.trim() ? { email: formState.email.trim() } : {}),
+                    ...(formState.address.trim()
+                      ? { address: { ...(company.address ?? {}), line1: formState.address.trim() } }
+                      : {}),
+                    logoMetadata: nextMetadata,
+                    defaultCurrency: formState.defaultCurrency.trim().toUpperCase(),
+                    timezone: formState.timezone.trim(),
+                  }).catch(() => undefined);
+                }}
+              >
+                <div className="border-b border-slate-200 px-5 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-lg bg-[#E6F4F1] p-2 text-[#0F766E]">
+                        <Building2 className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <h3 className="font-bold text-slate-900">Company profile</h3>
+                        <p className="text-sm text-slate-500">
+                          Identity, branding, and reporting defaults.
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge value={company.active} />
+                  </div>
+                </div>
+                <div className="space-y-6 p-5">
+                  <section className="space-y-4">
                     <div>
-                      <h3 className="font-bold text-slate-900">Company profile</h3>
-                      <p className="text-sm text-slate-500">
-                        Identity, branding, and reporting defaults.
+                      <h4 className="text-sm font-bold text-slate-900">Basic information</h4>
+                      <p className="mt-1 text-xs text-slate-500">
+                        The identity shown across the workspace.
                       </p>
                     </div>
-                  </div>
-                  <StatusBadge value={company.active} />
-                </div>
-              </div>
-              <div className="space-y-6 p-5">
-                <section className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Basic information</h4>
-                    <p className="mt-1 text-xs text-slate-500">The identity shown across the workspace.</p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Legal name">
-                      <input
-                        value={formState.legalName}
-                        onChange={(event) => setFormValue('legalName', event.target.value)}
-                        required
-                        disabled={!canUpdate}
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Display name">
-                      <input
-                        value={formState.displayName}
-                        onChange={(event) => setFormValue('displayName', event.target.value)}
-                        required
-                        disabled={!canUpdate}
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-                </section>
-
-                <section className="space-y-4 border-t border-slate-100 pt-5">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Brand identity</h4>
-                    <p className="mt-1 text-xs text-slate-500">Used by the shell and company-facing surfaces.</p>
-                  </div>
-                  <Field
-                    label="Logo URL"
-                    icon={<Palette className="h-4 w-4 text-slate-400" />}
-                    hint="Use a public PNG, JPG, SVG, WebP, or CDN image URL."
-                  >
-                    <input
-                      type="url"
-                      value={formState.logoUrl}
-                      onChange={(event) => setFormValue('logoUrl', event.target.value)}
-                      placeholder="https://example.com/logo.svg"
-                      disabled={!canUpdate}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {(['primaryColor', 'accentColor'] as const).map((key) => (
-                      <Field key={key} label={key === 'primaryColor' ? 'Primary brand color' : 'Accent brand color'}>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={formState[key]}
-                            onChange={(event) => setFormValue(key, event.target.value)}
-                            disabled={!canUpdate}
-                            className="h-11 w-14 cursor-pointer rounded-md border border-slate-200 bg-white p-1"
-                            aria-label={key === 'primaryColor' ? 'Primary brand color' : 'Accent brand color'}
-                          />
-                          <input
-                            value={formState[key]}
-                            onChange={(event) => setFormValue(key, event.target.value)}
-                            disabled={!canUpdate}
-                            className={inputClass}
-                            aria-label={`${key} hex value`}
-                          />
-                        </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Legal name">
+                        <input
+                          value={formState.legalName}
+                          onChange={(event) => setFormValue('legalName', event.target.value)}
+                          required
+                          disabled={!canUpdate}
+                          className={inputClass}
+                        />
                       </Field>
-                    ))}
-                  </div>
-                </section>
+                      <Field label="Display name">
+                        <input
+                          value={formState.displayName}
+                          onChange={(event) => setFormValue('displayName', event.target.value)}
+                          required
+                          disabled={!canUpdate}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+                  </section>
 
-                <section className="space-y-4 border-t border-slate-100 pt-5">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Contact information</h4>
-                    <p className="mt-1 text-xs text-slate-500">Shown in operational and financial records where available.</p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Phone" icon={<Phone className="h-4 w-4 text-slate-400" />}>
-                      <input
-                        value={formState.phone}
-                        onChange={(event) => setFormValue('phone', event.target.value)}
-                        disabled={!canUpdate}
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Email" icon={<Mail className="h-4 w-4 text-slate-400" />}>
-                      <input
-                        type="email"
-                        value={formState.email}
-                        onChange={(event) => setFormValue('email', event.target.value)}
-                        disabled={!canUpdate}
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-                  <Field label="Address">
-                    <input
-                      value={formState.address}
-                      onChange={(event) => setFormValue('address', event.target.value)}
-                      disabled={!canUpdate}
-                      className={inputClass}
-                    />
-                  </Field>
-                </section>
-
-                <section className="space-y-4 border-t border-slate-100 pt-5">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Defaults</h4>
-                    <p className="mt-1 text-xs text-slate-500">Applied to reporting and financial workflows.</p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <section className="space-y-4 border-t border-slate-100 pt-5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Brand identity</h4>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Used by the shell and company-facing surfaces.
+                      </p>
+                    </div>
                     <Field
-                      label="Default currency"
-                      icon={<Globe2 className="h-4 w-4 text-slate-400" />}
-                      hint="Three-letter ISO code."
+                      label="Logo URL"
+                      icon={<Palette className="h-4 w-4 text-slate-400" />}
+                      hint="Use a public PNG, JPG, SVG, WebP, or CDN image URL."
                     >
                       <input
-                        value={formState.defaultCurrency}
-                        onChange={(event) => setFormValue('defaultCurrency', event.target.value)}
-                        minLength={3}
-                        maxLength={3}
-                        required
+                        type="url"
+                        value={formState.logoUrl}
+                        onChange={(event) => setFormValue('logoUrl', event.target.value)}
+                        placeholder="https://example.com/logo.svg"
                         disabled={!canUpdate}
                         className={inputClass}
                       />
                     </Field>
-                    <Field
-                      label="Reporting timezone"
-                      icon={<Globe2 className="h-4 w-4 text-slate-400" />}
-                      hint="Example: Africa/Nairobi"
-                    >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {(['primaryColor', 'accentColor'] as const).map((key) => (
+                        <Field
+                          key={key}
+                          label={
+                            key === 'primaryColor' ? 'Primary brand color' : 'Accent brand color'
+                          }
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={formState[key]}
+                              onChange={(event) => setFormValue(key, event.target.value)}
+                              disabled={!canUpdate}
+                              className="h-11 w-14 cursor-pointer rounded-md border border-slate-200 bg-white p-1"
+                              aria-label={
+                                key === 'primaryColor'
+                                  ? 'Primary brand color'
+                                  : 'Accent brand color'
+                              }
+                            />
+                            <input
+                              value={formState[key]}
+                              onChange={(event) => setFormValue(key, event.target.value)}
+                              disabled={!canUpdate}
+                              className={inputClass}
+                              aria-label={`${key} hex value`}
+                            />
+                          </div>
+                        </Field>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="space-y-4 border-t border-slate-100 pt-5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Contact information</h4>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Shown in operational and financial records where available.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Phone" icon={<Phone className="h-4 w-4 text-slate-400" />}>
+                        <input
+                          value={formState.phone}
+                          onChange={(event) => setFormValue('phone', event.target.value)}
+                          disabled={!canUpdate}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Email" icon={<Mail className="h-4 w-4 text-slate-400" />}>
+                        <input
+                          type="email"
+                          value={formState.email}
+                          onChange={(event) => setFormValue('email', event.target.value)}
+                          disabled={!canUpdate}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+                    <Field label="Address">
                       <input
-                        value={formState.timezone}
-                        onChange={(event) => setFormValue('timezone', event.target.value)}
-                        required
+                        value={formState.address}
+                        onChange={(event) => setFormValue('address', event.target.value)}
                         disabled={!canUpdate}
                         className={inputClass}
                       />
                     </Field>
-                  </div>
-                </section>
-              </div>
-              {canUpdate ? (
-                <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
-                  >
-                    <Save className="h-4 w-4" />
-                    {busy ? 'Saving...' : 'Save workspace'}
-                  </button>
+                  </section>
+
+                  <section className="space-y-4 border-t border-slate-100 pt-5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Defaults</h4>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Applied to reporting and financial workflows.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field
+                        label="Default currency"
+                        icon={<Globe2 className="h-4 w-4 text-slate-400" />}
+                        hint="Three-letter ISO code."
+                      >
+                        <input
+                          value={formState.defaultCurrency}
+                          onChange={(event) => setFormValue('defaultCurrency', event.target.value)}
+                          minLength={3}
+                          maxLength={3}
+                          required
+                          disabled={!canUpdate}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field
+                        label="Reporting timezone"
+                        icon={<Globe2 className="h-4 w-4 text-slate-400" />}
+                        hint="Example: Africa/Nairobi"
+                      >
+                        <input
+                          value={formState.timezone}
+                          onChange={(event) => setFormValue('timezone', event.target.value)}
+                          required
+                          disabled={!canUpdate}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+                  </section>
                 </div>
-              ) : null}
-            </form>
-          ) : null}
+                {canUpdate ? (
+                  <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="inline-flex items-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+                    >
+                      <Save className="h-4 w-4" />
+                      {busy ? 'Saving...' : 'Save workspace'}
+                    </button>
+                  </div>
+                ) : null}
+              </form>
+            ) : null}
 
-          {selected.key === 'general' ? (
-            <SectionCard icon={<Settings className="h-5 w-5" />} title="General">
-              <p>
-                Regional defaults such as reporting timezone and default currency are managed under{' '}
+            {selected.key === 'general' ? (
+              <SectionCard icon={<Settings className="h-5 w-5" />} title="General">
+                <p>
+                  Regional defaults such as reporting timezone and default currency are managed
+                  under{' '}
+                  <button
+                    type="button"
+                    className="font-semibold text-[#0D47A1] underline-offset-2 hover:underline"
+                    onClick={() => onSectionChange('company')}
+                  >
+                    Company
+                  </button>
+                  . There is no separate general preference store yet.
+                </p>
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'branding' ? (
+              <SectionCard icon={<Palette className="h-5 w-5" />} title="Branding">
+                <p>
+                  The workspace uses the approved navy, white, and emerald product theme with
+                  accessible contrast. Custom branding controls are not available in this release.
+                </p>
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'security' ? (
+              <SectionCard icon={<LockKeyhole className="h-5 w-5" />} title="Security">
+                <p>
+                  User access, account suspension, and session revocation are managed under Users &
+                  Access. Company profile changes remain restricted to authorized administrators and
+                  are recorded in Audit.
+                </p>
+                <WorkspaceLink
+                  label="Users & Access"
+                  description="Open account status and session controls."
+                  onOpen={() => onNavigateAdmin('users')}
+                />
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'users' ? (
+              <SectionCard icon={<Users className="h-5 w-5" />} title="Users & Access">
+                <p>
+                  Login accounts, access state, and revocable sessions are maintained in the user
+                  accounts register.
+                </p>
+                <WorkspaceLink
+                  label="User accounts"
+                  description="Requires identity.user.read."
+                  onOpen={() => onNavigateAdmin('users')}
+                />
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'branches' ? (
+              <SectionCard icon={<Landmark className="h-5 w-5" />} title="Branches">
+                <p>
+                  Operating locations are managed in the Branches directory under Administration.
+                </p>
+                <WorkspaceLink
+                  label="Branch directory"
+                  description="Requires organization.branch.read."
+                  onOpen={() => onNavigateAdmin('branches')}
+                />
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'notifications' ? (
+              <SectionCard icon={<Bell className="h-5 w-5" />} title="Notifications">
+                <ComingSoonNote topic="Notification preferences" />
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'finance' ? (
+              <SectionCard icon={<Wallet className="h-5 w-5" />} title="Finance Preferences">
+                <p>
+                  Default currency is set on the Company section. Additional finance preference
+                  controls are not available in this release.
+                </p>
                 <button
                   type="button"
                   className="font-semibold text-[#0D47A1] underline-offset-2 hover:underline"
                   onClick={() => onSectionChange('company')}
                 >
-                  Company
+                  Open Company defaults
                 </button>
-                . There is no separate general preference store yet.
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'system' ? (
+              <SectionCard icon={<Shield className="h-5 w-5" />} title="System Preferences">
+                <ComingSoonNote topic="System preferences" />
+              </SectionCard>
+            ) : null}
+
+            {selected.key === 'audit' ? (
+              <SectionCard icon={<FileSearch className="h-5 w-5" />} title="Audit">
+                <p>
+                  Sensitive and administrative activity is recorded in the audit log for authorized
+                  reviewers.
+                </p>
+                <WorkspaceLink
+                  label="Audit log"
+                  description="Requires governance.audit.read."
+                  onOpen={() => onNavigateAdmin('audit')}
+                />
+              </SectionCard>
+            ) : null}
+
+            <aside className="rounded-xl border border-[#90CAF9] bg-[#E3F2FD] p-5">
+              <div className="flex items-center gap-3 text-[#0D47A1]">
+                <Settings className="h-5 w-5" />
+                <strong className="text-sm">Settings are company-wide</strong>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-[#0D47A1]">
+                Only authorized company administrators can save company changes. Every update is
+                recorded in the Audit log.
               </p>
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'branding' ? (
-            <SectionCard icon={<Palette className="h-5 w-5" />} title="Branding">
-              <p>
-                The workspace uses the approved navy, white, and emerald product theme with accessible
-                contrast. Custom branding controls are not available in this release.
-              </p>
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'security' ? (
-            <SectionCard icon={<LockKeyhole className="h-5 w-5" />} title="Security">
-              <p>
-                User access, account suspension, and session revocation are managed under Users &
-                Access. Company profile changes remain restricted to authorized administrators and are
-                recorded in Audit.
-              </p>
-              <WorkspaceLink
-                label="Users & Access"
-                description="Open account status and session controls."
-                onOpen={() => onNavigateAdmin('users')}
-              />
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'users' ? (
-            <SectionCard icon={<Users className="h-5 w-5" />} title="Users & Access">
-              <p>
-                Login accounts, access state, and revocable sessions are maintained in the user
-                accounts register.
-              </p>
-              <WorkspaceLink
-                label="User accounts"
-                description="Requires identity.user.read."
-                onOpen={() => onNavigateAdmin('users')}
-              />
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'branches' ? (
-            <SectionCard icon={<Landmark className="h-5 w-5" />} title="Branches">
-              <p>Operating locations are managed in the Branches directory under Administration.</p>
-              <WorkspaceLink
-                label="Branch directory"
-                description="Requires organization.branch.read."
-                onOpen={() => onNavigateAdmin('branches')}
-              />
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'notifications' ? (
-            <SectionCard icon={<Bell className="h-5 w-5" />} title="Notifications">
-              <ComingSoonNote topic="Notification preferences" />
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'finance' ? (
-            <SectionCard icon={<Wallet className="h-5 w-5" />} title="Finance Preferences">
-              <p>
-                Default currency is set on the Company section. Additional finance preference controls
-                are not available in this release.
-              </p>
-              <button
-                type="button"
-                className="font-semibold text-[#0D47A1] underline-offset-2 hover:underline"
-                onClick={() => onSectionChange('company')}
-              >
-                Open Company defaults
-              </button>
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'system' ? (
-            <SectionCard icon={<Shield className="h-5 w-5" />} title="System Preferences">
-              <ComingSoonNote topic="System preferences" />
-            </SectionCard>
-          ) : null}
-
-          {selected.key === 'audit' ? (
-            <SectionCard icon={<FileSearch className="h-5 w-5" />} title="Audit">
-              <p>
-                Sensitive and administrative activity is recorded in the audit log for authorized
-                reviewers.
-              </p>
-              <WorkspaceLink
-                label="Audit log"
-                description="Requires governance.audit.read."
-                onOpen={() => onNavigateAdmin('audit')}
-              />
-            </SectionCard>
-          ) : null}
-
-          <aside className="rounded-xl border border-[#90CAF9] bg-[#E3F2FD] p-5">
-            <div className="flex items-center gap-3 text-[#0D47A1]">
-              <Settings className="h-5 w-5" />
-              <strong className="text-sm">Settings are company-wide</strong>
-            </div>
-            <p className="mt-2 text-xs leading-5 text-[#0D47A1]">
-              Only authorized company administrators can save company changes. Every update is
-              recorded in the Audit log.
-            </p>
-          </aside>
+            </aside>
           </div>
-
         </div>
       </div>
     </div>

@@ -100,7 +100,11 @@ export function FinanceBillingSchedules() {
   );
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:billing">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:billing"
+    >
       <PageHeader
         eyebrow="Finance"
         title="Billing Schedules"
@@ -223,12 +227,18 @@ export function FinanceBillingSchedules() {
                   <DataTableBody>
                     {(schedules.data?.items ?? []).map((row) => (
                       <DataTableRow key={row.id}>
-                        <DataTableCell>{financeText((row.lease as { leaseNumber?: string })?.leaseNumber)}</DataTableCell>
                         <DataTableCell>
-                          {financeText((row.engagement as { engagementNumber?: string })?.engagementNumber)}
+                          {financeText((row.lease as { leaseNumber?: string })?.leaseNumber)}
+                        </DataTableCell>
+                        <DataTableCell>
+                          {financeText(
+                            (row.engagement as { engagementNumber?: string })?.engagementNumber,
+                          )}
                         </DataTableCell>
                         <DataTableCell>{financeMoney(row.currency, row.amount)}</DataTableCell>
-                        <DataTableCell>Monthly (day {financeScalar(row.billingDayOfMonth)})</DataTableCell>
+                        <DataTableCell>
+                          Monthly (day {financeScalar(row.billingDayOfMonth)})
+                        </DataTableCell>
                         <DataTableCell>{formatDate(row.nextRunOn)}</DataTableCell>
                         <DataTableCell>
                           <StatusBadge value={financeText(row.status) || 'ACTIVE'} />

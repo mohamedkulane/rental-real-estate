@@ -6,7 +6,10 @@ import { Building2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
 import { TableSkeleton } from '@/components/shared/loading-system';
-import { WorkspaceFormDrawer, WorkspaceFormDrawerFooter } from '@/components/shared/workspace-form-drawer';
+import {
+  WorkspaceFormDrawer,
+  WorkspaceFormDrawerFooter,
+} from '@/components/shared/workspace-form-drawer';
 import { api, hasPermission, type CursorPage, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
 import { formText } from '@/lib/form-data';
@@ -96,15 +99,31 @@ function RentalCustomerEditDrawer({
       >
         <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
           Customer name
-          <input name="displayName" required defaultValue={lead.displayName} className={customerInputClass} />
+          <input
+            name="displayName"
+            required
+            defaultValue={lead.displayName}
+            className={customerInputClass}
+          />
         </label>
         <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
           New phone number (optional)
-          <input name="phone" type="tel" minLength={5} className={customerInputClass} placeholder={lead.contact.phone ?? lead.contact.phoneMasked ?? ''} />
+          <input
+            name="phone"
+            type="tel"
+            minLength={5}
+            className={customerInputClass}
+            placeholder={lead.contact.phone ?? lead.contact.phoneMasked ?? ''}
+          />
         </label>
         <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
           New email (optional)
-          <input name="email" type="email" className={customerInputClass} placeholder={lead.contact.email ?? lead.contact.emailMasked ?? ''} />
+          <input
+            name="email"
+            type="email"
+            className={customerInputClass}
+            placeholder={lead.contact.email ?? lead.contact.emailMasked ?? ''}
+          />
         </label>
         <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
           Reason for change
@@ -144,7 +163,9 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
     <RentalShell principal={principal} principalError={error} activeItem="rental:customers">
       {query.isLoading ? <TableSkeleton columns={1} /> : null}
       {query.isError ? (
-        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{userFacingError(query.error)}</p>
+        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {userFacingError(query.error)}
+        </p>
       ) : null}
       {lead ? (
         <>
@@ -159,7 +180,11 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
                   Back to customers
                 </Link>
                 {hasPermission(principal, 'crm.lead.update') ? (
-                  <button type="button" className="button secondary" onClick={() => setEditOpen(true)}>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() => setEditOpen(true)}
+                  >
                     Edit customer
                   </button>
                 ) : null}
@@ -186,7 +211,8 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
                   <StatusBadge value={humanize(lead.stage)} />
                 </div>
                 <p className="mt-3 text-sm text-slate-600">
-                  Continue with matching and viewings. A lease becomes available only after a confirmed agreement.
+                  Continue with matching and viewings. A lease becomes available only after a
+                  confirmed agreement.
                 </p>
               </section>
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -222,33 +248,63 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Lease history</h2>
-                <p className="mt-1 text-sm text-slate-600">Confirmed tenancies created from this customer journey.</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Confirmed tenancies created from this customer journey.
+                </p>
               </div>
-              <Link className="button secondary" href="/leasing/leases">Open all leases</Link>
+              <Link className="button secondary" href="/leasing/leases">
+                Open all leases
+              </Link>
             </div>
             {leases.isLoading ? (
-              <div className="mt-4"><TableSkeleton columns={4} /></div>
+              <div className="mt-4">
+                <TableSkeleton columns={4} />
+              </div>
             ) : (leases.data?.items ?? []).length ? (
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[680px] text-left text-sm">
                   <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-                    <tr><th className="px-3 py-2">Lease</th><th className="px-3 py-2">Property / unit</th><th className="px-3 py-2">Term</th><th className="px-3 py-2">Rent</th><th className="px-3 py-2">Status</th></tr>
+                    <tr>
+                      <th className="px-3 py-2">Lease</th>
+                      <th className="px-3 py-2">Property / unit</th>
+                      <th className="px-3 py-2">Term</th>
+                      <th className="px-3 py-2">Rent</th>
+                      <th className="px-3 py-2">Status</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {(leases.data?.items ?? []).map((lease) => (
                       <tr key={lease.id} className="border-b border-slate-100 last:border-0">
-                        <td className="px-3 py-3"><Link className="font-semibold text-emerald-800" href={`/leasing/leases/${lease.id}`}>{lease.leaseNumber}</Link></td>
-                        <td className="px-3 py-3">{lease.rentableSpace.property.name} · {lease.rentableSpace.name}</td>
-                        <td className="px-3 py-3">{formatDate(lease.leaseStartDate)} → {lease.leaseEndDate ? formatDate(lease.leaseEndDate) : 'Open-ended'}</td>
-                        <td className="px-3 py-3 font-semibold">{lease.currency} {lease.rentAmount}</td>
-                        <td className="px-3 py-3"><StatusBadge value={humanize(lease.status)} /></td>
+                        <td className="px-3 py-3">
+                          <Link
+                            className="font-semibold text-emerald-800"
+                            href={`/leasing/leases/${lease.id}`}
+                          >
+                            {lease.leaseNumber}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-3">
+                          {lease.rentableSpace.property.name} · {lease.rentableSpace.name}
+                        </td>
+                        <td className="px-3 py-3">
+                          {formatDate(lease.leaseStartDate)} →{' '}
+                          {lease.leaseEndDate ? formatDate(lease.leaseEndDate) : 'Open-ended'}
+                        </td>
+                        <td className="px-3 py-3 font-semibold">
+                          {lease.currency} {lease.rentAmount}
+                        </td>
+                        <td className="px-3 py-3">
+                          <StatusBadge value={humanize(lease.status)} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">No lease has been created for this customer yet.</p>
+              <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+                No lease has been created for this customer yet.
+              </p>
             )}
           </section>
           {hasPermission(principal, 'crm.lead.update') ? (
@@ -256,7 +312,9 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
               lead={lead}
               open={editOpen}
               onClose={() => setEditOpen(false)}
-              onSaved={() => void queryClient.invalidateQueries({ queryKey: ['rental-customer', leadId] })}
+              onSaved={() =>
+                void queryClient.invalidateQueries({ queryKey: ['rental-customer', leadId] })
+              }
             />
           ) : null}
         </>
@@ -301,7 +359,9 @@ export function RentalPropertyDetailWorkspace({ propertyId }: { propertyId: stri
     <RentalShell principal={principal} principalError={error} activeItem="properties">
       {query.isLoading ? <TableSkeleton columns={1} /> : null}
       {query.isError ? (
-        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{userFacingError(query.error)}</p>
+        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {userFacingError(query.error)}
+        </p>
       ) : null}
       {property ? (
         <div className="space-y-5">
@@ -337,10 +397,7 @@ export function RentalPropertyDetailWorkspace({ propertyId }: { propertyId: stri
                 <Link className="button secondary" href="/rental/properties">
                   Back
                 </Link>
-                <Link
-                  className="button primary"
-                  href={`/portfolio/properties/${property.id}`}
-                >
+                <Link className="button primary" href={`/portfolio/properties/${property.id}`}>
                   Full details
                 </Link>
               </div>
@@ -352,7 +409,12 @@ export function RentalPropertyDetailWorkspace({ propertyId }: { propertyId: stri
               <h2 className="text-[18px] font-semibold text-[#1D2128]">Property details</h2>
               <dl className="mt-4 divide-y divide-slate-100">
                 {[
-                  { label: 'Monthly rent', value: property.monthlyRent ? `${property.currency} ${property.monthlyRent}` : 'Not set' },
+                  {
+                    label: 'Monthly rent',
+                    value: property.monthlyRent
+                      ? `${property.currency} ${property.monthlyRent}`
+                      : 'Not set',
+                  },
                   { label: 'Units', value: String(property.spaces.length) },
                   {
                     label: 'Listing',

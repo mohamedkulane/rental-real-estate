@@ -97,7 +97,17 @@ function formatRelativeTime(value: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-function KpiCard({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: ReactNode }) {
+function KpiCard({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: ReactNode;
+}) {
   return (
     <article className="staff-kpi-card">
       <span className="staff-kpi-icon">{icon}</span>
@@ -110,11 +120,24 @@ function KpiCard({ label, value, detail, icon }: { label: string; value: string;
   );
 }
 
-function Panel({ title, subtitle, children, className = '' }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
+function Panel({
+  title,
+  subtitle,
+  children,
+  className = '',
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <section className={`staff-dashboard-panel ${className}`.trim()}>
       <header className="staff-dashboard-panel-header">
-        <div><h2>{title}</h2>{subtitle ? <p>{subtitle}</p> : null}</div>
+        <div>
+          <h2>{title}</h2>
+          {subtitle ? <p>{subtitle}</p> : null}
+        </div>
       </header>
       {children}
     </section>
@@ -122,17 +145,75 @@ function Panel({ title, subtitle, children, className = '' }: { title: string; s
 }
 
 const operations = [
-  { key: 'todayViewings', label: "Today's Viewings", href: '/viewings', icon: CalendarDays, money: false },
-  { key: 'upcomingViewings', label: 'Upcoming Viewings', href: '/viewings', icon: CalendarClock, money: false },
-  { key: 'rentOutstanding', label: 'Rent Outstanding', href: '/finance/charges', icon: Receipt, money: true },
-  { key: 'brokerageOutstanding', label: 'Brokerage Outstanding', href: '/commercial/rental-brokerage/deals', icon: Handshake, money: true },
-  { key: 'leasesEndingSoon', label: 'Leases Ending Soon', href: '/leasing/leases', icon: KeyRound, money: false },
-  { key: 'openMaintenance', label: 'Open Maintenance', href: '/operations/maintenance', icon: Wrench, money: false },
-  { key: 'salesInProgress', label: 'Sales in Progress', href: '/sales/deals', icon: ClipboardList, money: false },
-  { key: 'ownerPayoutsDue', label: 'Owner Payouts Due', href: '/finance/owner-payouts', icon: WalletCards, money: false },
+  {
+    key: 'todayViewings',
+    label: "Today's Viewings",
+    href: '/viewings',
+    icon: CalendarDays,
+    money: false,
+  },
+  {
+    key: 'upcomingViewings',
+    label: 'Upcoming Viewings',
+    href: '/viewings',
+    icon: CalendarClock,
+    money: false,
+  },
+  {
+    key: 'rentOutstanding',
+    label: 'Rent Outstanding',
+    href: '/finance/charges',
+    icon: Receipt,
+    money: true,
+  },
+  {
+    key: 'brokerageOutstanding',
+    label: 'Brokerage Outstanding',
+    href: '/commercial/rental-brokerage/deals',
+    icon: Handshake,
+    money: true,
+  },
+  {
+    key: 'leasesEndingSoon',
+    label: 'Leases Ending Soon',
+    href: '/leasing/leases',
+    icon: KeyRound,
+    money: false,
+  },
+  {
+    key: 'openMaintenance',
+    label: 'Open Maintenance',
+    href: '/operations/maintenance',
+    icon: Wrench,
+    money: false,
+  },
+  {
+    key: 'salesInProgress',
+    label: 'Sales in Progress',
+    href: '/sales/deals',
+    icon: ClipboardList,
+    money: false,
+  },
+  {
+    key: 'ownerPayoutsDue',
+    label: 'Owner Payouts Due',
+    href: '/finance/owner-payouts',
+    icon: WalletCards,
+    money: false,
+  },
 ] as const;
 
-export function StaffDashboard({ dashboard, loading, workspaceTitle, workspaceDescription }: { dashboard: DashboardSnapshot; loading: boolean; workspaceTitle: string; workspaceDescription: string }) {
+export function StaffDashboard({
+  dashboard,
+  loading,
+  workspaceTitle,
+  workspaceDescription,
+}: {
+  dashboard: DashboardSnapshot;
+  loading: boolean;
+  workspaceTitle: string;
+  workspaceDescription: string;
+}) {
   const [branchId, setBranchId] = useState('');
   const scoped = useQuery({
     queryKey: ['dashboard-summary', branchId],
@@ -143,7 +224,13 @@ export function StaffDashboard({ dashboard, loading, workspaceTitle, workspaceDe
   if (loading) return <DashboardSkeleton />;
   const summary = branchId ? scoped.data : dashboard.summary;
   if (branchId && scoped.isLoading) return <DashboardSkeleton />;
-  if (!summary) return <EmptyState title="Dashboard unavailable" description="Operational summary data could not be loaded." />;
+  if (!summary)
+    return (
+      <EmptyState
+        title="Dashboard unavailable"
+        description="Operational summary data could not be loaded."
+      />
+    );
 
   const widgets = summary.widgets;
   const operational = summary.operational;
@@ -156,7 +243,10 @@ export function StaffDashboard({ dashboard, loading, workspaceTitle, workspaceDe
     { label: 'Available', value: availableUnits, color: '#2F9D78' },
     { label: 'Held / unavailable', value: unavailableUnits, color: '#CBD5E1' },
   ];
-  const paymentTotal = summary.charts.paymentMethods.reduce((sum, item) => sum + Number(item.amount), 0);
+  const paymentTotal = summary.charts.paymentMethods.reduce(
+    (sum, item) => sum + Number(item.amount),
+    0,
+  );
   const paymentSegments = summary.charts.paymentMethods.map((item, index) => ({
     label: item.label,
     value: Number(item.amount),
@@ -180,17 +270,46 @@ export function StaffDashboard({ dashboard, loading, workspaceTitle, workspaceDe
           <span className="sr-only">Branch</span>
           <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
             <option value="">All authorized branches</option>
-            {dashboard.branches.map((branch) => <option key={text(branch.id)} value={text(branch.id)}>{text(branch.name, 'Unnamed branch')}</option>)}
+            {dashboard.branches.map((branch) => (
+              <option key={text(branch.id)} value={text(branch.id)}>
+                {text(branch.name, 'Unnamed branch')}
+              </option>
+            ))}
           </select>
         </label>
       </header>
 
       <div className="staff-kpi-grid staff-kpi-grid-five" aria-label="Key operational indicators">
-        <KpiCard label="Total Properties" value={String(numberValue(widgets.totalProperties))} detail="Active portfolio assets" icon={<Building2 aria-hidden="true" />} />
-        <KpiCard label="Available Units" value={String(availableUnits)} detail={`${totalUnits} canonical rental units`} icon={<DoorOpen aria-hidden="true" />} />
-        <KpiCard label="Occupied Units" value={String(occupiedUnits)} detail={`${numberValue(widgets.occupancyRate)}% occupancy`} icon={<Users aria-hidden="true" />} />
-        <KpiCard label="Active Tenancies" value={String(numberValue(widgets.activeLeases))} detail="Active lease contracts" icon={<KeyRound aria-hidden="true" />} />
-        <KpiCard label="Money Received This Month" value={formatMoney(widgets.monthlyRevenue)} detail="Posted and verified payments" icon={<Banknote aria-hidden="true" />} />
+        <KpiCard
+          label="Total Properties"
+          value={String(numberValue(widgets.totalProperties))}
+          detail="Active portfolio assets"
+          icon={<Building2 aria-hidden="true" />}
+        />
+        <KpiCard
+          label="Available Units"
+          value={String(availableUnits)}
+          detail={`${totalUnits} canonical rental units`}
+          icon={<DoorOpen aria-hidden="true" />}
+        />
+        <KpiCard
+          label="Occupied Units"
+          value={String(occupiedUnits)}
+          detail={`${numberValue(widgets.occupancyRate)}% occupancy`}
+          icon={<Users aria-hidden="true" />}
+        />
+        <KpiCard
+          label="Active Tenancies"
+          value={String(numberValue(widgets.activeLeases))}
+          detail="Active lease contracts"
+          icon={<KeyRound aria-hidden="true" />}
+        />
+        <KpiCard
+          label="Money Received This Month"
+          value={formatMoney(widgets.monthlyRevenue)}
+          detail="Posted and verified payments"
+          icon={<Banknote aria-hidden="true" />}
+        />
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -198,9 +317,20 @@ export function StaffDashboard({ dashboard, loading, workspaceTitle, workspaceDe
           const Icon = item.icon;
           const value = operational[item.key];
           return (
-            <Link key={item.key} href={item.href} className="group flex min-h-[92px] items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary)]/35 hover:shadow-md">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]"><Icon className="h-5 w-5" aria-hidden="true" /></span>
-              <span className="min-w-0"><small className="block text-xs font-semibold text-slate-500">{item.label}</small><strong className="mt-1 block text-xl text-slate-900">{item.money ? formatMoney(value) : String(value)}</strong></span>
+            <Link
+              key={item.key}
+              href={item.href}
+              className="group flex min-h-[92px] items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary)]/35 hover:shadow-md"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <small className="block text-xs font-semibold text-slate-500">{item.label}</small>
+                <strong className="mt-1 block text-xl text-slate-900">
+                  {item.money ? formatMoney(value) : String(value)}
+                </strong>
+              </span>
             </Link>
           );
         })}
@@ -208,24 +338,115 @@ export function StaffDashboard({ dashboard, loading, workspaceTitle, workspaceDe
 
       <div className="staff-dashboard-analytics mt-5">
         <Panel title="Occupancy" subtitle="Canonical rentable inventory">
-          {totalUnits ? <div className="staff-donut-panel"><DonutChart segments={occupancySegments} centerLabel="Units" centerValue={String(totalUnits)} /><ul className="staff-legend-list">{occupancySegments.map((item) => <li key={item.label}><span><i style={{ background: item.color }} /> {item.label}</span><strong>{item.value}</strong></li>)}</ul></div> : <EmptyState title="No rental inventory" description="Rental and full-management units will appear here." />}
+          {totalUnits ? (
+            <div className="staff-donut-panel">
+              <DonutChart
+                segments={occupancySegments}
+                centerLabel="Units"
+                centerValue={String(totalUnits)}
+              />
+              <ul className="staff-legend-list">
+                {occupancySegments.map((item) => (
+                  <li key={item.label}>
+                    <span>
+                      <i style={{ background: item.color }} /> {item.label}
+                    </span>
+                    <strong>{item.value}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <EmptyState
+              title="No rental inventory"
+              description="Rental and full-management units will appear here."
+            />
+          )}
         </Panel>
-        <Panel title="Collections by Month" subtitle="Posted and verified payments" className="staff-panel-wide">
-          {collectionItems.length ? <BarChart items={collectionItems} /> : <EmptyState title="No collection data" description="Monthly collections will appear when payments are posted." />}
+        <Panel
+          title="Collections by Month"
+          subtitle="Posted and verified payments"
+          className="staff-panel-wide"
+        >
+          {collectionItems.length ? (
+            <BarChart items={collectionItems} />
+          ) : (
+            <EmptyState
+              title="No collection data"
+              description="Monthly collections will appear when payments are posted."
+            />
+          )}
         </Panel>
         <Panel title="Payment Methods" subtitle="Current month">
-          {paymentSegments.length ? <div className="staff-donut-panel"><DonutChart segments={paymentSegments} centerLabel="Received" centerValue={formatMoney(paymentTotal)} /><ul className="staff-legend-list">{paymentSegments.map((item) => <li key={item.label}><span><i style={{ background: item.color }} /> {item.label}</span><strong>{formatMoney(item.value)}</strong></li>)}</ul></div> : <EmptyState title="No payment mix" description="Payment methods will appear with this month's receipts." />}
+          {paymentSegments.length ? (
+            <div className="staff-donut-panel">
+              <DonutChart
+                segments={paymentSegments}
+                centerLabel="Received"
+                centerValue={formatMoney(paymentTotal)}
+              />
+              <ul className="staff-legend-list">
+                {paymentSegments.map((item) => (
+                  <li key={item.label}>
+                    <span>
+                      <i style={{ background: item.color }} /> {item.label}
+                    </span>
+                    <strong>{formatMoney(item.value)}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <EmptyState
+              title="No payment mix"
+              description="Payment methods will appear with this month's receipts."
+            />
+          )}
         </Panel>
       </div>
 
       <div className="staff-dashboard-grid staff-dashboard-grid-secondary mt-5">
         <Panel title="Recent Activity" subtitle="Latest financial and operational records">
-          {summary.recentActivity.length ? <div className="staff-activity-list">{summary.recentActivity.map((item, index) => <Link className="staff-activity-row" href={item.href} key={`${item.kind}-${item.label}-${index}`}><span className="staff-activity-icon"><CircleDollarSign aria-hidden="true" /></span><div><strong>{item.label}</strong><small>{humanize(item.kind)} · {formatRelativeTime(item.occurredAt)}</small></div><StatusBadge value={humanize(item.status)} /></Link>)}</div> : <EmptyState title="No recent activity" description="New operational records will appear here." />}
+          {summary.recentActivity.length ? (
+            <div className="staff-activity-list">
+              {summary.recentActivity.map((item, index) => (
+                <Link
+                  className="staff-activity-row"
+                  href={item.href}
+                  key={`${item.kind}-${item.label}-${index}`}
+                >
+                  <span className="staff-activity-icon">
+                    <CircleDollarSign aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <small>
+                      {humanize(item.kind)} · {formatRelativeTime(item.occurredAt)}
+                    </small>
+                  </div>
+                  <StatusBadge value={humanize(item.status)} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No recent activity"
+              description="New operational records will appear here."
+            />
+          )}
         </Panel>
         <Panel title="Financial Attention" subtitle="Amounts requiring follow-up">
           <div className="grid gap-3 p-4 sm:grid-cols-2">
-            <Link href="/finance/charges" className="rounded-md border border-slate-200 p-4"><small className="font-semibold text-slate-500">Outstanding Receivables</small><strong className="mt-2 block text-xl">{formatMoney(widgets.outstandingReceivables)}</strong></Link>
-            <Link href="/finance/owner-payouts" className="rounded-md border border-slate-200 p-4"><small className="font-semibold text-slate-500">Owner Payouts Due</small><strong className="mt-2 block text-xl">{String(operational.ownerPayoutsDue)}</strong></Link>
+            <Link href="/finance/charges" className="rounded-md border border-slate-200 p-4">
+              <small className="font-semibold text-slate-500">Outstanding Receivables</small>
+              <strong className="mt-2 block text-xl">
+                {formatMoney(widgets.outstandingReceivables)}
+              </strong>
+            </Link>
+            <Link href="/finance/owner-payouts" className="rounded-md border border-slate-200 p-4">
+              <small className="font-semibold text-slate-500">Owner Payouts Due</small>
+              <strong className="mt-2 block text-xl">{String(operational.ownerPayoutsDue)}</strong>
+            </Link>
           </div>
         </Panel>
       </div>

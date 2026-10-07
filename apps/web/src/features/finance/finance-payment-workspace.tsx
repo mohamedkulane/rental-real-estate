@@ -71,7 +71,11 @@ export function PaymentCreateWorkspace() {
   });
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:payments">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:payments"
+    >
       <PageHeader
         eyebrow="Finance"
         title="Record Payment"
@@ -147,7 +151,13 @@ export function PaymentCreateWorkspace() {
             maxLength={3}
             required
           />
-          <FinanceTextField label="Payment date" type="date" value={receivedAt} onChange={setReceivedAt} required />
+          <FinanceTextField
+            label="Payment date"
+            type="date"
+            value={receivedAt}
+            onChange={setReceivedAt}
+            required
+          />
           <FinanceTextField label="Reference" value={externalRef} onChange={setExternalRef} />
           <FinanceTextArea label="Notes" value={notes} onChange={setNotes} />
         </FinanceFormPanel>
@@ -183,10 +193,9 @@ export function PaymentDetailWorkspace() {
   const [drafts, setDrafts] = useState<AllocationDraft[]>([]);
 
   const paymentAmount = Number(financeScalar(payment.data?.amount) || 0);
-  const allocated = ((payment.data?.allocations as Array<{ amount?: string }> | undefined) ?? []).reduce(
-    (sum, row) => sum + Number(financeScalar(row.amount) || 0),
-    0,
-  );
+  const allocated = (
+    (payment.data?.allocations as Array<{ amount?: string }> | undefined) ?? []
+  ).reduce((sum, row) => sum + Number(financeScalar(row.amount) || 0), 0);
   const available = paymentAmount - allocated;
   const draftTotal = drafts.reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
@@ -215,7 +224,10 @@ export function PaymentDetailWorkspace() {
         }),
       }),
     onSuccess: () => {
-      notify.payment({ title: 'Payment allocated', message: 'Funds were applied to the selected charges.' });
+      notify.payment({
+        title: 'Payment allocated',
+        message: 'Funds were applied to the selected charges.',
+      });
       setDrafts([]);
       void queryClient.invalidateQueries({ queryKey: ['payment', params.id] });
     },
@@ -232,12 +244,16 @@ export function PaymentDetailWorkspace() {
   });
 
   const reverse = useMutation({
-    mutationFn: () => api(`/payments/${params.id}/reverse`, {
-      method: 'POST',
-      body: JSON.stringify({ reason: reverseReason }),
-    }),
+    mutationFn: () =>
+      api(`/payments/${params.id}/reverse`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reverseReason }),
+      }),
     onSuccess: () => {
-      notify.payment({ title: 'Payment reversed', message: 'Allocated balances were restored to their receivables.' });
+      notify.payment({
+        title: 'Payment reversed',
+        message: 'Allocated balances were restored to their receivables.',
+      });
       setReverseReason('');
       void queryClient.invalidateQueries({ queryKey: ['payment', params.id] });
       void queryClient.invalidateQueries({ queryKey: ['finance-overview'] });
@@ -248,7 +264,11 @@ export function PaymentDetailWorkspace() {
   const receiptRow = payment.data?.receipt as Record<string, unknown> | null | undefined;
 
   return (
-    <FinanceShell principal={principal} principalError={principalError} activeItem="finance:payments">
+    <FinanceShell
+      principal={principal}
+      principalError={principalError}
+      activeItem="finance:payments"
+    >
       <PageHeader
         eyebrow="Finance"
         title={financeText(payment.data?.paymentNumber) || 'Payment'}
@@ -271,7 +291,10 @@ export function PaymentDetailWorkspace() {
             <FormSection title="Payment summary">
               <div className="grid gap-4 sm:grid-cols-2">
                 <FinanceField label="Status" value={humanize(financeText(payment.data?.status))} />
-                <FinanceField label="Amount" value={financeMoney(payment.data?.currency, payment.data?.amount)} />
+                <FinanceField
+                  label="Amount"
+                  value={financeMoney(payment.data?.currency, payment.data?.amount)}
+                />
                 <FinanceField
                   label="Payer"
                   value={financeText(financeNested(payment.data ?? {}, 'payer', 'displayName'))}
@@ -286,8 +309,14 @@ export function PaymentDetailWorkspace() {
                 />
                 <FinanceField label="Received" value={formatDate(payment.data?.receivedAt)} />
                 <FinanceField label="Reference" value={financeText(payment.data?.externalRef)} />
-                <FinanceField label="Allocated" value={financeMoney(payment.data?.currency, allocated)} />
-                <FinanceField label="Available to allocate" value={financeMoney(payment.data?.currency, available)} />
+                <FinanceField
+                  label="Allocated"
+                  value={financeMoney(payment.data?.currency, allocated)}
+                />
+                <FinanceField
+                  label="Available to allocate"
+                  value={financeMoney(payment.data?.currency, available)}
+                />
               </div>
             </FormSection>
 
@@ -307,7 +336,10 @@ export function PaymentDetailWorkspace() {
                     {openCharges.map((charge) => {
                       const draft = drafts.find((row) => row.chargeId === charge.id);
                       return (
-                        <li key={charge.id} className="grid gap-3 px-4 py-3 md:grid-cols-[1fr_160px]">
+                        <li
+                          key={charge.id}
+                          className="grid gap-3 px-4 py-3 md:grid-cols-[1fr_160px]"
+                        >
                           <div>
                             <p className="text-[14px] font-semibold text-slate-900">
                               {financeText(charge.chargeNumber)}
@@ -371,7 +403,11 @@ export function PaymentDetailWorkspace() {
                   <p>Receipt {financeText(receiptRow.receiptNumber)}</p>
                   <p>Amount {financeMoney(receiptRow.currency, receiptRow.amount)}</p>
                   <p>Issued {formatDate(receiptRow.issuedAt)}</p>
-                  <button className="button secondary mt-2 w-full" type="button" onClick={() => window.print()}>
+                  <button
+                    className="button secondary mt-2 w-full"
+                    type="button"
+                    onClick={() => window.print()}
+                  >
                     Print receipt
                   </button>
                 </div>
@@ -397,9 +433,16 @@ export function PaymentDetailWorkspace() {
             {canAllocate && financeText(payment.data?.status) !== 'REVERSED' ? (
               <section className="rounded-xl border border-red-200 bg-white p-5 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-900">Reverse payment</h2>
-                <p className="mt-1 text-xs text-slate-500">This preserves the record and restores allocated outstanding balances.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  This preserves the record and restores allocated outstanding balances.
+                </p>
                 <FinanceTextArea label="Reason" value={reverseReason} onChange={setReverseReason} />
-                <button className="button destructive mt-3 w-full" type="button" disabled={reverse.isPending || reverseReason.trim().length < 3} onClick={() => reverse.mutate()}>
+                <button
+                  className="button destructive mt-3 w-full"
+                  type="button"
+                  disabled={reverse.isPending || reverseReason.trim().length < 3}
+                  onClick={() => reverse.mutate()}
+                >
                   {reverse.isPending ? 'Reversing…' : 'Reverse payment'}
                 </button>
               </section>

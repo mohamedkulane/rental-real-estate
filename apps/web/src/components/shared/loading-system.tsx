@@ -2,13 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 
-function SkeletonBlock({
-  className = '',
-  style,
-}: {
-  className?: string;
-  style?: CSSProperties;
-}) {
+function SkeletonBlock({ className = '', style }: { className?: string; style?: CSSProperties }) {
   return <span className={'skeleton-block ' + className} style={style} aria-hidden="true" />;
 }
 
@@ -86,13 +80,7 @@ export function PageSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function TableSkeleton({
-  rows = 6,
-  columns = 5,
-}: {
-  rows?: number;
-  columns?: number;
-}) {
+export function TableSkeleton({ rows = 6, columns = 5 }: { rows?: number; columns?: number }) {
   return (
     <div className="table-skeleton" aria-hidden="true">
       <div
@@ -172,13 +160,7 @@ export function FormSkeleton({ fields = 6 }: { fields?: number }) {
   );
 }
 
-export function InlineLoading({
-  label,
-  size = 'sm',
-}: {
-  label: string;
-  size?: 'sm' | 'md';
-}) {
+export function InlineLoading({ label, size = 'sm' }: { label: string; size?: 'sm' | 'md' }) {
   return (
     <span className={'inline-loading inline-loading-' + size} role="status" aria-live="polite">
       <span className="inline-loading-spinner" aria-hidden="true" />
@@ -195,10 +177,7 @@ export function ImageSkeleton({
   aspect?: 'square' | 'video' | 'wide';
 }) {
   return (
-    <div
-      className={'image-skeleton image-skeleton-' + aspect + ' ' + className}
-      aria-hidden="true"
-    >
+    <div className={'image-skeleton image-skeleton-' + aspect + ' ' + className} aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="image-skeleton-icon">
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M8 13l2.5-2.5L14 14l2-2 4 4" />

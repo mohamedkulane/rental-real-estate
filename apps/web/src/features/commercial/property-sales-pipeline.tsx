@@ -58,7 +58,10 @@ export function PropertySalesPipeline() {
         description="Offer progression from submission through acceptance and settlement readiness."
         action={
           <div className="flex flex-row flex-wrap items-center justify-end gap-2">
-            <Link className="button secondary shrink-0 whitespace-nowrap" href="/commercial/property-sales">
+            <Link
+              className="button secondary shrink-0 whitespace-nowrap"
+              href="/commercial/property-sales"
+            >
               Property Sale
             </Link>
             <Link className="button secondary shrink-0 whitespace-nowrap" href="/commercial/offers">
@@ -106,7 +109,10 @@ export function PropertySalesPipeline() {
                               {text(nested(offer, 'property', 'name'))}
                             </p>
                           </div>
-                          <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" aria-hidden="true" />
+                          <ArrowRight
+                            className="h-4 w-4 shrink-0 text-slate-300"
+                            aria-hidden="true"
+                          />
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <p className="text-[12px] font-medium text-slate-700">
@@ -116,7 +122,9 @@ export function PropertySalesPipeline() {
                           </p>
                           <StatusBadge value={offer.status} />
                         </div>
-                        <p className="mt-1 text-[11px] text-slate-400">{formatDate(offer.offerDate)}</p>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {formatDate(offer.offerDate)}
+                        </p>
                       </Link>
                     </li>
                   ))

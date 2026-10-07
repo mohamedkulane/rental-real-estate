@@ -37,7 +37,6 @@ const categories = [
   { key: 'sales', label: 'Sales' },
   { key: 'finance', label: 'Finance' },
   { key: 'operations', label: 'Operations' },
-  { key: 'construction', label: 'Construction' },
   { key: 'development', label: 'Development' },
 ] as const;
 
@@ -50,7 +49,6 @@ const statusOptions: Partial<Record<Category, string[]>> = {
   sales: ['DRAFT', 'CONFIRMED', 'CANCELLED'],
   finance: ['CAPTURED', 'VERIFIED', 'POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'REVERSED'],
   operations: ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'],
-  construction: ['DRAFT', 'PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'],
   development: ['PLANNING', 'APPROVED', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'],
 };
 
@@ -175,11 +173,21 @@ export function ReportsWorkspace() {
         description="Filter detailed operational records and export the exact result to Excel or CSV."
         action={
           <div className="flex gap-2">
-            <button type="button" className="button secondary inline-flex items-center gap-2" disabled={Boolean(exporting)} onClick={() => void download('csv')}>
+            <button
+              type="button"
+              className="button secondary inline-flex items-center gap-2"
+              disabled={Boolean(exporting)}
+              onClick={() => void download('csv')}
+            >
               <Download className="h-4 w-4" aria-hidden="true" />
               {exporting === 'csv' ? 'Exporting...' : 'CSV'}
             </button>
-            <button type="button" className="button primary inline-flex items-center gap-2" disabled={Boolean(exporting)} onClick={() => void download('xlsx')}>
+            <button
+              type="button"
+              className="button primary inline-flex items-center gap-2"
+              disabled={Boolean(exporting)}
+              onClick={() => void download('xlsx')}
+            >
               <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
               {exporting === 'xlsx' ? 'Exporting...' : 'Excel'}
             </button>
@@ -187,7 +195,10 @@ export function ReportsWorkspace() {
         }
       />
 
-      <nav className="mt-5 flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Report categories">
+      <nav
+        className="mt-5 flex gap-1 overflow-x-auto border-b border-slate-200"
+        aria-label="Report categories"
+      >
         {categories.map((item) => (
           <button
             key={item.key}
@@ -206,33 +217,77 @@ export function ReportsWorkspace() {
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-600">Search</span>
               <span className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                <input className={`${inputClass} pl-9`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, code, number..." />
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  className={`${inputClass} pl-9`}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Name, code, number..."
+                />
               </span>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-600">Branch</span>
-              <select className={inputClass} value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+              <select
+                className={inputClass}
+                value={branchId}
+                onChange={(event) => setBranchId(event.target.value)}
+              >
                 <option value="">All authorized branches</option>
-                {principal.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                {principal.branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-600">Date From</span>
-              <input className={inputClass} type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+              <input
+                className={inputClass}
+                type="date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+              />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-600">Date To</span>
-              <input className={inputClass} type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              <input
+                className={inputClass}
+                type="date"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+              />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-600">Status</span>
-              <select className={inputClass} value={status} onChange={(event) => setStatus(event.target.value)}>
+              <select
+                className={inputClass}
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
                 <option value="">All statuses</option>
-                {(statusOptions[category] ?? []).map((value) => <option key={value} value={value}>{humanize(value)}</option>)}
+                {(statusOptions[category] ?? []).map((value) => (
+                  <option key={value} value={value}>
+                    {humanize(value)}
+                  </option>
+                ))}
               </select>
             </label>
-            <button type="button" className="button ghost inline-flex h-10 items-center justify-center gap-2" onClick={() => { setBranchId(''); setDateFrom(''); setDateTo(''); setStatus(''); setSearch(''); }}>
+            <button
+              type="button"
+              className="button ghost inline-flex h-10 items-center justify-center gap-2"
+              onClick={() => {
+                setBranchId('');
+                setDateFrom('');
+                setDateTo('');
+                setStatus('');
+                setSearch('');
+              }}
+            >
               <Filter className="h-4 w-4" aria-hidden="true" />
               Reset
             </button>
@@ -242,32 +297,58 @@ export function ReportsWorkspace() {
         {report.isLoading ? (
           <TableSkeleton columns={7} />
         ) : report.isError ? (
-          <div className="p-5"><ErrorState message={userFacingError(report.error)} /></div>
+          <div className="p-5">
+            <ErrorState message={userFacingError(report.error)} />
+          </div>
         ) : !report.data?.rows.length ? (
-          <DataTableEmpty title="No report rows" description="No records match the selected filters." />
+          <DataTableEmpty
+            title="No report rows"
+            description="No records match the selected filters."
+          />
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[960px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
-                    {report.data.columns.map((column) => <th key={column.key} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">{column.label}</th>)}
+                    {report.data.columns.map((column) => (
+                      <th
+                        key={column.key}
+                        className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-500"
+                      >
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {report.data.rows.map((row, index) => (
-                    <tr key={`${category}-${index}`} className="border-b border-slate-100 align-top hover:bg-slate-50/60">
+                    <tr
+                      key={`${category}-${index}`}
+                      className="border-b border-slate-100 align-top hover:bg-slate-50/60"
+                    >
                       {report.data.columns.map((column) => {
                         const value = row[column.key];
                         const isStatus = column.key === 'status' || column.key === 'outcome';
-                        return <td key={column.key} className="max-w-[300px] px-4 py-3 text-slate-700">{isStatus && value ? <StatusBadge value={humanize(String(value))} /> : String(value ?? '—') || '—'}</td>;
+                        return (
+                          <td key={column.key} className="max-w-[300px] px-4 py-3 text-slate-700">
+                            {isStatus && value ? (
+                              <StatusBadge value={humanize(String(value))} />
+                            ) : (
+                              String(value ?? '—') || '—'
+                            )}
+                          </td>
+                        );
                       })}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <footer className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">Showing {report.data.rows.length} filtered {report.data.rows.length === 1 ? 'record' : 'records'}.</footer>
+            <footer className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+              Showing {report.data.rows.length} filtered{' '}
+              {report.data.rows.length === 1 ? 'record' : 'records'}.
+            </footer>
           </>
         )}
       </DataTableSurface>

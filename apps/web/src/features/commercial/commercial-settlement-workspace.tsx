@@ -35,7 +35,9 @@ export function SaleSettlementCreateWorkspace() {
   const { principal } = useCommercialPrincipal();
   const allowed = Boolean(principal && hasPermission(principal, 'sale-settlement.manage'));
   const contextOfferId = searchParams.get('offerId');
-  const [offer, setOffer] = useState<PickRecord | null>(() => contextOfferId ? { id: contextOfferId, label: 'Confirmed sale agreement' } : null);
+  const [offer, setOffer] = useState<PickRecord | null>(() =>
+    contextOfferId ? { id: contextOfferId, label: 'Confirmed sale agreement' } : null,
+  );
   const [approvedDeductions, setApprovedDeductions] = useState('0');
   const [closingDate, setClosingDate] = useState(new Date().toISOString().slice(0, 10));
 
@@ -50,7 +52,10 @@ export function SaleSettlementCreateWorkspace() {
         }),
       }),
     onSuccess: (settlement: { id: string }) => {
-      notify.payment({ title: 'Sale settlement created', message: 'Settlement amounts were saved for review.' });
+      notify.payment({
+        title: 'Sale settlement created',
+        message: 'Settlement amounts were saved for review.',
+      });
       router.push(`/commercial/settlements/${settlement.id}`);
     },
     onError: (error) => toast.error(userFacingError(error)),
@@ -84,7 +89,19 @@ export function SaleSettlementCreateWorkspace() {
             create.mutate();
           }}
         >
-          {contextOfferId ? <FinanceField label="Agreement context" value="Confirmed sale agreement inherited" /> : <FinanceRecordSelect label="Accepted sale offer" path="/sale-offers?status=ACCEPTED" value={offer?.id ?? ''} map={financePickerMap.offer} onChange={setOffer} required emptyHint="No accepted sale offer. Confirm an agreement before creating a settlement." />}
+          {contextOfferId ? (
+            <FinanceField label="Agreement context" value="Confirmed sale agreement inherited" />
+          ) : (
+            <FinanceRecordSelect
+              label="Accepted sale offer"
+              path="/sale-offers?status=ACCEPTED"
+              value={offer?.id ?? ''}
+              map={financePickerMap.offer}
+              onChange={setOffer}
+              required
+              emptyHint="No accepted sale offer. Confirm an agreement before creating a settlement."
+            />
+          )}
           <FinanceTextField
             label="Approved deductions"
             type="number"
@@ -93,7 +110,12 @@ export function SaleSettlementCreateWorkspace() {
             value={approvedDeductions}
             onChange={setApprovedDeductions}
           />
-          <FinanceTextField label="Closing date" type="date" value={closingDate} onChange={setClosingDate} />
+          <FinanceTextField
+            label="Closing date"
+            type="date"
+            value={closingDate}
+            onChange={setClosingDate}
+          />
         </FinanceFormPanel>
       )}
     </CommercialShell>
@@ -127,7 +149,9 @@ export function SaleSettlementDetailWorkspace() {
   });
 
   const status = financeText(query.data?.status);
-  const serviceModel = financeText(financeNested(query.data ?? {}, 'saleOffer', 'engagement', 'serviceModel'));
+  const serviceModel = financeText(
+    financeNested(query.data ?? {}, 'saleOffer', 'engagement', 'serviceModel'),
+  );
 
   return (
     <CommercialShell principal={principal} activeItem="commercial:settlements">
@@ -153,7 +177,10 @@ export function SaleSettlementDetailWorkspace() {
             <div className="grid gap-4 sm:grid-cols-2">
               <FinanceField label="Status" value={humanize(status)} />
               <FinanceField label="Sale model" value={humanize(serviceModel)} />
-              <FinanceField label="Gross sale price" value={financeMoney(query.data?.currency, query.data?.salePrice)} />
+              <FinanceField
+                label="Gross sale price"
+                value={financeMoney(query.data?.currency, query.data?.salePrice)}
+              />
               <FinanceField
                 label="Brokerage commission"
                 value={financeMoney(query.data?.currency, query.data?.grossCommission)}
@@ -163,7 +190,9 @@ export function SaleSettlementDetailWorkspace() {
                 value={financeMoney(query.data?.currency, query.data?.approvedDeductions)}
               />
               <FinanceField
-                label={serviceModel === 'COMPANY_OWNED' ? 'Company net proceeds' : 'Seller net proceeds'}
+                label={
+                  serviceModel === 'COMPANY_OWNED' ? 'Company net proceeds' : 'Seller net proceeds'
+                }
                 value={financeMoney(
                   query.data?.currency,
                   serviceModel === 'COMPANY_OWNED'
@@ -179,7 +208,9 @@ export function SaleSettlementDetailWorkspace() {
               currentStatus={status}
               transitions={settlementTransitions[status] ?? []}
               busy={transition.isPending}
-              onTransition={(nextStatus, reason) => transition.mutate({ status: nextStatus, reason })}
+              onTransition={(nextStatus, reason) =>
+                transition.mutate({ status: nextStatus, reason })
+              }
             />
           ) : null}
         </div>

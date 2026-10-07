@@ -242,218 +242,216 @@ export function OnboardingWorkspace({
             </button>
           </div>
         ) : null}
-          {step === 1 ? (
-            <RecordPicker
-              label="Existing owner"
-              path="/owners"
-              value={payload.ownerPartyId ?? ''}
-              selectedLabel={ownerName}
-              map={ownerOption}
-              onChange={(record) => {
-                const next = { ...payload };
-                if (record) next.ownerPartyId = record.id;
-                else delete next.ownerPartyId;
-                setPayload(next);
-              }}
-            />
-          ) : null}
-          {step === 2 ? (
-            <div className="grid gap-4">
-              <p className="text-sm text-slate-600">
-                Set ownership and payout shares before creating the property. Both totals must equal
-                100%.
-              </p>
-              <label className="grid gap-1 text-sm">
-                Effective date
-                <input
-                  type="date"
-                  value={plan.effectiveFrom}
-                  onChange={(event) =>
-                    setPayload({
-                      ...payload,
-                      ownershipPlan: { ...plan, effectiveFrom: event.target.value },
-                    })
-                  }
-                  required
-                />
-              </label>
-              {plan.shares.map((share, index) => (
-                <fieldset key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4">
-                  <legend className="px-1 text-sm font-semibold">Owner {index + 1}</legend>
-                  <RecordPicker
-                    label="Owner"
-                    path="/owners"
-                    value={share.ownerPartyId}
-                    selectedLabel={index === 0 ? ownerName : 'Saved co-owner'}
-                    map={ownerOption}
-                    onChange={(record) => changeShare(index, 'ownerPartyId', record?.id ?? '')}
-                  />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1 text-sm">
-                      Ownership %
-                      <input
-                        type="number"
-                        min="0.01"
-                        max="100"
-                        step="0.01"
-                        value={share.ownershipPercent}
-                        onChange={(event) =>
-                          changeShare(index, 'ownershipPercent', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="grid gap-1 text-sm">
-                      Payout entitlement %
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={share.payoutPercent}
-                        onChange={(event) =>
-                          changeShare(index, 'payoutPercent', event.target.value)
-                        }
-                      />
-                    </label>
-                  </div>
-                  {index > 0 ? (
-                    <button
-                      type="button"
-                      className="button secondary justify-self-start"
-                      onClick={() =>
-                        setPayload({
-                          ...payload,
-                          ownershipPlan: {
-                            ...plan,
-                            shares: plan.shares.filter((_, position) => position !== index),
-                          },
-                        })
-                      }
-                    >
-                      Remove co-owner
-                    </button>
-                  ) : null}
-                </fieldset>
-              ))}
-              <button
-                type="button"
-                className="button secondary justify-self-start"
-                disabled={plan.shares.length >= 20}
-                onClick={() =>
+        {step === 1 ? (
+          <RecordPicker
+            label="Existing owner"
+            path="/owners"
+            value={payload.ownerPartyId ?? ''}
+            selectedLabel={ownerName}
+            map={ownerOption}
+            onChange={(record) => {
+              const next = { ...payload };
+              if (record) next.ownerPartyId = record.id;
+              else delete next.ownerPartyId;
+              setPayload(next);
+            }}
+          />
+        ) : null}
+        {step === 2 ? (
+          <div className="grid gap-4">
+            <p className="text-sm text-slate-600">
+              Set ownership and payout shares before creating the property. Both totals must equal
+              100%.
+            </p>
+            <label className="grid gap-1 text-sm">
+              Effective date
+              <input
+                type="date"
+                value={plan.effectiveFrom}
+                onChange={(event) =>
                   setPayload({
                     ...payload,
-                    ownershipPlan: {
-                      ...plan,
-                      shares: [
-                        ...plan.shares,
-                        { ownerPartyId: '', ownershipPercent: '0', payoutPercent: '0' },
-                      ],
-                    },
+                    ownershipPlan: { ...plan, effectiveFrom: event.target.value },
                   })
                 }
-              >
-                Add co-owner
-              </button>
-            </div>
-          ) : null}
-          {step === 3 && !payload.propertyId ? (
-            <details>
-              <summary className="cursor-pointer text-sm font-semibold text-blue-800">
-                Use a property already registered
-              </summary>
-              <div className="mt-3">
+                required
+              />
+            </label>
+            {plan.shares.map((share, index) => (
+              <fieldset key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4">
+                <legend className="px-1 text-sm font-semibold">Owner {index + 1}</legend>
                 <RecordPicker
-                  label="Property"
-                  path="/properties"
-                  value={payload.propertyId ?? ''}
-                  map={propertyOption}
-                  onChange={(record) => {
-                    if (record) setPayload({ ...payload, propertyId: record.id });
-                  }}
+                  label="Owner"
+                  path="/owners"
+                  value={share.ownerPartyId}
+                  selectedLabel={index === 0 ? ownerName : 'Saved co-owner'}
+                  map={ownerOption}
+                  onChange={(record) => changeShare(index, 'ownerPartyId', record?.id ?? '')}
                 />
-              </div>
-              <p className="mt-2 text-xs text-slate-500">
-                Search across every branch you can access. Save Draft after selecting the property,
-                then confirm its ownership.
-              </p>
-            </details>
-          ) : null}
-          {step === 4 ? (
-            <p className="text-sm text-slate-600">
-              Add each building or structure. A standalone property can continue without a building.{' '}
-              {payload.buildingIds?.length ?? 0} added.
-            </p>
-          ) : null}
-          {step === 5 ? (
-            <p className="text-sm text-slate-600">
-              Add the spaces that can be rented independently.{' '}
-              {payload.rentableSpaceIds?.length ?? 0} added.
-            </p>
-          ) : null}
-          {step === 6 ? (
-            <div className="grid gap-4">
-              <p className="text-sm text-slate-600">
-                Select the service agreed with the owner. You can leave this step empty when no
-                service has been agreed yet.
-              </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    Ownership %
+                    <input
+                      type="number"
+                      min="0.01"
+                      max="100"
+                      step="0.01"
+                      value={share.ownershipPercent}
+                      onChange={(event) =>
+                        changeShare(index, 'ownershipPercent', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Payout entitlement %
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={share.payoutPercent}
+                      onChange={(event) => changeShare(index, 'payoutPercent', event.target.value)}
+                    />
+                  </label>
+                </div>
+                {index > 0 ? (
+                  <button
+                    type="button"
+                    className="button secondary justify-self-start"
+                    onClick={() =>
+                      setPayload({
+                        ...payload,
+                        ownershipPlan: {
+                          ...plan,
+                          shares: plan.shares.filter((_, position) => position !== index),
+                        },
+                      })
+                    }
+                  >
+                    Remove co-owner
+                  </button>
+                ) : null}
+              </fieldset>
+            ))}
+            <button
+              type="button"
+              className="button secondary justify-self-start"
+              disabled={plan.shares.length >= 20}
+              onClick={() =>
+                setPayload({
+                  ...payload,
+                  ownershipPlan: {
+                    ...plan,
+                    shares: [
+                      ...plan.shares,
+                      { ownerPartyId: '', ownershipPercent: '0', payoutPercent: '0' },
+                    ],
+                  },
+                })
+              }
+            >
+              Add co-owner
+            </button>
+          </div>
+        ) : null}
+        {step === 3 && !payload.propertyId ? (
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold text-blue-800">
+              Use a property already registered
+            </summary>
+            <div className="mt-3">
               <RecordPicker
-                label="Company service"
-                path={`/service-engagements?propertyId=${payload.propertyId}`}
-                value={payload.serviceEngagementId ?? ''}
-                map={engagementOption}
+                label="Property"
+                path="/properties"
+                value={payload.propertyId ?? ''}
+                map={propertyOption}
                 onChange={(record) => {
-                  const next = { ...payload };
-                  if (record) next.serviceEngagementId = record.id;
-                  else delete next.serviceEngagementId;
-                  setPayload(next);
+                  if (record) setPayload({ ...payload, propertyId: record.id });
                 }}
               />
             </div>
-          ) : null}
-          {step === 7 && payload.propertyId ? (
-            <EntityDocuments
-              entityType="Property"
-              entityId={payload.propertyId}
-              canManage={principal.permissions.includes('portfolio.document.manage')}
-              onUploaded={(documentId) =>
-                setPayload((current) => ({
-                  ...current,
-                  documentIds: [...new Set([...(current.documentIds ?? []), documentId])],
-                }))
-              }
+            <p className="mt-2 text-xs text-slate-500">
+              Search across every branch you can access. Save Draft after selecting the property,
+              then confirm its ownership.
+            </p>
+          </details>
+        ) : null}
+        {step === 4 ? (
+          <p className="text-sm text-slate-600">
+            Add each building or structure. A standalone property can continue without a building.{' '}
+            {payload.buildingIds?.length ?? 0} added.
+          </p>
+        ) : null}
+        {step === 5 ? (
+          <p className="text-sm text-slate-600">
+            Add the spaces that can be rented independently. {payload.rentableSpaceIds?.length ?? 0}{' '}
+            added.
+          </p>
+        ) : null}
+        {step === 6 ? (
+          <div className="grid gap-4">
+            <p className="text-sm text-slate-600">
+              Select the service agreed with the owner. You can leave this step empty when no
+              service has been agreed yet.
+            </p>
+            <RecordPicker
+              label="Company service"
+              path={`/service-engagements?propertyId=${payload.propertyId}`}
+              value={payload.serviceEngagementId ?? ''}
+              map={engagementOption}
+              onChange={(record) => {
+                const next = { ...payload };
+                if (record) next.serviceEngagementId = record.id;
+                else delete next.serviceEngagementId;
+                setPayload(next);
+              }}
             />
-          ) : null}
-          {step === 8 ? (
-            <div className="grid gap-4">
-              <p className="text-sm text-slate-600">
-                Review the saved records before finishing. Completion preserves the property and its
-                ownership, buildings, spaces and documents.
-              </p>
-              <dl className="grid gap-4 sm:grid-cols-2">
-                {[
-                  ['Owner', ownerName],
-                  ['Property', propertyName],
-                  ['Ownership', payload.ownershipId ? 'Recorded' : 'Missing'],
-                  ['Buildings', String(payload.buildingIds?.length ?? 0)],
-                  ['Rentable spaces', String(payload.rentableSpaceIds?.length ?? 0)],
-                  ['Company service', payload.serviceEngagementId ? 'Selected' : 'Not requested'],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg bg-slate-50 p-3">
-                    <dt className="text-xs text-slate-500">{label}</dt>
-                    <dd className="mt-1 text-sm font-semibold">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-              {payload.propertyId ? (
-                <Link
-                  href={`/portfolio/properties/${payload.propertyId}`}
-                  className="text-sm text-blue-800 underline"
-                >
-                  Open property details
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
+          </div>
+        ) : null}
+        {step === 7 && payload.propertyId ? (
+          <EntityDocuments
+            entityType="Property"
+            entityId={payload.propertyId}
+            canManage={principal.permissions.includes('portfolio.document.manage')}
+            onUploaded={(documentId) =>
+              setPayload((current) => ({
+                ...current,
+                documentIds: [...new Set([...(current.documentIds ?? []), documentId])],
+              }))
+            }
+          />
+        ) : null}
+        {step === 8 ? (
+          <div className="grid gap-4">
+            <p className="text-sm text-slate-600">
+              Review the saved records before finishing. Completion preserves the property and its
+              ownership, buildings, spaces and documents.
+            </p>
+            <dl className="grid gap-4 sm:grid-cols-2">
+              {[
+                ['Owner', ownerName],
+                ['Property', propertyName],
+                ['Ownership', payload.ownershipId ? 'Recorded' : 'Missing'],
+                ['Buildings', String(payload.buildingIds?.length ?? 0)],
+                ['Rentable spaces', String(payload.rentableSpaceIds?.length ?? 0)],
+                ['Company service', payload.serviceEngagementId ? 'Selected' : 'Not requested'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg bg-slate-50 p-3">
+                  <dt className="text-xs text-slate-500">{label}</dt>
+                  <dd className="mt-1 text-sm font-semibold">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {payload.propertyId ? (
+              <Link
+                href={`/portfolio/properties/${payload.propertyId}`}
+                className="text-sm text-blue-800 underline"
+              >
+                Open property details
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
         <OnboardingCreate
           key={`${row.id}-${step}-${payload.propertyId ?? ''}-${payload.ownershipId ?? ''}`}
           row={{ ...row, payload, version: versionRef.current }}

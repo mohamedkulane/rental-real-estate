@@ -32,7 +32,13 @@ import {
   WorkspaceFormDrawer,
   WorkspaceFormDrawerFooter,
 } from '@/components/shared/workspace-form-drawer';
-import { api, hasPermission, type CursorPage, type Principal, userFacingError } from '@/lib/phase3-api';
+import {
+  api,
+  hasPermission,
+  type CursorPage,
+  type Principal,
+  userFacingError,
+} from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
 import { BranchSelect } from '@/features/finance/finance-forms';
 import { OperationsShell, useOperationsPrincipal } from './operations-shell';
@@ -82,7 +88,8 @@ const config: Record<
       { label: 'Title', value: (row) => text(row.title) },
       {
         label: 'Property',
-        value: (row) => `${text(nested(row, 'property', 'propertyCode'))} — ${text(nested(row, 'property', 'name'))}`,
+        value: (row) =>
+          `${text(nested(row, 'property', 'propertyCode'))} — ${text(nested(row, 'property', 'name'))}`,
       },
       { label: 'Priority', value: (row) => humanize(text(row.priority)) },
       { label: 'Reported', value: (row) => date(row.reportedAt) },
@@ -100,10 +107,14 @@ const config: Record<
     statuses: ['DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'],
     columns: [
       { label: 'Work Order', value: (row) => text(row.workOrderNumber) },
-      { label: 'Request', value: (row) => text(nested(row, 'request', 'requestNumber')) || 'Manual' },
+      {
+        label: 'Request',
+        value: (row) => text(nested(row, 'request', 'requestNumber')) || 'Manual',
+      },
       {
         label: 'Property',
-        value: (row) => `${text(nested(row, 'property', 'propertyCode'))} — ${text(nested(row, 'property', 'name'))}`,
+        value: (row) =>
+          `${text(nested(row, 'property', 'propertyCode'))} — ${text(nested(row, 'property', 'name'))}`,
       },
       { label: 'Scheduled', value: (row) => date(row.scheduledAt) },
       { label: 'Approval', value: (row) => humanize(text(row.approvalStatus)) },
@@ -124,7 +135,8 @@ const config: Record<
       { label: 'Type', value: (row) => humanize(text(row.type)) },
       {
         label: 'Property',
-        value: (row) => `${text(nested(row, 'property', 'propertyCode'))} — ${text(nested(row, 'property', 'name'))}`,
+        value: (row) =>
+          `${text(nested(row, 'property', 'propertyCode'))} — ${text(nested(row, 'property', 'name'))}`,
       },
       { label: 'Scheduled', value: (row) => date(row.scheduledAt) },
       { label: 'Completed', value: (row) => date(row.completedAt) },
@@ -287,7 +299,12 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
               </div>
             </label>
             {definition.statuses ? (
-              <DataTableFilter label="Status" value={status} onChange={setStatus} options={statusOptions} />
+              <DataTableFilter
+                label="Status"
+                value={status}
+                onChange={setStatus}
+                options={statusOptions}
+              />
             ) : null}
             <DataTableActions>
               <DataTableResetButton
@@ -301,7 +318,10 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
           {query.isLoading ? (
             <TableSkeleton columns={definition.columns.length + 1} />
           ) : query.isError ? (
-            <DataTableError message={userFacingError(query.error)} onRetry={() => void query.refetch()} />
+            <DataTableError
+              message={userFacingError(query.error)}
+              onRetry={() => void query.refetch()}
+            />
           ) : !query.data?.items.length ? (
             <DataTableEmpty
               title={emptyTitle}
@@ -330,7 +350,10 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
                           label: column.label,
                           value: column.value(row) ?? '—',
                         })),
-                        { label: 'Status', value: <StatusBadge value={text(row.status) || 'ACTIVE'} /> },
+                        {
+                          label: 'Status',
+                          value: <StatusBadge value={text(row.status) || 'ACTIVE'} />,
+                        },
                       ]}
                     />
                   );
@@ -342,7 +365,9 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
                     <DataTableHead>
                       <tr>
                         {definition.columns.map((column) => (
-                          <DataTableHeaderCell key={column.label}>{column.label}</DataTableHeaderCell>
+                          <DataTableHeaderCell key={column.label}>
+                            {column.label}
+                          </DataTableHeaderCell>
                         ))}
                         <DataTableHeaderCell>Status</DataTableHeaderCell>
                       </tr>
@@ -355,7 +380,10 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
                             {definition.columns.map((column, index) => (
                               <DataTableCell key={column.label}>
                                 {index === 0 ? (
-                                  <Link className="text-emerald-700" href={definition.detailPath(id)}>
+                                  <Link
+                                    className="text-emerald-700"
+                                    href={definition.detailPath(id)}
+                                  >
                                     {column.value(row) ?? id}
                                   </Link>
                                 ) : (
@@ -364,7 +392,11 @@ export function OperationsRegister({ mode }: { mode: OperationsRegisterMode }) {
                               </DataTableCell>
                             ))}
                             <DataTableCell>
-                              <StatusBadge value={text(row.status) || (row.active === false ? 'INACTIVE' : 'ACTIVE')} />
+                              <StatusBadge
+                                value={
+                                  text(row.status) || (row.active === false ? 'INACTIVE' : 'ACTIVE')
+                                }
+                              />
                             </DataTableCell>
                           </DataTableRow>
                         );
@@ -427,7 +459,8 @@ function CreateOperationsRecord({
   const properties = useQuery({
     queryKey: ['operations-properties'],
     enabled: open && mode !== 'vendors',
-    queryFn: () => api<CursorPage<{ id: string; name: string; propertyCode: string }>>('/properties?limit=50'),
+    queryFn: () =>
+      api<CursorPage<{ id: string; name: string; propertyCode: string }>>('/properties?limit=50'),
   });
 
   const mutation = useMutation({

@@ -104,7 +104,9 @@ export function TermFormField({
     <label className={`term-form-field ${className}`.trim()}>
       <span className="term-form-field__label-row">
         <span className="term-form-field__label">{english}</span>
-        {tooltip && description && term ? <TermTooltip term={term} description={description} /> : null}
+        {tooltip && description && term ? (
+          <TermTooltip term={term} description={description} />
+        ) : null}
       </span>
       {children}
       {somaliHint ? <TermHint>{somaliHint}</TermHint> : null}
@@ -129,7 +131,9 @@ export function TermSectionHeading({
     <div className="term-section-heading">
       <h2>{title ?? definition?.english}</h2>
       {description ? <p>{description}</p> : null}
-      <TermHint>{descriptionSomali ?? definition?.descriptionSomali ?? definition?.somali}</TermHint>
+      <TermHint>
+        {descriptionSomali ?? definition?.descriptionSomali ?? definition?.somali}
+      </TermHint>
     </div>
   );
 }
@@ -155,13 +159,7 @@ export function TermFilterLabel({
   );
 }
 
-export function TermEmptyDescription({
-  term,
-  fallback,
-}: {
-  term: TermKey;
-  fallback?: string;
-}) {
+export function TermEmptyDescription({ term, fallback }: { term: TermKey; fallback?: string }) {
   const definition = getTerm(term);
   return <TermHint>{fallback ?? definition.descriptionSomali ?? definition.somali}</TermHint>;
 }

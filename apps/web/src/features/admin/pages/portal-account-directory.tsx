@@ -1,16 +1,7 @@
 'use client';
 
 import { SearchableSelect } from '@/components/shared/searchable-select';
-import {
-  Eye,
-  Globe,
-  MoreHorizontal,
-  Plus,
-  Search,
-  ShieldAlert,
-  UserRound,
-  X,
-} from 'lucide-react';
+import { Eye, Globe, MoreHorizontal, Plus, Search, ShieldAlert, UserRound, X } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { humanize } from '@/lib/presentation';
@@ -72,7 +63,12 @@ function Drawer({
       aria-modal="true"
       aria-label={title}
     >
-      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="Close panel" />
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-label="Close panel"
+      />
       <aside className="relative max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl scroll-smooth">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
           <div>
@@ -121,10 +117,7 @@ export function PortalAccountDirectory({
   const [createPortalType, setCreatePortalType] = useState<'OWNER' | 'TENANT'>('OWNER');
   const [createError, setCreateError] = useState('');
 
-  const linkedPartyIds = useMemo(
-    () => new Set(records.map((record) => record.partyId)),
-    [records],
-  );
+  const linkedPartyIds = useMemo(() => new Set(records.map((record) => record.partyId)), [records]);
   const availableOwnerOptions = useMemo(
     () => ownerOptions.filter((option) => !linkedPartyIds.has(option.partyId)),
     [ownerOptions, linkedPartyIds],
@@ -142,17 +135,12 @@ export function PortalAccountDirectory({
         const search = query.trim().toLowerCase();
         return (
           (!search ||
-            [
-              record.user.emailNormalized,
-              record.party.displayName,
-              record.party.partyNumber,
-            ]
+            [record.user.emailNormalized, record.party.displayName, record.party.partyNumber]
               .join(' ')
               .toLowerCase()
               .includes(search)) &&
           (portalTypeFilter === 'all' || record.portalType === portalTypeFilter) &&
-          (statusFilter === 'all' ||
-            (statusFilter === 'active' ? record.active : !record.active))
+          (statusFilter === 'all' || (statusFilter === 'active' ? record.active : !record.active))
         );
       }),
     [records, query, portalTypeFilter, statusFilter],
@@ -341,7 +329,9 @@ export function PortalAccountDirectory({
           </table>
         </div>
         {!filtered.length ? (
-          <div className="p-10 text-center text-sm text-slate-500">No matching portal accounts.</div>
+          <div className="p-10 text-center text-sm text-slate-500">
+            No matching portal accounts.
+          </div>
         ) : null}
         <PaginationControls
           page={pagination.page}
@@ -376,7 +366,9 @@ export function PortalAccountDirectory({
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Login email
               </span>
-              <strong className="mt-1 block break-all text-sm">{selected.user.emailNormalized}</strong>
+              <strong className="mt-1 block break-all text-sm">
+                {selected.user.emailNormalized}
+              </strong>
             </div>
             <div className="rounded-lg border border-slate-200 p-3">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -431,9 +423,7 @@ export function PortalAccountDirectory({
               <SearchableSelect
                 name="portalType"
                 value={createPortalType}
-                onChange={(event) =>
-                  setCreatePortalType(event.target.value as 'OWNER' | 'TENANT')
-                }
+                onChange={(event) => setCreatePortalType(event.target.value as 'OWNER' | 'TENANT')}
                 className={inputClass}
                 required
               >
