@@ -46,6 +46,7 @@ import {
   UpdateLeadDto,
   UpdateSourceDto,
   VersionedReasonDto,
+  BulkCompleteFollowUpsDto,
 } from './crm.dto';
 import { CrmReadService } from './crm-read.service';
 import { CrmSelectorsService } from './crm-selectors.service';
@@ -287,6 +288,12 @@ export class CrmController {
       input,
       req.correlationId,
     );
+  }
+
+  @Post('follow-ups/bulk-complete')
+  @RequirePermissions('crm.followup.complete')
+  bulkCompleteFollowUps(@Req() req: AuthenticatedRequest, @Body() input: BulkCompleteFollowUpsDto) {
+    return this.operations.bulkCompleteFollowUps(req.principal, input, req.correlationId);
   }
   @Post('leads/:leadId/follow-ups/:followUpId/cancel')
   @RequirePermissions('crm.followup.cancel')

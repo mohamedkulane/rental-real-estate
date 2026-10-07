@@ -9,6 +9,7 @@ export class NotificationService {
   constructor(private readonly db: DatabaseService) {}
 
   async inbox(principal: AuthenticatedPrincipal, limit = 25) {
+    await this.generateOperationalNotifications(principal);
     const items = await this.db.notification.findMany({
       where: { userId: principal.userId, companyId: principal.companyId },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
@@ -158,39 +159,188 @@ export class NotificationService {
   }
 
   async seedOperationalNotifications(principal: AuthenticatedPrincipal) {
-    if (principal.kind !== 'STAFF') return { created: 0 };
-    const samples = [
-      {
-        dedupeKey: `follow-up:${principal.businessDate}`,
-        category: 'FOLLOW_UP',
-        title: 'Follow-up due today',
-        body: 'Review CRM follow-ups assigned to your branch.',
-        linkPath: '/crm/follow-ups',
+    return { created: await this.generateOperationalNotifications(principal) };
+  }
+
+  async generateOperationalNotifications(principal: AuthenticatedPrincipal) {
+    if (principal.kind !== 'STAFF') return 0;
+    const branchFilter =
+      principal.accessMode === 'COMPANY_WIDE' ? {} : { branchId: { in: [...principal.branchIds] } };
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const inFortyFiveDays = new Date(now);
+    inFortyFiveDays.setDate(inFortyFiveDays.getDate() + 45);
+    let generated = 0;
+    const add = async (input: Parameters<NotificationService['notify']>[0]) => {
+      await this.notify(input);
+      generated += 1;
+    };
+
+    const viewingRows = await this.db.viewing.findMany({
+      where: {
+        companyId: principal.companyId,
+        ...(principal.accessMode === 'COMPANY_WIDE' ? {} : branchFilter),
+        ...(principal.employeeId && principal.accessMode !== 'COMPANY_WIDE'
+          ? { assignedEmployeeId: principal.employeeId }
+          : {}),
+        scheduledAt: { gte: now, lte: new Date(now.getTime() + 48 * 60 * 60 * 1000) },
+        status: { in: ['SCHEDULED', 'CONFIRMED'] },
       },
-      {
-        dedupeKey: `maintenance:${principal.businessDate}`,
-        category: 'MAINTENANCE',
-        title: 'Open maintenance requests',
-        body: 'High-priority maintenance items need attention.',
-        linkPath: '/operations/maintenance',
-      },
-      {
-        dedupeKey: `payout:${principal.businessDate}`,
-        category: 'FINANCE',
-        title: 'Owner payouts pending review',
-        body: 'Review owner payouts awaiting approval.',
-        linkPath: '/finance/owner-payouts',
-      },
-    ];
-    let created = 0;
-    for (const sample of samples) {
-      await this.notify({
+      take: 50,
+      select: { id: true, scheduledAt: true, lead: { select: { displayName: true } } },
+    });
+    for (const row of viewingRows) {
+      await add({
         companyId: principal.companyId,
         userId: principal.userId,
-        ...sample,
+        dedupeKey: `viewing:${row.id}:${row.scheduledAt.toISOString()}`,
+        category: 'VIEWING',
+        title: 'Viewing scheduled soon',
+        body: `${row.lead.displayName} · ${row.scheduledAt.toLocaleString()}`,
+        linkPath: '/viewings',
+        entityType: 'Viewing',
+        entityId: row.id,
       });
-      created += 1;
     }
-    return { created };
+
+    const followUps = await this.db.leadFollowUp.findMany({
+      where: {
+        lead: { companyId: principal.companyId },
+        ...(principal.accessMode === 'COMPANY_WIDE' ? {} : branchFilter),
+        ...(principal.employeeId ? { responsibleEmployeeId: principal.employeeId } : {}),
+        state: 'OPEN',
+        dueAt: { lte: tomorrow },
+      },
+      take: 50,
+      select: {
+        id: true,
+        dueAt: true,
+        subject: true,
+        leadId: true,
+        lead: { select: { displayName: true } },
+      },
+    });
+    for (const row of followUps) {
+      await add({
+        companyId: principal.companyId,
+        userId: principal.userId,
+        dedupeKey: `follow-up:${row.id}:${row.dueAt.toISOString().slice(0, 10)}`,
+        category: 'FOLLOW_UP',
+        title: 'Follow-up due',
+        body: `${row.lead.displayName} · ${row.subject}`,
+        linkPath: '/crm/follow-ups',
+        entityType: 'LeadFollowUp',
+        entityId: row.id,
+      });
+    }
+
+    if (principal.permissions.has('payment.read')) {
+      const charges = await this.db.charge.findMany({
+        where: {
+          companyId: principal.companyId,
+          ...branchFilter,
+          outstandingAmount: { gt: 0 },
+          dueDate: { lte: tomorrow },
+        },
+        take: 50,
+        select: {
+          id: true,
+          chargeNumber: true,
+          dueDate: true,
+          outstandingAmount: true,
+          currency: true,
+          debtor: { select: { displayName: true } },
+        },
+      });
+      for (const row of charges) {
+        const overdue = row.dueDate < new Date(principal.businessDate + 'T00:00:00.000Z');
+        await add({
+          companyId: principal.companyId,
+          userId: principal.userId,
+          dedupeKey: `charge:${row.id}:${overdue ? 'overdue' : row.dueDate.toISOString().slice(0, 10)}`,
+          category: 'FINANCE',
+          title: overdue ? 'Rent overdue' : 'Rent due soon',
+          body: `${row.debtor.displayName} · ${row.currency} ${row.outstandingAmount.toString()} · ${row.chargeNumber}`,
+          linkPath: '/finance/payments',
+          entityType: 'Charge',
+          entityId: row.id,
+        });
+      }
+    }
+
+    if (principal.permissions.has('lease.read')) {
+      const leases = await this.db.lease.findMany({
+        where: {
+          companyId: principal.companyId,
+          ...branchFilter,
+          status: { in: ['SIGNED', 'ACTIVE'] },
+          leaseEndDate: { not: null, gte: now, lte: inFortyFiveDays },
+        },
+        take: 50,
+        select: { id: true, leaseNumber: true, leaseEndDate: true },
+      });
+      for (const row of leases) {
+        await add({
+          companyId: principal.companyId,
+          userId: principal.userId,
+          dedupeKey: `lease-ending:${row.id}:${row.leaseEndDate!.toISOString().slice(0, 10)}`,
+          category: 'LEASE',
+          title: 'Lease ending soon',
+          body: `${row.leaseNumber} · ends ${row.leaseEndDate!.toISOString().slice(0, 10)}`,
+          linkPath: `/leasing/leases/${row.id}`,
+          entityType: 'Lease',
+          entityId: row.id,
+        });
+      }
+    }
+
+    if (principal.permissions.has('payout.read')) {
+      const payouts = await this.db.ownerPayout.findMany({
+        where: { companyId: principal.companyId, ...branchFilter, status: 'REVIEW' },
+        take: 50,
+        select: { id: true, payoutNumber: true, owner: { select: { displayName: true } } },
+      });
+      for (const row of payouts) {
+        await add({
+          companyId: principal.companyId,
+          userId: principal.userId,
+          dedupeKey: `payout-review:${row.id}`,
+          category: 'FINANCE',
+          title: 'Owner payout awaiting review',
+          body: `${row.payoutNumber} · ${row.owner.displayName}`,
+          linkPath: `/finance/owner-payouts/${row.id}`,
+          entityType: 'OwnerPayout',
+          entityId: row.id,
+        });
+      }
+    }
+
+    if (principal.permissions.has('maintenance.read')) {
+      const requests = await this.db.maintenanceRequest.findMany({
+        where: {
+          companyId: principal.companyId,
+          ...branchFilter,
+          priority: { in: ['URGENT', 'HIGH'] },
+          status: { notIn: ['COMPLETED', 'CANCELLED'] },
+        },
+        take: 50,
+        select: { id: true, requestNumber: true, title: true, priority: true },
+      });
+      for (const row of requests) {
+        await add({
+          companyId: principal.companyId,
+          userId: principal.userId,
+          dedupeKey: `maintenance-priority:${row.id}`,
+          category: 'MAINTENANCE',
+          title: 'High-priority maintenance needs attention',
+          body: `${row.requestNumber} · ${row.priority.toLowerCase()} · ${row.title}`,
+          linkPath: `/operations/maintenance/${row.id}`,
+          entityType: 'MaintenanceRequest',
+          entityId: row.id,
+        });
+      }
+    }
+    return generated;
   }
 }

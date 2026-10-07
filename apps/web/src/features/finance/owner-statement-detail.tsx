@@ -15,6 +15,7 @@ import {
 } from '@/components/shared/data-table';
 import { PageSkeleton } from '@/components/shared/loading-system';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { GeneratedPdfButton } from '@/components/shared/generated-pdf-button';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
 import { FinanceAccessDenied } from './finance-shared';
@@ -60,6 +61,9 @@ export function OwnerStatementDetail() {
         description="Issued snapshot of owner activity for the selected period. Posted totals are not edited in place."
         action={
           <div className="flex items-center gap-3">
+            {query.data ? (
+              <GeneratedPdfButton path={`/generated-documents/owner-statements/${query.data.id}`} />
+            ) : null}
             <button className="button secondary" type="button" onClick={() => window.print()}>
               Print / Export
             </button>

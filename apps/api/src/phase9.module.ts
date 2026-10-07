@@ -18,6 +18,12 @@ import { DashboardReadModelService } from './reporting/dashboard-read-model.serv
 import { NotificationService } from './reporting/notification.service';
 import { ReportingService } from './reporting/reporting.service';
 import { SearchService } from './reporting/search.service';
+import { SavedViewController } from './reporting/saved-view.controller';
+import { SavedViewService } from './reporting/saved-view.service';
+import { GeneratedDocumentController } from './reporting/generated-document.controller';
+import { GeneratedDocumentService } from './reporting/generated-document.service';
+import { ActivityTimelineController } from './reporting/activity-timeline.controller';
+import { ActivityTimelineService } from './reporting/activity-timeline.service';
 
 @Module({
   imports: [Phase3Module, Phase6Module, Phase8Module],
@@ -29,6 +35,9 @@ import { SearchService } from './reporting/search.service';
     DashboardController,
     SearchController,
     NotificationController,
+    SavedViewController,
+    GeneratedDocumentController,
+    ActivityTimelineController,
   ],
   providers: [
     PortalAuthorizationService,
@@ -39,6 +48,9 @@ import { SearchService } from './reporting/search.service';
     DashboardReadModelService,
     SearchService,
     NotificationService,
+    SavedViewService,
+    GeneratedDocumentService,
+    ActivityTimelineService,
   ],
   exports: [
     PortalAuthorizationService,
@@ -49,6 +61,9 @@ import { SearchService } from './reporting/search.service';
     DashboardReadModelService,
     SearchService,
     NotificationService,
+    SavedViewService,
+    GeneratedDocumentService,
+    ActivityTimelineService,
   ],
 })
 export class Phase9Module {}

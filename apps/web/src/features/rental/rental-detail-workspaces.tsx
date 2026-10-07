@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
+import { ActivityTimelinePanel } from '@/components/shared/activity-timeline-panel';
+import { WhatsAppAction } from '@/components/shared/whatsapp-action';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import {
   WorkspaceFormDrawer,
@@ -223,6 +225,14 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
                 <p className="mt-2 break-words text-sm text-slate-800">
                   {lead.contact?.email ?? lead.contact?.emailMasked ?? 'Email not provided'}
                 </p>
+                <div className="mt-4">
+                  <WhatsAppAction
+                    phone={lead.contact?.phone}
+                    message={
+                      'Hello ' + lead.displayName + ', I am following up on your rental request.'
+                    }
+                  />
+                </div>
               </section>
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-base font-semibold text-[#1D2128]">Responsibility</h2>
@@ -243,6 +253,9 @@ export function RentalCustomerDetailWorkspace({ leadId }: { leadId: string }) {
                 </section>
               ) : null}
             </aside>
+          </div>
+          <div className="mt-5">
+            <ActivityTimelinePanel entityType="LEAD" entityId={lead.id} />
           </div>
           <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">

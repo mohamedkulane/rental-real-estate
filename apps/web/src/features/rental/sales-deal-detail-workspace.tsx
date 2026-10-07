@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from '@/lib/toast';
 import { CommercialShell, useCommercialPrincipal } from '@/features/commercial/commercial-shell';
 import { ErrorState, PageHeader, StatusBadge } from '@/components/shared/ui';
+import { GeneratedPdfButton } from '@/components/shared/generated-pdf-button';
 import { FormSkeleton } from '@/components/shared/loading-system';
 import { api, hasPermission, userFacingError } from '@/lib/phase3-api';
 import { formatDate, humanize } from '@/lib/presentation';
@@ -168,9 +169,17 @@ export function SalesDealDetailWorkspace({ agreementId }: { agreementId: string 
             : 'Agreement, settlement, and sale completion.'
         }
         action={
-          <Link className="button secondary" href="/sales/deals">
-            Back to deals
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {deal ? (
+              <GeneratedPdfButton
+                path={`/generated-documents/sale-agreements/${deal.id}`}
+                label="Agreement PDF"
+              />
+            ) : null}
+            <Link className="button secondary" href="/sales/deals">
+              Back to deals
+            </Link>
+          </div>
         }
       />
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}

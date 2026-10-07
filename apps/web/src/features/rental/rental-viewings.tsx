@@ -31,6 +31,7 @@ import {
   TableActionGroup,
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
+import { SavedViewControls } from '@/components/shared/saved-view-controls';
 import {
   WorkspaceFormDrawer,
   WorkspaceFormDrawerFooter,
@@ -326,7 +327,20 @@ export function CentralViewingsWorkspace() {
           <DataTableSurface className="mt-6">
             <DataTableToolbar
               footer={
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <SavedViewControls
+                    workspace="viewings"
+                    filters={{ search, intent, period, status, agentId, from, to }}
+                    onApply={(filters) => {
+                      setSearch(filters.search ?? '');
+                      setIntent(filters.intent ?? '');
+                      setPeriod((filters.period as Period) || 'ALL');
+                      setStatus(filters.status ?? '');
+                      setAgentId(filters.agentId ?? '');
+                      setFrom(filters.from ?? '');
+                      setTo(filters.to ?? '');
+                    }}
+                  />
                   <button type="button" className="button ghost text-[13px]" onClick={resetFilters}>
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
                     Reset

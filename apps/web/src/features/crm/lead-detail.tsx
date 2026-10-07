@@ -12,6 +12,7 @@ import {
   PageHeader,
   StatusBadge,
 } from '@/components/shared/ui';
+import { WhatsAppAction } from '@/components/shared/whatsapp-action';
 import { CrmShell, useCrmPrincipal } from './crm-shell';
 import { AccessDenied } from './crm-shared';
 import { can, canReadChild, crmError, PagedResults, requestPath, useCrmPage } from './crm-data';
@@ -403,6 +404,12 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
                   <p className="mt-2 break-words text-sm">
                     {lead.contact?.email ?? lead.contact?.emailMasked ?? 'Email not provided'}
                   </p>
+                  <div className="mt-4">
+                    <WhatsAppAction
+                      phone={lead.contact?.phone}
+                      message={'Hello ' + lead.displayName + ', I am following up on your request.'}
+                    />
+                  </div>
                   <p className="mt-3 text-xs text-slate-500">
                     Protected contact is revealed only with separate authorization and audit.
                   </p>

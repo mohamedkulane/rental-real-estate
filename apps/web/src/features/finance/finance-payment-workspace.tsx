@@ -27,6 +27,7 @@ import {
 } from './finance-forms';
 import { FinanceAccessDenied } from './finance-shared';
 import { FinanceShell, useFinancePrincipal } from './finance-shell';
+import { GeneratedPdfButton } from '@/components/shared/generated-pdf-button';
 
 export function PaymentCreateWorkspace() {
   const router = useRouter();
@@ -274,9 +275,17 @@ export function PaymentDetailWorkspace() {
         title={financeText(payment.data?.paymentNumber) || 'Payment'}
         description="Allocate the received amount, then issue a receipt."
         action={
-          <Link className="button secondary" href="/finance/payments">
-            Back to payments
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {canRead && params.id ? (
+              <GeneratedPdfButton
+                path={`/generated-documents/payments/${params.id}`}
+                label="Payment PDF"
+              />
+            ) : null}
+            <Link className="button secondary" href="/finance/payments">
+              Back to payments
+            </Link>
+          </div>
         }
       />
       {principal && !canRead ? (

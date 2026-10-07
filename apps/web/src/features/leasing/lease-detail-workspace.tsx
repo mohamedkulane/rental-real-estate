@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from '@/lib/toast';
 import { DetailTabs } from '@/components/shared/detail-tabs';
 import { PageHeader, StatusBadge } from '@/components/shared/ui';
+import { GeneratedPdfButton } from '@/components/shared/generated-pdf-button';
 import { TableSkeleton } from '@/components/shared/loading-system';
 import { OperationsShell, useOperationsPrincipal } from '@/features/leasing/operations-shell';
 import {
@@ -280,6 +281,10 @@ export function LeaseDetailWorkspace({ leaseId }: { leaseId: string }) {
             description={`${lease.rentableSpace.property.name} · ${humanize(lease.status)}`}
             action={
               <div className="flex flex-wrap items-center justify-end gap-2">
+                <GeneratedPdfButton
+                  path={`/generated-documents/leases/${lease.id}`}
+                  label="Lease PDF"
+                />
                 {lease.status === 'ACTIVE' && hasPermission(principal, 'lease.manage') ? (
                   <button
                     className="button secondary border-red-200 text-red-700 hover:bg-red-50"

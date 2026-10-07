@@ -17,6 +17,44 @@ type SearchResult = {
   href: string;
 };
 
+const commandActions = [
+  {
+    id: 'properties',
+    label: 'Open Properties',
+    context: 'Portfolio',
+    href: '/rental/properties',
+    permission: 'portfolio.property.read',
+  },
+  {
+    id: 'customers',
+    label: 'Open Customers',
+    context: 'Rental',
+    href: '/rental/customers',
+    permission: 'crm.lead.read',
+  },
+  {
+    id: 'leases',
+    label: 'Open Leases',
+    context: 'Rental',
+    href: '/leasing/leases',
+    permission: 'lease.read',
+  },
+  {
+    id: 'payments',
+    label: 'Open Payments',
+    context: 'Finance',
+    href: '/finance/payments',
+    permission: 'payment.read',
+  },
+  {
+    id: 'reports',
+    label: 'Open Reports',
+    context: 'Reporting',
+    href: '/reports',
+    permission: 'report.read',
+  },
+];
+
 type NotificationItem = {
   id: string;
   category: string;
@@ -88,6 +126,10 @@ export function AppHeader({
     setStartNewOpen(false);
     navigate(href);
   });
+  const availableCommands = commandActions.filter((item) => permissions.includes(item.permission));
+  const visibleCommands = availableCommands.filter((item) =>
+    item.label.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  );
 
   const displayName = userDisplayName ?? branchLabel(accessMode, branches);
   const roleLabel = userRoleLabel ?? humanize(accessMode);
@@ -250,13 +292,48 @@ export function AppHeader({
                   />
                   <kbd className="app-header-search-kbd">Ctrl K</kbd>
                 </label>
-                {searchOpen && searchQuery.trim().length >= 2 ? (
+                {searchOpen && (searchQuery.trim().length >= 2 || !searchQuery.trim()) ? (
                   <div
                     id="global-search-results"
                     role="listbox"
                     className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
                   >
-                    {searchLoading ? (
+                    {!searchQuery.trim() && visibleCommands.length ? (
+                      <>
+                        <p className="border-b border-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Quick navigation
+                        </p>
+                        <ul>
+                          {visibleCommands.map((command) => (
+                            <li key={command.id}>
+                              <button
+                                type="button"
+                                role="option"
+                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                                onClick={() =>
+                                  selectSearchResult({
+                                    ...command,
+                                    type: 'Command',
+                                  })
+                                }
+                              >
+                                <span className="rounded-md bg-[var(--primary-soft)] px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--primary)]">
+                                  Command
+                                </span>
+                                <span>
+                                  <span className="block text-sm font-semibold text-slate-900">
+                                    {command.label}
+                                  </span>
+                                  <span className="block text-xs text-slate-500">
+                                    {command.context}
+                                  </span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : searchLoading ? (
                       <p className="px-4 py-3 text-sm text-slate-500">Searching...</p>
                     ) : searchResults.length ? (
                       <>

@@ -13,6 +13,7 @@ import {
   TableActionGroup,
 } from '@/components/shared/data-table';
 import { TableSkeleton } from '@/components/shared/loading-system';
+import { WhatsAppAction } from '@/components/shared/whatsapp-action';
 import {
   EmptyState,
   ErrorState,
@@ -573,6 +574,14 @@ export function BuyerDetailWorkspace({ leadId }: { leadId: string }) {
                     Phone
                   </dt>
                   <dd className="mt-1 font-semibold text-slate-900">{phone}</dd>
+                </div>
+                <div className="pt-1">
+                  <WhatsAppAction
+                    phone={lead.contact.phone}
+                    message={
+                      'Hello ' + lead.displayName + ', I am following up on your property search.'
+                    }
+                  />
                 </div>
               </dl>
             </div>

@@ -17,6 +17,7 @@ import type {
   UpdateFollowUpDto,
   UpdateSourceDto,
   VersionedReasonDto,
+  BulkCompleteFollowUpsDto,
 } from './crm.dto';
 
 @Injectable()
@@ -271,6 +272,58 @@ export class CrmOperationsService {
       );
       return ack(after);
     });
+  }
+
+  async bulkCompleteFollowUps(
+    principal: AuthenticatedPrincipal,
+    input: BulkCompleteFollowUpsDto,
+    correlationId?: string,
+  ) {
+    if (!input.items.length) throw new BadRequestException('CRM_VALIDATION_FAILED');
+    const uniqueIds = new Set(input.items.map((item) => item.followUpId));
+    if (uniqueIds.size !== input.items.length) {
+      throw new BadRequestException('CRM_DUPLICATE_FOLLOW_UP');
+    }
+
+    const rows = await this.support.database.leadFollowUp.findMany({
+      where: {
+        id: { in: [...uniqueIds] },
+        lead: { companyId: principal.companyId },
+      },
+      select: {
+        id: true,
+        leadId: true,
+        branchId: true,
+        state: true,
+        version: true,
+      },
+    });
+    if (rows.length !== input.items.length) throw new NotFoundException('CRM_NOT_FOUND');
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    for (const item of input.items) {
+      const row = byId.get(item.followUpId)!;
+      if (row.leadId !== item.leadId) throw new NotFoundException('CRM_NOT_FOUND');
+      this.support.assert(principal, 'crm.followup.complete', row.branchId);
+      if (row.state !== 'OPEN') throw new BadRequestException('CRM_ILLEGAL_TRANSITION');
+      if (row.version !== item.expectedVersion) {
+        throw new ConflictException('CRM_VERSION_CONFLICT');
+      }
+    }
+
+    const completed = [];
+    for (const item of input.items) {
+      completed.push(
+        await this.outcome(
+          principal,
+          item.leadId,
+          item.followUpId,
+          'COMPLETED',
+          item,
+          correlationId,
+        ),
+      );
+    }
+    return { completed };
   }
   async createSource(
     principal: AuthenticatedPrincipal,

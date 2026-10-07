@@ -140,6 +140,19 @@ export class VersionedReasonDto {
   @IsString() @Length(3, 500) reason!: string;
 }
 
+export class BulkFollowUpItemDto extends VersionedReasonDto {
+  @IsUUID() leadId!: string;
+  @IsUUID() followUpId!: string;
+}
+
+export class BulkCompleteFollowUpsDto {
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => BulkFollowUpItemDto)
+  items!: BulkFollowUpItemDto[];
+}
+
 export class UpdateLeadDto extends VersionedReasonDto {
   @IsOptional() @IsUUID() sourceId?: string;
   @IsOptional() @IsString() @Length(1, 240) displayName?: string;
