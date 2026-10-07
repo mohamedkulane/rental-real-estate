@@ -53,6 +53,9 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm test:integration
+      - name: Run database integration tests
+        run: pnpm --filter @rerms/database test:integration
+      - name: Run API integration tests
+        run: pnpm --filter @rerms/api test:integration
       - run: pnpm test:e2e
       - run: pnpm build
