@@ -5,6 +5,7 @@
 Phase 9 portals, reporting, and production readiness closure.
 
 ## Scope delivered
+
 - Owner portal with relationship-scoped portfolio, statements, payouts, maintenance, and activity
 - Tenant portal with lease, invoices, payments, receipts, maintenance requests, and profile
 - Portal authorization with company isolation and resource-level checks (no staff permission leakage)

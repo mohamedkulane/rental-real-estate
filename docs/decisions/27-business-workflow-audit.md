@@ -6,16 +6,16 @@ Companion canvas: Cursor canvas `business-workflow-audit.canvas.tsx`.
 
 ## Summary verdicts
 
-| Topic | Verdict |
-| ----- | ------- |
-| Same customer, many opportunities | **Supported** at schema/API (no Lead-global unique). Soft-hold gap on CONFIRMED-but-unleased units (P1). |
-| Brokerage Deals page | Keep as **history register**; remove manual create path from normal UX (P1). |
-| Payment UX | Too technical (GL account, no business source) (P0). |
-| Payment methods | Seed lacks EVC / E-Dahab / Somnet / Salaam Bank (P0). |
-| Payment status | Create→CAPTURED; no void/reversal; dead enum states (P0). |
-| Brokerage revenue as cash | Deal gross ≠ money received; no commission payment path (P0). |
-| Management fee | Owner-statement deduction today; not “Record Payment”; must not mix with brokerage (P0 product decision). |
-| Finance overview | Accounting-leaning; needs business money-in by source/method (P1). |
+| Topic                             | Verdict                                                                                                   |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Same customer, many opportunities | **Supported** at schema/API (no Lead-global unique). Soft-hold gap on CONFIRMED-but-unleased units (P1).  |
+| Brokerage Deals page              | Keep as **history register**; remove manual create path from normal UX (P1).                              |
+| Payment UX                        | Too technical (GL account, no business source) (P0).                                                      |
+| Payment methods                   | Seed lacks EVC / E-Dahab / Somnet / Salaam Bank (P0).                                                     |
+| Payment status                    | Create→CAPTURED; no void/reversal; dead enum states (P0).                                                 |
+| Brokerage revenue as cash         | Deal gross ≠ money received; no commission payment path (P0).                                             |
+| Management fee                    | Owner-statement deduction today; not “Record Payment”; must not mix with brokerage (P0 product decision). |
+| Finance overview                  | Accounting-leaning; needs business money-in by source/method (P1).                                        |
 
 ## Priority counts
 

@@ -103,14 +103,14 @@ CONSTRUCTION_SERVICE ends at CRM intake/conversion summary. Development is unava
 
 ## Conditional summary
 
-| Condition | Behavior |
-| --- | --- |
-| Portfolio-only | Service and Space optional |
-| Land/direct layout | Building skipped unless relevant |
-| Whole-Property rental | canonical whole-Property Space |
-| Multiple occupancy targets | recursive Space builder |
-| Joint ownership | separate ownership/payout tables; both 100% at activation |
-| Existing Party, no Owner profile | authorized profile addition after duplicate review |
-| Company-owned | reuse Company legal Party; verify effective ownership |
-| Missing agreement model/category | state limitation; never fake contract semantics |
-| Permission/scope changes mid-draft | pause, reauthorize, hide inaccessible values |
+| Condition                          | Behavior                                                  |
+| ---------------------------------- | --------------------------------------------------------- |
+| Portfolio-only                     | Service and Space optional                                |
+| Land/direct layout                 | Building skipped unless relevant                          |
+| Whole-Property rental              | canonical whole-Property Space                            |
+| Multiple occupancy targets         | recursive Space builder                                   |
+| Joint ownership                    | separate ownership/payout tables; both 100% at activation |
+| Existing Party, no Owner profile   | authorized profile addition after duplicate review        |
+| Company-owned                      | reuse Company legal Party; verify effective ownership     |
+| Missing agreement model/category   | state limitation; never fake contract semantics           |
+| Permission/scope changes mid-draft | pause, reauthorize, hide inaccessible values              |

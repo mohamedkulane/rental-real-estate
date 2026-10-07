@@ -12,31 +12,31 @@ Company isolation is mandatory. Access modes remain BRANCH, MULTI_BRANCH, and ex
 
 Existing permission codes below are current source contracts. Only new workflow/draft permissions and the new preflight response require Wave 0 approval by Domain/Security/API owners.
 
-| Action | Minimum permission domains | Additional gates |
-| --- | --- | --- |
-| Onboard Property | launcher is visible when at least one authorized Owner path **and** one Property path exist; exact alternative paths are below | authorized operating Branch and resource state; optional choices gated separately |
-| Rental Brokerage setup | one authorized Owner path; existing Property `portfolio.property.read` **or** new Property `portfolio.property.create`; existing Space `portfolio.space.read` **or** conditional create path; `service-engagement.create` then `service-engagement.activate`; `portfolio.document.manage` only if upload chosen | server creation/activation preflight permits rental Property/Space request |
-| Full Management setup | same alternative asset paths; `portfolio.ownership.read` for readiness; mutation permission only if correction chosen; service create/activate | preflight permits `FULL_MANAGEMENT` request |
-| Property Sale setup | one Owner path; existing/new Property alternative; `portfolio.ownership.read`; mutation only for correction; service create/activate; document permission only when used | actual ownership; Property-only preflight |
-| Add Lead | durable Phase 5.2 `crm.lead.create` plus its final Branch/object contract | one intent; wait for Phase 5.2 PASS |
-| Resume draft | **new pending:** `workflow.draft.read/update/cancel/complete` (names require Wave 0 contract) plus every next domain command | creator/assignee policy, version, Branch/object reauthorization |
+| Action                 | Minimum permission domains                                                                                                                                                                                                                                                                                      | Additional gates                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Onboard Property       | launcher is visible when at least one authorized Owner path **and** one Property path exist; exact alternative paths are below                                                                                                                                                                                  | authorized operating Branch and resource state; optional choices gated separately |
+| Rental Brokerage setup | one authorized Owner path; existing Property `portfolio.property.read` **or** new Property `portfolio.property.create`; existing Space `portfolio.space.read` **or** conditional create path; `service-engagement.create` then `service-engagement.activate`; `portfolio.document.manage` only if upload chosen | server creation/activation preflight permits rental Property/Space request        |
+| Full Management setup  | same alternative asset paths; `portfolio.ownership.read` for readiness; mutation permission only if correction chosen; service create/activate                                                                                                                                                                  | preflight permits `FULL_MANAGEMENT` request                                       |
+| Property Sale setup    | one Owner path; existing/new Property alternative; `portfolio.ownership.read`; mutation only for correction; service create/activate; document permission only when used                                                                                                                                        | actual ownership; Property-only preflight                                         |
+| Add Lead               | durable Phase 5.2 `crm.lead.create` plus its final Branch/object contract                                                                                                                                                                                                                                       | one intent; wait for Phase 5.2 PASS                                               |
+| Resume draft           | **new pending:** `workflow.draft.read/update/cancel/complete` (names require Wave 0 contract) plus every next domain command                                                                                                                                                                                    | creator/assignee policy, version, Branch/object reauthorization                   |
 
 Phase 5.2 existing draft contract also includes `crm.lead.read/create/update/stage/branch.transfer`, `crm.assignment.read/manage`, `crm.activity.read/create/correct`, `crm.followup.read/create/update/complete/cancel`, and `crm.source.read/manage`. These codes are recorded for integration planning but remain provisional until the durable Phase 5.2 checkpoint passes.
 
 ### Alternative onboarding paths
 
-| Path | Boolean permission requirement |
-| --- | --- |
-| Reuse existing Owner | `owner.read`; add `party.read` only if the approved returned view requires Party data |
-| Existing Party → Owner profile | `party.read AND owner.create` |
-| New Party + Owner | `party.create AND owner.create` |
-| Reuse existing Property | `portfolio.property.read` |
-| Register new Property | `portfolio.property.create` |
-| Set/correct ownership | `portfolio.ownership.read AND portfolio.ownership.manage` only when that path is required |
-| Add Building | `portfolio.building.read AND portfolio.building.manage` only when selected |
-| Reuse existing Space | `portfolio.space.read` |
-| Create/partition/update Space | relevant `portfolio.space.create`, `portfolio.space.partition`, or `portfolio.space.update` only for the chosen operation |
-| View/upload Documents | `portfolio.document.read`; add `portfolio.document.manage` only for upload/change |
+| Path                           | Boolean permission requirement                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Reuse existing Owner           | `owner.read`; add `party.read` only if the approved returned view requires Party data                                     |
+| Existing Party → Owner profile | `party.read AND owner.create`                                                                                             |
+| New Party + Owner              | `party.create AND owner.create`                                                                                           |
+| Reuse existing Property        | `portfolio.property.read`                                                                                                 |
+| Register new Property          | `portfolio.property.create`                                                                                               |
+| Set/correct ownership          | `portfolio.ownership.read AND portfolio.ownership.manage` only when that path is required                                 |
+| Add Building                   | `portfolio.building.read AND portfolio.building.manage` only when selected                                                |
+| Reuse existing Space           | `portfolio.space.read`                                                                                                    |
+| Create/partition/update Space  | relevant `portfolio.space.create`, `portfolio.space.partition`, or `portfolio.space.update` only for the chosen operation |
+| View/upload Documents          | `portfolio.document.read`; add `portfolio.document.manage` only for upload/change                                         |
 
 The server capability response returns `availablePaths[]` and safe per-path missing-requirement codes. It must not require every mutually exclusive or optional permission merely to open the launcher.
 

@@ -19,12 +19,12 @@ Hagahan wuxuu sharxayaa sida loo isticmaalo **Nidaamka Maamulka Kirada & Iibka H
 
 ### 1.3 Qaab-dhismeedka Shaashadda
 
-| Qayb | Sharaxaad |
-|------|-----------|
-| **Sidebar (dhinaca bidix)** | Liiska module-yada: Macaamiisha, Kaydka Hantida, Kirada, Iibka, iwm. |
-| **Header (kor)** | Raadinta guud, Bilow Cusub, ogeysiisyada, laamta, luqadda, profile-ka. |
-| **Dashboard** | Koob-ka-koob guud oo ku saabsan hawshaada. |
-| **Bilow Cusub** | Hawlo degdeg ah oo la bilaabi karo (Lead cusub, hanti cusub, iwm). |
+| Qayb                        | Sharaxaad                                                              |
+| --------------------------- | ---------------------------------------------------------------------- |
+| **Sidebar (dhinaca bidix)** | Liiska module-yada: Macaamiisha, Kaydka Hantida, Kirada, Iibka, iwm.   |
+| **Header (kor)**            | Raadinta guud, Bilow Cusub, ogeysiisyada, laamta, luqadda, profile-ka. |
+| **Dashboard**               | Koob-ka-koob guud oo ku saabsan hawshaada.                             |
+| **Bilow Cusub**             | Hawlo degdeg ah oo la bilaabi karo (Lead cusub, hanti cusub, iwm).     |
 
 ---
 
@@ -46,13 +46,13 @@ Macmiil (**Lead**) waa qof ama urur soo jeeda oo doonaya adeeg: **kirada**, **ii
 
 Marka macmiil la abuuro ama la cusboonaysiiyo, geli doorbidyada:
 
-| Doorbid | Sharaxaad |
-|---------|-----------|
-| **Miisaaniyad** | Kirada ama qiimaha iibka (min/max) |
-| **Nooca hanti** | Guri, ganacsi, dhismo, iwm. |
-| **Qolalka** | Tirada qolalka jiifka (bedrooms) |
-| **Aagga la doorbiday** | Magaalada, degmada, ama xaafadda |
-| **Taariikhda** | Goorta uu doonayo inuu galo ama iibsado |
+| Doorbid                | Sharaxaad                               |
+| ---------------------- | --------------------------------------- |
+| **Miisaaniyad**        | Kirada ama qiimaha iibka (min/max)      |
+| **Nooca hanti**        | Guri, ganacsi, dhismo, iwm.             |
+| **Qolalka**            | Tirada qolalka jiifka (bedrooms)        |
+| **Aagga la doorbiday** | Magaalada, degmada, ama xaafadda        |
+| **Taariikhda**         | Goorta uu doonayo inuu galo ama iibsado |
 
 Doorbidyadan waxay saameeyaan **matching-ka** (liiska ku habboon).
 
@@ -141,15 +141,15 @@ Module-ka **Kirada** wuxuu hadda ku saleysan yahay hawsha aad qabanayso — ma a
 
 ### 4.1 Dhinaca Bidix (Sidebar)
 
-| Hawl | Sharaxaad |
-|------|-----------|
-| **Overview** | Hawlo degdeg ah: macmiil, milkiile, hanti, brokerage, maamul |
-| **Rental Customers** | Macaamiisha kirada raadinaya |
-| **Properties** | Hantida la kireeyo |
-| **Brokerage** | Dillaalinta kirada |
-| **Full Management** | Maamul buuxa |
-| **Leases** | Heshiisyada kirada |
-| **Payments** | Lacag bixinta |
+| Hawl                 | Sharaxaad                                                    |
+| -------------------- | ------------------------------------------------------------ |
+| **Overview**         | Hawlo degdeg ah: macmiil, milkiile, hanti, brokerage, maamul |
+| **Rental Customers** | Macaamiisha kirada raadinaya                                 |
+| **Properties**       | Hantida la kireeyo                                           |
+| **Brokerage**        | Dillaalinta kirada                                           |
+| **Full Management**  | Maamul buuxa                                                 |
+| **Leases**           | Heshiisyada kirada                                           |
+| **Payments**         | Lacag bixinta                                                |
 
 ### 4.2 Hawlo Caadi ah
 
@@ -222,16 +222,16 @@ Codsiyada, ballanqaadyada, geliista guriga, dib-u-cusboonaysiinta, iyo liisaska 
 
 ### 6.2 Hawlaha Maaliyadeed
 
-| Hawl | Sharaxaad |
-|------|-----------|
-| **Jadwalka Biilka** | Goorta lacagta la dalbado |
-| **Dalabyada Lacagta (Charges)** | Dalabyada kireystaha |
-| **Qaansheegyada (Invoices)** | Warqadaha rasmiga ah |
-| **Lacag-bixinnada (Payments)** | Lacagta la helay |
-| **Bayaannada Milkiilaha** | Warbixinta milkiilaha |
+| Hawl                             | Sharaxaad                                                    |
+| -------------------------------- | ------------------------------------------------------------ |
+| **Jadwalka Biilka**              | Goorta lacagta la dalbado                                    |
+| **Dalabyada Lacagta (Charges)**  | Dalabyada kireystaha                                         |
+| **Qaansheegyada (Invoices)**     | Warqadaha rasmiga ah                                         |
+| **Lacag-bixinnada (Payments)**   | Lacagta la helay                                             |
+| **Bayaannada Milkiilaha**        | Warbixinta milkiilaha                                        |
 | **Bixinta Milkiilaha (Payouts)** | Lacagta loo dirayo milkiilaha — waxay u baahan tahay ansixin |
-| **Kharashyada (Expenses)** | Kharashyada hantida |
-| **Xisaabinta (Accounting)** | Journal entries, xisaabinta |
+| **Kharashyada (Expenses)**       | Kharashyada hantida                                          |
+| **Xisaabinta (Accounting)**      | Journal entries, xisaabinta                                  |
 
 ### 6.3 Xeerarka Maaliyadeed (Muhiim)
 
@@ -269,12 +269,12 @@ Macmiil **Construction Service** waa qaadista macluumaad kaliya — mashruuc too
 
 ### 9.2 Maamulka
 
-| Qayb | Sharaxaad |
-|------|-----------|
-| **Macluumaadka Shirkadda** | Magaca, cinwaanka, iwm. |
-| **Laamaha (Branches)** | Laamaha shirkadda |
-| **Shaqaalaha** | Shaqaalaha iyo xilalkooda |
-| **Akoonnada Isticmaalaha** | Login-ka shaqaalaha |
+| Qayb                        | Sharaxaad                           |
+| --------------------------- | ----------------------------------- |
+| **Macluumaadka Shirkadda**  | Magaca, cinwaanka, iwm.             |
+| **Laamaha (Branches)**      | Laamaha shirkadda                   |
+| **Shaqaalaha**              | Shaqaalaha iyo xilalkooda           |
+| **Akoonnada Isticmaalaha**  | Login-ka shaqaalaha                 |
 | **Doorarka & Ogolaanshaha** | Cidda wax arki karta / samayn karta |
 
 ---
@@ -343,20 +343,20 @@ Maya. Isticmaal **reversal** ama **adjustment** sida ku cad xeerarka maaliyadda.
 
 ## 15. Eray-bixinta Muhiimka ah
 
-| Ingiriis | Soomaali |
-|----------|----------|
-| Lead | Macmiil soo jeeda |
-| Property | Hanti |
-| Rentable Space | Goob la kireeyo |
-| Listing | Liiska (kirada/iibka) |
-| Lease | Heshiis kirada |
-| Tenant | Kireyste |
-| Owner | Milkiile |
-| Branch | Laam |
-| Matching | Liiska ku habboon |
-| Intent | Ujeedda macmiilka |
-| Published | La daabacay / la soo bandhigay |
-| Available | Bannaan |
+| Ingiriis       | Soomaali                       |
+| -------------- | ------------------------------ |
+| Lead           | Macmiil soo jeeda              |
+| Property       | Hanti                          |
+| Rentable Space | Goob la kireeyo                |
+| Listing        | Liiska (kirada/iibka)          |
+| Lease          | Heshiis kirada                 |
+| Tenant         | Kireyste                       |
+| Owner          | Milkiile                       |
+| Branch         | Laam                           |
+| Matching       | Liiska ku habboon              |
+| Intent         | Ujeedda macmiilka              |
+| Published      | La daabacay / la soo bandhigay |
+| Available      | Bannaan                        |
 
 ---
 
@@ -370,4 +370,4 @@ Haddii aad caqabad kala kulanto:
 
 ---
 
-*Dukumeentigan wuxuu la jaan qaaday nooca system-ka ee September 2026. Haddii module cusub la daro, hagahan waa la cusboonaysiin doonaa.*
+_Dukumeentigan wuxuu la jaan qaaday nooca system-ka ee September 2026. Haddii module cusub la daro, hagahan waa la cusboonaysiin doonaa._

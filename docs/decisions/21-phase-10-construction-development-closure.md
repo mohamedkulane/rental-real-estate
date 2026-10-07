@@ -1,10 +1,15 @@
-# Phase 10 Construction & Development Closure
+# Phase 10 Construction & Development Closure (SUPERSEDED)
+
+> Superseded by `docs/decisions/31-construction-domain-removal.md` and the
+> final closure audit. This historical decision records the former product
+> direction and is not an active product specification.
 
 ## Gate
 
 Phase 10 real estate development and construction closure.
 
 ## Scope delivered
+
 - Separate `CONSTRUCTION_FOR_CLIENT` and `COMPANY_DEVELOPMENT` economic models
 - Client construction projects, configurable contracts, budgets, milestones, work packages, progress, documents
 - Construction costs posted as Phase 6 expenses with source linkage and idempotency

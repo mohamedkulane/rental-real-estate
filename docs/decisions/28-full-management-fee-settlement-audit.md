@@ -6,8 +6,8 @@ Status: **Audit only.** Repository code unchanged except this decision record.
 
 Distinguish:
 
-1. **Deducted fee** — management fee taken from rent collected on behalf of the owner  
-2. **Separate fee payment** — owner pays management fee directly to the company  
+1. **Deducted fee** — management fee taken from rent collected on behalf of the owner
+2. **Separate fee payment** — owner pays management fee directly to the company
 
 And confirm whether the domain can represent rent collected, fee earned, net owner payable, and separate owner→company fee payment.
 
@@ -15,11 +15,11 @@ And confirm whether the domain can represent rent collected, fee earned, net own
 
 ## Rental Brokerage (contrast)
 
-| Concept | Current representation |
-| -------- | ------------------------ |
-| Owner / tenant commission | Stored on `RentalAgreement` commercial fields; on confirm, `BrokerageDeal.grossCommission` |
-| Company cash from commission | **Not implemented** — no Charge, no Payment, no journal to `4010` |
-| Business-facing payment path | **Missing** (P0 from prior audit) |
+| Concept                      | Current representation                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| Owner / tenant commission    | Stored on `RentalAgreement` commercial fields; on confirm, `BrokerageDeal.grossCommission` |
+| Company cash from commission | **Not implemented** — no Charge, no Payment, no journal to `4010`                          |
+| Business-facing payment path | **Missing** (P0 from prior audit)                                                          |
 
 Brokerage commissions are **intended company cash revenue** and need an explicit Record Payment / receivable path showing Owner vs Tenant Commission. That is separate from Full Management.
 
@@ -31,7 +31,7 @@ Brokerage commissions are **intended company cash revenue** and need an explicit
 
 - `POST /rental/start-full-management` → `ServiceEngagement` `FULL_MANAGEMENT` + `ServiceEngagementCommercialTerms.managementFeePercent`
 - **No** `managementFeeMethod` / settlement-mode field
-- UI copy in `rental-service-start-drawers.tsx` says *“Owner pays management fee”* — **misleading** relative to actual code (deduction from collections)
+- UI copy in `rental-service-start-drawers.tsx` says _“Owner pays management fee”_ — **misleading** relative to actual code (deduction from collections)
 
 ### (a) Rent collected from tenant
 
@@ -75,34 +75,34 @@ Then split by ownership %. Payout lifecycle is status workflow only — **PAID d
 
 ### (d) Separate management-fee payment from owner
 
-| Representable today? | **No** as first-class fee settlement |
-| -------------------- | ------------------------------------ |
-| Charge type `MANAGEMENT_FEE` | Missing |
-| Owner as Payment payer | Technically allowed (any Party) but nothing to allocate to |
-| Settlement mode flag | Missing — cannot choose deduct-vs-invoice |
-| Double-charge guard | Missing |
+| Representable today?         | **No** as first-class fee settlement                       |
+| ---------------------------- | ---------------------------------------------------------- |
+| Charge type `MANAGEMENT_FEE` | Missing                                                    |
+| Owner as Payment payer       | Technically allowed (any Party) but nothing to allocate to |
+| Settlement mode flag         | Missing — cannot choose deduct-vs-invoice                  |
+| Double-charge guard          | Missing                                                    |
 
 ---
 
 ## Domain capability matrix
 
-| Money concept | Representable now? | How |
-| ------------- | ------------------ | --- |
-| Rent collected from tenant | **Yes** (ops) | Charge + Payment + Allocation |
-| Management fee earned (deduction) | **Soft yes** | Statement/payout calculation only |
-| Net owner payable | **Yes** (ops) | `OwnerPayout.netPayable` |
-| Separate owner→company fee payment | **No** | No charge type / workflow / flag |
-| Brokerage commission as company cash | **No** | Deal snapshot only |
-| GL posting for any of the above | **No auto** | Accounts exist; journals manual |
+| Money concept                        | Representable now? | How                               |
+| ------------------------------------ | ------------------ | --------------------------------- |
+| Rent collected from tenant           | **Yes** (ops)      | Charge + Payment + Allocation     |
+| Management fee earned (deduction)    | **Soft yes**       | Statement/payout calculation only |
+| Net owner payable                    | **Yes** (ops)      | `OwnerPayout.netPayable`          |
+| Separate owner→company fee payment   | **No**             | No charge type / workflow / flag  |
+| Brokerage commission as company cash | **No**             | Deal snapshot only                |
+| GL posting for any of the above      | **No auto**        | Accounts exist; journals manual   |
 
 ---
 
 ## Two Full Management cases — current fit
 
-| Case | Current system | Fit |
-| ---- | -------------- | --- |
+| Case                                          | Current system                    | Fit                   |
+| --------------------------------------------- | --------------------------------- | --------------------- |
 | **Case 1 — Fee deducted from rent collected** | This **is** the implemented model | Supported (soft calc) |
-| **Case 2 — Owner pays fee separately** | Not modeled | Unsupported |
+| **Case 2 — Owner pays fee separately**        | Not modeled                       | Unsupported           |
 
 They are **not** the same payment flow. Do not collapse them in UX.
 
@@ -147,8 +147,8 @@ They are **not** the same payment flow. Do not collapse them in UX.
 
 ## Decision needed from product owner
 
-1. Is Full Management fee **always Case 1 (deducted)** for MVP?  
-2. Is Case 2 (owner pays separately) **in scope** for Wave A, later, or never?  
+1. Is Full Management fee **always Case 1 (deducted)** for MVP?
+2. Is Case 2 (owner pays separately) **in scope** for Wave A, later, or never?
 3. Confirm Brokerage commissions are **always company cash** (Record Payment path) — already stated; proceed in Wave A after this decision.
 
 ## Recommendation (non-binding)

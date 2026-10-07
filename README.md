@@ -4,7 +4,7 @@ A single-company, multi-branch operations system built as a strict TypeScript mo
 
 ## Current gate
 
-Phases 1-4 are implemented: database architecture, project foundation, identity/access/governance, and portfolio management. The repository is completing the mandatory Pre-Phase-5 deep audit. **Phase 5 has not started.** Service engagements, CRM, leasing, finance, payments, deposits, maintenance, and owner statements remain future work.
+The repository is at the final system remediation gate. The active product includes Portfolio, Rental Brokerage, Full Management, Sales, Operations, Finance, Reports, Administration, and independent Development. Legacy compatibility routes remain where useful, while retired product domains are removed from the active runtime.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ Phases 1-4 are implemented: database architecture, project foundation, identity/
 - Redis and BullMQ: infrastructure boundary in the API
 - Shared configuration and contracts: `packages/config`, `packages/shared`
 
-Implemented business areas include company and branch setup, employees, user accounts and sessions, roles and permissions, approvals and audit evidence, Parties and Owners, Properties, ownership history, RentableSpaces and hierarchy, amenities, and document metadata.
+Implemented business areas include company and branch setup, employees, user accounts and sessions, roles and permissions, approvals and audit evidence, Parties and Owners, Properties, ownership history, RentableSpaces and hierarchy, amenities, rental and sales workflows, leases, payments, owner statements and payouts, operations, reporting, protected documents, notifications, and independent Development.
 
 ## Local setup
 
@@ -67,6 +67,9 @@ pnpm test:e2e
 pnpm build
 ```
 
+The production web build uses Next.js webpack mode for deterministic CSS
+processing in the current Next.js toolchain.
+
 ## Security notes
 
 Browser sessions use an HttpOnly, SameSite cookie. Login and password-reset requests are rate-limited through Redis. Full Party contact values require `party.contact.read`; directory results are masked. Sensitive contact values use versioned AES-256-GCM encryption and a keyed search index. Production API docs and development reset-token responses are off by default.
@@ -77,6 +80,12 @@ The development encryption key and seed credentials in `.env.example` are local 
 
 - [Documentation index](docs/README.md)
 - [Architecture](docs/architecture/)
+- [Final system architecture](docs/FINAL-SYSTEM-ARCHITECTURE.md)
+- [Final business workflows](docs/FINAL-BUSINESS-WORKFLOWS.md)
+- [Final route map](docs/FINAL-ROUTE-MAP.md)
+- [Final feature inventory](docs/FINAL-FEATURE-INVENTORY.md)
+- [Final closure audit](docs/FINAL-CLOSURE-AUDIT.md)
+- [Final closure audit](docs/decisions/32-final-closure-audit.md)
 - [Business decisions and ADRs](docs/decisions/)
 - [Database design](docs/database/)
 - [UI/UX design system](docs/design/Real_Estate_Rental_UI_UX_Design_System_v1.md)

@@ -12,15 +12,15 @@ Keep all canonical backend models and authorization rules unchanged. Add a **ren
 
 Expose a simplified **Rental** workspace in the web app:
 
-| Sidebar item | Route | Task |
-|--------------|-------|------|
-| Overview | `/rental` | Quick actions |
-| Rental Customers | `/rental/customers` | RENT leads without phone/email requirement |
-| Properties | `/rental/properties` | Property + ownership + rentable space + activation |
-| Brokerage | `/commercial/rental-brokerage` | Existing dashboard; start via `/rental/brokerage/new` |
-| Full Management | `/commercial/full-management` | Existing dashboard; start via `/rental/full-management/new` |
-| Leases | `/leasing/leases` | Unchanged |
-| Payments | `/finance/payments` | Unchanged |
+| Sidebar item     | Route                          | Task                                                        |
+| ---------------- | ------------------------------ | ----------------------------------------------------------- |
+| Overview         | `/rental`                      | Quick actions                                               |
+| Rental Customers | `/rental/customers`            | RENT leads without phone/email requirement                  |
+| Properties       | `/rental/properties`           | Property + ownership + rentable space + activation          |
+| Brokerage        | `/commercial/rental-brokerage` | Existing dashboard; start via `/rental/brokerage/new`       |
+| Full Management  | `/commercial/full-management`  | Existing dashboard; start via `/rental/full-management/new` |
+| Leases           | `/leasing/leases`              | Unchanged                                                   |
+| Payments         | `/finance/payments`            | Unchanged                                                   |
 
 Removed from the **primary Rental sidebar** because they are not independent daily tasks. See `docs/decisions/23-frontend-page-inventory.md` for KEEP / MERGE / CONTEXTUALIZE / REMOVE:
 

@@ -44,15 +44,15 @@ The launcher is a dialog on desktop and a viewport-fitting sheet on mobile. It p
 
 The action count is small, so launcher search is not needed. Dismissal restores focus to the trigger.
 
-| Action | Design | Current enablement |
-| --- | --- | --- |
-| Onboard Property | Complete | Wait for workflow/orchestration contract |
-| Rental Brokerage setup | Complete | May end only at asset + Service Engagement + supported Documents |
-| Full Management setup | Complete | No leases, rent, maintenance, finance, payouts |
-| Property Sale setup | Complete | No listing, offer, deal, settlement, commission |
-| Add Lead | Complete | Wait for durable Phase 5.2 API/UI |
-| Construction Project | Boundary only | Omit; CRM intake only |
-| Development Project | Boundary only | Omit |
+| Action                 | Design        | Current enablement                                               |
+| ---------------------- | ------------- | ---------------------------------------------------------------- |
+| Onboard Property       | Complete      | Wait for workflow/orchestration contract                         |
+| Rental Brokerage setup | Complete      | May end only at asset + Service Engagement + supported Documents |
+| Full Management setup  | Complete      | No leases, rent, maintenance, finance, payouts                   |
+| Property Sale setup    | Complete      | No listing, offer, deal, settlement, commission                  |
+| Add Lead               | Complete      | Wait for durable Phase 5.2 API/UI                                |
+| Construction Project   | Boundary only | Omit; CRM intake only                                            |
+| Development Project    | Boundary only | Omit                                                             |
 
 ## Workspace rules
 

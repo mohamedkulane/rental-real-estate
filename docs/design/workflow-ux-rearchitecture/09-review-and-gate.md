@@ -6,29 +6,29 @@ The first run was separated into root synthesis plus independent Domain, UX, and
 
 ## Domain dispositions
 
-| Finding | Severity | Disposition in this pack |
-| --- | --- | --- |
-| Ownership omitted separate payout entitlement | High | Corrected: separate effective-dated totals; explicit copy action only |
-| UX step order contradicted canonical commit dependencies | High | Corrected: Draft Property precedes ownership; explicit finalization order |
-| Property onboarding forced Service | High | Corrected: Portfolio-only mode allows no Service/Space |
-| Unsupported fee/agreement/document semantics | High | Corrected: current limitations explicit; no invented contract/category |
-| Generic completion could bypass lifecycles | High | Corrected: per-domain commands/readiness and durable checkpoints |
-| Cancel could erase canonical history | High | Corrected: cancel stops orchestration; domain guards govern cleanup |
-| Party/Owner/company reuse and Branch scope incomplete | High | Corrected: company-level identity, legal Party reuse, cross-branch policy |
-| Structure conditionality oversimplified | High | Corrected: semantic optional Building and direct Property→Space |
-| Service compatibility might move into cards | High | Corrected: server resolver is authoritative |
-| CRM/future domains could leak | High | Corrected: one Lead; exact current boundary documented |
+| Finding                                                  | Severity | Disposition in this pack                                                  |
+| -------------------------------------------------------- | -------- | ------------------------------------------------------------------------- |
+| Ownership omitted separate payout entitlement            | High     | Corrected: separate effective-dated totals; explicit copy action only     |
+| UX step order contradicted canonical commit dependencies | High     | Corrected: Draft Property precedes ownership; explicit finalization order |
+| Property onboarding forced Service                       | High     | Corrected: Portfolio-only mode allows no Service/Space                    |
+| Unsupported fee/agreement/document semantics             | High     | Corrected: current limitations explicit; no invented contract/category    |
+| Generic completion could bypass lifecycles               | High     | Corrected: per-domain commands/readiness and durable checkpoints          |
+| Cancel could erase canonical history                     | High     | Corrected: cancel stops orchestration; domain guards govern cleanup       |
+| Party/Owner/company reuse and Branch scope incomplete    | High     | Corrected: company-level identity, legal Party reuse, cross-branch policy |
+| Structure conditionality oversimplified                  | High     | Corrected: semantic optional Building and direct Property→Space           |
+| Service compatibility might move into cards              | High     | Corrected: server resolver is authoritative                               |
+| CRM/future domains could leak                            | High     | Corrected: one Lead; exact current boundary documented                    |
 
 ## Governance dispositions
 
-| Finding | Severity | Disposition |
-| --- | --- | --- |
-| Shared UI conflicts with active Phase 5.2 | High | Hybrid B→A: docs only now; all production work waits for durable PASS |
-| One permission string is insufficient | High | Explicit permission conjunction + phase + Branch/object + policy model |
-| Future commercial/construction scope leakage | High | All prohibited operations omitted until their phases pass |
-| Draft/resume treated as frontend state | High | New governed backend/security contract and gates required |
-| Blue request conflicts with approved primary token | Medium | Wave 0 decision; no silent restyle |
-| Waves lacked freezes/evidence | Medium | Recast as eight gated waves with evidence and no C/H progression |
+| Finding                                            | Severity | Disposition                                                            |
+| -------------------------------------------------- | -------- | ---------------------------------------------------------------------- |
+| Shared UI conflicts with active Phase 5.2          | High     | Hybrid B→A: docs only now; all production work waits for durable PASS  |
+| One permission string is insufficient              | High     | Explicit permission conjunction + phase + Branch/object + policy model |
+| Future commercial/construction scope leakage       | High     | All prohibited operations omitted until their phases pass              |
+| Draft/resume treated as frontend state             | High     | New governed backend/security contract and gates required              |
+| Blue request conflicts with approved primary token | Medium   | Wave 0 decision; no silent restyle                                     |
+| Waves lacked freezes/evidence                      | Medium   | Recast as eight gated waves with evidence and no C/H progression       |
 
 ## Protected-state evidence
 

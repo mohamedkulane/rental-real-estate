@@ -27,17 +27,17 @@ After the operational checkpoint, frontend UX work continued: accordion sidebar,
 
 ## Sub-phase verification
 
-| Sub-phase | Scope | Browser / test status |
-| --------- | ----- | --------------------- |
-| 5.1 | Service Engagements & capability resolver | PASS — foundation reused and verified |
-| 5.2 | CRM foundation | PASS — lead, activity, follow-up, contextual entry verified |
-| 5.3 | Rental/Sale Listings & Matching | PASS — rental and sale listing registers + lead matching verified |
-| 5.4 | Viewings | PASS — schedule and lifecycle verified |
-| 5.5 | Applications & Screening | PASS — application register and screening transitions verified |
-| 5.6 | Reservations | PASS — reservation lifecycle verified |
-| 5.7 | Tenant Conversion & Lease Contracts | PASS — `TEN-000001` from `APP-000001`; `LSE-000001` progressed to ACTIVE |
-| 5.8 | Renewals & Move-In | PASS — renewal `DRAFT → ACTIVATED`; move-in `SCHEDULED → COMPLETED` |
-| 5.9 | Full Phase 5 regression/closure | PASS — governance, lint, typecheck, unit, integration, and web tests green |
+| Sub-phase | Scope                                     | Browser / test status                                                      |
+| --------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| 5.1       | Service Engagements & capability resolver | PASS — foundation reused and verified                                      |
+| 5.2       | CRM foundation                            | PASS — lead, activity, follow-up, contextual entry verified                |
+| 5.3       | Rental/Sale Listings & Matching           | PASS — rental and sale listing registers + lead matching verified          |
+| 5.4       | Viewings                                  | PASS — schedule and lifecycle verified                                     |
+| 5.5       | Applications & Screening                  | PASS — application register and screening transitions verified             |
+| 5.6       | Reservations                              | PASS — reservation lifecycle verified                                      |
+| 5.7       | Tenant Conversion & Lease Contracts       | PASS — `TEN-000001` from `APP-000001`; `LSE-000001` progressed to ACTIVE   |
+| 5.8       | Renewals & Move-In                        | PASS — renewal `DRAFT → ACTIVATED`; move-in `SCHEDULED → COMPLETED`        |
+| 5.9       | Full Phase 5 regression/closure           | PASS — governance, lint, typecheck, unit, integration, and web tests green |
 
 ## Guided workflow UX (Wave 1)
 
@@ -52,14 +52,14 @@ Browser-verified on localhost:
 
 ## Canonical test records (Hodan branch)
 
-| Entity | Identifier |
-| ------ | ---------- |
-| Lead | `LEAD-000002` |
-| Application | `APP-000001` |
-| Party / Tenant | `PTY-0039` / `TEN-000001` |
-| Lease | `LSE-000001` (ACTIVE) |
-| Renewal | successor for `LSE-000001` (ACTIVATED) |
-| Move-In | completed for `LSE-000001` |
+| Entity         | Identifier                             |
+| -------------- | -------------------------------------- |
+| Lead           | `LEAD-000002`                          |
+| Application    | `APP-000001`                           |
+| Party / Tenant | `PTY-0039` / `TEN-000001`              |
+| Lease          | `LSE-000001` (ACTIVE)                  |
+| Renewal        | successor for `LSE-000001` (ACTIVATED) |
+| Move-In        | completed for `LSE-000001`             |
 
 ## Regression results (2026-09-11)
 
