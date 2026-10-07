@@ -66,5 +66,6 @@ events remain backend-enforced.
 The final acceptance run must include governance, Prisma format/validation/
 generation, migrations, seed, lint, formatting, typecheck, unit tests,
 integration tests, E2E tests, build, diff checks, and a successful GitHub
-Actions run for the pushed `master` commit. Counts and the final CI run URL are
-recorded in `docs/decisions/32-final-closure-audit.md` after that run.
+Actions run for the pushed `master` commit. The final pushed `master` commit
+`e4c3419` passed all of those gates in GitHub Actions run
+`37677576650`.
