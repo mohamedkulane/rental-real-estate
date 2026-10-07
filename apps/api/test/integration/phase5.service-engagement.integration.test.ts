@@ -23,11 +23,34 @@ describe.skipIf(!databaseUrl)('Phase 5.1 native Service Engagement integrity', (
         where: { employee: { companyId } },
       })
     ).id;
-    externalOwnerId = (
-      await database.ownerProfile.findFirstOrThrow({
-        where: { party: { companyId }, partyId: { not: companyPartyId }, status: 'ACTIVE' },
-      })
-    ).partyId;
+    const existingExternalOwner = await database.ownerProfile.findFirst({
+      where: { party: { companyId }, partyId: { not: companyPartyId }, status: 'ACTIVE' },
+      select: { partyId: true },
+    });
+    if (existingExternalOwner) {
+      externalOwnerId = existingExternalOwner.partyId;
+    } else {
+      const fixtureSuffix = randomUUID().slice(0, 12).toUpperCase();
+      const externalOwner = await database.party.create({
+        data: {
+          id: randomUUID(),
+          companyId,
+          partyNumber: `PTY-P5I-${fixtureSuffix}`,
+          kind: 'PERSON',
+          displayName: 'Phase 5.1 Integration Owner',
+          owner: { create: { ownerNumber: `OWN-P5I-${fixtureSuffix}` } },
+          branchAssignments: {
+            create: {
+              id: randomUUID(),
+              branchId,
+              effectiveFrom: new Date('2026-01-01'),
+            },
+          },
+        },
+        select: { id: true },
+      });
+      externalOwnerId = externalOwner.id;
+    }
   });
 
   afterAll(async () => database?.$disconnect());
