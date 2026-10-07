@@ -14,8 +14,14 @@ import { API_ENVIRONMENT } from '../config/foundation-config.module';
 @Injectable()
 export class ObjectStorageService implements OnModuleInit {
   private readonly client: S3Client;
+  private readonly inMemoryObjects = new Map<
+    string,
+    { body: Buffer; mimeType: string; checksum: string }
+  >();
+  private readonly useInMemoryStorage: boolean;
 
   constructor(@Inject(API_ENVIRONMENT) private readonly environment: ApiEnvironment) {
+    this.useInMemoryStorage = environment.NODE_ENV === 'test';
     this.client = new S3Client({
       endpoint: environment.S3_ENDPOINT,
       region: environment.S3_REGION,
@@ -28,6 +34,7 @@ export class ObjectStorageService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
+    if (this.useInMemoryStorage) return;
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.environment.S3_BUCKET }));
     } catch {
@@ -45,6 +52,14 @@ export class ObjectStorageService implements OnModuleInit {
     mimeType: string;
     checksum: string;
   }): Promise<void> {
+    if (this.useInMemoryStorage) {
+      this.inMemoryObjects.set(input.storageKey, {
+        body: input.body,
+        mimeType: input.mimeType,
+        checksum: input.checksum,
+      });
+      return;
+    }
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.environment.S3_BUCKET,
@@ -61,6 +76,15 @@ export class ObjectStorageService implements OnModuleInit {
     contentLength?: number;
     contentType?: string;
   }> {
+    if (this.useInMemoryStorage) {
+      const object = this.inMemoryObjects.get(storageKey);
+      if (!object) throw new Error('Stored document content is unavailable.');
+      return {
+        body: Readable.from(object.body),
+        contentLength: object.body.length,
+        contentType: object.mimeType,
+      };
+    }
     const response = await this.client.send(
       new GetObjectCommand({ Bucket: this.environment.S3_BUCKET, Key: storageKey }),
     );
@@ -73,6 +97,10 @@ export class ObjectStorageService implements OnModuleInit {
   }
 
   async remove(storageKey: string): Promise<void> {
+    if (this.useInMemoryStorage) {
+      this.inMemoryObjects.delete(storageKey);
+      return;
+    }
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.environment.S3_BUCKET, Key: storageKey }),
     );
