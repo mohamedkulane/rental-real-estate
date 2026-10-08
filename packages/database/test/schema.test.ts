@@ -54,4 +54,21 @@ describe('Prisma operational schema boundary', () => {
     expect(candidate).toContain('model ServiceEngagement');
     expect(candidate).toContain('model JournalEntry');
   });
+
+  it('removes the retired construction property service intent without inferring a new model', async () => {
+    const schema = await readFile(resolve(process.cwd(), '../../prisma/schema.prisma'), 'utf8');
+    const migration = await readFile(
+      resolve(
+        process.cwd(),
+        '../../prisma/migrations/20261008120000_repair_property_service_intent_enum/migration.sql',
+      ),
+      'utf8',
+    );
+    const serviceIntent = schema.match(/enum PropertyServiceIntent \{([\s\S]*?)\}/u)?.[1] ?? '';
+
+    expect(serviceIntent).not.toContain('CONSTRUCTION');
+    expect(migration).toContain('SET "serviceIntent" = NULL');
+    expect(migration).toContain('WHERE "serviceIntent"::text = \'CONSTRUCTION\'');
+    expect(migration).toContain('ALTER TYPE "PropertyServiceIntent" RENAME TO');
+  });
 });

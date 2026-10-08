@@ -77,6 +77,7 @@ Status meanings:
 - `22-rental-simplification-wave1.md`
 - `24-rental-placement-order.md`
 - `25-listing-for-public-marketing.md`
+- `33-legacy-property-service-intent-remediation.md`
 
 ## Governance rule
 
