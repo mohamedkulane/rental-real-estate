@@ -59,7 +59,7 @@ function ActionDialog({
       role="presentation"
     >
       <section
-        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+        className="form-panel-scroll max-h-[calc(100dvh-24px)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="engagement-action-title"
