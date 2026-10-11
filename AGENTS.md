@@ -58,3 +58,12 @@ A task is complete only when:
 - No unrelated regressions are introduced.
 
 - Before implementing or modifying any user-facing interface, read and follow docs/design/ Real_Estate_Rental_UI_UX_Design_System_v1.md. Any frontend-containing phase requires UI/UX REVIEW: PASS before its phase gate can pass.
+
+## Cursor Cloud specific instructions
+
+- Use Node.js 22.17.1 and pnpm 11.17.0. Login shells expose them from `~/bin` ahead of other Node installs.
+- Copy `.env.example` to `.env` before migrate, seed, or `pnpm dev`. Seeded staff sign-in is `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in that file.
+- PostgreSQL 17.6 and Redis 8.2.1 come from `pnpm infra:up` (`docker/docker-compose.dev.yml`) on `localhost:55432` and `localhost:56379`. In this VM, start the Docker daemon with the `fuse-overlayfs` storage driver before Compose.
+- The `minio/minio` image is no longer on Docker Hub. The environment start path builds `minio/minio:RELEASE.2025-09-07T16-13-09Z` locally from the official GitHub binary for that release so `pnpm infra:up` can start MinIO on `localhost:59000`.
+- Web: `http://localhost:3000`. API liveness: `http://localhost:3001/api/v1/health`. Readiness: `http://localhost:3001/api/v1/readiness`.
+- On Cloud Agent boot, Postgres, Redis, MinIO, migrations, seed, and `pnpm dev` are started for you. If they are down, run `pnpm infra:up`, `pnpm db:migrate:deploy`, `pnpm db:seed`, then `pnpm dev`.
